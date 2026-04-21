@@ -1,0 +1,3 @@
+# Managed by zz-linux-setup.
+
+[[ $- == *i* && -t 1 ]] && command -v fastfetch >/dev/null 2>&1 && fastfetch

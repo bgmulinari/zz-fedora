@@ -40,15 +40,15 @@ tui_run_wizard() {
   local -a browser_choices=()
   local -a gaming_choices=()
   local -a optional_choices=()
+  local -a shell_choices=()
+  local -a browser_options=()
 
   case "$DISTRO" in
     fedora)
-      set_category_override "sources" "terra,copr-niri,ghostty-terra"
       if gum confirm "Use Terra for Ghostty?"; then
         :
       else
-        set_category_override "sources" "terra,copr-niri,ghostty-copr"
-        append_unique ENABLED_SOURCES "copr:scottames/ghostty"
+        add_category_selection "sources" "ghostty-copr"
       fi
       if gum confirm "Enable RPM Fusion Free?"; then
         add_category_selection "media" "rpmfusion-free"
@@ -61,15 +61,16 @@ tui_run_wizard() {
         CODECS_SELECTED=1
       fi
       if gum confirm "Enable Flathub?"; then
-        append_unique ENABLED_SOURCES "flathub"
+        add_category_selection "sources" "flathub"
       fi
+      browser_options=(firefox chromium chrome brave zen-flatpak zen-copr helium-copr)
       ;;
     arch)
-      set_category_override "sources" "aur"
+      browser_options=(firefox chromium brave zen-aur zen-flatpak helium)
       ;;
   esac
 
-  mapfile -t browser_choices < <(tui_pick_multiple "Browsers" firefox chromium chrome brave zen-flatpak zen-copr zen-aur helium helium-copr 2>/dev/null || true)
+  mapfile -t browser_choices < <(tui_pick_multiple "Browsers" "${browser_options[@]}" 2>/dev/null || true)
   if [[ "${#browser_choices[@]}" -gt 0 ]]; then
     set_category_override "browsers" "$(join_by , "${browser_choices[@]}")"
   fi
@@ -98,8 +99,12 @@ tui_run_wizard() {
     add_category_selection "flatpak-apps" "creative"
   fi
 
+  mapfile -t shell_choices < <(tui_pick_multiple "Shell / CLI tools" zsh starship zoxide fastfetch gh btop fd fzf bat yazi 2>/dev/null || true)
+  if [[ "${#shell_choices[@]}" -gt 0 ]]; then
+    set_category_override "shell" "$(join_by , "${shell_choices[@]}")"
+  fi
+
   if [[ "${#browser_choices[@]}" -gt 1 ]]; then
     PREFERRED_BROWSER="$(gum choose "${browser_choices[@]}")"
   fi
 }
-

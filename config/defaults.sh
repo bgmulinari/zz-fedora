@@ -4,18 +4,6 @@ set -Eeuo pipefail
 DEFAULT_COMMAND="wizard"
 DEFAULT_DISTRO="auto"
 DEFAULT_TARGET_USER="${SUDO_USER:-$USER}"
-DEFAULT_STOW_PACKAGES=(
-  niri
-  portals
-  environment
-  ghostty
-  fuzzel
-  kde
-  noctalia
-  shell
-  systemd-user
-)
-
 DEFAULT_SYSTEM_SERVICES=(
   NetworkManager
   firewalld
@@ -52,17 +40,7 @@ BASE_PACKAGE_MANIFESTS_arch=(
   packages/arch/official/browsers/firefox.pkgs
 )
 
-BASE_SOURCES_fedora=(
-  "copr:yalter/niri"
-  "terra"
-)
-
-BASE_SOURCES_arch=(
-  "aur"
-)
-
 SUPPORTED_DISTROS=(
   fedora
   arch
 )
-

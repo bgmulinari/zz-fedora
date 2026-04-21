@@ -27,6 +27,21 @@ fedora_steam="$(run_case fedora-steam print-plan --distro fedora --select gaming
 grep -F 'rpmfusion-free' <<<"$fedora_steam" >/dev/null
 grep -F 'rpmfusion-nonfree' <<<"$fedora_steam" >/dev/null
 
+fedora_starship="$(run_case fedora-starship print-plan --distro fedora --select shell=starship --dry-run)"
+grep -F 'copr:atim/starship' <<<"$fedora_starship" >/dev/null
+! grep -F 'copr:lihaohong/yazi' <<<"$fedora_starship" >/dev/null
+
+fedora_yazi="$(run_case fedora-yazi print-plan --distro fedora --select shell=yazi --dry-run)"
+grep -F 'copr:lihaohong/yazi' <<<"$fedora_yazi" >/dev/null
+! grep -F 'copr:atim/starship' <<<"$fedora_yazi" >/dev/null
+
+fedora_shell_core="$(run_case fedora-shell-core print-plan --distro fedora --select shell=zsh,fastfetch,gh --dry-run)"
+grep -F 'zsh' <<<"$fedora_shell_core" >/dev/null
+grep -F 'fastfetch' <<<"$fedora_shell_core" >/dev/null
+grep -F 'gh' <<<"$fedora_shell_core" >/dev/null
+! grep -F 'copr:atim/starship' <<<"$fedora_shell_core" >/dev/null
+! grep -F 'copr:lihaohong/yazi' <<<"$fedora_shell_core" >/dev/null
+
 arch_zen="$(run_case arch-zen print-plan --distro arch --select browser=zen-flatpak --dry-run)"
 grep -F 'flathub' <<<"$arch_zen" >/dev/null
 
@@ -35,10 +50,15 @@ grep -F 'aur' <<<"$arch_base" >/dev/null
 grep -F 'noctalia-shell' <<<"$arch_base" >/dev/null
 grep -F 'ghostty' <<<"$arch_base" >/dev/null
 
+arch_shell="$(run_case arch-shell print-plan --distro arch --select shell=gh,fd,yazi --dry-run)"
+grep -F 'github-cli' <<<"$arch_shell" >/dev/null
+grep -F $'  - fd' <<<"$arch_shell" >/dev/null
+grep -F 'yazi' <<<"$arch_shell" >/dev/null
+! grep -F 'fedora-copr' <<<"$arch_shell" >/dev/null
+
 fedora_base="$(run_case fedora-base print-plan --distro fedora --dry-run)"
 grep -F 'copr:yalter/niri' <<<"$fedora_base" >/dev/null
 grep -F 'ghostty' <<<"$fedora_base" >/dev/null
 ! grep -F 'alacritty' <<<"$fedora_base" >/dev/null
 
 printf 'planner ok\n'
-

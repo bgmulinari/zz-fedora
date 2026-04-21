@@ -49,6 +49,7 @@ run_install_modules() {
   module_30_packages
   module_40_services
   module_50_greetd
+  module_55_zsh
   module_60_dotfiles
   module_70_user_services
   module_80_post_actions

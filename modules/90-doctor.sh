@@ -38,6 +38,13 @@ doctor_check_enabled() {
   fi
 }
 
+doctor_plan_has_entry() {
+  local plan_file="$1"
+  local entry="$2"
+  [[ -f "$plan_file" ]] || return 1
+  grep -Fx "$entry" "$plan_file" >/dev/null 2>&1
+}
+
 module_90_doctor() {
   if [[ "$COMMAND" != "doctor" && "$DRY_RUN" -eq 1 ]]; then
     printf 'Doctor skipped in dry-run mode.\n'
@@ -65,6 +72,43 @@ module_90_doctor() {
   doctor_check_contains "$user_config_home/niri/config.kdl" 'spawn-at-startup "qs" "-c" "noctalia-shell"'
   doctor_check_contains "$user_config_home/niri/config.kdl" 'spawn "ghostty"'
   doctor_check_contains "$user_config_home/niri/config.kdl" 'spawn "dolphin"'
+
+  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "zsh"; then
+    doctor_check_command zsh
+    doctor_check_file "$TARGET_HOME/.zshrc"
+  fi
+  if doctor_plan_has_entry "$PLAN_DIR/packages/copr.pkgs" "starship" || doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "starship"; then
+    doctor_check_command starship
+    doctor_check_file "$user_config_home/starship.toml"
+  fi
+  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "zoxide"; then
+    doctor_check_command zoxide
+  fi
+  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "fastfetch"; then
+    doctor_check_command fastfetch
+  fi
+  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "gh" || doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "github-cli"; then
+    doctor_check_command gh
+  fi
+  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "btop"; then
+    doctor_check_command btop
+    doctor_check_file "$user_config_home/btop/btop.conf"
+  fi
+  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "fd-find"; then
+    doctor_check_command fdfind
+  fi
+  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "fd"; then
+    doctor_check_command fd
+  fi
+  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "fzf"; then
+    doctor_check_command fzf
+  fi
+  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "bat"; then
+    doctor_check_command bat
+  fi
+  if doctor_plan_has_entry "$PLAN_DIR/packages/copr.pkgs" "yazi" || doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "yazi"; then
+    doctor_check_command yazi
+  fi
 
   doctor_check_enabled NetworkManager
   doctor_check_enabled greetd

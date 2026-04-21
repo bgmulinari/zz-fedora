@@ -1,0 +1,13 @@
+# Managed by zz-linux-setup.
+
+if [[ -n "${ZSH_VERSION:-}" ]]; then
+  _zz_shell="zsh"
+elif [[ -n "${BASH_VERSION:-}" ]]; then
+  _zz_shell="bash"
+fi
+
+if [[ -n "${_zz_shell:-}" ]] && command -v starship >/dev/null 2>&1; then
+  eval "$(starship init "$_zz_shell")"
+fi
+
+unset _zz_shell

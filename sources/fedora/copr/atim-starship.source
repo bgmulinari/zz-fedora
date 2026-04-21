@@ -1,0 +1,6 @@
+SOURCE_ID="copr:atim/starship"
+SOURCE_KIND="copr"
+SOURCE_LABEL="COPR: atim/starship"
+SOURCE_PROJECT="atim/starship"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="Starship prompt Fedora COPR"

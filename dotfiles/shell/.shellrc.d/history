@@ -1,0 +1,13 @@
+# Managed by zz-linux-setup.
+
+HISTSIZE=10000
+SAVEHIST=10000
+
+if [[ -n "${ZSH_VERSION:-}" ]]; then
+  HISTFILE="$HOME/.zsh_history"
+  setopt inc_append_history
+elif [[ -n "${BASH_VERSION:-}" ]]; then
+  HISTFILE="$HOME/.bash_history"
+  shopt -s histappend
+  PROMPT_COMMAND="history -a${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+fi

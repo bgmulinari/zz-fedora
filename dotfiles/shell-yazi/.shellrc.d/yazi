@@ -1,0 +1,13 @@
+# Managed by zz-linux-setup.
+
+command -v yazi >/dev/null 2>&1 || return 0
+
+yy() {
+  local tmp_file cwd
+  tmp_file="$(mktemp -t "yazi-cwd.XXXXXX")"
+  yazi "$@" --cwd-file="$tmp_file"
+  if cwd="$(cat -- "$tmp_file")" && [[ -n "$cwd" && "$cwd" != "$PWD" ]]; then
+    builtin cd -- "$cwd"
+  fi
+  rm -f -- "$tmp_file"
+}

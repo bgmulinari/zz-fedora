@@ -4,6 +4,7 @@ if [ -f /etc/bashrc ]; then
   . /etc/bashrc
 fi
 
-export EDITOR=kwrite
-export TERMINAL=ghostty
-
+for shell_rc in "$HOME"/.shellrc.d/*; do
+  [ -f "$shell_rc" ] || continue
+  . "$shell_rc"
+done

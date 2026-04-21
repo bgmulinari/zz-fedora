@@ -1,0 +1,9 @@
+# Managed by zz-linux-setup.
+
+if [[ $- == *i* ]] && command -v zoxide >/dev/null 2>&1; then
+  if [[ -n "${ZSH_VERSION:-}" ]]; then
+    eval "$(zoxide init zsh --cmd cd)"
+  elif [[ -n "${BASH_VERSION:-}" ]]; then
+    eval "$(zoxide init bash --cmd cd)"
+  fi
+fi
