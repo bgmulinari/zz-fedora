@@ -48,7 +48,7 @@ run_install_modules() {
   module_20_plan
   module_30_packages
   module_40_services
-  module_50_greetd
+  module_50_login_manager
   module_55_zsh
   module_60_dotfiles
   module_70_user_services

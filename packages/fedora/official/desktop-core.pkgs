@@ -1,5 +1,3 @@
-greetd
-greetd-selinux
-tuigreet
+plasma-login-manager
+kcm-plasmalogin
 xwayland-satellite
-

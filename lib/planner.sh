@@ -121,11 +121,7 @@ append_manifest_stow_plan() {
 }
 
 append_manifest_managed_files() {
-  case "$1" in
-    packages/fedora/official/desktop-core.pkgs|packages/arch/official/desktop-core.pkgs)
-      append_managed_file "/etc/greetd/config.toml"
-      ;;
-  esac
+  :
 }
 
 build_plan_from_selections() {
@@ -216,7 +212,7 @@ build_plan_from_selections() {
   done
 
   append_plan_entries "$PLAN_DIR/services/system-enable-now.list" "${DEFAULT_SYSTEM_SERVICES[@]}"
-  append_plan_entries "$PLAN_DIR/services/system-enable.list" "greetd"
+  append_plan_entries "$PLAN_DIR/services/system-enable.list" "plasmalogin"
   : >"$PLAN_DIR/services/user-enable.list"
 
   if array_contains "libvirt" $(effective_choice_ids "$DISTRO" "virtualization"); then
@@ -264,6 +260,9 @@ write_plan_summary() {
     printf '\nServices:\n'
     if [[ -f "$PLAN_DIR/services/system-enable-now.list" ]]; then
       sed 's/^/  - /' "$PLAN_DIR/services/system-enable-now.list"
+    fi
+    if [[ -f "$PLAN_DIR/services/system-enable.list" ]]; then
+      sed 's/^/  - /' "$PLAN_DIR/services/system-enable.list"
     fi
     printf '\nFiles:\n'
     if [[ -f "$PLAN_DIR/files/managed-files.list" ]]; then

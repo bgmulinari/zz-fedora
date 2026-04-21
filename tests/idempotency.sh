@@ -48,9 +48,13 @@ grep -Fx 'shell' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'noctalia' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'shell-starship' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'shell-yazi' "$PLAN_DIR/stow/packages.list" >/dev/null
+grep -Fx 'plasmalogin' "$PLAN_DIR/services/system-enable.list" >/dev/null
 ! grep -Fx 'zsh' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'qt5ct' "$PLAN_DIR/packages/official.pkgs" >/dev/null
+grep -Fx 'plasma-login-manager' "$PLAN_DIR/packages/official.pkgs" >/dev/null
+grep -Fx 'kcm-plasmalogin' "$PLAN_DIR/packages/official.pkgs" >/dev/null
 grep -Fx '~/.config/noctalia/settings.json' "$PLAN_DIR/files/managed-files.list" >/dev/null
+! grep -Fx '/etc/greetd/config.toml' "$PLAN_DIR/files/managed-files.list" >/dev/null
 
 touch_target="$TEST_ROOT/should-not-exist"
 run_cmd touch "$touch_target"

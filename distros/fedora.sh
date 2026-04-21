@@ -192,5 +192,5 @@ distro_repoquery_provides() {
 }
 
 distro_post_install_notes() {
-  printf 'Reboot and log into niri-session through greetd.\n'
+  printf 'Reboot, open Plasma Login Manager, and choose the Niri session.\n'
 }

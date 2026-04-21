@@ -14,6 +14,17 @@ run_case() {
   bash "$ROOT_DIR/install.sh" "$@"
 }
 
+run_install_case() {
+  local name="$1"
+  shift
+  local test_root
+  test_root="$(mktemp -d "/tmp/zz-linux-setup-install-${name}.XXXXXX")"
+  XDG_STATE_HOME="$test_root/state" \
+  XDG_CACHE_HOME="$test_root/cache" \
+  XDG_CONFIG_HOME="$test_root/config" \
+  bash "$ROOT_DIR/install.sh" install "$@" --dry-run
+}
+
 fedora_browsers="$(run_case fedora-browsers print-plan --distro fedora --select browser=firefox,brave --dry-run)"
 grep -F 'vendor:brave' <<<"$fedora_browsers" >/dev/null
 
@@ -49,9 +60,12 @@ arch_base="$(run_case arch-base print-plan --distro arch --dry-run)"
 grep -F 'aur' <<<"$arch_base" >/dev/null
 grep -F 'noctalia-shell' <<<"$arch_base" >/dev/null
 grep -F 'ghostty' <<<"$arch_base" >/dev/null
+grep -F 'plasma-login-manager' <<<"$arch_base" >/dev/null
+grep -F 'plasmalogin' <<<"$arch_base" >/dev/null
 grep -F 'qt5ct' <<<"$arch_base" >/dev/null
 grep -F '  - noctalia' <<<"$arch_base" >/dev/null
 grep -F '~/.config/noctalia/settings.json' <<<"$arch_base" >/dev/null
+! grep -F 'greetd' <<<"$arch_base" >/dev/null
 
 arch_shell="$(run_case arch-shell print-plan --distro arch --select shell=gh,fd,yazi --dry-run)"
 grep -F 'github-cli' <<<"$arch_shell" >/dev/null
@@ -62,9 +76,19 @@ grep -F 'yazi' <<<"$arch_shell" >/dev/null
 fedora_base="$(run_case fedora-base print-plan --distro fedora --dry-run)"
 grep -F 'copr:yalter/niri' <<<"$fedora_base" >/dev/null
 grep -F 'ghostty' <<<"$fedora_base" >/dev/null
+grep -F 'plasma-login-manager' <<<"$fedora_base" >/dev/null
+grep -F 'kcm-plasmalogin' <<<"$fedora_base" >/dev/null
+grep -F 'plasmalogin' <<<"$fedora_base" >/dev/null
 grep -F 'qt5ct' <<<"$fedora_base" >/dev/null
 grep -F '  - noctalia' <<<"$fedora_base" >/dev/null
 grep -F '~/.config/noctalia/settings.json' <<<"$fedora_base" >/dev/null
 ! grep -F 'alacritty' <<<"$fedora_base" >/dev/null
+! grep -F 'greetd' <<<"$fedora_base" >/dev/null
+
+fedora_install="$(run_install_case fedora-login-manager --distro fedora)"
+grep -F 'sudo systemctl enable --force plasmalogin.service' <<<"$fedora_install" >/dev/null
+
+fedora_skip_login_manager="$(run_install_case fedora-skip-login-manager --distro fedora --skip-login-manager)"
+! grep -F 'sudo systemctl enable --force plasmalogin.service' <<<"$fedora_skip_login_manager" >/dev/null
 
 printf 'planner ok\n'
