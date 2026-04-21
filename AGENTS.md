@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 `install.sh` is the main entrypoint; `bootstrap.sh` installs prerequisites and clones/updates the repo before handing off to `install.sh`. Shared Bash helpers live in `lib/`, distro adapters in `distros/`, and ordered install stages in `modules/` using the `NN-name.sh` pattern (`00-preflight.sh` through `90-doctor.sh`).
 
-Data-driven inputs live under `choices/`, `packages/`, and `sources/`. Use `choices/<distro>/*.conf` for wizard options, `packages/<distro>/.../*.pkgs` and `*.flatpaks` for manifests, and `sources/<distro>/**/*.source` for repo definitions. Templates belong in `templates/`, and regression checks live in `tests/`.
+Data-driven inputs live under `choices/`, `packages/`, and `sources/`. Use `choices/<distro>/*.conf` for wizard options, `packages/<distro>/.../*.pkgs` and `*.flatpaks` for manifests, and `sources/<distro>/**/*.source` for repo definitions. Managed user config lives under `dotfiles/<stow-package>/`, while `templates/` is reserved for rendered files that are not shipped through Stow. Regression checks live in `tests/`.
 
 ## Build, Test, and Development Commands
 Run the installer locally with `./install.sh wizard` for the interactive flow or `./install.sh install --yes --dry-run` to inspect the generated plan safely. Use `./install.sh print-plan --distro fedora --select browser=firefox --dry-run` when validating planner changes without applying them.

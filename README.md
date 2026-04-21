@@ -30,6 +30,13 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 - Noctalia ships with the Niri, Qt, and KColorScheme templates pre-enabled through managed user settings.
 - The installer never starts Plasma Login Manager immediately. Reboot to begin using the graphical login.
 
+## Optional Shell Tooling
+
+- The wizard exposes a `Shell / CLI tools` category for optional terminal utilities and prompt tooling.
+- Current choices include `zsh`, `starship`, `zoxide`, `fastfetch`, `gh`, `btop`, `fd`, `fzf`, `bat`, and `yazi`.
+- Selecting `zsh` bootstraps Oh My Zsh, installs the managed `~/.zshrc`, and changes the target user's login shell to `/bin/zsh`.
+- `doctor` checks the selected shell tools and their managed config files when they are present in the saved plan.
+
 ## Install
 
 Remote install:
@@ -55,7 +62,7 @@ cd REPO
 Non-interactive install:
 
 ```bash
-./install.sh install --yes --select browser=firefox,brave --select dev=base
+./install.sh install --yes --select browser=firefox,brave --select dev=base --select shell=zsh,starship,gh,fzf
 ```
 
 Supported commands:
@@ -112,6 +119,7 @@ Re-running should:
 - RPM Fusion is opt-in unless required by selected features such as codecs or Steam.
 - AUR is required for Noctalia on Arch in this installer and depends on an existing `paru` or `yay`.
 - Flathub is optional and is enabled explicitly or when a selected Flatpak requires it.
+- Selecting `zsh` also fetches Oh My Zsh plus the `zsh-autosuggestions` and `zsh-syntax-highlighting` plugin repositories from GitHub.
 
 ## How To Extend
 
