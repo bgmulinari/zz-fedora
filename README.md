@@ -42,20 +42,20 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 Remote install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/bootstrap.sh | bash -s -- --ref main
+curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-linux-setup/main/bootstrap.sh | bash -s -- --ref main
 ```
 
 Pinned install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/bootstrap.sh | bash -s -- --ref v0.1.0
+curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-linux-setup/main/bootstrap.sh | bash -s -- --ref v0.1.0
 ```
 
 Local install:
 
 ```bash
-git clone https://github.com/OWNER/REPO.git
-cd REPO
+git clone https://github.com/bgmulinari/zz-linux-setup.git
+cd zz-linux-setup
 ./install.sh wizard
 ```
 

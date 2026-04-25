@@ -103,6 +103,21 @@ clone_or_update_repo() {
   run git -C "$INSTALL_DIR" checkout "$REF"
 }
 
+exec_installer() {
+  local command="$1"
+  shift
+
+  if [[ "$command" == "wizard" && ! -t 0 ]]; then
+    if [[ -r /dev/tty ]]; then
+      exec "$INSTALL_DIR/install.sh" "$command" "$@" < /dev/tty
+    fi
+    printf 'Wizard mode needs an interactive terminal. Re-run from a TTY or use --yes for non-interactive install.\n' >&2
+    exit 1
+  fi
+
+  exec "$INSTALL_DIR/install.sh" "$command" "$@"
+}
+
 main() {
   parse_args "$@"
   local distro
@@ -113,9 +128,9 @@ main() {
   esac
   clone_or_update_repo
   if [[ "$ASSUME_YES" -eq 1 ]]; then
-    exec "$INSTALL_DIR/install.sh" install --yes "${FORWARD_ARGS[@]}"
+    exec_installer install --yes "${FORWARD_ARGS[@]}"
   fi
-  exec "$INSTALL_DIR/install.sh" wizard "${FORWARD_ARGS[@]}"
+  exec_installer wizard "${FORWARD_ARGS[@]}"
 }
 
 main "$@"
