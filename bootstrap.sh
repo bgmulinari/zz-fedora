@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-REPO_URL="https://github.com/OWNER/REPO.git"
+REPO_URL="https://github.com/bgmulinari/zz-linux-setup.git"
 REF="main"
 INSTALL_DIR="${HOME}/.local/share/zz-linux-setup"
 FORWARD_ARGS=()
@@ -119,4 +119,3 @@ main() {
 }
 
 main "$@"
-
