@@ -177,5 +177,5 @@ distro_repoquery_provides() {
 }
 
 distro_post_install_notes() {
-  printf 'Reboot, open Plasma Login Manager, and choose the Niri session.\n'
+  printf 'Reboot, open SDDM, and choose the Niri session.\n'
 }

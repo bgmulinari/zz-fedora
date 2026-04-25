@@ -131,7 +131,7 @@ module_90_doctor() {
   fi
 
   doctor_check_enabled NetworkManager
-  doctor_check_enabled plasmalogin
+  doctor_check_enabled sddm
   doctor_check_enabled bluetooth
   doctor_check_enabled firewalld
   doctor_check_enabled chronyd
@@ -152,5 +152,5 @@ module_90_doctor() {
 
   printf 'Doctor completed.\n'
   printf 'Warnings are not necessarily fatal.\n'
-  printf 'Reboot, open Plasma Login Manager, and choose the Niri session.\n'
+  printf 'Reboot, open SDDM, and choose the Niri session.\n'
 }

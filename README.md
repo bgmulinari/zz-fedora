@@ -24,11 +24,11 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 
 ## Session Model
 
-- Plasma Login Manager provides the graphical login and session chooser.
+- SDDM provides the graphical login and session chooser.
 - Choose the `Niri` session at login.
 - Noctalia is launched from Niri autostart with `spawn-at-startup "qs" "-c" "noctalia-shell"`.
 - Noctalia ships with the Niri, Qt, and KColorScheme templates pre-enabled through managed user settings.
-- The installer never starts Plasma Login Manager immediately. Reboot to begin using the graphical login.
+- The installer never starts SDDM immediately. Reboot to begin using the graphical login.
 
 ## Optional Shell Tooling
 
@@ -89,7 +89,7 @@ Managed items:
 - package installation
 - Flatpak remotes and apps
 - system services
-- Plasma Login Manager enablement
+- SDDM enablement
 - managed dotfiles through `stow --restow`
 - modular Niri config under `~/.config/niri/cfg/`
 - MIME defaults and selected post-actions
@@ -107,7 +107,7 @@ Re-running should:
 - user creation
 - Secure Boot setup
 - automatic reboot
-- starting Plasma Login Manager immediately
+- starting SDDM immediately
 - automatic AUR helper installation
 - full Plasma desktop installation
 - immutable Fedora Atomic support

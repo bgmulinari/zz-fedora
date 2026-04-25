@@ -70,8 +70,7 @@ arch_base="$(run_case arch-base print-plan --distro arch --dry-run)"
 grep -F 'arch-aur.list' <<<"$arch_base" >/dev/null
 grep -F 'noctalia-shell' <<<"$arch_base" >/dev/null
 grep -F 'ghostty' <<<"$arch_base" >/dev/null
-grep -F 'plasma-login-manager' <<<"$arch_base" >/dev/null
-grep -F 'plasmalogin' <<<"$arch_base" >/dev/null
+grep -F 'sddm' <<<"$arch_base" >/dev/null
 grep -F 'qt5ct' <<<"$arch_base" >/dev/null
 grep -F '  - noctalia' <<<"$arch_base" >/dev/null
 grep -F '~/.config/noctalia/settings.json' <<<"$arch_base" >/dev/null
@@ -86,9 +85,7 @@ grep -F 'yazi' <<<"$arch_shell" >/dev/null
 fedora_base="$(run_case fedora-base print-plan --distro fedora --dry-run)"
 grep -F 'copr:yalter/niri' <<<"$fedora_base" >/dev/null
 grep -F 'ghostty' <<<"$fedora_base" >/dev/null
-grep -F 'plasma-login-manager' <<<"$fedora_base" >/dev/null
-grep -F 'kcm-plasmalogin' <<<"$fedora_base" >/dev/null
-grep -F 'plasmalogin' <<<"$fedora_base" >/dev/null
+grep -F 'sddm' <<<"$fedora_base" >/dev/null
 grep -F 'qt5ct' <<<"$fedora_base" >/dev/null
 grep -F '  - noctalia' <<<"$fedora_base" >/dev/null
 grep -F '~/.config/noctalia/settings.json' <<<"$fedora_base" >/dev/null
@@ -96,10 +93,10 @@ grep -F '~/.config/noctalia/settings.json' <<<"$fedora_base" >/dev/null
 ! grep -F 'greetd' <<<"$fedora_base" >/dev/null
 
 fedora_install="$(run_install_case fedora-login-manager --distro fedora)"
-grep -F 'sudo systemctl enable --force plasmalogin.service' <<<"$fedora_install" >/dev/null
+grep -F 'sudo systemctl enable --force sddm.service' <<<"$fedora_install" >/dev/null
 
 fedora_skip_login_manager="$(run_install_case fedora-skip-login-manager --distro fedora --skip-login-manager)"
-! grep -F 'sudo systemctl enable --force plasmalogin.service' <<<"$fedora_skip_login_manager" >/dev/null
+! grep -F 'sudo systemctl enable --force sddm.service' <<<"$fedora_skip_login_manager" >/dev/null
 
 fedora_flatpak_install="$(run_install_case fedora-flatpak-order --distro fedora --select browser=zen-flatpak)"
 bootstrap_line="$(grep -n 'sudo dnf install -y --setopt=install_weak_deps=False flatpak' <<<"$fedora_flatpak_install" | head -n1 | cut -d: -f1)"
