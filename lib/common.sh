@@ -389,6 +389,7 @@ category_names() {
 set_category_override() {
   local category="$1"
   category="$(normalize_category_name "$category")"
+  [[ -n "$category" ]] || die "Invalid empty selection category"
   local values="${2:-}"
   CATEGORY_OVERRIDES["$category"]="$values"
   CATEGORY_OVERRIDE_PRESENT["$category"]=1
@@ -397,7 +398,9 @@ set_category_override() {
 add_category_selection() {
   local category="$1"
   category="$(normalize_category_name "$category")"
+  [[ -n "$category" ]] || return 0
   local values="${2:-}"
+  [[ -n "$values" ]] || return 0
   if [[ -n "${CATEGORY_ADDITIONS[$category]:-}" && -n "$values" ]]; then
     CATEGORY_ADDITIONS["$category"]+=",${values}"
   else

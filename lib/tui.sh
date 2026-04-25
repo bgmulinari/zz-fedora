@@ -161,6 +161,7 @@ tui_run_wizard() {
   mapfile -t extra_choices < <(tui_pick_workstation_extras || true)
   local extra
   for extra in "${extra_choices[@]:-}"; do
+    [[ -n "$extra" && "$extra" == *=* ]] || continue
     add_category_selection "${extra%%=*}" "${extra#*=}"
   done
 

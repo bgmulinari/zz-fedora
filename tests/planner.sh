@@ -109,4 +109,7 @@ install_line="$(grep -n 'flatpak install -y --or-update flathub app.zen_browser.
 [[ "$bootstrap_line" -lt "$source_line" ]]
 [[ "$source_line" -lt "$install_line" ]]
 
+empty_selection_case="$(run_case empty-selection-guard print-plan --distro fedora --select dev= --dry-run)"
+grep -F 'Distro: fedora' <<<"$empty_selection_case" >/dev/null
+
 printf 'planner ok\n'
