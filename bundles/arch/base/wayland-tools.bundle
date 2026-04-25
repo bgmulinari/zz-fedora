@@ -1,0 +1,6 @@
+BUNDLE_ID="base-wayland-tools"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/wayland-tools.pkgs"
+BUNDLE_STOW_PACKAGES="fuzzel"
+BUNDLE_DESCRIPTION="Wayland utility packages for Arch"

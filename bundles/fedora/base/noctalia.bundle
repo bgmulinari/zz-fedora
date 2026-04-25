@@ -1,0 +1,6 @@
+BUNDLE_ID="base-noctalia"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID="terra"
+BUNDLE_ITEMS_FILE="packages/fedora/terra/noctalia.pkgs"
+BUNDLE_STOW_PACKAGES="noctalia"
+BUNDLE_DESCRIPTION="Noctalia shell bundle for Fedora"

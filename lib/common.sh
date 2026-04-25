@@ -19,8 +19,6 @@ LOCK_DIR="$STATE_DIR/lock"
 
 mkdir -p "$STATE_DIR" "$CACHE_DIR" "$CONFIG_DIR" "$LOG_DIR"
 
-declare -ag ENABLED_SOURCES=()
-declare -ag EXPLICIT_ENABLED_SOURCES=()
 declare -ag WARNING_MESSAGES=()
 declare -ag INFO_MESSAGES=()
 declare -ag PLAN_MODULES=()
@@ -190,13 +188,6 @@ manifest_entries() {
   read_clean_lines "$file" | sort -u
 }
 
-manifest_kind_from_path() {
-  local relative_path="$1"
-  local stripped="${relative_path#packages/}"
-  stripped="${stripped#*/}"
-  printf '%s\n' "${stripped%%/*}"
-}
-
 list_source_files() {
   local distro="$1"
   find "$ROOT_DIR/sources/$distro" -type f -name '*.source' | sort
@@ -236,6 +227,90 @@ list_source_ids() {
   done < <(list_source_files "$distro")
 }
 
+list_bundle_files() {
+  local distro="$1"
+  find "$ROOT_DIR/bundles/$distro" -type f -name '*.bundle' | sort
+}
+
+bundle_file_for_id() {
+  local distro="$1"
+  local bundle_id="$2"
+  local bundle_file
+  for bundle_file in $(list_bundle_files "$distro"); do
+    local current_id=""
+    current_id="$(awk -F= '$1=="BUNDLE_ID"{gsub(/"/, "", $2); print $2}' "$bundle_file")"
+    [[ "$current_id" == "$bundle_id" ]] && {
+      printf '%s\n' "$bundle_file"
+      return 0
+    }
+  done
+  return 1
+}
+
+load_bundle_descriptor() {
+  local distro="$1"
+  local bundle_id="$2"
+  local bundle_file
+  bundle_file="$(bundle_file_for_id "$distro" "$bundle_id")" || return 1
+  unset \
+    BUNDLE_ID \
+    BUNDLE_INSTALLER \
+    BUNDLE_SOURCE_ID \
+    BUNDLE_ITEMS_FILE \
+    BUNDLE_STOW_PACKAGES \
+    BUNDLE_DESCRIPTION
+  # shellcheck disable=SC1090
+  source "$bundle_file"
+  BUNDLE_FILE="$bundle_file"
+}
+
+bundle_supported_for_distro() {
+  local distro="$1"
+  local installer="$2"
+  case "$distro:$installer" in
+    fedora:dnf|fedora:flatpak|arch:pacman|arch:aur|arch:flatpak)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+validate_bundle_descriptor() {
+  local distro="$1"
+  local bundle_file="$2"
+
+  unset \
+    BUNDLE_ID \
+    BUNDLE_INSTALLER \
+    BUNDLE_SOURCE_ID \
+    BUNDLE_ITEMS_FILE \
+    BUNDLE_STOW_PACKAGES \
+    BUNDLE_DESCRIPTION
+  # shellcheck disable=SC1090
+  source "$bundle_file"
+
+  [[ -n "${BUNDLE_ID:-}" ]] || die "Missing BUNDLE_ID in $bundle_file"
+  [[ -n "${BUNDLE_INSTALLER:-}" ]] || die "Missing BUNDLE_INSTALLER in $bundle_file"
+  [[ -n "${BUNDLE_ITEMS_FILE:-}" ]] || die "Missing BUNDLE_ITEMS_FILE in $bundle_file"
+  [[ -n "${BUNDLE_DESCRIPTION:-}" ]] || die "Missing BUNDLE_DESCRIPTION in $bundle_file"
+  bundle_supported_for_distro "$distro" "$BUNDLE_INSTALLER" || die "Unsupported installer '$BUNDLE_INSTALLER' in $bundle_file"
+  [[ -f "$ROOT_DIR/$BUNDLE_ITEMS_FILE" ]] || die "Missing bundle payload file '$BUNDLE_ITEMS_FILE' in $bundle_file"
+
+  if [[ -n "${BUNDLE_SOURCE_ID:-}" ]]; then
+    source_file_for_id "$distro" "$BUNDLE_SOURCE_ID" >/dev/null || die "Unknown source ID '$BUNDLE_SOURCE_ID' in $bundle_file"
+  fi
+}
+
+validate_bundle_catalog() {
+  local distro="$1"
+  local bundle_file
+  while IFS= read -r bundle_file; do
+    validate_bundle_descriptor "$distro" "$bundle_file"
+  done < <(list_bundle_files "$distro")
+}
+
 choice_catalog_path() {
   local distro="$1"
   local category
@@ -261,25 +336,19 @@ validate_choice_catalog() {
     [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
     local field_count
     field_count="$(awk -F'\t' '{print NF}' <<<"$line")"
-    [[ "$field_count" -eq 6 ]] || die "Invalid catalog row at $catalog:$line_no"
-    local id label default_flag source_ids manifest_paths description
+    [[ "$field_count" -eq 5 ]] || die "Invalid catalog row at $catalog:$line_no"
+    local id label default_flag bundle_ids description
     id="$(choice_field "$line" 1)"
     label="$(choice_field "$line" 2)"
     default_flag="$(choice_field "$line" 3)"
-    source_ids="$(choice_field "$line" 4)"
-    manifest_paths="$(choice_field "$line" 5)"
-    description="$(choice_field "$line" 6)"
+    bundle_ids="$(choice_field "$line" 4)"
+    description="$(choice_field "$line" 5)"
     [[ -n "$id" && -n "$label" && -n "$default_flag" && -n "$description" ]] || die "Invalid empty field in $catalog:$line_no"
-    local source_id
-    while IFS= read -r source_id; do
-      [[ -z "$source_id" ]] && continue
-      source_file_for_id "$distro" "$source_id" >/dev/null || die "Unknown source ID '$source_id' in $catalog:$line_no"
-    done < <(split_csv "$source_ids")
-    local manifest_path
-    while IFS= read -r manifest_path; do
-      [[ -z "$manifest_path" ]] && continue
-      [[ -f "$ROOT_DIR/$manifest_path" ]] || die "Unknown manifest '$manifest_path' in $catalog:$line_no"
-    done < <(split_csv "$manifest_paths")
+    local bundle_id
+    while IFS= read -r bundle_id; do
+      [[ -z "$bundle_id" ]] && continue
+      bundle_file_for_id "$distro" "$bundle_id" >/dev/null || die "Unknown bundle ID '$bundle_id' in $catalog:$line_no"
+    done < <(split_csv "$bundle_ids")
   done <"$catalog"
 }
 
@@ -294,7 +363,7 @@ default_choice_ids() {
   local catalog
   catalog="$(choice_catalog_path "$distro" "$category")"
   [[ -f "$catalog" ]] || return 0
-  awk -F'\t' 'NF==6 && $1 !~ /^#/ && $3 == 1 {print $1}' "$catalog"
+  awk -F'\t' 'NF==5 && $1 !~ /^#/ && $3 == 1 {print $1}' "$catalog"
 }
 
 choice_record() {
@@ -304,7 +373,7 @@ choice_record() {
   local catalog
   catalog="$(choice_catalog_path "$distro" "$category")"
   [[ -f "$catalog" ]] || return 1
-  awk -F'\t' -v choice_id="$choice_id" 'NF==6 && $1 !~ /^#/ && $1 == choice_id {print $0}' "$catalog"
+  awk -F'\t' -v choice_id="$choice_id" 'NF==5 && $1 !~ /^#/ && $1 == choice_id {print $0}' "$catalog"
 }
 
 choice_field() {
@@ -372,7 +441,6 @@ save_selections() {
       done < <(effective_choice_ids "$DISTRO" "$category")
       printf 'select.%s=%s\n' "$category" "$(join_by , "${values[@]:-}")"
     done
-    printf 'sources=%s\n' "$(join_by , "${ENABLED_SOURCES[@]:-}")"
   } >"$SAVED_SELECTIONS"
 }
 
@@ -386,7 +454,6 @@ load_saved_selections() {
       target_user) TARGET_USER="$value" ;;
       preferred_browser) PREFERRED_BROWSER="$value" ;;
       multilib_confirmed) MULTILIB_CONFIRMED="$value" ;;
-      sources) append_csv_unique ENABLED_SOURCES "$value" ;;
       select.*)
         set_category_override "${key#select.}" "$value"
         ;;

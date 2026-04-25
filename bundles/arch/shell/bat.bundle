@@ -1,0 +1,6 @@
+BUNDLE_ID="shell-bat"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/shell/bat.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="bat bundle for Arch"

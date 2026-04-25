@@ -1,0 +1,6 @@
+BUNDLE_ID="base-fonts-theme-kde"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/fonts-theme-kde.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="KDE fonts and theme packages for Arch"

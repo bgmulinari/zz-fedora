@@ -1,0 +1,6 @@
+BUNDLE_ID="browser-zen-aur"
+BUNDLE_INSTALLER="aur"
+BUNDLE_SOURCE_ID="aur"
+BUNDLE_ITEMS_FILE="packages/arch/aur/browsers/zen.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Zen browser bundle from AUR for Arch"

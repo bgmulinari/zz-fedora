@@ -1,0 +1,6 @@
+BUNDLE_ID="base-kde-file-integration"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/kde-file-integration.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="KDE file integration packages for Arch"

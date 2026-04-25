@@ -85,7 +85,7 @@ main() {
       for file in $(list_choice_catalogs "$DISTRO"); do
         category="$(basename "$file" .conf)"
         printf '[%s]\n' "$category"
-        awk -F'\t' 'NF==6 && $1 !~ /^#/ {printf "%s\t%s\tdefault=%s\n", $1, $2, $3}' "$file"
+        awk -F'\t' 'NF==5 && $1 !~ /^#/ {printf "%s\t%s\tdefault=%s\n", $1, $2, $3}' "$file"
         printf '\n'
       done
       ;;

@@ -1,0 +1,6 @@
+BUNDLE_ID="base-desktop-core"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/desktop-core.pkgs"
+BUNDLE_STOW_PACKAGES="environment,ghostty,niri"
+BUNDLE_DESCRIPTION="Core desktop integration packages for Arch"

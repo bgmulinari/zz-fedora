@@ -1,0 +1,6 @@
+BUNDLE_ID="shell-btop"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/shell/btop.pkgs"
+BUNDLE_STOW_PACKAGES="btop"
+BUNDLE_DESCRIPTION="btop bundle for Arch"

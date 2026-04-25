@@ -1,0 +1,6 @@
+BUNDLE_ID="shell-yazi"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID="copr:lihaohong/yazi"
+BUNDLE_ITEMS_FILE="packages/fedora/copr/lihaohong-yazi/yazi.pkgs"
+BUNDLE_STOW_PACKAGES="shell-yazi"
+BUNDLE_DESCRIPTION="Yazi shell bundle for Fedora"

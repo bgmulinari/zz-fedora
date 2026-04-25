@@ -25,11 +25,6 @@ distro_preflight() {
   return 0
 }
 
-distro_bootstrap_tools() {
-  mapfile -t packages < <(manifest_entries "$ROOT_DIR/packages/arch/official/bootstrap.pkgs")
-  distro_install_official_packages "${packages[@]:-}"
-}
-
 enable_arch_multilib() {
   if grep -Eq '^\[multilib\]' /etc/pacman.conf 2>/dev/null; then
     return 0
@@ -81,33 +76,15 @@ distro_enable_sources() {
   esac
 }
 
-distro_install_official_packages() {
+distro_install_pacman_packages() {
   local -a packages=("$@")
   [[ "${#packages[@]}" -gt 0 ]] || return 0
   run_cmd sudo pacman -Syu --needed "${packages[@]}"
 }
 
-distro_install_copr_packages() {
+distro_install_dnf_packages() {
   if [[ "$#" -gt 0 ]]; then
-    die "COPR packages are not supported on Arch"
-  fi
-}
-
-distro_install_terra_packages() {
-  if [[ "$#" -gt 0 ]]; then
-    die "Terra packages are not supported on Arch"
-  fi
-}
-
-distro_install_rpmfusion_packages() {
-  if [[ "$#" -gt 0 ]]; then
-    die "RPM Fusion packages are not supported on Arch"
-  fi
-}
-
-distro_install_vendor_packages() {
-  if [[ "$#" -gt 0 ]]; then
-    die "Vendor RPM packages are not supported on Arch"
+    die "DNF packages are not supported on Arch"
   fi
 }
 

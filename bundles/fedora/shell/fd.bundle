@@ -1,0 +1,6 @@
+BUNDLE_ID="shell-fd"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/fedora/official/shell/fd.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="fd bundle for Fedora"

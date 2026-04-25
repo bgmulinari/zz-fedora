@@ -1,0 +1,6 @@
+BUNDLE_ID="shell-starship"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/shell/starship.pkgs"
+BUNDLE_STOW_PACKAGES="shell-starship,starship"
+BUNDLE_DESCRIPTION="Starship shell bundle for Arch"

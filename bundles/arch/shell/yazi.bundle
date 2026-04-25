@@ -1,0 +1,6 @@
+BUNDLE_ID="shell-yazi"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/shell/yazi.pkgs"
+BUNDLE_STOW_PACKAGES="shell-yazi"
+BUNDLE_DESCRIPTION="Yazi shell bundle for Arch"

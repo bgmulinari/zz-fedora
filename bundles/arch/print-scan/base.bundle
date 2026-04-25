@@ -1,0 +1,6 @@
+BUNDLE_ID="print-scan-base"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/optional-print-scan.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Printing and scanning bundle for Arch"

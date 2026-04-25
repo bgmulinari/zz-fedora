@@ -1,0 +1,6 @@
+BUNDLE_ID="gaming-game-tools"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/fedora/official/gaming/base.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Game performance tooling bundle for Fedora"

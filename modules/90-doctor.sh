@@ -84,46 +84,49 @@ module_90_doctor() {
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "qt"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "kcolorscheme"'
 
-  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "zsh"; then
+  local native_plan
+  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+
+  if doctor_plan_has_entry "$native_plan" "zsh"; then
     doctor_check_command zsh
     doctor_check_file "$TARGET_HOME/.zshrc"
   fi
-  if doctor_plan_has_entry "$PLAN_DIR/packages/copr.pkgs" "starship" || doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "starship"; then
+  if doctor_plan_has_entry "$native_plan" "starship"; then
     doctor_check_command starship
     doctor_check_file "$user_config_home/starship.toml"
   fi
-  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "qt5ct"; then
+  if doctor_plan_has_entry "$native_plan" "qt5ct"; then
     doctor_check_command qt5ct
   fi
-  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "qt6ct"; then
+  if doctor_plan_has_entry "$native_plan" "qt6ct"; then
     doctor_check_command qt6ct
   fi
-  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "zoxide"; then
+  if doctor_plan_has_entry "$native_plan" "zoxide"; then
     doctor_check_command zoxide
   fi
-  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "fastfetch"; then
+  if doctor_plan_has_entry "$native_plan" "fastfetch"; then
     doctor_check_command fastfetch
   fi
-  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "gh" || doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "github-cli"; then
+  if doctor_plan_has_entry "$native_plan" "gh" || doctor_plan_has_entry "$native_plan" "github-cli"; then
     doctor_check_command gh
   fi
-  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "btop"; then
+  if doctor_plan_has_entry "$native_plan" "btop"; then
     doctor_check_command btop
     doctor_check_file "$user_config_home/btop/btop.conf"
   fi
-  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "fd-find"; then
+  if doctor_plan_has_entry "$native_plan" "fd-find"; then
     doctor_check_command fdfind
   fi
-  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "fd"; then
+  if doctor_plan_has_entry "$native_plan" "fd"; then
     doctor_check_command fd
   fi
-  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "fzf"; then
+  if doctor_plan_has_entry "$native_plan" "fzf"; then
     doctor_check_command fzf
   fi
-  if doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "bat"; then
+  if doctor_plan_has_entry "$native_plan" "bat"; then
     doctor_check_command bat
   fi
-  if doctor_plan_has_entry "$PLAN_DIR/packages/copr.pkgs" "yazi" || doctor_plan_has_entry "$PLAN_DIR/packages/official.pkgs" "yazi"; then
+  if doctor_plan_has_entry "$native_plan" "yazi"; then
     doctor_check_command yazi
   fi
 

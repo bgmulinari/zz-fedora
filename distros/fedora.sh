@@ -9,11 +9,6 @@ distro_preflight() {
   return 0
 }
 
-distro_bootstrap_tools() {
-  mapfile -t packages < <(manifest_entries "$ROOT_DIR/packages/fedora/official/bootstrap.pkgs")
-  distro_install_official_packages "${packages[@]:-}"
-}
-
 distro_enable_sources() {
   local source_id="$1"
   load_source_descriptor fedora "$source_id" || die "Unknown Fedora source: $source_id"
@@ -86,7 +81,7 @@ EOF
   esac
 }
 
-distro_install_official_packages() {
+distro_install_dnf_packages() {
   local -a packages=("$@")
   [[ "${#packages[@]}" -gt 0 ]] || return 0
   if [[ "$INSTALL_WEAK_DEPS" -eq 1 ]]; then
@@ -96,25 +91,15 @@ distro_install_official_packages() {
   fi
 }
 
-distro_install_copr_packages() {
-  distro_install_official_packages "$@"
-}
-
-distro_install_terra_packages() {
-  distro_install_official_packages "$@"
-}
-
-distro_install_rpmfusion_packages() {
-  distro_install_official_packages "$@"
-}
-
-distro_install_vendor_packages() {
-  distro_install_official_packages "$@"
-}
-
 distro_install_aur_packages() {
   if [[ "$#" -gt 0 ]]; then
     die "AUR packages are not supported on Fedora"
+  fi
+}
+
+distro_install_pacman_packages() {
+  if [[ "$#" -gt 0 ]]; then
+    die "Pacman packages are not supported on Fedora"
   fi
 }
 

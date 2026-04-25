@@ -1,0 +1,6 @@
+BUNDLE_ID="browser-chromium"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/browsers/chromium.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Chromium browser bundle for Arch"

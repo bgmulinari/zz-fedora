@@ -31,16 +31,15 @@ DRY_RUN=1
 load_adapter
 add_category_selection "browser" "firefox,firefox,zen-flatpak"
 add_category_selection "shell" "starship,starship,yazi"
-append_unique EXPLICIT_ENABLED_SOURCES "flathub"
-append_unique EXPLICIT_ENABLED_SOURCES "flathub"
 build_plan_from_selections
 
 [[ "$(grep -Fc 'flathub' "$PLAN_DIR/sources/fedora-flatpak-remotes.list")" -eq 1 ]]
-[[ "$(grep -Fc 'firefox' "$PLAN_DIR/packages/official.pkgs")" -eq 1 ]]
-[[ "$(grep -Fc 'starship' "$PLAN_DIR/packages/copr.pkgs")" -eq 1 ]]
-[[ "$(grep -Fc 'yazi' "$PLAN_DIR/packages/copr.pkgs")" -eq 1 ]]
+[[ "$(grep -Fc 'firefox' "$PLAN_DIR/packages/dnf.pkgs")" -eq 1 ]]
+[[ "$(grep -Fc 'starship' "$PLAN_DIR/packages/dnf.pkgs")" -eq 1 ]]
+[[ "$(grep -Fc 'yazi' "$PLAN_DIR/packages/dnf.pkgs")" -eq 1 ]]
 [[ "$(grep -Fc 'copr:atim/starship' "$PLAN_DIR/sources/fedora-copr.list")" -eq 1 ]]
 [[ "$(grep -Fc 'copr:lihaohong/yazi' "$PLAN_DIR/sources/fedora-copr.list")" -eq 1 ]]
+[[ "$(grep -Fc 'flatpak' "$PLAN_DIR/prereqs/dnf.pkgs")" -eq 1 ]]
 [[ "$(sort -u "$PLAN_DIR/services/system-enable-now.list" | wc -l | tr -d ' ')" -eq "$(wc -l <"$PLAN_DIR/services/system-enable-now.list" | tr -d ' ')" ]]
 [[ "$(sort -u "$PLAN_DIR/stow/packages.list" | wc -l | tr -d ' ')" -eq "$(wc -l <"$PLAN_DIR/stow/packages.list" | tr -d ' ')" ]]
 [[ "$(grep -Fc 'app.zen_browser.zen' "$PLAN_DIR/flatpak/apps.flatpaks")" -eq 1 ]]
@@ -50,9 +49,9 @@ grep -Fx 'shell-starship' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'shell-yazi' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'plasmalogin' "$PLAN_DIR/services/system-enable.list" >/dev/null
 ! grep -Fx 'zsh' "$PLAN_DIR/stow/packages.list" >/dev/null
-grep -Fx 'qt5ct' "$PLAN_DIR/packages/official.pkgs" >/dev/null
-grep -Fx 'plasma-login-manager' "$PLAN_DIR/packages/official.pkgs" >/dev/null
-grep -Fx 'kcm-plasmalogin' "$PLAN_DIR/packages/official.pkgs" >/dev/null
+grep -Fx 'qt5ct' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
+grep -Fx 'plasma-login-manager' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
+grep -Fx 'kcm-plasmalogin' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
 grep -Fx '~/.config/noctalia/settings.json' "$PLAN_DIR/files/managed-files.list" >/dev/null
 ! grep -Fx '/etc/greetd/config.toml' "$PLAN_DIR/files/managed-files.list" >/dev/null
 

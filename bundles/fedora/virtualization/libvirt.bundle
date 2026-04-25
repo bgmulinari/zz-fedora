@@ -1,0 +1,6 @@
+BUNDLE_ID="virtualization-libvirt"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/fedora/official/optional-virtualization.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Libvirt virtualization bundle for Fedora"

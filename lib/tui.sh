@@ -45,23 +45,8 @@ tui_run_wizard() {
 
   case "$DISTRO" in
     fedora)
-      if gum confirm "Use Terra for Ghostty?"; then
-        :
-      else
-        add_category_selection "sources" "ghostty-copr"
-      fi
-      if gum confirm "Enable RPM Fusion Free?"; then
-        add_category_selection "media" "rpmfusion-free"
-      fi
-      if gum confirm "Enable RPM Fusion Nonfree?"; then
-        add_category_selection "media" "rpmfusion-nonfree"
-      fi
       if gum confirm "Install full multimedia codecs?"; then
         add_category_selection "media" "codecs"
-        CODECS_SELECTED=1
-      fi
-      if gum confirm "Enable Flathub?"; then
-        add_category_selection "sources" "flathub"
       fi
       browser_options=(firefox chromium chrome brave zen-flatpak zen-copr helium-copr)
       ;;

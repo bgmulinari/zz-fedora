@@ -1,0 +1,6 @@
+BUNDLE_ID="base-bootstrap"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/bootstrap.pkgs"
+BUNDLE_STOW_PACKAGES="shell"
+BUNDLE_DESCRIPTION="Bootstrap tools required by the base Arch install"

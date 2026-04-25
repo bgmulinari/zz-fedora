@@ -1,0 +1,6 @@
+BUNDLE_ID="base-kde-apps"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/fedora/official/kde-apps.pkgs"
+BUNDLE_STOW_PACKAGES="kde"
+BUNDLE_DESCRIPTION="KDE applications bundle for Fedora"

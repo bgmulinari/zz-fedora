@@ -1,0 +1,6 @@
+BUNDLE_ID="shell-fzf"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/shell/fzf.pkgs"
+BUNDLE_STOW_PACKAGES="shell-fzf"
+BUNDLE_DESCRIPTION="fzf bundle for Arch"

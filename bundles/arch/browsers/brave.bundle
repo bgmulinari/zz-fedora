@@ -1,0 +1,6 @@
+BUNDLE_ID="browser-brave"
+BUNDLE_INSTALLER="aur"
+BUNDLE_SOURCE_ID="aur"
+BUNDLE_ITEMS_FILE="packages/arch/aur/browsers/brave.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Brave browser bundle for Arch"

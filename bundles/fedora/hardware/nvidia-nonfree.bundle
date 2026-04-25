@@ -1,0 +1,6 @@
+BUNDLE_ID="hardware-nvidia-nonfree"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID="rpmfusion-nonfree"
+BUNDLE_ITEMS_FILE="packages/fedora/rpmfusion/nvidia-nonfree.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="NVIDIA driver bundle from RPM Fusion Nonfree for Fedora"

@@ -1,0 +1,6 @@
+BUNDLE_ID="browser-helium"
+BUNDLE_INSTALLER="aur"
+BUNDLE_SOURCE_ID="aur"
+BUNDLE_ITEMS_FILE="packages/arch/aur/browsers/helium.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Helium browser bundle for Arch"

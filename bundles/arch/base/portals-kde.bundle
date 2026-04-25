@@ -1,0 +1,6 @@
+BUNDLE_ID="base-portals-kde"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/portals-kde.pkgs"
+BUNDLE_STOW_PACKAGES="portals"
+BUNDLE_DESCRIPTION="Portal integration for the Arch KDE stack"

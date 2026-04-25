@@ -1,0 +1,6 @@
+BUNDLE_ID="browser-zen-copr"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID="copr:sneexy/zen-browser"
+BUNDLE_ITEMS_FILE="packages/fedora/copr/sneexy-zen-browser/browsers-zen.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Zen browser bundle from COPR for Fedora"

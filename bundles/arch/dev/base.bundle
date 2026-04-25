@@ -1,0 +1,6 @@
+BUNDLE_ID="dev-base"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/optional-dev.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Developer tooling bundle for Arch"

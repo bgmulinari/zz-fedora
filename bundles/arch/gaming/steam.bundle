@@ -1,0 +1,6 @@
+BUNDLE_ID="gaming-steam"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID="multilib"
+BUNDLE_ITEMS_FILE="packages/arch/official/gaming/steam.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Steam bundle from multilib for Arch"

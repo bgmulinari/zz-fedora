@@ -1,0 +1,6 @@
+BUNDLE_ID="gaming-game-tools"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/gaming/game-tools.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Game performance tooling bundle for Arch"

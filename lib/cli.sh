@@ -16,7 +16,6 @@ Common options:
   --target-user USER
   --distro auto|fedora|arch
   --select category=a,b,c
-  --enable-source SOURCE_ID
   --no-tui
   --stow-adopt
 EOF
@@ -69,10 +68,6 @@ parse_cli() {
       --select)
         idx=$((idx + 1))
         parse_select_arg "${args[$idx]:-}"
-        ;;
-      --enable-source)
-        idx=$((idx + 1))
-        append_unique EXPLICIT_ENABLED_SOURCES "${args[$idx]:-}"
         ;;
       -h|--help)
         usage

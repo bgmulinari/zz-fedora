@@ -1,0 +1,6 @@
+BUNDLE_ID="gaming-heroic"
+BUNDLE_INSTALLER="flatpak"
+BUNDLE_SOURCE_ID="flathub"
+BUNDLE_ITEMS_FILE="packages/fedora/flatpak/heroic.flatpaks"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Heroic Games Launcher bundle for Fedora"

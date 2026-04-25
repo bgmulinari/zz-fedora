@@ -1,0 +1,6 @@
+BUNDLE_ID="shell-gh"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/shell/gh.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="GitHub CLI bundle for Arch"

@@ -101,6 +101,10 @@ systemctl_enable_now_if_exists() {
 flatpak_remote_add_if_missing() {
   local name="$1"
   local url="$2"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    run_cmd flatpak remote-add --if-not-exists "$name" "$url"
+    return 0
+  fi
   if have_cmd flatpak && flatpak remotes --columns=name 2>/dev/null | grep -Fx "$name" >/dev/null 2>&1; then
     log_info "Flatpak remote already present: $name"
     return 0
@@ -125,19 +129,15 @@ repo_enable_if_missing() {
 }
 
 package_install_idempotent() {
-  local kind="$1"
+  local backend="$1"
   shift
   local -a packages=("$@")
   [[ "${#packages[@]}" -gt 0 ]] || return 0
-  case "$kind" in
-    official) distro_install_official_packages "${packages[@]}" ;;
-    copr) distro_install_copr_packages "${packages[@]}" ;;
-    terra) distro_install_terra_packages "${packages[@]}" ;;
-    rpmfusion) distro_install_rpmfusion_packages "${packages[@]}" ;;
-    vendor) distro_install_vendor_packages "${packages[@]}" ;;
+  case "$backend" in
+    dnf) distro_install_dnf_packages "${packages[@]}" ;;
+    pacman) distro_install_pacman_packages "${packages[@]}" ;;
     aur) distro_install_aur_packages "${packages[@]}" ;;
     flatpak) distro_install_flatpaks "${packages[@]}" ;;
-    *) die "Unsupported package kind: $kind" ;;
+    *) die "Unsupported package backend: $backend" ;;
   esac
 }
-
