@@ -44,6 +44,34 @@ stow_package_is_applicable() {
   command -v "$required_command" >/dev/null 2>&1
 }
 
+stow_prepare_known_shell_files() {
+  local file_name target_path backup_path
+  for file_name in .bashrc .bash_profile .profile; do
+    target_path="$TARGET_HOME/$file_name"
+    [[ -e "$target_path" || -L "$target_path" ]] || continue
+    [[ -L "$target_path" ]] && continue
+    backup_path="$STATE_DIR/backups/$(timestamp)$target_path"
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      printf 'DRY-RUN: move %s -> %s\n' "$target_path" "$backup_path"
+      continue
+    fi
+    mkdir -p "$(dirname "$backup_path")"
+    mv "$target_path" "$backup_path"
+    log_info "Moved existing $target_path to $backup_path before stowing managed shell config"
+  done
+}
+
+stow_prepare_known_conflicts() {
+  local package_name
+  for package_name in "$@"; do
+    case "$package_name" in
+      shell)
+        stow_prepare_known_shell_files
+        ;;
+    esac
+  done
+}
+
 stow_apply_plan() {
   [[ "$SKIP_DOTFILES" -eq 1 ]] && return 0
   local -a packages=()
@@ -75,6 +103,8 @@ stow_apply_plan() {
   fi
   simulate_cmd+=("${packages[@]}")
   apply_cmd+=("${packages[@]}")
+
+  stow_prepare_known_conflicts "${packages[@]}"
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     run_cmd_as_user "$TARGET_USER" "${simulate_cmd[@]}"

@@ -19,6 +19,8 @@ source "$ROOT_DIR/lib/packages.sh"
 source "$ROOT_DIR/lib/sources.sh"
 # shellcheck source=../lib/files.sh
 source "$ROOT_DIR/lib/files.sh"
+# shellcheck source=../lib/stow.sh
+source "$ROOT_DIR/lib/stow.sh"
 # shellcheck source=../lib/planner.sh
 source "$ROOT_DIR/lib/planner.sh"
 # shellcheck source=../lib/os.sh
@@ -68,5 +70,13 @@ checksum_before="$(sha256sum "$dest_file" | awk '{print $1}')"
 file_install_if_changed "$source_file" "$dest_file"
 checksum_after="$(sha256sum "$dest_file" | awk '{print $1}')"
 [[ "$checksum_before" == "$checksum_after" ]]
+
+fake_home="$TEST_ROOT/home"
+mkdir -p "$fake_home"
+TARGET_HOME="$fake_home"
+printf 'existing bashrc\n' >"$TARGET_HOME/.bashrc"
+stow_prepare_known_shell_files
+[[ ! -e "$TARGET_HOME/.bashrc" ]]
+find "$STATE_DIR/backups" -path '*/home/.bashrc' -type f -print -quit | grep -q .
 
 printf 'idempotency ok\n'
