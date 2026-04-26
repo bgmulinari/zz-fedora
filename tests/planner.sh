@@ -62,6 +62,11 @@ grep -F 'gh' <<<"$fedora_shell_core" >/dev/null
 ! grep -F 'copr:atim/starship' <<<"$fedora_shell_core" >/dev/null
 ! grep -F 'copr:lihaohong/yazi' <<<"$fedora_shell_core" >/dev/null
 
+fedora_dev_base="$(run_case fedora-dev-base print-plan --distro fedora --select dev=base --dry-run)"
+grep -F 'vendor:vscode' <<<"$fedora_dev_base" >/dev/null
+grep -F 'code' <<<"$fedora_dev_base" >/dev/null
+grep -F '  - vscode' <<<"$fedora_dev_base" >/dev/null
+
 arch_zen="$(run_case arch-zen print-plan --distro arch --select browser=zen-flatpak --dry-run)"
 grep -F 'flathub' <<<"$arch_zen" >/dev/null
 ! grep -F 'arch-aur.list' <<<"$arch_zen" >/dev/null
@@ -92,6 +97,12 @@ grep -F 'github-cli' <<<"$arch_shell" >/dev/null
 grep -F $'  - fd' <<<"$arch_shell" >/dev/null
 grep -F 'yazi' <<<"$arch_shell" >/dev/null
 ! grep -F 'arch-flatpak-remotes.list' <<<"$arch_shell" >/dev/null
+
+arch_dev_base="$(run_case arch-dev-base print-plan --distro arch --select dev=base --dry-run)"
+grep -F 'arch-aur.list' <<<"$arch_dev_base" >/dev/null
+grep -F 'visual-studio-code-bin' <<<"$arch_dev_base" >/dev/null
+! grep -F $'\n  - code\n' <<<"$arch_dev_base" >/dev/null
+grep -F '  - vscode' <<<"$arch_dev_base" >/dev/null
 
 fedora_base="$(run_case fedora-base print-plan --distro fedora --dry-run)"
 grep -F 'copr:yalter/niri' <<<"$fedora_base" >/dev/null

@@ -65,6 +65,24 @@ EOF
             fi
             rm -f "$repo_file"
             ;;
+          vendor:vscode)
+            local repo_file
+            repo_file="$(mktemp "$CACHE_DIR/vscode.repo.XXXXXX")"
+            cat >"$repo_file" <<'EOF'
+[code]
+name=Visual Studio Code
+baseurl=https://packages.microsoft.com/yumrepos/vscode
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+EOF
+            if [[ "$DRY_RUN" -eq 1 ]]; then
+              printf 'DRY-RUN: install %s -> /etc/yum.repos.d/vscode.repo\n' "$repo_file"
+            else
+              sudo install -Dm0644 "$repo_file" /etc/yum.repos.d/vscode.repo
+            fi
+            rm -f "$repo_file"
+            ;;
         esac
       fi
       ;;
@@ -162,6 +180,9 @@ distro_repo_enabled() {
       ;;
     vendor:google-chrome)
       [[ -f /etc/yum.repos.d/google-chrome.repo ]]
+      ;;
+    vendor:vscode)
+      [[ -f /etc/yum.repos.d/vscode.repo ]]
       ;;
     flathub)
       have_cmd flatpak && flatpak remotes --columns=name 2>/dev/null | grep -Fx flathub >/dev/null 2>&1

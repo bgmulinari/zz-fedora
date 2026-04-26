@@ -1,0 +1,6 @@
+BUNDLE_ID="dev-vscode"
+BUNDLE_INSTALLER="aur"
+BUNDLE_SOURCE_ID="aur"
+BUNDLE_ITEMS_FILE="packages/arch/aur/dev/visual-studio-code-bin.pkgs"
+BUNDLE_STOW_PACKAGES="vscode"
+BUNDLE_DESCRIPTION="Visual Studio Code bundle from AUR for Arch"

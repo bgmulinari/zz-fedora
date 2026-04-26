@@ -81,6 +81,7 @@ module_90_doctor() {
   doctor_check_file "$user_config_home/qt5ct/qt5ct.conf"
   doctor_check_file "$user_config_home/qt6ct/qt6ct.conf"
   doctor_check_file "$user_config_home/nvim/plugin/noctalia.lua"
+  doctor_check_file "$user_config_home/Code/User/settings.json"
   doctor_check_file "$TARGET_HOME/.local/bin/noctalia-screenshot"
   doctor_check_file "$TARGET_HOME/.local/share/wallpapers/SilentPeaks.jpg"
 
@@ -99,6 +100,8 @@ module_90_doctor() {
 
   local native_plan
   native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  local aur_plan
+  aur_plan="$(package_file_for_backend aur)"
 
   if doctor_plan_has_entry "$native_plan" "zsh"; then
     doctor_check_command zsh
@@ -120,7 +123,10 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "neovim"; then
     doctor_check_contains "$user_config_home/noctalia/settings.json" '"enableUserTheming": true'
   fi
-  if doctor_plan_has_entry "$native_plan" "code" || doctor_plan_has_entry "$native_plan" "codium" || doctor_plan_has_entry "$native_plan" "code-insiders" || doctor_plan_has_entry "$native_plan" "vscodium"; then
+  if doctor_plan_has_entry "$native_plan" "code" || doctor_plan_has_entry "$native_plan" "codium" || doctor_plan_has_entry "$native_plan" "code-insiders" || doctor_plan_has_entry "$native_plan" "vscodium" || doctor_plan_has_entry "$aur_plan" "visual-studio-code-bin"; then
+    doctor_check_command code
+    doctor_check_file "$user_config_home/Code/User/settings.json"
+    doctor_check_contains "$user_config_home/Code/User/settings.json" '"workbench.colorTheme": "NoctaliaTheme"'
     doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "code"'
   fi
   if doctor_plan_has_entry "$native_plan" "zoxide"; then

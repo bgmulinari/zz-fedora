@@ -95,6 +95,19 @@ native_plan_has_any() {
   return 1
 }
 
+plan_has_any_backend_entry() {
+  local plan_file="$1"
+  shift
+  local entry
+  for entry in "$@"; do
+    [[ -f "$plan_file" ]] || continue
+    if grep -Fx "$entry" "$plan_file" >/dev/null 2>&1; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 noctalia_browser_template_ids() {
   local browser
   while IFS= read -r browser; do
@@ -113,15 +126,16 @@ update_noctalia_settings() {
   local settings_file="$TARGET_HOME/.config/noctalia/settings.json"
   [[ -f "$settings_file" ]] || return 0
 
-  local native_plan enable_user_theming
+  local native_plan aur_plan enable_user_theming
   native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  aur_plan="$(package_file_for_backend aur)"
   enable_user_theming=false
   if native_plan_has_any "$native_plan" neovim starship zsh; then
     enable_user_theming=true
   fi
 
   local -a template_ids=("niri" "gtk" "qt")
-  if native_plan_has_any "$native_plan" code codium code-insiders vscodium; then
+  if native_plan_has_any "$native_plan" code codium code-insiders vscodium || native_plan_has_any "$aur_plan" visual-studio-code-bin; then
     template_ids+=("code")
   fi
 
@@ -163,6 +177,28 @@ update_noctalia_settings() {
   fi
 
   rm -f "$temp_file"
+}
+
+install_vscode_noctalia_extension() {
+  local native_plan aur_plan
+  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  aur_plan="$(package_file_for_backend aur)"
+
+  if ! plan_has_any_backend_entry "$native_plan" code codium code-insiders vscodium && ! plan_has_any_backend_entry "$aur_plan" visual-studio-code-bin; then
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: sudo -u %s code --install-extension Noctalia.noctaliatheme --force\n' "$TARGET_USER"
+    return 0
+  fi
+
+  if ! command -v code >/dev/null 2>&1; then
+    log_warn "VS Code was planned but 'code' is unavailable; skipping NoctaliaTheme extension install"
+    return 0
+  fi
+
+  run_cmd_as_user "$TARGET_USER" code --install-extension Noctalia.noctaliatheme --force
 }
 
 module_80_post_actions() {
@@ -208,6 +244,7 @@ module_80_post_actions() {
   install_qtct_config 6
   install_noctalia_wallpaper_state
   update_noctalia_settings
+  install_vscode_noctalia_extension
 
   local -a browsers=()
   while IFS= read -r browser; do

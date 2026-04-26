@@ -32,11 +32,14 @@ TARGET_HOME="${HOME}"
 DRY_RUN=1
 load_adapter
 add_category_selection "browser" "firefox,firefox,zen-flatpak"
+add_category_selection "dev" "base"
 add_category_selection "shell" "starship,starship,yazi"
 build_plan_from_selections
 
 [[ "$(grep -Fc 'flathub' "$PLAN_DIR/sources/fedora-flatpak-remotes.list")" -eq 1 ]]
+[[ "$(grep -Fc 'vendor:vscode' "$PLAN_DIR/sources/fedora-vendor.list")" -eq 1 ]]
 [[ "$(grep -Fc 'firefox' "$PLAN_DIR/packages/dnf.pkgs")" -eq 1 ]]
+[[ "$(grep -Fc 'code' "$PLAN_DIR/packages/dnf.pkgs")" -eq 1 ]]
 [[ "$(grep -Fc 'starship' "$PLAN_DIR/packages/dnf.pkgs")" -eq 1 ]]
 [[ "$(grep -Fc 'yazi' "$PLAN_DIR/packages/dnf.pkgs")" -eq 1 ]]
 [[ "$(grep -Fc 'copr:atim/starship' "$PLAN_DIR/sources/fedora-copr.list")" -eq 1 ]]
@@ -48,6 +51,7 @@ build_plan_from_selections
 grep -Fx 'shell' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'nvim' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'noctalia' "$PLAN_DIR/stow/packages.list" >/dev/null
+grep -Fx 'vscode' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'wallpapers' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'shell-starship' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'shell-yazi' "$PLAN_DIR/stow/packages.list" >/dev/null
@@ -64,6 +68,7 @@ grep -Fx '~/.config/noctalia/settings.json' "$PLAN_DIR/files/managed-files.list"
 grep -Fx '~/.config/noctalia/user-templates.toml' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/noctalia/templates/starship.toml' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/noctalia/templates/zsh-syntax-highlighting.zsh' "$PLAN_DIR/files/managed-files.list" >/dev/null
+grep -Fx '~/.config/Code/User/settings.json' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.local/share/wallpapers/SilentPeaks.jpg' "$PLAN_DIR/files/managed-files.list" >/dev/null
 
 touch_target="$TEST_ROOT/should-not-exist"
