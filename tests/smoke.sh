@@ -12,6 +12,7 @@ bash -n modules/*.sh
 
 tests/manifest-parse.sh
 tests/bundles.sh
+tests/bootstrap.sh
 tests/distro-detect.sh
 tests/planner.sh
 tests/idempotency.sh

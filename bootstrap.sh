@@ -76,8 +76,10 @@ bootstrap_confirm() {
     fi
   fi
 
-  local reply
-  read -r -u "$input_fd" "?Continue with bootstrap? [y/N] " reply || true
+  local reply=""
+  if ! IFS= read -r -u "$input_fd" -p "Continue with bootstrap? [y/N] " reply; then
+    reply=""
+  fi
   [[ "$input_fd" -eq 9 ]] && exec 9<&-
   [[ "$reply" =~ ^[Yy]([Ee][Ss])?$ ]]
 }
