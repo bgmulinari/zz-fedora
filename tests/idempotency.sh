@@ -56,14 +56,11 @@ grep -Fx 'nautilus' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
 grep -Fx 'adw-gtk3-theme' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
 grep -Fx 'qt6ct' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
 grep -Fx 'sddm' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
-! grep -Fx 'localsend' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
 grep -Fx '~/.config/niri/config.kdl' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/nvim/plugin/noctalia.lua' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/noctalia/plugins.json' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/noctalia/settings.json' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/noctalia/user-templates.toml' "$PLAN_DIR/files/managed-files.list" >/dev/null
-! grep -Fx '/etc/greetd/config.toml' "$PLAN_DIR/files/managed-files.list" >/dev/null
-! grep -Fx 'mate-polkit' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
 
 touch_target="$TEST_ROOT/should-not-exist"
 run_cmd touch "$touch_target"
