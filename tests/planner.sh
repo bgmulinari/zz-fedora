@@ -22,7 +22,7 @@ run_install_case() {
   XDG_STATE_HOME="$test_root/state" \
   XDG_CACHE_HOME="$test_root/cache" \
   XDG_CONFIG_HOME="$test_root/config" \
-  bash "$ROOT_DIR/install.sh" install "$@" --dry-run
+  bash "$ROOT_DIR/install.sh" install "$@" --dry-run 2>&1
 }
 
 fedora_browsers="$(run_case fedora-browsers print-plan --distro fedora --select browser=firefox,brave --dry-run)"
@@ -107,7 +107,10 @@ grep -F '~/.config/noctalia/user-templates.toml' <<<"$fedora_base" >/dev/null
 ! grep -F 'alacritty' <<<"$fedora_base" >/dev/null
 
 fedora_install="$(run_install_case fedora-login-manager --distro fedora)"
+grep -F '==> [1/12] Preflight' <<<"$fedora_install" >/dev/null
+grep -F '==> [12/12] Doctor' <<<"$fedora_install" >/dev/null
 grep -F 'sudo systemctl enable --force sddm.service' <<<"$fedora_install" >/dev/null
+! grep -F 'Reboot now?' <<<"$fedora_install" >/dev/null
 
 fedora_skip_login_manager="$(run_install_case fedora-skip-login-manager --distro fedora --skip-login-manager)"
 ! grep -F 'sudo systemctl enable --force sddm.service' <<<"$fedora_skip_login_manager" >/dev/null

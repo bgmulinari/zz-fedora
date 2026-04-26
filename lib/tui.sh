@@ -5,6 +5,36 @@ tui_require_gum() {
   have_cmd gum || die "gum is required for wizard mode"
 }
 
+tui_has_gum() {
+  command -v gum >/dev/null 2>&1
+}
+
+tui_can_style() {
+  [[ "${NO_TUI:-0}" -eq 0 ]] && is_tty && tui_has_gum
+}
+
+declare -ag TUI_STEP_ORDER=()
+declare -Ag TUI_STEP_STATUS=()
+TUI_STEP_CURRENT=0
+TUI_STEP_TOTAL=0
+
+tui_reset_steps() {
+  TUI_STEP_ORDER=()
+  TUI_STEP_STATUS=()
+  TUI_STEP_CURRENT=0
+  TUI_STEP_TOTAL=0
+}
+
+tui_register_steps() {
+  local title
+  tui_reset_steps
+  for title in "$@"; do
+    TUI_STEP_ORDER+=("$title")
+    TUI_STEP_STATUS["$title"]="pending"
+  done
+  TUI_STEP_TOTAL="${#TUI_STEP_ORDER[@]}"
+}
+
 tui_intro() {
   clear
   local title subtitle warning banner
@@ -23,14 +53,218 @@ tui_intro() {
 
 tui_confirm() {
   local prompt="$1"
-  gum confirm --prompt.foreground "" --selected.background 12 "$prompt"
+  if tui_can_style; then
+    gum confirm --prompt.foreground "" --selected.background 12 "$prompt"
+    return $?
+  fi
+
+  if ! is_tty; then
+    return 1
+  fi
+
+  local reply
+  read -r "?$prompt [y/N] " reply
+  [[ "$reply" =~ ^[Yy]([Ee][Ss])?$ ]]
 }
 
-tui_choose_target_user() {
-  local current_default="$TARGET_USER"
-  local entered
-  entered="$(gum input --placeholder "$current_default" --prompt "Target user > " --value "$current_default")"
-  TARGET_USER="${entered:-$current_default}"
+tui_step_start() {
+  local current="$1"
+  local total="$2"
+  local title="$3"
+  local description="${4:-}"
+
+  TUI_STEP_CURRENT="$current"
+  TUI_STEP_TOTAL="$total"
+  TUI_STEP_STATUS["$title"]="running"
+
+  if tui_can_style; then
+    printf '\n'
+    gum style --bold --foreground 12 "Step $current/$total"
+    gum style --bold --foreground 4 "$title"
+    [[ -n "$description" ]] && gum style --faint "$description"
+    return 0
+  fi
+
+  printf '\n==> [%s/%s] %s\n' "$current" "$total" "$title"
+  [[ -n "$description" ]] && printf '    %s\n' "$description"
+}
+
+tui_step_done() {
+  local title="$1"
+  TUI_STEP_STATUS["$title"]="done"
+
+  if tui_can_style; then
+    printf '%s %s\n' "$(gum style --foreground 2 '✓')" "$title"
+    return 0
+  fi
+
+  printf 'done: %s\n' "$title"
+}
+
+tui_step_failed() {
+  local title="$1"
+  TUI_STEP_STATUS["$title"]="error"
+
+  if tui_can_style; then
+    printf '%s %s\n' "$(gum style --foreground 1 '✗')" "$title"
+    return 0
+  fi
+
+  printf 'failed: %s\n' "$title"
+}
+
+tui_step_skipped() {
+  local title="$1"
+  TUI_STEP_STATUS["$title"]="skipped"
+
+  if tui_can_style; then
+    printf '%s %s\n' "$(gum style --foreground 3 '○')" "$title"
+    return 0
+  fi
+
+  printf 'skipped: %s\n' "$title"
+}
+
+tui_completion() {
+  local message="$1"
+
+  if tui_can_style; then
+    printf '\n'
+    gum style \
+      --border rounded \
+      --border-foreground 2 \
+      --padding "0 2" \
+      --bold \
+      "$message"
+    return 0
+  fi
+
+  printf '\n%s\n' "$message"
+}
+
+tui_count_plan_group() {
+  local total=0
+  local file
+  for file in "$@"; do
+    [[ -f "$file" ]] || continue
+    total=$((total + $(count_plan_entries "$file")))
+  done
+  printf '%s\n' "$total"
+}
+
+tui_choice_labels_for_category() {
+  local category="$1"
+  local -a labels=()
+  local choice_id record label
+
+  while IFS= read -r choice_id; do
+    [[ -n "$choice_id" ]] || continue
+    record="$(choice_record "$DISTRO" "$category" "$choice_id")"
+    [[ -n "$record" ]] || continue
+    label="$(choice_field "$record" 2)"
+    [[ -n "$label" ]] && labels+=("$label")
+  done < <(effective_choice_ids "$DISTRO" "$category")
+
+  join_by ", " "${labels[@]}"
+}
+
+tui_show_install_plan() {
+  if ! tui_can_style; then
+    print_plan_summary
+    return 0
+  fi
+
+  local native_backend native_packages aur_packages flatpaks sources services dotfiles
+  native_backend="$(native_backend_for_distro "$DISTRO")"
+  native_packages="$(count_plan_entries "$(package_file_for_backend "$native_backend")")"
+  aur_packages="$(count_plan_entries "$(package_file_for_backend aur)")"
+  flatpaks="$(count_plan_entries "$PLAN_DIR/flatpak/apps.flatpaks")"
+  sources="$(tui_count_plan_group "$PLAN_DIR"/sources/*.list)"
+  services="$(tui_count_plan_group "$PLAN_DIR"/services/*.list)"
+  dotfiles="$(count_plan_entries "$PLAN_DIR/stow/packages.list")"
+
+  printf '\n'
+  gum style --bold --foreground 4 "Install Plan"
+  gum style --faint "Detailed plan: $PLAN_DIR/summary.txt"
+  printf '\n'
+  gum style --bold "Context"
+  printf '  %s %s\n' "$(gum style --foreground 12 '→')" "Distro: ${DISTRO^}"
+  printf '  %s %s\n' "$(gum style --foreground 12 '→')" "Target user: $TARGET_USER"
+
+  printf '\n'
+  gum style --bold "Selected Choices"
+  local category labels
+  for category in $(category_names "$DISTRO"); do
+    labels="$(tui_choice_labels_for_category "$category")"
+    [[ -n "$labels" ]] || continue
+    printf '  %s %s: %s\n' "$(gum style --foreground 2 '+')" "$category" "$labels"
+  done
+
+  printf '\n'
+  gum style --bold "Planned Actions"
+  printf '  %s %s %s package%s\n' "$(gum style --foreground 2 '+')" "${native_backend^^}" "$native_packages" "$([[ "$native_packages" -eq 1 ]] && printf '' || printf 's')"
+  [[ "$aur_packages" -gt 0 ]] && printf '  %s AUR %s package%s\n' "$(gum style --foreground 2 '+')" "$aur_packages" "$([[ "$aur_packages" -eq 1 ]] && printf '' || printf 's')"
+  [[ "$flatpaks" -gt 0 ]] && printf '  %s Flatpak %s app%s\n' "$(gum style --foreground 2 '+')" "$flatpaks" "$([[ "$flatpaks" -eq 1 ]] && printf '' || printf 's')"
+  [[ "$sources" -gt 0 ]] && printf '  %s %s source%s\n' "$(gum style --foreground 2 '+')" "$sources" "$([[ "$sources" -eq 1 ]] && printf '' || printf 's')"
+  [[ "$services" -gt 0 ]] && printf '  %s %s service action%s\n' "$(gum style --foreground 2 '+')" "$services" "$([[ "$services" -eq 1 ]] && printf '' || printf 's')"
+  [[ "$dotfiles" -gt 0 ]] && printf '  %s %s dotfile package%s\n' "$(gum style --foreground 2 '+')" "$dotfiles" "$([[ "$dotfiles" -eq 1 ]] && printf '' || printf 's')"
+
+  if [[ "${#INFO_MESSAGES[@]}" -gt 0 ]]; then
+    printf '\n'
+    gum style --bold "Notes"
+    local info
+    for info in "${INFO_MESSAGES[@]}"; do
+      printf '  %s %s\n' "$(gum style --foreground 12 '•')" "$info"
+    done
+  fi
+
+  if [[ "${#WARNING_MESSAGES[@]}" -gt 0 ]]; then
+    printf '\n'
+    gum style --bold --foreground 11 "Warnings"
+    local warning
+    for warning in "${WARNING_MESSAGES[@]}"; do
+      printf '  %s %s\n' "$(gum style --foreground 11 '!')" "$warning"
+    done
+  fi
+}
+
+tui_summary() {
+  local succeeded=0
+  local failed=0
+  local skipped=0
+  local title
+
+  for title in "${TUI_STEP_ORDER[@]:-}"; do
+    case "${TUI_STEP_STATUS[$title]:-pending}" in
+      done) ((++succeeded)) ;;
+      error) ((++failed)) ;;
+      skipped) ((++skipped)) ;;
+    esac
+  done
+
+  if tui_can_style; then
+    local border_color=2
+    [[ "$failed" -gt 0 ]] && border_color=1
+
+    local counts=""
+    [[ "$succeeded" -gt 0 ]] && counts+="$(gum style --bold --foreground 2 '✓') $succeeded succeeded"
+    [[ "$failed" -gt 0 ]] && { [[ -n "$counts" ]] && counts+="  "; counts+="$(gum style --bold --foreground 1 '✗') $failed failed"; }
+    [[ "$skipped" -gt 0 ]] && { [[ -n "$counts" ]] && counts+="  "; counts+="$(gum style --bold --foreground 3 '○') $skipped skipped"; }
+
+    printf '\n'
+    gum style \
+      --border rounded \
+      --border-foreground "$border_color" \
+      --width 70 \
+      --padding "0 2" \
+      --bold \
+      "Setup complete!" "" "$counts"
+    [[ -n "${LOG_FILE:-}" ]] && gum style --faint "log file: $LOG_FILE"
+    return 0
+  fi
+
+  printf '\nSetup complete! succeeded=%s failed=%s skipped=%s\n' "$succeeded" "$failed" "$skipped"
+  [[ -n "${LOG_FILE:-}" ]] && printf 'log file: %s\n' "$LOG_FILE"
 }
 
 tui_choice_option_label() {
@@ -131,7 +365,6 @@ tui_run_wizard() {
   normalize_distro
   gum style --bold "Detected distro: ${DISTRO^}"
   gum style --faint "Install target user: $TARGET_USER"
-  tui_choose_target_user
 
   local -a browser_choices=()
   local -a gaming_choices=()

@@ -16,6 +16,7 @@ LOG_DIR="$STATE_DIR/logs"
 PLAN_DIR="$STATE_DIR/plan"
 SAVED_SELECTIONS="$CONFIG_DIR/selections.conf"
 LOCK_DIR="$STATE_DIR/lock"
+LOG_FILE="${LOG_FILE:-}"
 
 mkdir -p "$STATE_DIR" "$CACHE_DIR" "$CONFIG_DIR" "$LOG_DIR"
 
