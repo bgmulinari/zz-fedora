@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 REPO_URL="https://github.com/bgmulinari/zz-linux-setup.git"
 REF="main"
-INSTALL_DIR="${HOME}/.local/share/zz-linux-setup"
+INSTALL_DIR="${HOME}/zz-linux-setup"
 FORWARD_ARGS=()
 DRY_RUN=0
 ASSUME_YES=0

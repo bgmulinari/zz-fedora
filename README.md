@@ -52,6 +52,8 @@ Remote install:
 curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-linux-setup/main/bootstrap.sh | bash -s -- --ref main
 ```
 
+This clones the repo to `~/zz-linux-setup` by default before launching the installer.
+
 Pinned install:
 
 ```bash
