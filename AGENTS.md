@@ -26,3 +26,4 @@ PRs should state the affected distro(s), summarize any new sources/packages/choi
 ## Agent Notes
 When you need upstream reference code or docs, prefer the read-only repos under `/files/Dev/ref_repos` instead of package decompilation or ad hoc reverse engineering.
 Keep repository-facing names and documentation generic. Do not introduce third-party project branding into bundle IDs, manifest filenames, stow package names, or docs unless the user explicitly asks for that.
+This installer is under active development. Do not add migration logic, backward-compatibility shims, existing-install preservation work, or regression guards for prior behavior unless the user explicitly asks for them.
