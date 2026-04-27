@@ -125,7 +125,9 @@ noctalia_browser_template_ids() {
 
 update_noctalia_settings() {
   local settings_file="$TARGET_HOME/.config/noctalia/settings.json"
-  [[ -f "$settings_file" ]] || return 0
+  if [[ ! -f "$settings_file" ]]; then
+    file_install_if_changed "$ROOT_DIR/templates/noctalia/settings.json" "$settings_file"
+  fi
 
   local native_plan aur_plan enable_user_theming
   native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"

@@ -95,7 +95,6 @@ grep -F '~/.config/nvim/plugin/noctalia.lua' <<<"$arch_base" >/dev/null
 grep -F '~/.config/niri/config.kdl' <<<"$arch_base" >/dev/null
 grep -F '~/.config/niri/noctalia.kdl' <<<"$arch_base" >/dev/null
 grep -F '~/.config/noctalia/plugins.json' <<<"$arch_base" >/dev/null
-grep -F '~/.config/noctalia/settings.json' <<<"$arch_base" >/dev/null
 grep -F '~/.config/noctalia/user-templates.toml' <<<"$arch_base" >/dev/null
 grep -F '~/.config/noctalia/templates/starship.toml' <<<"$arch_base" >/dev/null
 grep -F '~/.config/noctalia/templates/zsh-syntax-highlighting.zsh' <<<"$arch_base" >/dev/null
@@ -135,7 +134,6 @@ grep -F '~/.config/nvim/plugin/noctalia.lua' <<<"$fedora_base" >/dev/null
 grep -F '~/.config/niri/config.kdl' <<<"$fedora_base" >/dev/null
 grep -F '~/.config/niri/noctalia.kdl' <<<"$fedora_base" >/dev/null
 grep -F '~/.config/noctalia/plugins.json' <<<"$fedora_base" >/dev/null
-grep -F '~/.config/noctalia/settings.json' <<<"$fedora_base" >/dev/null
 grep -F '~/.config/noctalia/user-templates.toml' <<<"$fedora_base" >/dev/null
 grep -F '~/.config/noctalia/templates/starship.toml' <<<"$fedora_base" >/dev/null
 grep -F '~/.config/noctalia/templates/zsh-syntax-highlighting.zsh' <<<"$fedora_base" >/dev/null

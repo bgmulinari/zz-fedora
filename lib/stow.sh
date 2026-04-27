@@ -78,7 +78,11 @@ stow_prepare_known_conflicts() {
         stow_backup_existing_target ".config/niri"
         ;;
       noctalia)
-        stow_backup_existing_target ".config/noctalia"
+        stow_backup_existing_target ".config/noctalia/plugins.json"
+        stow_backup_existing_target ".config/noctalia/user-templates.toml"
+        stow_backup_existing_target ".config/noctalia/templates/neovim.lua"
+        stow_backup_existing_target ".config/noctalia/templates/starship.toml"
+        stow_backup_existing_target ".config/noctalia/templates/zsh-syntax-highlighting.zsh"
         ;;
       shell)
         stow_prepare_known_shell_files

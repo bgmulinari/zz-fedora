@@ -29,7 +29,7 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 - Noctalia is launched from Niri autostart with `spawn-at-startup "qs" "-c" "noctalia-shell"`.
 - Noctalia ships with the Niri template pre-enabled through managed user settings.
 - The default wallpaper is installed to `~/.local/share/wallpapers/SilentPeaks.jpg` and Noctalia is pointed at it through `~/.cache/noctalia/wallpapers.json`.
-- `~/.config/niri` and `~/.config/noctalia` are stowed from this repo, so Niri config edits and Noctalia UI-saved settings show up as git changes.
+- Niri config and Noctalia templates/plugins are stowed from this repo. Noctalia's live `settings.json` is seeded into `~/.config/noctalia/settings.json` and then left as writable user state so GUI changes do not dirty the repo.
 - When Visual Studio Code is selected, `~/.config/Code/User/settings.json` is also managed so the editor stays on `NoctaliaTheme`.
 - `~/.config/noctalia/plugins.json` enables Noctalia's built-in `polkit-agent` plugin from the official plugin source, so no separate session polkit binary is launched from Niri.
 - Noctalia template activation is plan-aware: GTK is always enabled, the managed user templates render Neovim, Starship, and Zsh syntax highlighting against the active Noctalia scheme, Firefox theming is enabled when Firefox and a Pywalfox native host are available, and Zen Browser theming is enabled when a Zen bundle is selected.

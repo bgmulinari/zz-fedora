@@ -73,7 +73,6 @@ grep -Fx '~/.config/niri/config.kdl' "$PLAN_DIR/files/managed-files.list" >/dev/
 grep -Fx '~/.config/niri/noctalia.kdl' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/nvim/plugin/noctalia.lua' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/noctalia/plugins.json' "$PLAN_DIR/files/managed-files.list" >/dev/null
-grep -Fx '~/.config/noctalia/settings.json' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/noctalia/user-templates.toml' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/noctalia/templates/starship.toml' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/noctalia/templates/zsh-syntax-highlighting.zsh' "$PLAN_DIR/files/managed-files.list" >/dev/null
@@ -82,10 +81,10 @@ grep -Fx '~/.local/share/wallpapers/SilentPeaks.jpg' "$PLAN_DIR/files/managed-fi
 
 settings_home="$TEST_ROOT/settings-home"
 mkdir -p "$settings_home/.config/noctalia"
-printf '{}\n' >"$settings_home/.config/noctalia/settings.json"
 TARGET_HOME="$settings_home"
 DRY_RUN=0
 update_noctalia_settings
+grep -F '"terminalCommand": "kitty -e"' "$settings_home/.config/noctalia/settings.json" >/dev/null
 grep -F '"id": "kitty"' "$settings_home/.config/noctalia/settings.json" >/dev/null
 grep -F '"id": "pywalfox"' "$settings_home/.config/noctalia/settings.json" >/dev/null
 DRY_RUN=1
@@ -116,10 +115,12 @@ find "$STATE_DIR/backups" -path '*/home/.bashrc' -type f -print -quit | grep -q 
 mkdir -p "$TARGET_HOME/.config/niri" "$TARGET_HOME/.config/noctalia"
 printf 'binds {}\n' >"$TARGET_HOME/.config/niri/config.kdl"
 printf '{}\n' >"$TARGET_HOME/.config/noctalia/settings.json"
+printf 'templates\n' >"$TARGET_HOME/.config/noctalia/user-templates.toml"
 stow_prepare_known_conflicts niri noctalia
 [[ ! -e "$TARGET_HOME/.config/niri" ]]
-[[ ! -e "$TARGET_HOME/.config/noctalia" ]]
+[[ -f "$TARGET_HOME/.config/noctalia/settings.json" ]]
+[[ ! -e "$TARGET_HOME/.config/noctalia/user-templates.toml" ]]
 find "$STATE_DIR/backups" -path '*/home/.config/niri/config.kdl' -type f -print -quit | grep -q .
-find "$STATE_DIR/backups" -path '*/home/.config/noctalia/settings.json' -type f -print -quit | grep -q .
+find "$STATE_DIR/backups" -path '*/home/.config/noctalia/user-templates.toml' -type f -print -quit | grep -q .
 
 printf 'idempotency ok\n'
