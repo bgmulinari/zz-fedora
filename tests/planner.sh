@@ -97,6 +97,7 @@ grep -F '~/.config/niri/config.kdl' <<<"$arch_base" >/dev/null
 grep -F '~/.config/niri/noctalia.kdl' <<<"$arch_base" >/dev/null
 grep -F '~/.config/noctalia/plugins.json' <<<"$arch_base" >/dev/null
 grep -F '~/.config/noctalia/user-templates.toml' <<<"$arch_base" >/dev/null
+grep -F '~/.config/noctalia/templates/icon-theme-accent' <<<"$arch_base" >/dev/null
 grep -F '~/.config/noctalia/templates/starship.toml' <<<"$arch_base" >/dev/null
 grep -F '~/.config/noctalia/templates/zsh-syntax-highlighting.zsh' <<<"$arch_base" >/dev/null
 grep -F '~/.local/share/wallpapers/SilentPeaks.jpg' <<<"$arch_base" >/dev/null
@@ -137,6 +138,7 @@ grep -F '~/.config/niri/config.kdl' <<<"$fedora_base" >/dev/null
 grep -F '~/.config/niri/noctalia.kdl' <<<"$fedora_base" >/dev/null
 grep -F '~/.config/noctalia/plugins.json' <<<"$fedora_base" >/dev/null
 grep -F '~/.config/noctalia/user-templates.toml' <<<"$fedora_base" >/dev/null
+grep -F '~/.config/noctalia/templates/icon-theme-accent' <<<"$fedora_base" >/dev/null
 grep -F '~/.config/noctalia/templates/starship.toml' <<<"$fedora_base" >/dev/null
 grep -F '~/.config/noctalia/templates/zsh-syntax-highlighting.zsh' <<<"$fedora_base" >/dev/null
 grep -F '~/.local/share/wallpapers/SilentPeaks.jpg' <<<"$fedora_base" >/dev/null
@@ -147,6 +149,7 @@ grep -F '==> [1/12] Preflight' <<<"$fedora_install" >/dev/null
 grep -F '==> [12/12] Doctor' <<<"$fedora_install" >/dev/null
 grep -F 'sudo systemctl enable --force sddm.service' <<<"$fedora_install" >/dev/null
 grep -F 'gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3' <<<"$fedora_install" >/dev/null
+grep -F 'gsettings set org.gnome.desktop.interface icon-theme Yaru-blue' <<<"$fedora_install" >/dev/null
 ! grep -F 'Reboot now?' <<<"$fedora_install" >/dev/null
 
 fedora_skip_login_manager="$(run_install_case fedora-skip-login-manager --distro fedora --skip-login-manager)"

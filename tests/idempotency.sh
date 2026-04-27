@@ -74,9 +74,11 @@ grep -Fx '~/.config/niri/noctalia.kdl' "$PLAN_DIR/files/managed-files.list" >/de
 grep -Fx '~/.config/nvim/plugin/noctalia.lua' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/noctalia/plugins.json' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/noctalia/user-templates.toml' "$PLAN_DIR/files/managed-files.list" >/dev/null
+grep -Fx '~/.config/noctalia/templates/icon-theme-accent' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/noctalia/templates/starship.toml' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/noctalia/templates/zsh-syntax-highlighting.zsh' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/Code/User/settings.json' "$PLAN_DIR/files/managed-files.list" >/dev/null
+grep -Fx '~/.local/bin/noctalia-sync-icon-theme' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.local/share/wallpapers/SilentPeaks.jpg' "$PLAN_DIR/files/managed-files.list" >/dev/null
 
 settings_home="$TEST_ROOT/settings-home"

@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+accent_file="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia/icon-theme-accent"
+accent="$(tr -d '[:space:]' <"$accent_file" 2>/dev/null || true)"
+
+if [[ ! "$accent" =~ ^#[0-9a-fA-F]{6}$ ]]; then
+  accent="#3584e4"
+fi
+
+hex_to_rgb() {
+  local hex="${1#\#}"
+  printf '%d %d %d\n' "0x${hex:0:2}" "0x${hex:2:2}" "0x${hex:4:2}"
+}
+
+rgb_chroma() {
+  local r="$1" g="$2" b="$3" max min
+  max="$r"
+  (( g > max )) && max="$g"
+  (( b > max )) && max="$b"
+  min="$r"
+  (( g < min )) && min="$g"
+  (( b < min )) && min="$b"
+  printf '%d\n' "$((max - min))"
+}
+
+rgb_hue() {
+  local r="$1" g="$2" b="$3" max min delta hue
+  max="$r"
+  (( g > max )) && max="$g"
+  (( b > max )) && max="$b"
+  min="$r"
+  (( g < min )) && min="$g"
+  (( b < min )) && min="$b"
+  delta="$((max - min))"
+
+  if (( delta == 0 )); then
+    printf '0\n'
+  elif (( max == r )); then
+    hue="$((60 * (g - b) / delta))"
+    (( hue < 0 )) && hue="$((hue + 360))"
+    printf '%d\n' "$hue"
+  elif (( max == g )); then
+    printf '%d\n' "$((60 * (b - r) / delta + 120))"
+  else
+    printf '%d\n' "$((60 * (r - g) / delta + 240))"
+  fi
+}
+
+hue_distance() {
+  local h1="$1" h2="$2" diff
+  diff="$((h1 > h2 ? h1 - h2 : h2 - h1))"
+  (( diff > 180 )) && diff="$((360 - diff))"
+  printf '%d\n' "$diff"
+}
+
+icon_theme_exists() {
+  local theme="$1"
+  [[ -d "$HOME/.local/share/icons/$theme" || -d "$HOME/.icons/$theme" || -d "/usr/share/icons/$theme" ]]
+}
+
+read -r accent_r accent_g accent_b < <(hex_to_rgb "$accent")
+accent_chroma="$(rgb_chroma "$accent_r" "$accent_g" "$accent_b")"
+accent_hue="$(rgb_hue "$accent_r" "$accent_g" "$accent_b")"
+
+best_theme=""
+best_distance=""
+theme_locked=false
+
+if (( accent_chroma < 24 )); then
+  for theme in Yaru-gray Yaru-grey Yaru-dark Yaru; do
+    if icon_theme_exists "$theme"; then
+      best_theme="$theme"
+      theme_locked=true
+      break
+    fi
+  done
+fi
+
+while read -r theme hex; do
+  [[ "$theme_locked" == false ]] || break
+  icon_theme_exists "$theme" || continue
+  read -r theme_r theme_g theme_b < <(hex_to_rgb "$hex")
+  distance="$(hue_distance "$accent_hue" "$(rgb_hue "$theme_r" "$theme_g" "$theme_b")")"
+  if [[ -z "$best_distance" || "$distance" -lt "$best_distance" ]]; then
+    best_distance="$distance"
+    best_theme="$theme"
+  fi
+done <<'EOF'
+Yaru-blue #3584e4
+Yaru-purple #9141ac
+Yaru-magenta #c061cb
+Yaru-red #e01b24
+Yaru-olive #4e9a06
+Yaru-sage #8ff0a4
+Yaru-prussiangreen #308280
+Yaru-yellow #f5c211
+Yaru-wartybrown #986a44
+EOF
+
+best_theme="${best_theme:-Yaru-blue}"
+
+gsettings set org.gnome.desktop.interface icon-theme "$best_theme" || true
+
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl --user set-environment "QS_ICON_THEME=$best_theme" >/dev/null 2>&1 || true
+fi
+
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+  QS_ICON_THEME="$best_theme" dbus-update-activation-environment --systemd QS_ICON_THEME >/dev/null 2>&1 || true
+fi

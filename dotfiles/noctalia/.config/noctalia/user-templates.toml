@@ -12,3 +12,8 @@ output_path = "~/.config/starship.toml"
 [templates.zshSyntaxHighlighting]
 input_path = "~/.config/noctalia/templates/zsh-syntax-highlighting.zsh"
 output_path = "~/.zsh/noctalia-zsh-syntax-highlighting.zsh"
+
+[templates.iconTheme]
+input_path = "~/.config/noctalia/templates/icon-theme-accent"
+output_path = "~/.cache/noctalia/icon-theme-accent"
+post_hook = "~/.local/bin/noctalia-sync-icon-theme"

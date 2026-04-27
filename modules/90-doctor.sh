@@ -111,6 +111,7 @@ module_90_doctor() {
   doctor_check_file "$user_config_home/noctalia/settings.json"
   doctor_check_file "$user_config_home/noctalia/plugins.json"
   doctor_check_file "$user_config_home/noctalia/user-templates.toml"
+  doctor_check_file "$user_config_home/noctalia/templates/icon-theme-accent"
   doctor_check_file "$user_config_home/noctalia/templates/neovim.lua"
   doctor_check_file "$user_config_home/noctalia/templates/starship.toml"
   doctor_check_file "$user_config_home/noctalia/templates/zsh-syntax-highlighting.zsh"
@@ -119,6 +120,7 @@ module_90_doctor() {
   doctor_check_file "$user_config_home/gtk-4.0/noctalia.css"
   doctor_check_file "$user_config_home/nvim/plugin/noctalia.lua"
   doctor_check_file "$user_config_home/Code/User/settings.json"
+  doctor_check_file "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme"
   doctor_check_file "$TARGET_HOME/.local/bin/noctalia-screenshot"
   doctor_check_file "$TARGET_HOME/.local/share/wallpapers/SilentPeaks.jpg"
   if [[ "$DISTRO" == "fedora" ]]; then
@@ -136,6 +138,7 @@ module_90_doctor() {
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "niri"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "gtk"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "kitty"'
+  doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.iconTheme]'
   doctor_check_contains "$TARGET_HOME/.cache/noctalia/wallpapers.json" '"defaultWallpaper": "'"$TARGET_HOME"'/.local/share/wallpapers/SilentPeaks.jpg"'
   doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.neovim]'
 
