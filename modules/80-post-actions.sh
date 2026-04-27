@@ -131,12 +131,12 @@ update_noctalia_settings() {
   native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
   aur_plan="$(package_file_for_backend aur)"
   enable_user_theming=false
-  if native_plan_has_any "$native_plan" kitty neovim starship zsh; then
+  if native_plan_has_any "$native_plan" neovim starship zsh; then
     enable_user_theming=true
   fi
 
-  local -a template_ids=("niri" "gtk")
-  local -a managed_template_ids=("niri" "gtk" "code" "pywalfox" "zenBrowser")
+  local -a template_ids=("niri" "gtk" "kitty")
+  local -a managed_template_ids=("niri" "gtk" "kitty" "code" "pywalfox" "zenBrowser")
   if native_plan_has_any "$native_plan" code codium code-insiders vscodium || native_plan_has_any "$aur_plan" visual-studio-code-bin; then
     template_ids+=("code")
   fi

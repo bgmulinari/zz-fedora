@@ -5,11 +5,6 @@ input_path = "~/.config/noctalia/templates/neovim.lua"
 output_path = "~/.config/nvim/colors/noctalia.lua"
 post_hook = "pkill -SIGUSR1 nvim"
 
-[templates.kitty]
-input_path = "~/.config/noctalia/templates/kitty.conf"
-output_path = "~/.config/kitty/noctalia.conf"
-post_hook = "pkill -USR1 kitty || true"
-
 [templates.starship]
 input_path = "~/.config/noctalia/templates/starship.toml"
 output_path = "~/.config/starship.toml"

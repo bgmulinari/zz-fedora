@@ -103,7 +103,6 @@ module_90_doctor() {
   doctor_check_file "$user_config_home/noctalia/settings.json"
   doctor_check_file "$user_config_home/noctalia/plugins.json"
   doctor_check_file "$user_config_home/noctalia/user-templates.toml"
-  doctor_check_file "$user_config_home/noctalia/templates/kitty.conf"
   doctor_check_file "$user_config_home/noctalia/templates/neovim.lua"
   doctor_check_file "$user_config_home/noctalia/templates/starship.toml"
   doctor_check_file "$user_config_home/noctalia/templates/zsh-syntax-highlighting.zsh"
@@ -122,14 +121,14 @@ module_90_doctor() {
   doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "kitty"'
   doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "nautilus"'
   doctor_check_contains "$niri_config_home/config.kdl" 'include "./noctalia.kdl"'
-  doctor_check_contains "$user_config_home/kitty/kitty.conf" 'include noctalia.conf'
+  doctor_check_contains "$user_config_home/kitty/kitty.conf" 'include current-theme.conf'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"terminalCommand": "kitty -e"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"predefinedScheme": "Catppuccin"'
   doctor_check_contains "$user_config_home/noctalia/plugins.json" '"polkit-agent"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "niri"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "gtk"'
+  doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "kitty"'
   doctor_check_contains "$TARGET_HOME/.cache/noctalia/wallpapers.json" '"defaultWallpaper": "'"$TARGET_HOME"'/.local/share/wallpapers/SilentPeaks.jpg"'
-  doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.kitty]'
   doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.neovim]'
 
   local native_plan
