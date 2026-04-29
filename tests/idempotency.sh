@@ -27,6 +27,8 @@ source "$ROOT_DIR/lib/planner.sh"
 source "$ROOT_DIR/lib/os.sh"
 # shellcheck source=../modules/80-post-actions.sh
 source "$ROOT_DIR/modules/80-post-actions.sh"
+# shellcheck source=../modules/30-packages.sh
+source "$ROOT_DIR/modules/30-packages.sh"
 
 DISTRO="fedora"
 TARGET_USER="${USER}"
@@ -173,5 +175,109 @@ install_starship_config
 [[ -f "$TARGET_HOME/.config/starship.toml" ]]
 grep -F 'palette = "noctalia"' "$TARGET_HOME/.config/starship.toml" >/dev/null
 find "$STATE_DIR/backups" -path '*/home/.config/starship.toml' -type f -print -quit | grep -q .
+
+optional_plan="$TEST_ROOT/optional.pkgs"
+printf 'bad-package\ngood-package\n' >"$optional_plan"
+install_attempts=()
+distro_install_dnf_packages() {
+  install_attempts+=("$*")
+  [[ " $* " != *" bad-package "* ]]
+}
+install_from_plan_file dnf "$optional_plan" optional
+[[ "${install_attempts[0]}" == "bad-package good-package" ]]
+[[ "${install_attempts[1]}" == "bad-package" ]]
+[[ "${install_attempts[2]}" == "good-package" ]]
+
+reset_test_selections() {
+  CATEGORY_OVERRIDES=()
+  CATEGORY_ADDITIONS=()
+  CATEGORY_OVERRIDE_PRESENT=()
+  local category
+  for category in ai browsers dev dotnet gaming media office; do
+    set_category_override "$category" ""
+  done
+}
+
+assert_base_plan_for_distro() {
+  local distro="$1"
+  local native_plan="$2"
+  local base_var="BASE_BUNDLE_IDS_${distro}"
+  local -n base_bundle_ids_ref="$base_var"
+  local bundle_id plan_file base_item
+
+  DISTRO="$distro"
+  TARGET_HOME="${HOME}"
+  DRY_RUN=1
+  reset_test_selections
+  build_plan_from_selections
+
+  for bundle_id in "${base_bundle_ids_ref[@]}"; do
+    grep -Fx "$bundle_id" "$PLAN_DIR/bundles.list" >/dev/null
+    load_bundle_descriptor "$distro" "$bundle_id"
+    plan_file="$(package_file_for_backend "$BUNDLE_INSTALLER")"
+    while IFS= read -r base_item; do
+      [[ -n "$base_item" ]] || continue
+      grep -Fx "$base_item" "$plan_file" >/dev/null
+    done < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
+  done
+
+  grep -Fx 'niri' "$native_plan" >/dev/null
+  grep -Fx 'sddm' "$native_plan" >/dev/null
+  grep -Fx 'zsh' "$native_plan" >/dev/null
+  grep -Fx 'noctalia-shell' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null 2>&1 || grep -Fx 'noctalia-shell' "$PLAN_DIR/packages/aur.pkgs" >/dev/null
+}
+
+assert_package_module_installs_base_before_optional() {
+  local distro="$1"
+  local first_base_backend="$2"
+  local optional_package="$3"
+  shift 3
+  local -a required_before_optional=("$@")
+
+  DISTRO="$distro"
+  TARGET_HOME="${HOME}"
+  DRY_RUN=1
+  reset_test_selections
+  add_category_selection "dev" "vscode"
+  build_plan_from_selections
+
+  package_install_calls=()
+  package_install_idempotent() {
+    local backend="$1"
+    shift
+    package_install_calls+=("$backend:$*")
+    [[ " $* " != *" $optional_package "* ]]
+  }
+  module_30_packages
+
+  [[ "${package_install_calls[0]}" == "$first_base_backend":* ]]
+
+  local optional_index=-1
+  local found_optional_retry=0
+  local idx call required_item found_required
+  for idx in "${!package_install_calls[@]}"; do
+    call="${package_install_calls[$idx]}"
+    if [[ " $call " == *" $optional_package "* && "$optional_index" -eq -1 ]]; then
+      optional_index="$idx"
+    fi
+    [[ "$call" == *":$optional_package" ]] && found_optional_retry=1
+  done
+  [[ "$optional_index" -gt 0 ]]
+  [[ "$found_optional_retry" -eq 1 ]]
+
+  for required_item in "${required_before_optional[@]}"; do
+    found_required=0
+    for ((idx = 0; idx < optional_index; idx++)); do
+      [[ " ${package_install_calls[$idx]#*:} " == *" $required_item "* ]] && found_required=1
+    done
+    [[ "$found_required" -eq 1 ]]
+  done
+}
+
+assert_base_plan_for_distro fedora "$PLAN_DIR/packages/dnf.pkgs"
+assert_package_module_installs_base_before_optional fedora dnf code niri noctalia-shell sddm zsh
+
+assert_base_plan_for_distro arch "$PLAN_DIR/packages/pacman.pkgs"
+assert_package_module_installs_base_before_optional arch pacman visual-studio-code-bin niri noctalia-shell sddm zsh
 
 printf 'idempotency ok\n'

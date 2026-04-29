@@ -35,14 +35,23 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 - Noctalia template activation is plan-aware: GTK is always enabled; built-in templates are enabled for installed supported apps such as Niri, Ghostty, Starship, btop, Yazi, VS Code, Pywalfox, and Zen Browser; user templates are kept for repo-specific Neovim, Zsh syntax highlighting, and icon-theme integration.
 - Firefox Noctalia theming uses Pywalfox. Arch installs the native host from AUR, while Fedora installs it globally with `sudo python3 -m pip install --upgrade pywalfox` and then registers the native messaging host for the target user.
 - The installer never starts SDDM immediately. Reboot to begin using the graphical login.
-- Selecting the `Developer tools` bundle also installs Visual Studio Code, with Noctalia's built-in `code` template enabled automatically. Fedora uses Microsoft's RPM repo; Arch uses the AUR `visual-studio-code-bin` package.
+- Selecting Visual Studio Code also enables Noctalia's built-in `code` template automatically. Fedora uses Microsoft's RPM repo; Arch uses the AUR `visual-studio-code-bin` package.
 
-## Optional Shell Tooling
+## Bundle Model
 
-- The wizard exposes a `Shell / CLI tools` category for optional terminal utilities and prompt tooling.
+- `BASE_BUNDLE_IDS_<distro>` defines the non-optional base bundles for each distro.
+- Base bundles are always planned and installed first. They are the protected desktop baseline, including Niri, Noctalia, SDDM, Zsh, Firefox, core services, portals, GTK integration, file integration, and managed base dotfiles.
+- A base bundle failure is fatal because the result would not be a functioning desktop baseline.
+- `DEFAULT_BUNDLE_IDS_<distro>` defines broader default selections that are planned by default but installed after the base bundles.
+- Wizard and `--select` choices add or override optional categories. Optional package/source/action failures warn and continue where possible so one broken optional component does not prevent the base desktop setup from completing.
+
+## Shell Tooling
+
+- The base install always includes Zsh and its managed config.
+- The wizard exposes a `Shell / CLI tools` category for terminal utilities and prompt tooling.
 - Current choices include `zsh`, `starship`, `zoxide`, `fastfetch`, `gh`, `btop`, `fd`, `fzf`, `bat`, and `yazi`.
 - The Starship prompt uses a managed static config and Noctalia's built-in `starship` template injects the active theme palette.
-- Selecting `zsh` bootstraps Oh My Zsh, installs the managed `~/.zshrc`, and changes the target user's login shell to `/bin/zsh`.
+- Zsh setup bootstraps Oh My Zsh, installs the managed `~/.zshrc`, and changes the target user's login shell to `/bin/zsh`.
 - `doctor` checks the selected shell tools and their managed config files when they are present in the saved plan.
 
 ## Install
@@ -72,7 +81,7 @@ cd zz-linux-setup
 Non-interactive install:
 
 ```bash
-./install.sh install --yes --select browser=firefox,brave --select dev=base --select shell=zsh,starship,gh,fzf
+./install.sh install --yes --select browser=firefox,brave --select dev=vscode,neovim --select shell=zsh,starship,gh,fzf
 ```
 
 Supported commands:
@@ -98,6 +107,7 @@ Managed items:
 - package sources and repositories
 - package installation
 - Flatpak remotes and apps
+- base bundle installation before optional bundle installation
 - system services
 - SDDM enablement
 - managed dotfiles through `stow --restow`
@@ -125,10 +135,10 @@ Re-running should:
 
 ## Third-Party Source Warnings
 
-- Fedora COPRs are optional or required depending on the selected component set. Review them before enabling.
-- RPM Fusion is opt-in unless required by selected features such as codecs or Steam.
+- Fedora COPRs are optional or required depending on the base and selected component set. Review them before enabling.
+- RPM Fusion is part of Fedora's default selections because codecs and Steam are default-selected, but it is not part of the protected base desktop baseline.
 - AUR is required for Noctalia on Arch in this installer and depends on an existing `paru` or `yay`.
-- Flathub is optional and is enabled explicitly or when a selected Flatpak requires it.
+- Flathub is part of the default selections when default Flatpak apps are planned, but it is not part of the protected base desktop baseline.
 - Selecting `zsh` also fetches Oh My Zsh plus the `zsh-autosuggestions` and `zsh-syntax-highlighting` plugin repositories from GitHub.
 
 ## How To Extend
@@ -136,13 +146,15 @@ Re-running should:
 Add a package:
 
 1. Put the package name in the appropriate distro/source manifest under `packages/`.
-2. Reference that manifest from a choice file or the mandatory base plan.
+2. Reference that manifest from a bundle descriptor.
+3. Add the bundle to `BASE_BUNDLE_IDS_<distro>` only if it is required for the non-optional functioning desktop baseline. Otherwise expose it through `DEFAULT_BUNDLE_IDS_<distro>` or a choice file.
 
 Add a source:
 
 1. Add a `.source` descriptor under `sources/<distro>/`.
 2. Teach the relevant distro adapter how to enable it if it is a new source kind.
-3. Reference the source ID from a choice file or base planner rule.
+3. Reference the source ID from a bundle descriptor.
+4. Mark sources required only when a base bundle depends on them.
 
 Add a wizard choice:
 
@@ -156,6 +168,7 @@ Add another distro:
 2. Add `sources/newdistro/`.
 3. Add `packages/newdistro/`.
 4. Add `choices/newdistro/`.
+5. Define `BASE_BUNDLE_IDS_newdistro` for the non-optional desktop baseline and `DEFAULT_BUNDLE_IDS_newdistro` for broader default selections.
 
 The common modules should not need changes for a straightforward new adapter.
 
@@ -167,4 +180,4 @@ Run:
 ./tests/smoke.sh
 ```
 
-That covers shell syntax, parser tests, distro detection, planner expectations, and idempotency helper behavior.
+That covers shell syntax, parser tests, distro detection, planner expectations, idempotency helper behavior, and the base-bundles-first install invariant for every supported distro.

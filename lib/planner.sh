@@ -86,9 +86,15 @@ build_plan_from_selections() {
   local -a plan_backends=()
   local base_var="BASE_BUNDLE_IDS_${DISTRO}"
   local -n base_bundle_ids_ref="$base_var"
+  local default_var="DEFAULT_BUNDLE_IDS_${DISTRO}"
+  local -n default_bundle_ids_ref="$default_var"
   local bundle_id
 
   for bundle_id in "${base_bundle_ids_ref[@]}"; do
+    append_unique selected_bundle_ids "$bundle_id"
+  done
+
+  for bundle_id in "${default_bundle_ids_ref[@]}"; do
     append_unique selected_bundle_ids "$bundle_id"
   done
 

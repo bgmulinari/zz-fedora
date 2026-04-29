@@ -8,6 +8,6 @@ module_50_login_manager() {
     run_cmd sudo systemctl enable --force sddm.service
     printf 'SDDM is enabled. Reboot to start the graphical login.\n'
   else
-    log_warn "SDDM service is not available yet; skipping explicit enable in login-manager step."
+    die "SDDM service is not available after package installation. Check the package step above before rebooting."
   fi
 }

@@ -14,6 +14,36 @@ DEFAULT_SYSTEM_SERVICES=(
 
 BASE_BUNDLE_IDS_fedora=(
   base-bootstrap
+  base-desktop-niri
+  base-noctalia
+  base-ghostty
+  base-desktop-core
+  base-gtk-portals
+  base-system-services
+  base-desktop-apps
+  base-file-integration
+  base-wayland-tools
+  base-gtk-look
+  shell-zsh
+  browser-firefox
+)
+
+BASE_BUNDLE_IDS_arch=(
+  base-bootstrap
+  base-desktop-core
+  base-noctalia
+  base-gtk-portals
+  base-system-services
+  base-desktop-apps
+  base-file-integration
+  base-wayland-tools
+  base-gtk-look
+  shell-zsh
+  browser-firefox
+)
+
+DEFAULT_BUNDLE_IDS_fedora=(
+  base-bootstrap
   base-source-rpmfusion-free
   base-source-rpmfusion-nonfree
   base-source-flathub
@@ -43,7 +73,7 @@ BASE_BUNDLE_IDS_fedora=(
   browser-firefox
 )
 
-BASE_BUNDLE_IDS_arch=(
+DEFAULT_BUNDLE_IDS_arch=(
   base-bootstrap
   base-desktop-core
   base-noctalia

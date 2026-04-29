@@ -215,6 +215,9 @@ module_35_custom_actions() {
   while IFS= read -r action; do
     [[ -n "$action" ]] || continue
     printf 'action: %s\n' "$action"
-    run_custom_action "$action"
+    if run_custom_action "$action"; then
+      continue
+    fi
+    log_warn "Optional custom action failed and will be skipped for now: $action"
   done < <(read_plan_file "$PLAN_DIR/actions/actions.list")
 }
