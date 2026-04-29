@@ -1,0 +1,5 @@
+SOURCE_ID="cisco-openh264"
+SOURCE_KIND="cisco-openh264"
+SOURCE_LABEL="Fedora Cisco OpenH264"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="Fedora Cisco OpenH264 repository"

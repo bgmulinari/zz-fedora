@@ -9,6 +9,7 @@ module_10_sources() {
         "$PLAN_DIR/sources/fedora-copr.list" \
         "$PLAN_DIR/sources/fedora-terra.list" \
         "$PLAN_DIR/sources/fedora-rpmfusion.list" \
+        "$PLAN_DIR/sources/fedora-cisco-openh264.list" \
         "$PLAN_DIR/sources/fedora-vendor.list" \
         "$PLAN_DIR/sources/fedora-flatpak-remotes.list"
       do
@@ -34,4 +35,3 @@ module_10_sources() {
       ;;
   esac
 }
-

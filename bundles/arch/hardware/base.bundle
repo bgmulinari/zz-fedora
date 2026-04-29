@@ -1,6 +1,0 @@
-BUNDLE_ID="hardware-base"
-BUNDLE_INSTALLER="pacman"
-BUNDLE_SOURCE_ID=""
-BUNDLE_ITEMS_FILE="packages/arch/official/optional-hardware.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Hardware helper bundle for Arch"

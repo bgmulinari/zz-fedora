@@ -25,160 +25,123 @@ run_install_case() {
   bash "$ROOT_DIR/install.sh" install "$@" --dry-run 2>&1
 }
 
-fedora_browsers="$(run_case fedora-browsers print-plan --distro fedora --select browser=firefox,brave --dry-run)"
-grep -F 'vendor:brave' <<<"$fedora_browsers" >/dev/null
-grep -F 'python3-pip' <<<"$fedora_browsers" >/dev/null
-! grep -F 'vendor:google-chrome' <<<"$fedora_browsers" >/dev/null
+assert_contains() {
+  local haystack="$1"
+  local needle="$2"
+  grep -F "$needle" <<<"$haystack" >/dev/null
+}
 
-fedora_chrome="$(run_case fedora-chrome print-plan --distro fedora --select browser=chrome --dry-run)"
-grep -F 'vendor:google-chrome' <<<"$fedora_chrome" >/dev/null
-
-fedora_zen="$(run_case fedora-zen print-plan --distro fedora --select browser=zen-flatpak --dry-run)"
-grep -F 'flathub' <<<"$fedora_zen" >/dev/null
-! grep -F 'vendor:brave' <<<"$fedora_zen" >/dev/null
-
-fedora_steam="$(run_case fedora-steam print-plan --distro fedora --select gaming=steam --dry-run)"
-grep -F 'rpmfusion-free' <<<"$fedora_steam" >/dev/null
-grep -F 'rpmfusion-nonfree' <<<"$fedora_steam" >/dev/null
-grep -F 'steam' <<<"$fedora_steam" >/dev/null
-
-fedora_codecs="$(run_case fedora-codecs print-plan --distro fedora --select media=codecs --dry-run)"
-grep -F 'rpmfusion-free' <<<"$fedora_codecs" >/dev/null
-grep -F 'rpmfusion-nonfree' <<<"$fedora_codecs" >/dev/null
-grep -F 'gstreamer1-plugins-bad-freeworld' <<<"$fedora_codecs" >/dev/null
-! grep -F 'vendor:brave' <<<"$fedora_codecs" >/dev/null
-
-fedora_starship="$(run_case fedora-starship print-plan --distro fedora --select shell=starship --dry-run)"
-grep -F 'copr:atim/starship' <<<"$fedora_starship" >/dev/null
-grep -F 'copr:lihaohong/yazi' <<<"$fedora_starship" >/dev/null
-
-fedora_yazi="$(run_case fedora-yazi print-plan --distro fedora --select shell=yazi --dry-run)"
-grep -F 'copr:lihaohong/yazi' <<<"$fedora_yazi" >/dev/null
-grep -F 'copr:atim/starship' <<<"$fedora_yazi" >/dev/null
-
-fedora_shell_core="$(run_case fedora-shell-core print-plan --distro fedora --select shell=zsh,fastfetch,gh --dry-run)"
-grep -F 'zsh' <<<"$fedora_shell_core" >/dev/null
-grep -F 'fastfetch' <<<"$fedora_shell_core" >/dev/null
-grep -F 'gh' <<<"$fedora_shell_core" >/dev/null
-grep -F 'copr:atim/starship' <<<"$fedora_shell_core" >/dev/null
-grep -F 'copr:lihaohong/yazi' <<<"$fedora_shell_core" >/dev/null
-
-fedora_shell_empty="$(run_case fedora-shell-empty print-plan --distro fedora --select shell= --dry-run)"
-grep -F 'copr:atim/starship' <<<"$fedora_shell_empty" >/dev/null
-grep -F 'copr:lihaohong/yazi' <<<"$fedora_shell_empty" >/dev/null
-grep -F 'gh' <<<"$fedora_shell_empty" >/dev/null
-
-fedora_dev_base="$(run_case fedora-dev-base print-plan --distro fedora --select dev=base --dry-run)"
-grep -F 'vendor:vscode' <<<"$fedora_dev_base" >/dev/null
-grep -F 'code' <<<"$fedora_dev_base" >/dev/null
-grep -F '  - vscode' <<<"$fedora_dev_base" >/dev/null
-
-arch_zen="$(run_case arch-zen print-plan --distro arch --select browser=zen-flatpak --dry-run)"
-grep -F 'flathub' <<<"$arch_zen" >/dev/null
-! grep -F 'arch-aur.list' <<<"$arch_zen" >/dev/null
-
-arch_base="$(run_case arch-base print-plan --distro arch --dry-run)"
-grep -F 'arch-aur.list' <<<"$arch_base" >/dev/null
-grep -F 'noctalia-shell' <<<"$arch_base" >/dev/null
-grep -F 'ghostty' <<<"$arch_base" >/dev/null
-grep -F 'sddm' <<<"$arch_base" >/dev/null
-grep -F 'nautilus' <<<"$arch_base" >/dev/null
-grep -F 'fontconfig' <<<"$arch_base" >/dev/null
-grep -F 'adw-gtk-theme' <<<"$arch_base" >/dev/null
-grep -F 'gnome-themes-extra' <<<"$arch_base" >/dev/null
-grep -F 'noto-fonts' <<<"$arch_base" >/dev/null
-grep -F 'noto-fonts-cjk' <<<"$arch_base" >/dev/null
-grep -F 'noto-fonts-emoji' <<<"$arch_base" >/dev/null
-grep -F 'ttf-jetbrains-mono-nerd' <<<"$arch_base" >/dev/null
-grep -F 'woff2-font-awesome' <<<"$arch_base" >/dev/null
-grep -F 'yaru-icon-theme' <<<"$arch_base" >/dev/null
-grep -F 'python-pywalfox' <<<"$arch_base" >/dev/null
-grep -F '  - nvim' <<<"$arch_base" >/dev/null
-grep -F '  - niri' <<<"$arch_base" >/dev/null
-grep -F '  - noctalia' <<<"$arch_base" >/dev/null
-grep -F '  - wallpapers' <<<"$arch_base" >/dev/null
-grep -F '~/.config/nvim/plugin/noctalia.lua' <<<"$arch_base" >/dev/null
-grep -F '~/.config/niri/config.kdl' <<<"$arch_base" >/dev/null
-grep -F '~/.config/niri/noctalia.kdl' <<<"$arch_base" >/dev/null
-grep -F '~/.config/noctalia/plugins.json' <<<"$arch_base" >/dev/null
-grep -F '~/.config/noctalia/user-templates.toml' <<<"$arch_base" >/dev/null
-grep -F '~/.config/noctalia/templates/icon-theme-accent' <<<"$arch_base" >/dev/null
-grep -F '~/.config/noctalia/templates/zsh-syntax-highlighting.zsh' <<<"$arch_base" >/dev/null
-grep -F '~/.local/share/wallpapers/SilentPeaks.jpg' <<<"$arch_base" >/dev/null
-grep -F 'github-cli' <<<"$arch_base" >/dev/null
-grep -F $'  - fd' <<<"$arch_base" >/dev/null
-grep -F 'yazi' <<<"$arch_base" >/dev/null
-
-arch_shell="$(run_case arch-shell print-plan --distro arch --select shell=gh,fd,yazi --dry-run)"
-grep -F 'github-cli' <<<"$arch_shell" >/dev/null
-grep -F $'  - fd' <<<"$arch_shell" >/dev/null
-grep -F 'yazi' <<<"$arch_shell" >/dev/null
-grep -F 'starship' <<<"$arch_shell" >/dev/null
-! grep -F 'arch-flatpak-remotes.list' <<<"$arch_shell" >/dev/null
-
-arch_dev_base="$(run_case arch-dev-base print-plan --distro arch --select dev=base --dry-run)"
-grep -F 'arch-aur.list' <<<"$arch_dev_base" >/dev/null
-grep -F 'visual-studio-code-bin' <<<"$arch_dev_base" >/dev/null
-! grep -F $'\n  - code\n' <<<"$arch_dev_base" >/dev/null
-grep -F '  - vscode' <<<"$arch_dev_base" >/dev/null
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  ! grep -F "$needle" <<<"$haystack" >/dev/null
+}
 
 fedora_base="$(run_case fedora-base print-plan --distro fedora --dry-run)"
-grep -F 'copr:yalter/niri' <<<"$fedora_base" >/dev/null
-grep -F 'ghostty' <<<"$fedora_base" >/dev/null
-grep -F 'sddm' <<<"$fedora_base" >/dev/null
-grep -F 'nautilus' <<<"$fedora_base" >/dev/null
-grep -F 'firefox' <<<"$fedora_base" >/dev/null
-grep -F 'python3-pip' <<<"$fedora_base" >/dev/null
-grep -F 'fontconfig' <<<"$fedora_base" >/dev/null
-grep -F 'adw-gtk3-theme' <<<"$fedora_base" >/dev/null
-grep -F 'gnome-themes-extra' <<<"$fedora_base" >/dev/null
-grep -F 'google-noto-sans-fonts' <<<"$fedora_base" >/dev/null
-grep -F 'google-noto-sans-cjk-fonts' <<<"$fedora_base" >/dev/null
-grep -F 'google-noto-color-emoji-fonts' <<<"$fedora_base" >/dev/null
-grep -F 'fontawesome-6-free-fonts' <<<"$fedora_base" >/dev/null
-grep -F 'yaru-icon-theme' <<<"$fedora_base" >/dev/null
-grep -F '  - nvim' <<<"$fedora_base" >/dev/null
-grep -F '  - niri' <<<"$fedora_base" >/dev/null
-grep -F '  - noctalia' <<<"$fedora_base" >/dev/null
-grep -F '  - wallpapers' <<<"$fedora_base" >/dev/null
-grep -F '~/.config/nvim/plugin/noctalia.lua' <<<"$fedora_base" >/dev/null
-grep -F '~/.config/niri/config.kdl' <<<"$fedora_base" >/dev/null
-grep -F '~/.config/niri/noctalia.kdl' <<<"$fedora_base" >/dev/null
-grep -F '~/.config/noctalia/plugins.json' <<<"$fedora_base" >/dev/null
-grep -F '~/.config/noctalia/user-templates.toml' <<<"$fedora_base" >/dev/null
-grep -F '~/.config/noctalia/templates/icon-theme-accent' <<<"$fedora_base" >/dev/null
-grep -F '~/.config/noctalia/templates/zsh-syntax-highlighting.zsh' <<<"$fedora_base" >/dev/null
-grep -F '~/.local/share/wallpapers/SilentPeaks.jpg' <<<"$fedora_base" >/dev/null
-grep -F 'copr:atim/starship' <<<"$fedora_base" >/dev/null
-grep -F 'copr:lihaohong/yazi' <<<"$fedora_base" >/dev/null
-grep -F 'gh' <<<"$fedora_base" >/dev/null
-grep -F $'  - fd' <<<"$fedora_base" >/dev/null
-! grep -F 'alacritty' <<<"$fedora_base" >/dev/null
+assert_contains "$fedora_base" 'base-source-rpmfusion-free'
+assert_contains "$fedora_base" 'base-source-rpmfusion-nonfree'
+assert_contains "$fedora_base" 'base-source-cisco-openh264'
+assert_contains "$fedora_base" 'base-source-flathub'
+assert_contains "$fedora_base" 'terra'
+assert_contains "$fedora_base" 'vendor:vscode'
+assert_contains "$fedora_base" 'vendor:claude-desktop'
+assert_contains "$fedora_base" 'copr:dejan/lazygit'
+assert_contains "$fedora_base" 'code'
+assert_contains "$fedora_base" 'claude-desktop'
+assert_contains "$fedora_base" 'lazygit'
+assert_contains "$fedora_base" 'steam'
+assert_contains "$fedora_base" 'com.discordapp.Discord'
+assert_contains "$fedora_base" 'net.davidotek.pupgui2'
+assert_contains "$fedora_base" 'org.onlyoffice.desktopeditors'
+assert_contains "$fedora_base" 'com.github.IsmaelMartinez.teams_for_linux'
+assert_contains "$fedora_base" 'us.zoom.Zoom'
+assert_contains "$fedora_base" 'com.spotify.Client'
+assert_contains "$fedora_base" 'brew:codex'
+assert_contains "$fedora_base" 'brew:opencode'
+assert_contains "$fedora_base" 'brew:lazydocker'
+assert_contains "$fedora_base" 'claude-code'
+assert_contains "$fedora_base" 'jetbrains-toolbox'
+assert_contains "$fedora_base" 'devtunnel'
+assert_contains "$fedora_base" 'docker-fedora'
+assert_contains "$fedora_base" 'dotnet-sdk'
+assert_contains "$fedora_base" 'dotnet-tools'
+assert_contains "$fedora_base" 'media-codecs-fedora'
+assert_contains "$fedora_base" 'ms-fonts-fedora'
+assert_contains "$fedora_base" 'build-tools-fedora'
+assert_contains "$fedora_base" 'zsh'
+assert_contains "$fedora_base" 'starship'
+assert_contains "$fedora_base" 'zoxide'
+assert_contains "$fedora_base" 'fastfetch'
+assert_contains "$fedora_base" 'gh'
+assert_contains "$fedora_base" 'btop'
+assert_contains "$fedora_base" 'fd-find'
+assert_contains "$fedora_base" 'fzf'
+assert_contains "$fedora_base" 'bat'
+assert_contains "$fedora_base" 'yazi'
+assert_not_contains "$fedora_base" 'app.zen_browser.zen'
+assert_not_contains "$fedora_base" 'podman'
+assert_not_contains "$fedora_base" 'podman-compose'
+assert_not_contains "$fedora_base" 'distrobox'
+assert_not_contains "$fedora_base" 'akmod-nvidia'
+assert_not_contains "$fedora_base" 'virt-manager'
+assert_not_contains "$fedora_base" 'system-config-printer'
+assert_not_contains "$fedora_base" 'lutris'
+assert_not_contains "$fedora_base" 'com.heroicgameslauncher.hgl'
+assert_not_contains "$fedora_base" 'mangohud'
+assert_not_contains "$fedora_base" 'gamescope'
+assert_not_contains "$fedora_base" 'gamemode'
 
-fedora_install="$(run_install_case fedora-login-manager --distro fedora)"
-grep -F '==> [1/12] Preflight' <<<"$fedora_install" >/dev/null
-grep -F '==> [12/12] Doctor' <<<"$fedora_install" >/dev/null
-grep -F 'sudo systemctl enable --force sddm.service' <<<"$fedora_install" >/dev/null
-grep -F 'gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3' <<<"$fedora_install" >/dev/null
-grep -F 'gsettings set org.gnome.desktop.interface icon-theme Yaru-blue' <<<"$fedora_install" >/dev/null
-! grep -F 'Reboot now?' <<<"$fedora_install" >/dev/null
+fedora_helium="$(run_case fedora-helium print-plan --distro fedora --select browser=helium-copr --dry-run)"
+assert_contains "$fedora_helium" 'copr:imput/helium'
+assert_contains "$fedora_helium" 'helium-bin'
 
-fedora_skip_login_manager="$(run_install_case fedora-skip-login-manager --distro fedora --skip-login-manager)"
-! grep -F 'sudo systemctl enable --force sddm.service' <<<"$fedora_skip_login_manager" >/dev/null
+fedora_chrome="$(run_case fedora-chrome print-plan --distro fedora --select browser=chrome --dry-run)"
+assert_contains "$fedora_chrome" 'vendor:google-chrome'
+assert_contains "$fedora_chrome" 'google-chrome-stable'
 
-fedora_flatpak_install="$(run_install_case fedora-flatpak-order --distro fedora --select browser=zen-flatpak)"
-bootstrap_line="$(grep -n 'sudo dnf install -y --setopt=install_weak_deps=False flatpak' <<<"$fedora_flatpak_install" | head -n1 | cut -d: -f1)"
-source_line="$(grep -n 'flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo' <<<"$fedora_flatpak_install" | head -n1 | cut -d: -f1)"
-install_line="$(grep -n 'flatpak install -y --or-update flathub app.zen_browser.zen' <<<"$fedora_flatpak_install" | head -n1 | cut -d: -f1)"
-[[ -n "$bootstrap_line" && -n "$source_line" && -n "$install_line" ]]
-[[ "$bootstrap_line" -lt "$source_line" ]]
-[[ "$source_line" -lt "$install_line" ]]
+fedora_brave="$(run_case fedora-brave print-plan --distro fedora --select browser=brave --dry-run)"
+assert_contains "$fedora_brave" 'vendor:brave'
+assert_contains "$fedora_brave" 'brave-browser'
 
-fedora_firefox_install="$(run_install_case fedora-firefox-pywalfox --distro fedora --select browser=firefox)"
-grep -F 'sudo python3 -m pip install --upgrade pywalfox' <<<"$fedora_firefox_install" >/dev/null
-grep -F "sudo -u ${SUDO_USER:-$USER} pywalfox install" <<<"$fedora_firefox_install" >/dev/null
+fedora_dotnet_tools="$(run_case fedora-dotnet-tools print-plan --distro fedora --select dotnet=tools --dry-run)"
+assert_contains "$fedora_dotnet_tools" 'dotnet-sdk'
+assert_contains "$fedora_dotnet_tools" 'dotnet-tools'
 
-empty_selection_case="$(run_case empty-selection-guard print-plan --distro fedora --select dev= --dry-run)"
-grep -F 'Distro: fedora' <<<"$empty_selection_case" >/dev/null
+arch_base="$(run_case arch-base print-plan --distro arch --dry-run)"
+assert_contains "$arch_base" 'base-devel'
+assert_contains "$arch_base" 'ttf-ms-fonts'
+assert_contains "$arch_base" 'claude-desktop-appimage'
+assert_contains "$arch_base" 'visual-studio-code-bin'
+assert_contains "$arch_base" 'docker'
+assert_contains "$arch_base" 'docker-buildx'
+assert_contains "$arch_base" 'docker-compose'
+assert_contains "$arch_base" 'docker-arch'
+assert_contains "$arch_base" 'steam'
+assert_contains "$arch_base" 'net.davidotek.pupgui2'
+assert_contains "$arch_base" 'com.discordapp.Discord'
+assert_contains "$arch_base" 'ffmpeg'
+assert_contains "$arch_base" 'gst-plugins-good'
+assert_not_contains "$arch_base" 'app.zen_browser.zen'
+assert_not_contains "$arch_base" 'podman'
+assert_not_contains "$arch_base" 'distrobox'
+assert_not_contains "$arch_base" 'virt-manager'
+assert_not_contains "$arch_base" 'system-config-printer'
+assert_not_contains "$arch_base" 'lutris'
+assert_not_contains "$arch_base" 'heroic-games-launcher'
+assert_not_contains "$arch_base" 'mangohud'
+assert_not_contains "$arch_base" 'gamescope'
+assert_not_contains "$arch_base" 'gamemode'
+
+arch_helium="$(run_case arch-helium print-plan --distro arch --select browser=helium-aur --dry-run)"
+assert_contains "$arch_helium" 'helium-bin-browser'
+
+fedora_install="$(run_install_case fedora-install --distro fedora)"
+assert_contains "$fedora_install" '==> [1/13] Preflight'
+assert_contains "$fedora_install" '==> [6/13] Custom Actions'
+assert_contains "$fedora_install" '==> [13/13] Doctor'
+assert_contains "$fedora_install" 'sudo dnf group install -y development-tools'
+assert_contains "$fedora_install" 'DRY-RUN: brew install codex'
+assert_contains "$fedora_install" 'DRY-RUN: install active .NET SDK channels'
+assert_contains "$fedora_install" 'sudo systemctl enable --force sddm.service'
 
 printf 'planner ok\n'

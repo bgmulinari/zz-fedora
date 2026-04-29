@@ -11,6 +11,7 @@ source_plan_file_for_kind() {
         copr) printf '%s/sources/fedora-copr.list\n' "$PLAN_DIR" ;;
         terra) printf '%s/sources/fedora-terra.list\n' "$PLAN_DIR" ;;
         rpmfusion) printf '%s/sources/fedora-rpmfusion.list\n' "$PLAN_DIR" ;;
+        cisco-openh264) printf '%s/sources/fedora-cisco-openh264.list\n' "$PLAN_DIR" ;;
         vendor) printf '%s/sources/fedora-vendor.list\n' "$PLAN_DIR" ;;
         flatpak) printf '%s/sources/fedora-flatpak-remotes.list\n' "$PLAN_DIR" ;;
         *) die "Unsupported Fedora source kind: $kind" ;;
@@ -47,4 +48,3 @@ list_sources_pretty() {
     printf '%s\t%s\t%s\n' "$SOURCE_ID" "$SOURCE_KIND" "$SOURCE_LABEL"
   done < <(list_source_ids "$distro")
 }
-

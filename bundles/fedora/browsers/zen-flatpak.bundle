@@ -1,6 +1,0 @@
-BUNDLE_ID="browser-zen-flatpak"
-BUNDLE_INSTALLER="flatpak"
-BUNDLE_SOURCE_ID="flathub"
-BUNDLE_ITEMS_FILE="packages/fedora/flatpak/browsers.flatpaks"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Zen browser bundle from Flathub for Fedora"

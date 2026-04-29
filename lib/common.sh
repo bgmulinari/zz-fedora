@@ -43,8 +43,6 @@ NO_TUI="${NO_TUI:-0}"
 INSTALL_WEAK_DEPS="${INSTALL_WEAK_DEPS:-0}"
 AUR_HELPER="${AUR_HELPER:-}"
 PREFERRED_BROWSER="${PREFERRED_BROWSER:-}"
-MULTILIB_CONFIRMED="${MULTILIB_CONFIRMED:-0}"
-CODECS_SELECTED="${CODECS_SELECTED:-0}"
 CURRENT_ADAPTER="${CURRENT_ADAPTER:-}"
 LOCK_ACQUIRED="${LOCK_ACQUIRED:-0}"
 
@@ -269,7 +267,7 @@ bundle_supported_for_distro() {
   local distro="$1"
   local installer="$2"
   case "$distro:$installer" in
-    fedora:dnf|fedora:flatpak|arch:pacman|arch:aur|arch:flatpak)
+    fedora:dnf|fedora:flatpak|fedora:action|arch:pacman|arch:aur|arch:flatpak|arch:action)
       return 0
       ;;
     *)
@@ -377,7 +375,10 @@ all_choice_ids() {
 }
 
 category_always_installed() {
-  [[ "$1" == "shell" ]]
+  case "$1" in
+    shell) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 choice_record() {
@@ -453,7 +454,6 @@ save_selections() {
     printf 'distro=%s\n' "$DISTRO"
     printf 'target_user=%s\n' "$TARGET_USER"
     printf 'preferred_browser=%s\n' "$PREFERRED_BROWSER"
-    printf 'multilib_confirmed=%s\n' "$MULTILIB_CONFIRMED"
     local category
     for category in $(category_names "$DISTRO"); do
       local values=()
@@ -474,7 +474,6 @@ load_saved_selections() {
       distro) DISTRO="$value" ;;
       target_user) TARGET_USER="$value" ;;
       preferred_browser) PREFERRED_BROWSER="$value" ;;
-      multilib_confirmed) MULTILIB_CONFIRMED="$value" ;;
       select.*)
         set_category_override "${key#select.}" "$value"
         ;;
@@ -488,8 +487,8 @@ browser_desktop_file() {
     chromium) printf 'chromium.desktop\n' ;;
     chrome) printf 'google-chrome.desktop\n' ;;
     brave) printf 'brave-browser.desktop\n' ;;
-    zen-flatpak|zen-copr|zen-aur) printf 'app.zen_browser.zen.desktop\n' ;;
-    helium|helium-copr) printf 'helium.desktop\n' ;;
+    zen-copr|zen-aur) printf 'zen.desktop\n' ;;
+    helium|helium-copr|helium-aur) printf 'helium.desktop\n' ;;
     *) return 1 ;;
   esac
 }
@@ -505,7 +504,6 @@ normalize_category_name() {
   case "$1" in
     browser) printf 'browsers\n' ;;
     source) printf 'sources\n' ;;
-    flatpak|flatpaks) printf 'flatpak-apps\n' ;;
     *) printf '%s\n' "$1" ;;
   esac
 }

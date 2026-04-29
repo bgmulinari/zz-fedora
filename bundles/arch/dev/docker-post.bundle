@@ -1,0 +1,6 @@
+BUNDLE_ID="dev-docker-post"
+BUNDLE_INSTALLER="action"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/actions/dev-docker-arch.actions"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Docker service and user setup"

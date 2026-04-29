@@ -239,7 +239,7 @@ noctalia_browser_template_ids() {
           printf 'pywalfox\n'
         fi
         ;;
-      zen-flatpak|zen-copr|zen-aur)
+      zen-copr|zen-aur)
         printf 'zenBrowser\n'
         ;;
     esac
@@ -300,10 +300,6 @@ noctalia_installed_template_ids() {
   plan_has_any_backend_entry "$aur_plan" starship && printf 'starship\n'
   plan_has_any_backend_entry "$aur_plan" btop && printf 'btop\n'
   plan_has_any_backend_entry "$aur_plan" yazi && printf 'yazi\n'
-
-  if plan_has_any_backend_entry "$flatpak_plan" app.zen_browser.zen; then
-    printf 'zenBrowser\n'
-  fi
 
 }
 
@@ -431,7 +427,7 @@ zen_browser_selected() {
   local browser
   while IFS= read -r browser; do
     case "$browser" in
-      zen-flatpak|zen-copr|zen-aur)
+      zen-copr|zen-aur)
         return 0
         ;;
     esac
@@ -492,7 +488,7 @@ ensure_user_file_contains_line() {
 
 zen_profile_dirs() {
   local root profile_path
-  for root in "$TARGET_HOME/.config/zen" "$TARGET_HOME/.zen" "$TARGET_HOME/.var/app/app.zen_browser.zen/.zen"; do
+  for root in "$TARGET_HOME/.config/zen" "$TARGET_HOME/.zen"; do
     [[ -d "$root" ]] || continue
     if [[ -f "$root/profiles.ini" ]]; then
       while IFS= read -r profile_path; do
@@ -530,15 +526,6 @@ configure_zen_browser_noctalia_theme() {
 }
 
 module_80_post_actions() {
-  if [[ "$DISTRO" == "fedora" && "$CODECS_SELECTED" -eq 1 ]]; then
-    run_cmd sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
-    run_cmd sudo dnf group update -y multimedia --setopt=install_weak_deps=False --exclude=PackageKit-gstreamer-plugin
-  fi
-
-  if array_contains "libvirt" $(effective_choice_ids "$DISTRO" "virtualization"); then
-    run_cmd sudo usermod -aG libvirt "$TARGET_USER"
-  fi
-
   run_cmd_as_user "$TARGET_USER" xdg-user-dirs-update || true
   run_cmd_as_user "$TARGET_USER" xdg-mime default org.gnome.Nautilus.desktop inode/directory || true
   run_cmd_as_user "$TARGET_USER" xdg-mime default org.gnome.Evince.desktop application/pdf || true

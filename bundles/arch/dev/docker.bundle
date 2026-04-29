@@ -1,0 +1,6 @@
+BUNDLE_ID="dev-docker"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/dev/docker.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Docker Engine setup for Arch"

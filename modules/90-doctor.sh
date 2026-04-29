@@ -207,7 +207,7 @@ module_90_doctor() {
     fi
     doctor_check_pywalfox_firefox_extension
   fi
-  if grep -E '^(zen-flatpak|zen-copr|zen-aur)$' < <(effective_choice_ids "$DISTRO" "browsers") >/dev/null 2>&1; then
+  if grep -E '^(zen-copr|zen-aur)$' < <(effective_choice_ids "$DISTRO" "browsers") >/dev/null 2>&1; then
     doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "zenBrowser"'
     doctor_check_file "$TARGET_HOME/.cache/noctalia/zen-browser/zen-userChrome.css"
     doctor_check_file "$TARGET_HOME/.cache/noctalia/zen-browser/zen-userContent.css"

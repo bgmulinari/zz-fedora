@@ -1,0 +1,6 @@
+BUNDLE_ID="office-pinta"
+BUNDLE_INSTALLER="flatpak"
+BUNDLE_SOURCE_ID="flathub"
+BUNDLE_ITEMS_FILE="packages/flatpak/pinta.flatpaks"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Pinta Flatpak for Fedora"

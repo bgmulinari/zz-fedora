@@ -1,0 +1,5 @@
+SOURCE_ID="vendor:claude-desktop"
+SOURCE_KIND="vendor"
+SOURCE_LABEL="Claude Desktop RPM Repository"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="Claude Desktop RPM repository"

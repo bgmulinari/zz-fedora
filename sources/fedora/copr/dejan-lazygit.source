@@ -1,0 +1,6 @@
+SOURCE_ID="copr:dejan/lazygit"
+SOURCE_KIND="copr"
+SOURCE_LABEL="COPR: dejan/lazygit"
+SOURCE_PROJECT="dejan/lazygit"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="lazygit Fedora COPR"

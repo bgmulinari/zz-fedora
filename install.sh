@@ -96,6 +96,7 @@ run_install_modules() {
     module_05_bootstrap_tools
     module_10_sources
     module_30_packages
+    module_35_custom_actions
     module_40_services
     module_50_login_manager
     module_55_zsh
@@ -110,6 +111,7 @@ run_install_modules() {
     "Bootstrap Tools"
     "Software Sources"
     "Packages"
+    "Custom Actions"
     "System Services"
     "Login Manager"
     "Shell Setup"
@@ -124,6 +126,7 @@ run_install_modules() {
     "Install the package-manager helpers needed for the selected distro."
     "Enable repositories and remotes required by the current plan."
     "Install distro, AUR, and Flatpak packages from the generated plan."
+    "Run selected direct installers and package-manager actions."
     "Enable or start selected system services."
     "Configure the graphical login target and display manager."
     "Install shell tooling and switch the target user to the configured shell."
@@ -133,6 +136,7 @@ run_install_modules() {
     "Run the final verification checks and environment summary."
   )
   local -a predicates=(
+    step_should_run_always
     step_should_run_always
     step_should_run_always
     step_should_run_always
@@ -166,7 +170,7 @@ prompt_for_reboot() {
   [[ "$COMMAND" == "install" || "$COMMAND" == "wizard" ]] || return 0
   [[ "$DRY_RUN" -eq 0 ]] || return 0
 
-  if [[ "$ASSUME_YES" -eq 1 || ! is_tty ]]; then
+  if [[ "$ASSUME_YES" -eq 1 ]] || ! is_tty; then
     log_info "Reboot recommended to ensure all system changes take effect."
     return 0
   fi

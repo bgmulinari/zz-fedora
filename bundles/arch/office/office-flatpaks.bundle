@@ -1,0 +1,6 @@
+BUNDLE_ID="office-onlyoffice"
+BUNDLE_INSTALLER="flatpak"
+BUNDLE_SOURCE_ID="flathub"
+BUNDLE_ITEMS_FILE="packages/flatpak/onlyoffice.flatpaks"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="OnlyOffice Flatpak for Arch"

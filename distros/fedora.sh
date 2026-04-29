@@ -83,11 +83,22 @@ EOF
             fi
             rm -f "$repo_file"
             ;;
+          vendor:claude-desktop)
+            run_cmd sudo curl -fsSL https://aaddrick.github.io/claude-desktop-debian/rpm/claude-desktop.repo -o /etc/yum.repos.d/claude-desktop.repo
+            ;;
         esac
       fi
       ;;
+    cisco-openh264)
+      run_cmd sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1
+      ;;
     flatpak)
       if [[ "$SOURCE_ID" == "flathub" ]]; then
+        if [[ "$DRY_RUN" -eq 1 ]]; then
+          run_cmd flatpak remote-delete --force fedora
+        elif have_cmd flatpak && flatpak remotes --columns=name 2>/dev/null | grep -Fx fedora >/dev/null 2>&1; then
+          run_cmd flatpak remote-delete --force fedora
+        fi
         flatpak_remote_add_if_missing flathub https://dl.flathub.org/repo/flathub.flatpakrepo
       fi
       ;;
@@ -183,6 +194,15 @@ distro_repo_enabled() {
       ;;
     vendor:vscode)
       [[ -f /etc/yum.repos.d/vscode.repo ]]
+      ;;
+    vendor:claude-desktop)
+      [[ -f /etc/yum.repos.d/claude-desktop.repo ]]
+      ;;
+    docker-ce)
+      dnf repolist 2>/dev/null | grep -F 'docker-ce' >/dev/null 2>&1
+      ;;
+    cisco-openh264)
+      dnf repolist --enabled 2>/dev/null | grep -F 'fedora-cisco-openh264' >/dev/null 2>&1
       ;;
     flathub)
       have_cmd flatpak && flatpak remotes --columns=name 2>/dev/null | grep -Fx flathub >/dev/null 2>&1

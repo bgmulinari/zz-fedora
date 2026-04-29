@@ -4,6 +4,7 @@ set -Eeuo pipefail
 plan_reset() {
   rm -rf "$PLAN_DIR"
   mkdir -p \
+    "$PLAN_DIR/actions" \
     "$PLAN_DIR/sources" \
     "$PLAN_DIR/packages" \
     "$PLAN_DIR/prereqs" \
@@ -98,6 +99,10 @@ build_plan_from_selections() {
     done < <(effective_choice_ids "$DISTRO" "$category")
   done
 
+  if array_contains "dotnet-tools" "${selected_bundle_ids[@]:-}"; then
+    append_unique selected_bundle_ids "dotnet-sdk"
+  fi
+
   for bundle_id in "${selected_bundle_ids[@]:-}"; do
     append_bundle_to_plan "$bundle_id" plan_sources plan_backends
   done
@@ -122,13 +127,6 @@ build_plan_from_selections() {
   append_plan_entries "$PLAN_DIR/services/system-enable-now.list" "${DEFAULT_SYSTEM_SERVICES[@]}"
   append_plan_entries "$PLAN_DIR/services/system-enable.list" "sddm"
   : >"$PLAN_DIR/services/user-enable.list"
-
-  if array_contains "libvirt" $(effective_choice_ids "$DISTRO" "virtualization"); then
-    append_plan_entries "$PLAN_DIR/services/system-enable-now.list" "libvirtd"
-  fi
-  if array_contains "base" $(effective_choice_ids "$DISTRO" "print-scan"); then
-    append_plan_entries "$PLAN_DIR/services/system-enable-now.list" "cups"
-  fi
 
   write_plan_summary
   save_selections
@@ -180,6 +178,11 @@ write_plan_summary() {
     printf '\nFlatpaks:\n'
     if [[ -f "$PLAN_DIR/flatpak/apps.flatpaks" ]]; then
       sed 's/^/  - /' "$PLAN_DIR/flatpak/apps.flatpaks"
+    fi
+
+    printf '\nActions:\n'
+    if [[ -f "$PLAN_DIR/actions/actions.list" ]]; then
+      sed 's/^/  - /' "$PLAN_DIR/actions/actions.list"
     fi
 
     printf '\nServices:\n'

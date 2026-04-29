@@ -1,6 +1,0 @@
-BUNDLE_ID="gaming-lutris"
-BUNDLE_INSTALLER="pacman"
-BUNDLE_SOURCE_ID=""
-BUNDLE_ITEMS_FILE="packages/arch/official/gaming/lutris.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Lutris bundle for Arch"

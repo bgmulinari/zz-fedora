@@ -33,8 +33,8 @@ TARGET_USER="${USER}"
 TARGET_HOME="${HOME}"
 DRY_RUN=1
 load_adapter
-add_category_selection "browser" "firefox,firefox,zen-flatpak"
-add_category_selection "dev" "base"
+add_category_selection "browser" "firefox,firefox,zen-copr"
+add_category_selection "dev" "vscode,neovim"
 add_category_selection "shell" "starship,starship,yazi"
 build_plan_from_selections
 
@@ -50,7 +50,10 @@ build_plan_from_selections
 [[ "$(grep -Fc 'flatpak' "$PLAN_DIR/prereqs/dnf.pkgs")" -eq 1 ]]
 [[ "$(sort -u "$PLAN_DIR/services/system-enable-now.list" | wc -l | tr -d ' ')" -eq "$(wc -l <"$PLAN_DIR/services/system-enable-now.list" | tr -d ' ')" ]]
 [[ "$(sort -u "$PLAN_DIR/stow/packages.list" | wc -l | tr -d ' ')" -eq "$(wc -l <"$PLAN_DIR/stow/packages.list" | tr -d ' ')" ]]
-[[ "$(grep -Fc 'app.zen_browser.zen' "$PLAN_DIR/flatpak/apps.flatpaks")" -eq 1 ]]
+! grep -F 'app.zen_browser.zen' "$PLAN_DIR/flatpak/apps.flatpaks" >/dev/null
+[[ "$(grep -Fc 'brew:codex' "$PLAN_DIR/actions/actions.list")" -eq 1 ]]
+[[ "$(grep -Fc 'dotnet-sdk' "$PLAN_DIR/actions/actions.list")" -eq 1 ]]
+[[ "$(grep -Fc 'dotnet-tools' "$PLAN_DIR/actions/actions.list")" -eq 1 ]]
 grep -Fx 'shell' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'nvim' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'noctalia' "$PLAN_DIR/stow/packages.list" >/dev/null

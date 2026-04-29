@@ -1,7 +1,0 @@
-SOURCE_ID="copr:v8v88v8v88/helium"
-SOURCE_KIND="copr"
-SOURCE_LABEL="COPR: v8v88v8v88/helium"
-SOURCE_PROJECT="v8v88v8v88/helium"
-SOURCE_REQUIRED=0
-SOURCE_DESCRIPTION="Experimental Helium browser COPR for Fedora"
-

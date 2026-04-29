@@ -174,11 +174,12 @@ tui_show_install_plan() {
     return 0
   fi
 
-  local native_backend native_packages aur_packages flatpaks sources services dotfiles
+  local native_backend native_packages aur_packages flatpaks actions sources services dotfiles
   native_backend="$(native_backend_for_distro "$DISTRO")"
   native_packages="$(count_plan_entries "$(package_file_for_backend "$native_backend")")"
   aur_packages="$(count_plan_entries "$(package_file_for_backend aur)")"
   flatpaks="$(count_plan_entries "$PLAN_DIR/flatpak/apps.flatpaks")"
+  actions="$(count_plan_entries "$PLAN_DIR/actions/actions.list")"
   sources="$(tui_count_plan_group "$PLAN_DIR"/sources/*.list)"
   services="$(tui_count_plan_group "$PLAN_DIR"/services/*.list)"
   dotfiles="$(count_plan_entries "$PLAN_DIR/stow/packages.list")"
@@ -205,6 +206,7 @@ tui_show_install_plan() {
   printf '  %s %s %s package%s\n' "$(gum style --foreground 2 '+')" "${native_backend^^}" "$native_packages" "$([[ "$native_packages" -eq 1 ]] && printf '' || printf 's')"
   [[ "$aur_packages" -gt 0 ]] && printf '  %s AUR %s package%s\n' "$(gum style --foreground 2 '+')" "$aur_packages" "$([[ "$aur_packages" -eq 1 ]] && printf '' || printf 's')"
   [[ "$flatpaks" -gt 0 ]] && printf '  %s Flatpak %s app%s\n' "$(gum style --foreground 2 '+')" "$flatpaks" "$([[ "$flatpaks" -eq 1 ]] && printf '' || printf 's')"
+  [[ "$actions" -gt 0 ]] && printf '  %s %s custom action%s\n' "$(gum style --foreground 2 '+')" "$actions" "$([[ "$actions" -eq 1 ]] && printf '' || printf 's')"
   [[ "$sources" -gt 0 ]] && printf '  %s %s source%s\n' "$(gum style --foreground 2 '+')" "$sources" "$([[ "$sources" -eq 1 ]] && printf '' || printf 's')"
   [[ "$services" -gt 0 ]] && printf '  %s %s service action%s\n' "$(gum style --foreground 2 '+')" "$services" "$([[ "$services" -eq 1 ]] && printf '' || printf 's')"
   [[ "$dotfiles" -gt 0 ]] && printf '  %s %s dotfile package%s\n' "$(gum style --foreground 2 '+')" "$dotfiles" "$([[ "$dotfiles" -eq 1 ]] && printf '' || printf 's')"
@@ -314,46 +316,13 @@ tui_pick_catalog_choices() {
 
   local chosen
   chosen="$(gum "${choose_args[@]}" "${options[@]}")" || return 0
-  [[ -n "$chosen" ]] || return 0
+  if [[ -z "$chosen" ]]; then
+    printf '__empty__\n'
+    return 0
+  fi
 
   while IFS= read -r option; do
     [[ -n "$option" ]] && printf '%s\n' "${option_ids[$option]}"
-  done <<<"$chosen"
-}
-
-tui_pick_workstation_extras() {
-  local -a options=()
-  local -A option_targets=()
-  local category choice_id record label description option
-
-  for category in dev hardware print-scan virtualization flatpak-apps; do
-    while IFS= read -r choice_id; do
-      [[ -n "$choice_id" ]] || continue
-      record="$(choice_record "$DISTRO" "$category" "$choice_id")"
-      [[ -n "$record" ]] || continue
-      label="$(choice_field "$record" 2)"
-      description="$(choice_field "$record" 5)"
-      option="$(tui_choice_option_label "$label" "$description")"
-      options+=("$option")
-      option_targets["$option"]="$category=$choice_id"
-    done < <(awk -F'\t' 'NF==5 && $1 !~ /^#/ {print $1}' "$(choice_catalog_path "$DISTRO" "$category")")
-  done
-
-  [[ "${#options[@]}" -gt 0 ]] || return 0
-
-  local chosen
-  chosen="$(gum choose \
-    --no-limit \
-    --header "Select workstation extras. Space toggles, Enter continues." \
-    --header.foreground "" \
-    --height 999 \
-    --selected.foreground 2 \
-    --cursor.foreground "" \
-    "${options[@]}")" || return 0
-  [[ -n "$chosen" ]] || return 0
-
-  while IFS= read -r option; do
-    [[ -n "$option" ]] && printf '%s\n' "${option_targets[$option]}"
   done <<<"$chosen"
 }
 
@@ -367,18 +336,7 @@ tui_run_wizard() {
   gum style --faint "Install target user: $TARGET_USER"
 
   local -a browser_choices=()
-  local -a gaming_choices=()
-  local -a extra_choices=()
-
-  case "$DISTRO" in
-    fedora)
-      if tui_confirm "Enable RPM Fusion multimedia codecs for broader audio/video playback?"; then
-        add_category_selection "media" "codecs"
-      fi
-      ;;
-    arch)
-      ;;
-  esac
+  local -a category_choices=()
 
   local browser_header="Select browser(s). Space toggles, Enter continues."
   if [[ "$DISTRO" == "arch" ]]; then
@@ -386,19 +344,25 @@ tui_run_wizard() {
   fi
   mapfile -t browser_choices < <(tui_pick_catalog_choices "browsers" "$browser_header" || true)
   if [[ "${#browser_choices[@]}" -gt 0 ]]; then
-    set_category_override "browsers" "$(join_by , "${browser_choices[@]}")"
+    if [[ "${browser_choices[0]}" == "__empty__" ]]; then
+      set_category_override "browsers" ""
+      browser_choices=()
+    else
+      set_category_override "browsers" "$(join_by , "${browser_choices[@]}")"
+    fi
   fi
 
-  mapfile -t gaming_choices < <(tui_pick_catalog_choices "gaming" "Select gaming components. Space toggles, Enter continues." || true)
-  if [[ "${#gaming_choices[@]}" -gt 0 ]]; then
-    set_category_override "gaming" "$(join_by , "${gaming_choices[@]}")"
-  fi
-
-  mapfile -t extra_choices < <(tui_pick_workstation_extras || true)
-  local extra
-  for extra in "${extra_choices[@]:-}"; do
-    [[ -n "$extra" && "$extra" == *=* ]] || continue
-    add_category_selection "${extra%%=*}" "${extra#*=}"
+  local category header
+  for category in ai dev dotnet office gaming media; do
+    header="Select ${category} components. Space toggles, Enter continues."
+    mapfile -t category_choices < <(tui_pick_catalog_choices "$category" "$header" || true)
+    if [[ "${#category_choices[@]}" -gt 0 ]]; then
+      if [[ "${category_choices[0]}" == "__empty__" ]]; then
+        set_category_override "$category" ""
+      else
+        set_category_override "$category" "$(join_by , "${category_choices[@]}")"
+      fi
+    fi
   done
 
   if [[ "${#browser_choices[@]}" -gt 1 ]]; then

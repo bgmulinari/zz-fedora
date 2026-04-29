@@ -1,0 +1,6 @@
+BUNDLE_ID="base-ms-fonts"
+BUNDLE_INSTALLER="aur"
+BUNDLE_SOURCE_ID="aur"
+BUNDLE_ITEMS_FILE="packages/arch/aur/fonts/ms-fonts.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Microsoft core fonts for Arch"

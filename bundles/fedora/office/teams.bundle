@@ -1,0 +1,6 @@
+BUNDLE_ID="office-teams"
+BUNDLE_INSTALLER="flatpak"
+BUNDLE_SOURCE_ID="flathub"
+BUNDLE_ITEMS_FILE="packages/flatpak/teams.flatpaks"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Teams for Linux Flatpak for Fedora"

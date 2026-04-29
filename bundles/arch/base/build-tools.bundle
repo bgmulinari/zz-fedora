@@ -1,0 +1,6 @@
+BUNDLE_ID="base-build-tools"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/base-devel.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Arch base-devel build tools"

@@ -1,0 +1,6 @@
+BUNDLE_ID="gaming-discord"
+BUNDLE_INSTALLER="flatpak"
+BUNDLE_SOURCE_ID="flathub"
+BUNDLE_ITEMS_FILE="packages/flatpak/discord.flatpaks"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Discord Flatpak for Fedora"

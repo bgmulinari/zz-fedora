@@ -1,0 +1,6 @@
+BUNDLE_ID="dev-jetbrains-toolbox"
+BUNDLE_INSTALLER="action"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/actions/dev-jetbrains-toolbox.actions"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="JetBrains Toolbox direct installer"

@@ -1,4 +1,4 @@
-BUNDLE_ID="browser-helium"
+BUNDLE_ID="browser-helium-aur"
 BUNDLE_INSTALLER="aur"
 BUNDLE_SOURCE_ID="aur"
 BUNDLE_ITEMS_FILE="packages/arch/aur/browsers/helium.pkgs"

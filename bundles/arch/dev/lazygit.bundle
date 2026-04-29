@@ -1,0 +1,6 @@
+BUNDLE_ID="dev-lazygit"
+BUNDLE_INSTALLER="pacman"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/arch/official/dev/lazygit.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="lazygit bundle for Arch"

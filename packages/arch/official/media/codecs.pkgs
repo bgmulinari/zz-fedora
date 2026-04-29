@@ -1,0 +1,10 @@
+ffmpeg
+gst-libav
+gst-plugin-pipewire
+gst-plugins-bad
+gst-plugins-base
+gst-plugins-good
+gst-plugins-ugly
+libva
+libva-utils
+openh264

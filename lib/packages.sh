@@ -15,6 +15,7 @@ package_file_for_backend() {
     pacman) printf '%s/packages/pacman.pkgs\n' "$PLAN_DIR" ;;
     aur) printf '%s/packages/aur.pkgs\n' "$PLAN_DIR" ;;
     flatpak) printf '%s/flatpak/apps.flatpaks\n' "$PLAN_DIR" ;;
+    action) printf '%s/actions/actions.list\n' "$PLAN_DIR" ;;
     *) die "Unsupported plan package backend: $1" ;;
   esac
 }
@@ -25,13 +26,14 @@ prereq_file_for_backend() {
     pacman) printf '%s/prereqs/pacman.pkgs\n' "$PLAN_DIR" ;;
     aur) printf '%s/prereqs/aur.pkgs\n' "$PLAN_DIR" ;;
     flatpak) printf '%s/prereqs/flatpak.flatpaks\n' "$PLAN_DIR" ;;
+    action) printf '%s/prereqs/actions.list\n' "$PLAN_DIR" ;;
     *) die "Unsupported prereq backend: $1" ;;
   esac
 }
 
 backend_prerequisite_backend() {
   case "$1" in
-    dnf|pacman|aur) return 1 ;;
+    dnf|pacman|aur|action) return 1 ;;
     flatpak) native_backend_for_distro "$DISTRO" ;;
     *) die "Unsupported backend: $1" ;;
   esac
@@ -39,7 +41,7 @@ backend_prerequisite_backend() {
 
 backend_prerequisite_items() {
   case "$1" in
-    dnf|pacman|aur) return 0 ;;
+    dnf|pacman|aur|action) return 0 ;;
     flatpak)
       manifest_entries "$ROOT_DIR/packages/$DISTRO/official/flatpak.pkgs"
       ;;
