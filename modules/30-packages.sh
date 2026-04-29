@@ -60,7 +60,7 @@ build_base_package_plan_for_backend() {
 
 is_early_base_bundle() {
   case "$1" in
-    base-bootstrap|base-login-manager) return 0 ;;
+    base-bootstrap|base-login-manager|base-system-services) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -181,6 +181,18 @@ configure_login_manager() {
   printf 'SDDM is enabled. Reboot to start the graphical login.\n'
 }
 
+configure_base_system_services() {
+  local service_name
+  while IFS= read -r service_name; do
+    [[ -n "$service_name" ]] || continue
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      distro_enable_service_now "$service_name"
+    else
+      enable_required_system_service_now "$service_name"
+    fi
+  done < <(system_services_now_from_plan)
+}
+
 module_30_packages() {
   local dnf_early_base_plan pacman_early_base_plan aur_early_base_plan flatpak_early_base_plan
   local dnf_base_plan pacman_base_plan aur_base_plan flatpak_base_plan
@@ -204,6 +216,7 @@ module_30_packages() {
   install_base_packages_for_backend flatpak "$flatpak_early_base_plan"
 
   configure_login_manager "$dnf_early_base_plan" "$pacman_early_base_plan" "$aur_early_base_plan" "$flatpak_early_base_plan"
+  configure_base_system_services
 
   build_base_package_plan_for_backend dnf "$dnf_base_plan" remaining
   build_base_package_plan_for_backend pacman "$pacman_base_plan" remaining

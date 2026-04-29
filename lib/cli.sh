@@ -11,7 +11,6 @@ Common options:
   --dry-run
   --use-saved
   --skip-dotfiles
-  --skip-services
   --target-user USER
   --distro auto|fedora|arch
   --select category=a,b,c
@@ -43,9 +42,6 @@ parse_cli() {
         ;;
       --skip-dotfiles)
         SKIP_DOTFILES=1
-        ;;
-      --skip-services)
-        SKIP_SERVICES=1
         ;;
       --no-tui)
         NO_TUI=1

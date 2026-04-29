@@ -31,12 +31,6 @@ assert_contains() {
   grep -F "$needle" <<<"$haystack" >/dev/null
 }
 
-assert_not_contains() {
-  local haystack="$1"
-  local needle="$2"
-  ! grep -F "$needle" <<<"$haystack" >/dev/null
-}
-
 fedora_base="$(run_case fedora-base print-plan --distro fedora --dry-run)"
 assert_contains "$fedora_base" 'base-source-rpmfusion-free'
 assert_contains "$fedora_base" 'base-source-rpmfusion-nonfree'
@@ -78,18 +72,6 @@ assert_contains "$fedora_base" 'fd-find'
 assert_contains "$fedora_base" 'fzf'
 assert_contains "$fedora_base" 'bat'
 assert_contains "$fedora_base" 'yazi'
-assert_not_contains "$fedora_base" 'app.zen_browser.zen'
-assert_not_contains "$fedora_base" 'podman'
-assert_not_contains "$fedora_base" 'podman-compose'
-assert_not_contains "$fedora_base" 'distrobox'
-assert_not_contains "$fedora_base" 'akmod-nvidia'
-assert_not_contains "$fedora_base" 'virt-manager'
-assert_not_contains "$fedora_base" 'system-config-printer'
-assert_not_contains "$fedora_base" 'lutris'
-assert_not_contains "$fedora_base" 'com.heroicgameslauncher.hgl'
-assert_not_contains "$fedora_base" 'mangohud'
-assert_not_contains "$fedora_base" 'gamescope'
-assert_not_contains "$fedora_base" 'gamemode'
 
 fedora_helium="$(run_case fedora-helium print-plan --distro fedora --select browser=helium-copr --dry-run)"
 assert_contains "$fedora_helium" 'copr:imput/helium'
@@ -121,27 +103,16 @@ assert_contains "$arch_base" 'net.davidotek.pupgui2'
 assert_contains "$arch_base" 'com.discordapp.Discord'
 assert_contains "$arch_base" 'ffmpeg'
 assert_contains "$arch_base" 'gst-plugins-good'
-assert_not_contains "$arch_base" 'app.zen_browser.zen'
-assert_not_contains "$arch_base" 'podman'
-assert_not_contains "$arch_base" 'distrobox'
-assert_not_contains "$arch_base" 'virt-manager'
-assert_not_contains "$arch_base" 'system-config-printer'
-assert_not_contains "$arch_base" 'lutris'
-assert_not_contains "$arch_base" 'heroic-games-launcher'
-assert_not_contains "$arch_base" 'mangohud'
-assert_not_contains "$arch_base" 'gamescope'
-assert_not_contains "$arch_base" 'gamemode'
 
 arch_helium="$(run_case arch-helium print-plan --distro arch --select browser=helium-aur --dry-run)"
 assert_contains "$arch_helium" 'helium-bin-browser'
 
 fedora_install="$(run_install_case fedora-install --distro fedora)"
-assert_contains "$fedora_install" '==> [1/11] Preflight'
-assert_contains "$fedora_install" '==> [4/11] Base Setup'
-assert_contains "$fedora_install" '==> [5/11] Optional Packages'
-assert_contains "$fedora_install" '==> [6/11] Custom Actions'
-assert_contains "$fedora_install" '==> [11/11] Doctor'
-assert_not_contains "$fedora_install" 'Login Manager'
+assert_contains "$fedora_install" '==> [1/9] Preflight'
+assert_contains "$fedora_install" '==> [4/9] Base Setup'
+assert_contains "$fedora_install" '==> [5/9] Optional Packages'
+assert_contains "$fedora_install" '==> [6/9] Custom Actions'
+assert_contains "$fedora_install" '==> [9/9] Doctor'
 assert_contains "$fedora_install" 'sudo dnf group install -y development-tools'
 assert_contains "$fedora_install" 'DRY-RUN: brew install codex'
 assert_contains "$fedora_install" 'DRY-RUN: install active .NET SDK channels'

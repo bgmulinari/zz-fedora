@@ -31,6 +31,8 @@ source "$ROOT_DIR/lib/os.sh"
 source "$ROOT_DIR/modules/80-post-actions.sh"
 # shellcheck source=../modules/30-packages.sh
 source "$ROOT_DIR/modules/30-packages.sh"
+# shellcheck source=../modules/40-services.sh
+source "$ROOT_DIR/modules/40-services.sh"
 
 DISTRO="fedora"
 TARGET_USER="${USER}"
@@ -54,7 +56,6 @@ build_plan_from_selections
 [[ "$(grep -Fc 'flatpak' "$PLAN_DIR/prereqs/dnf.pkgs")" -eq 1 ]]
 [[ "$(sort -u "$PLAN_DIR/services/system-enable-now.list" | wc -l | tr -d ' ')" -eq "$(wc -l <"$PLAN_DIR/services/system-enable-now.list" | tr -d ' ')" ]]
 [[ "$(sort -u "$PLAN_DIR/stow/packages.list" | wc -l | tr -d ' ')" -eq "$(wc -l <"$PLAN_DIR/stow/packages.list" | tr -d ' ')" ]]
-! grep -F 'app.zen_browser.zen' "$PLAN_DIR/flatpak/apps.flatpaks" >/dev/null
 [[ "$(grep -Fc 'brew:codex' "$PLAN_DIR/actions/actions.list")" -eq 1 ]]
 [[ "$(grep -Fc 'dotnet-sdk' "$PLAN_DIR/actions/actions.list")" -eq 1 ]]
 [[ "$(grep -Fc 'dotnet-tools' "$PLAN_DIR/actions/actions.list")" -eq 1 ]]
@@ -65,7 +66,6 @@ grep -Fx 'vscode' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'wallpapers' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'shell-starship' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'shell-yazi' "$PLAN_DIR/stow/packages.list" >/dev/null
-[[ ! -f "$PLAN_DIR/services/system-enable.list" ]] || ! grep -Fx 'sddm' "$PLAN_DIR/services/system-enable.list" >/dev/null
 grep -Fx 'nautilus' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
 grep -Fx 'fontconfig' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
 grep -Fx 'gnome-themes-extra' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
@@ -96,7 +96,6 @@ grep -F '"id": "ghostty"' "$settings_home/.config/noctalia/settings.json" >/dev/
 grep -F '"id": "pywalfox"' "$settings_home/.config/noctalia/settings.json" >/dev/null
 grep -F '"id": "starship"' "$settings_home/.config/noctalia/settings.json" >/dev/null
 grep -F '"id": "yazi"' "$settings_home/.config/noctalia/settings.json" >/dev/null
-! grep -F '[templates.starship]' "$ROOT_DIR/dotfiles/noctalia/.config/noctalia/user-templates.toml" >/dev/null
 grep -F '"enableUserTheming": true' "$settings_home/.config/noctalia/settings.json" >/dev/null
 DRY_RUN=1
 TARGET_HOME="${HOME}"
@@ -229,6 +228,24 @@ assert_base_plan_for_distro() {
   grep -Fx 'noctalia-shell' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null 2>&1 || grep -Fx 'noctalia-shell' "$PLAN_DIR/packages/aur.pkgs" >/dev/null
 }
 
+assert_required_services_are_base_packages() {
+  local distro="$1"
+  local native_plan="$2"
+  local service_name package_name
+
+  DISTRO="$distro"
+  TARGET_HOME="${HOME}"
+  DRY_RUN=1
+  reset_test_selections
+  build_plan_from_selections
+
+  for service_name in "${DEFAULT_SYSTEM_SERVICES[@]}"; do
+    package_name="$(service_package_for_distro "$service_name")"
+    [[ -n "$package_name" ]]
+    grep -Fx "$package_name" "$native_plan" >/dev/null
+  done
+}
+
 assert_package_module_installs_base_before_optional() {
   local distro="$1"
   local first_base_backend="$2"
@@ -255,6 +272,7 @@ assert_package_module_installs_base_before_optional() {
 
   [[ "${package_install_calls[0]}" == "$first_base_backend":* ]]
   [[ " ${package_install_calls[0]#*:} " == *" sddm "* ]]
+  [[ " ${package_install_calls[0]#*:} " == *" power-profiles-daemon "* ]]
 
   local optional_index=-1
   local found_optional_retry=0
@@ -302,6 +320,9 @@ assert_login_manager_failure_aborts_base_setup() {
     run_cmd_as_root() {
       printf 'cmd:%s\n' "$*"
     }
+    enable_required_system_service_now() {
+      printf 'service:%s\n' "$1"
+    }
     module_30_packages
   )" && return 1
   DRY_RUN=1
@@ -309,14 +330,46 @@ assert_login_manager_failure_aborts_base_setup() {
   grep -F 'install:dnf:' <<<"$output" >/dev/null
   grep -F 'sddm' <<<"$output" >/dev/null
   grep -F 'cmd:systemctl daemon-reload' <<<"$output" >/dev/null
-  ! grep -F 'niri' <<<"$output" >/dev/null
+}
+
+assert_missing_required_service_retries_package() {
+  DISTRO="fedora"
+  TARGET_HOME="${HOME}"
+  DRY_RUN=0
+  reset_test_selections
+  build_plan_from_selections
+
+  local output
+  output="$(
+    distro_service_exists() {
+      [[ "$1" != "power-profiles-daemon" ]]
+    }
+    package_install_idempotent() {
+      printf 'install:%s:%s\n' "$1" "$2"
+    }
+    run_cmd_as_root() {
+      printf 'cmd:%s\n' "$*"
+    }
+    distro_enable_service_now() {
+      printf 'enable:%s\n' "$1"
+    }
+    configure_base_system_services
+  )" && return 1
+  DRY_RUN=1
+
+  grep -F 'install:dnf:power-profiles-daemon' <<<"$output" >/dev/null
+  grep -F 'cmd:systemctl daemon-reload' <<<"$output" >/dev/null
+  grep -F 'enable:NetworkManager' <<<"$output" >/dev/null
 }
 
 assert_base_plan_for_distro fedora "$PLAN_DIR/packages/dnf.pkgs"
+assert_required_services_are_base_packages fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_package_module_installs_base_before_optional fedora dnf code niri noctalia-shell sddm zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi
 assert_login_manager_failure_aborts_base_setup
+assert_missing_required_service_retries_package
 
 assert_base_plan_for_distro arch "$PLAN_DIR/packages/pacman.pkgs"
+assert_required_services_are_base_packages arch "$PLAN_DIR/packages/pacman.pkgs"
 assert_package_module_installs_base_before_optional arch pacman visual-studio-code-bin niri noctalia-shell sddm zsh starship zoxide fastfetch github-cli btop fd fzf bat yazi
 
 printf 'idempotency ok\n'

@@ -48,10 +48,6 @@ step_should_run_always() {
   return 0
 }
 
-step_should_run_services() {
-  [[ "$SKIP_SERVICES" -ne 1 ]]
-}
-
 step_should_run_dotfiles() {
   [[ "$SKIP_DOTFILES" -ne 1 ]]
 }
@@ -122,9 +118,7 @@ run_install_modules() {
     module_30_packages
     module_32_optional_packages
     module_35_custom_actions
-    module_40_services
     module_60_dotfiles
-    module_70_user_services
     module_80_post_actions
     module_90_doctor
   )
@@ -136,9 +130,7 @@ run_install_modules() {
     "Base Setup"
     "Optional Packages"
     "Custom Actions"
-    "System Services"
     "Dotfiles"
-    "User Services"
     "Post Actions"
     "Doctor"
   )
@@ -150,9 +142,7 @@ run_install_modules() {
     "Install non-optional base packages and configure the base shell before optional selections."
     "Install optional distro, AUR, and Flatpak packages from the generated plan."
     "Run selected direct installers and package-manager actions."
-    "Enable or start selected system services."
     "Stow managed configuration into the target home directory."
-    "Reload and enable user-scoped services."
     "Apply defaults, desktop associations, and final user/system tweaks."
     "Run the final verification checks and environment summary."
   )
@@ -164,9 +154,7 @@ run_install_modules() {
     step_should_run_always
     step_should_run_always
     step_should_run_always
-    step_should_run_services
     step_should_run_dotfiles
-    step_should_run_always
     step_should_run_always
     step_should_run_doctor
   )
@@ -194,9 +182,7 @@ run_apply_modules() {
     module_30_packages
     module_32_optional_packages
     module_35_custom_actions
-    module_40_services
     module_60_dotfiles
-    module_70_user_services
     module_80_post_actions
     module_90_doctor
   )
@@ -207,9 +193,7 @@ run_apply_modules() {
     "Base Setup"
     "Optional Packages"
     "Custom Actions"
-    "System Services"
     "Dotfiles"
-    "User Services"
     "Post Actions"
     "Doctor"
   )
@@ -220,9 +204,7 @@ run_apply_modules() {
     "Install non-optional base packages and configure the base shell before optional selections."
     "Install optional distro, AUR, and Flatpak packages from the generated plan."
     "Run selected direct installers and package-manager actions."
-    "Enable or start selected system services."
     "Stow managed configuration into the target home directory."
-    "Reload and enable user-scoped services."
     "Apply defaults, desktop associations, and final user/system tweaks."
     "Run the final verification checks and environment summary."
   )
@@ -233,9 +215,7 @@ run_apply_modules() {
     step_should_run_always
     step_should_run_always
     step_should_run_always
-    step_should_run_services
     step_should_run_dotfiles
-    step_should_run_always
     step_should_run_always
     step_should_run_doctor
   )

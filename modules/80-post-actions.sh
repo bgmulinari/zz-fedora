@@ -533,6 +533,7 @@ configure_zen_browser_noctalia_theme() {
 }
 
 module_80_post_actions() {
+  run_cmd_as_user "$TARGET_USER" systemctl --user daemon-reload || true
   run_cmd_as_user "$TARGET_USER" xdg-user-dirs-update || true
   run_cmd_as_user "$TARGET_USER" xdg-mime default org.gnome.Nautilus.desktop inode/directory || true
   run_cmd_as_user "$TARGET_USER" xdg-mime default org.gnome.Evince.desktop application/pdf || true
