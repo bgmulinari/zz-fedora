@@ -14,7 +14,21 @@ acquire_lock() {
 
 cleanup_on_exit() {
   stop_sudo_keepalive
+  restore_state_ownership
   release_lock
+}
+
+restore_state_ownership() {
+  [[ "$EUID" -eq 0 ]] || return 0
+  [[ -n "${STATE_OWNER_USER:-}" && "$STATE_OWNER_USER" != "root" ]] || return 0
+  id "$STATE_OWNER_USER" >/dev/null 2>&1 || return 0
+
+  local owner_group dir
+  owner_group="$(id -gn "$STATE_OWNER_USER" 2>/dev/null)" || return 0
+  for dir in "$STATE_DIR" "$CACHE_DIR" "$CONFIG_DIR"; do
+    [[ -d "$dir" && "$dir" == */zz-linux-setup ]] || continue
+    chown -R "$STATE_OWNER_USER:$owner_group" "$dir" 2>/dev/null || true
+  done
 }
 
 release_lock() {

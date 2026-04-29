@@ -33,7 +33,9 @@ done
 
 prepare_context() {
   parse_cli "$@"
+  exec_setup_as_root_if_needed "$@"
   init_log_file
+  trap cleanup_on_exit EXIT
   if [[ "$USE_SAVED_SELECTIONS" -eq 1 ]]; then
     load_saved_selections
   fi
@@ -62,45 +64,20 @@ step_should_run_doctor() {
   [[ "$COMMAND" == "doctor" || "$COMMAND" == "apply" || "$DRY_RUN" -ne 1 ]]
 }
 
-append_flag_if_enabled() {
-  local -n flag_args_ref="$1"
-  local flag="$2"
-  local value="$3"
-  [[ "$value" -eq 1 ]] && flag_args_ref+=("$flag")
-}
-
-build_apply_args() {
-  local -n args_ref="$1"
-  args_ref=(apply --use-saved --distro "$DISTRO" --target-user "$TARGET_USER")
-  append_flag_if_enabled args_ref --yes "$ASSUME_YES"
-  append_flag_if_enabled args_ref --dry-run "$DRY_RUN"
-  append_flag_if_enabled args_ref --skip-dotfiles "$SKIP_DOTFILES"
-  append_flag_if_enabled args_ref --skip-services "$SKIP_SERVICES"
-  append_flag_if_enabled args_ref --skip-login-manager "$SKIP_LOGIN_MANAGER"
-  append_flag_if_enabled args_ref --no-tui "$NO_TUI"
-  append_flag_if_enabled args_ref --stow-adopt "$STOW_ADOPT"
-}
-
-exec_apply_as_root_if_needed() {
+exec_setup_as_root_if_needed() {
   [[ "$DRY_RUN" -eq 1 ]] && return 0
   [[ "$EUID" -eq 0 ]] && return 0
+  [[ "$COMMAND" == "wizard" || "$COMMAND" == "install" ]] || return 0
 
-  local -a args=()
-  build_apply_args args
-
-  log_info "Root privileges are required to apply the install plan. You may be prompted for your password once."
+  printf 'Root privileges are required for setup. You may be prompted for your password once.\n'
   sudo -v
   exec sudo env \
     "STATE_DIR=$STATE_DIR" \
     "CACHE_DIR=$CACHE_DIR" \
     "CONFIG_DIR=$CONFIG_DIR" \
-    "LOG_FILE=$LOG_FILE" \
+    "STATE_OWNER_USER=${STATE_OWNER_USER:-${USER:-}}" \
     "TARGET_USER=$TARGET_USER" \
     "TARGET_HOME=$TARGET_HOME" \
-    "DISTRO=$DISTRO" \
-    "INSTALL_WEAK_DEPS=$INSTALL_WEAK_DEPS" \
-    "AUR_HELPER=$AUR_HELPER" \
-    "PREFERRED_BROWSER=$PREFERRED_BROWSER" \
     "DISPLAY=${DISPLAY:-}" \
     "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" \
     "XAUTHORITY=${XAUTHORITY:-}" \
@@ -108,8 +85,9 @@ exec_apply_as_root_if_needed() {
     "DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-}" \
     "XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-}" \
     "DESKTOP_SESSION=${DESKTOP_SESSION:-}" \
-    "ZZ_INTERNAL_APPLY=1" \
-    "$ROOT_DIR/install.sh" "${args[@]}"
+    "TERM=${TERM:-}" \
+    "COLORTERM=${COLORTERM:-}" \
+    "$ROOT_DIR/install.sh" "$@"
 }
 
 run_install_step() {
@@ -290,7 +268,6 @@ run_apply_modules() {
 }
 
 apply_install_plan() {
-  exec_apply_as_root_if_needed
   run_apply_modules
   tui_summary
   prompt_for_reboot
