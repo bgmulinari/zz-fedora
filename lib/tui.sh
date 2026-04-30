@@ -78,10 +78,6 @@ tui_step_start() {
   TUI_STEP_STATUS["$title"]="running"
 
   if tui_can_style; then
-    printf '\n'
-    gum style --bold --foreground 12 "Step $current/$total"
-    gum style --bold --foreground 4 "$title"
-    [[ -n "$description" ]] && gum style --faint "$description"
     return 0
   fi
 
@@ -108,7 +104,7 @@ tui_step_done() {
   TUI_STEP_STATUS["$title"]="done"
 
   if tui_can_style; then
-    printf '%s %s\n' "$(gum style --foreground 2 '✓')" "$title"
+    printf '%s %s\n' "$(gum style --foreground 2 ' ✓')" "$title"
     return 0
   fi
 
@@ -120,7 +116,7 @@ tui_step_failed() {
   TUI_STEP_STATUS["$title"]="error"
 
   if tui_can_style; then
-    printf '%s %s\n' "$(gum style --foreground 1 '✗')" "$title"
+    printf '%s %s\n' "$(gum style --foreground 1 ' ✗')" "$title"
     return 0
   fi
 
@@ -132,7 +128,7 @@ tui_step_skipped() {
   TUI_STEP_STATUS["$title"]="skipped"
 
   if tui_can_style; then
-    printf '%s %s\n' "$(gum style --foreground 3 '○')" "$title"
+    printf '%s %s\n' "$(gum style --foreground 3 ' ○')" "$title"
     return 0
   fi
 

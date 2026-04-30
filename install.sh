@@ -269,7 +269,16 @@ run_apply_modules() {
 }
 
 apply_install_plan() {
+  if tui_can_style; then
+    tui_intro
+    printf '\n'
+    gum style --bold "Installing selected steps... this may take some time. Please wait!"
+    printf '\n'
+  fi
+
+  TUI_PROGRESS_ACTIVE=1
   run_apply_modules
+  TUI_PROGRESS_ACTIVE=0
   tui_summary
   prompt_for_reboot
 }

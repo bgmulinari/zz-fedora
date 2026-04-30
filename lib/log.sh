@@ -54,6 +54,11 @@ log_emit() {
       ;;
   esac
 
+  if [[ "${TUI_PROGRESS_ACTIVE:-0}" -eq 1 && "${NO_TUI:-0}" -eq 0 && -t 2 ]] && command -v gum >/dev/null 2>&1; then
+    log_to_file "$level" "$*"
+    return 0
+  fi
+
   if [[ "${NO_TUI:-0}" -eq 0 && -t 2 ]] && command -v gum >/dev/null 2>&1; then
     gum log --level "$level" "$*"
   else
