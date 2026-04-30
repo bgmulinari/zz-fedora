@@ -1,0 +1,11 @@
+# Managed by zz-linux-setup.
+
+export DOTNET_ROOT="$HOME/.dotnet"
+
+if [ -d "$DOTNET_ROOT" ] && [[ ":$PATH:" != *":$DOTNET_ROOT:"* ]]; then
+  export PATH="$PATH:$DOTNET_ROOT"
+fi
+
+if [ -d "$DOTNET_ROOT/tools" ] && [[ ":$PATH:" != *":$DOTNET_ROOT/tools:"* ]]; then
+  export PATH="$PATH:$DOTNET_ROOT/tools"
+fi

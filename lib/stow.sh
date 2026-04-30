@@ -59,8 +59,19 @@ stow_backup_existing_target() {
   fi
 
   run_cmd_as_user "$TARGET_USER" mkdir -p "$(dirname "$backup_path")"
-  run_cmd_as_user "$TARGET_USER" mv "$target_path" "$backup_path"
+  run_cmd_as_user "$TARGET_USER" mv "$target_path" "$backup_path" || return 1
   log_info "Moved existing $target_path to $backup_path before stowing managed config"
+}
+
+stow_path_has_managed_descendant() {
+  local package_dir="$1"
+  local relative_path="$2"
+  local child
+  while IFS= read -r child; do
+    [[ -n "$child" ]] || continue
+    [[ "$child" == "$relative_path"/* ]] && return 0
+  done < <(find "$package_dir" -mindepth 1 -printf '%P\n')
+  return 1
 }
 
 stow_prepare_known_shell_files() {
@@ -98,6 +109,9 @@ stow_prepare_package_conflicts() {
   local relative_path
   while IFS= read -r relative_path; do
     [[ -n "$relative_path" ]] || continue
+    if [[ -d "$package_dir/$relative_path" ]] && stow_path_has_managed_descendant "$package_dir" "$relative_path"; then
+      continue
+    fi
     stow_backup_existing_target "$relative_path"
   done < <(find "$package_dir" -mindepth 1 -printf '%P\n' | sort -u)
 }

@@ -463,10 +463,23 @@ install_pywalfox_native_host() {
   fi
 
   if [[ "$DISTRO" == "fedora" ]]; then
-    run_cmd_as_root python3 -m pip install --upgrade pywalfox
+    if ! python3 -m pip --version >/dev/null 2>&1; then
+      run_cmd_as_root dnf install -y python3-pip || {
+        log_warn "Could not install python3-pip; skipping Pywalfox native messaging host"
+        install_firefox_pywalfox_extension_policy
+        ensure_firefox_profile_compat_for_pywalfox
+        return 0
+      }
+    fi
+    if ! run_cmd_as_root python3 -m pip install --upgrade pywalfox; then
+      log_warn "Could not install Pywalfox with pip; skipping native messaging host"
+      install_firefox_pywalfox_extension_policy
+      ensure_firefox_profile_compat_for_pywalfox
+      return 0
+    fi
   fi
 
-  run_cmd_as_user "$TARGET_USER" pywalfox install || log_warn "Could not install Pywalfox native messaging host"
+  run_cmd_as_user "$TARGET_USER" bash -lc 'pywalfox install' || log_warn "Could not install Pywalfox native messaging host"
   install_firefox_pywalfox_extension_policy
   ensure_firefox_profile_compat_for_pywalfox
 

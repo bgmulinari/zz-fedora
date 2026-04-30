@@ -187,10 +187,15 @@ flatpak_remote_add_if_missing() {
     return 0
   fi
   if have_cmd flatpak && flatpak remotes --columns=name 2>/dev/null | grep -Fx "$name" >/dev/null 2>&1; then
-    log_info "Flatpak remote already present: $name"
-    return 0
+    if flatpak remote-ls "$name" >/dev/null 2>&1; then
+      log_info "Flatpak remote already present: $name"
+      return 0
+    fi
+    log_warn "Flatpak remote '$name' is present but unusable; re-adding it."
+    run_cmd_as_root flatpak remote-delete --force "$name"
   fi
   run_cmd_as_root flatpak remote-add --if-not-exists "$name" "$url"
+  flatpak remote-ls "$name" >/dev/null 2>&1
 }
 
 flatpak_install_or_update() {

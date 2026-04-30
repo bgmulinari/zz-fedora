@@ -21,7 +21,12 @@ action_plan_has() {
 
 run_user_login_shell() {
   local script="$1"
-  run_cmd_as_user "$TARGET_USER" bash -lc "$script"
+  local local_bin dotnet_root dotnet_tools brew_bin
+  printf -v local_bin '%q' "$TARGET_HOME/.local/bin"
+  printf -v dotnet_root '%q' "$TARGET_HOME/$DOTNET_INSTALL_DIR_NAME"
+  printf -v dotnet_tools '%q' "$TARGET_HOME/$DOTNET_INSTALL_DIR_NAME/tools"
+  printf -v brew_bin '%q' "$BREW_PREFIX/bin"
+  run_cmd_as_user "$TARGET_USER" bash -lc "export PATH=$local_bin:$dotnet_root:$dotnet_tools:$brew_bin:\"\$PATH\"; $script"
 }
 
 install_homebrew_if_needed() {
@@ -46,7 +51,7 @@ install_brew_package() {
     printf 'DRY-RUN: brew install %s\n' "$package"
     return 0
   fi
-  run_user_login_shell "export PATH='$BREW_PREFIX/bin':\"\$PATH\"; brew list '$package' >/dev/null 2>&1 || brew install '$package'"
+  run_user_login_shell "brew list '$package' >/dev/null 2>&1 || brew install '$package'"
 }
 
 install_claude_code() {
@@ -66,15 +71,40 @@ install_jetbrains_toolbox() {
     return 0
   fi
 
-  run_cmd_as_user "$TARGET_USER" bash -lc "
+  local toolbox_dir_q toolbox_bin_q symlink_q
+  printf -v toolbox_dir_q '%q' "$toolbox_dir"
+  printf -v toolbox_bin_q '%q' "$toolbox_bin"
+  printf -v symlink_q '%q' "$symlink"
+
+  run_user_login_shell "
     set -Eeuo pipefail
     api='https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release'
-    download_url=\$(curl -fsSL \"\$api\" | grep -Po '\"linux\":\\s*\\{[^}]*\"link\":\\s*\"\\K[^\"]+' | head -1)
-    [[ -n \"\$download_url\" ]]
-    mkdir -p '$toolbox_dir' '$TARGET_HOME/.local/bin'
-    curl -fsSL \"\$download_url\" | tar -xzf - -C '$toolbox_dir' --strip-components=1
-    ln -sfn '$toolbox_bin' '$symlink'
-  "
+    api_response=\$(mktemp)
+    trap 'rm -f \"\$api_response\"' EXIT
+    curl -fsSL \"\$api\" -o \"\$api_response\"
+    download_url=\$(jq -r 'to_entries[0].value[0].downloads.linux.link // empty' \"\$api_response\")
+    version=\$(jq -r 'to_entries[0].value[0].version // empty' \"\$api_response\")
+    if [[ -z \"\$download_url\" ]]; then
+      echo 'Failed to parse JetBrains Toolbox Linux download URL from API response' >&2
+      exit 1
+    fi
+    echo \"JetBrains Toolbox version: \${version:-unknown}\"
+    echo \"JetBrains Toolbox download: \$download_url\"
+    mkdir -p $toolbox_dir_q \"\$(dirname $symlink_q)\"
+    curl -fsSL \"\$download_url\" | tar -xzf - -C $toolbox_dir_q --strip-components=1
+    [[ -x $toolbox_bin_q ]]
+    ln -sfn $toolbox_bin_q $symlink_q
+    nohup $toolbox_bin_q >/dev/null 2>&1 &
+  " || return 1
+
+  [[ -x "$toolbox_bin" ]] || {
+    log_warn "JetBrains Toolbox installer completed without creating $toolbox_bin."
+    return 1
+  }
+  [[ -L "$symlink" || -x "$symlink" ]] || {
+    log_warn "JetBrains Toolbox installer completed without creating $symlink."
+    return 1
+  }
 }
 
 install_devtunnel() {
@@ -132,24 +162,51 @@ install_dotnet_sdks() {
     return 0
   fi
 
-  local metadata install_script floor channels channel release_type
+  local metadata install_script floor channel_lines channel release_type failed=0
   metadata="$(mktemp "$CACHE_DIR/dotnet-releases.XXXXXX")"
   install_script="$(mktemp "$CACHE_DIR/dotnet-install.XXXXXX")"
-  curl -fsSL https://dotnetcli.azureedge.net/dotnet/release-metadata/releases-index.json -o "$metadata"
-  curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$install_script"
-  chmod 0755 "$install_script"
+  run_cmd curl -fsSL https://dotnetcli.azureedge.net/dotnet/release-metadata/releases-index.json -o "$metadata"
+  run_cmd curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$install_script"
+  run_cmd chmod 0755 "$install_script"
 
-  floor="$(dotnet_channel_versions "$metadata" | awk -F'\t' '$2 == "lts" {print $1; count++; if (count == 2) exit}' || true)"
-  [[ -n "$floor" ]] || floor="$(dotnet_channel_versions "$metadata" | tail -n1 | cut -f1)"
+  channel_lines="$(dotnet_channel_versions "$metadata" || true)"
+  if [[ -z "$channel_lines" ]]; then
+    rm -f "$metadata" "$install_script"
+    log_warn "No active .NET SDK channels were found in Microsoft release metadata."
+    return 1
+  fi
 
+  floor="$(awk -F'\t' '$2 == "lts" {print $1; count++; if (count == 2) exit}' <<<"$channel_lines")"
+  [[ -n "$floor" ]] || floor="$(tail -n1 <<<"$channel_lines" | cut -f1)"
+
+  local -a channels=()
   while IFS=$'\t' read -r channel release_type; do
     [[ -n "$channel" ]] || continue
     if version_ge "$channel" "$floor"; then
-      run_cmd_as_user "$TARGET_USER" bash "$install_script" --channel "$channel" --install-dir "$install_dir"
+      channels+=("$channel")
     fi
-  done < <(dotnet_channel_versions "$metadata")
+  done <<<"$channel_lines"
 
+  if [[ "${#channels[@]}" -eq 0 ]]; then
+    rm -f "$metadata" "$install_script"
+    log_warn "No .NET SDK channels matched the active-channel selection floor."
+    return 1
+  fi
+
+  log_info "Installing .NET SDK channels: $(join_by ', ' "${channels[@]}")"
+  for channel in "${channels[@]}"; do
+    if ! run_cmd_as_user "$TARGET_USER" bash "$install_script" --channel "$channel" --install-dir "$install_dir"; then
+      failed=1
+      log_warn "Failed to install .NET SDK channel: $channel"
+    fi
+  done
   rm -f "$metadata" "$install_script"
+
+  if [[ ! -x "$install_dir/dotnet" ]]; then
+    log_warn ".NET SDK installer completed without creating $install_dir/dotnet."
+    return 1
+  fi
+  [[ "$failed" -eq 0 ]]
 }
 
 install_dotnet_tools() {

@@ -16,7 +16,3 @@ for zsh_rc in "$HOME"/.zshrc.d/*(N); do
   [[ -f "$zsh_rc" ]] || continue
   source "$zsh_rc"
 done
-
-
-
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv zsh)"

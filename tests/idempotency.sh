@@ -178,6 +178,14 @@ stow_prepare_known_conflicts niri noctalia
 find "$STATE_DIR/backups" -path '*/home/.config/niri/config.kdl' -type f -print -quit | grep -q .
 find "$STATE_DIR/backups" -path '*/home/.config/noctalia/user-templates.toml' -type f -print -quit | grep -q .
 
+mkdir -p "$TARGET_HOME/.local/share/wallpapers"
+printf 'wallpaper\n' >"$TARGET_HOME/.local/share/wallpapers/SilentPeaks.jpg"
+stow_prepare_package_conflicts wallpapers
+[[ -d "$TARGET_HOME/.local" ]]
+[[ -d "$TARGET_HOME/.local/share" ]]
+[[ ! -e "$TARGET_HOME/.local/share/wallpapers/SilentPeaks.jpg" ]]
+find "$STATE_DIR/backups" -path '*/home/.local/share/wallpapers/SilentPeaks.jpg' -type f -print -quit | grep -q .
+
 install_starship_config
 [[ -f "$TARGET_HOME/.config/starship.toml" ]]
 grep -F 'palette = "noctalia"' "$TARGET_HOME/.config/starship.toml" >/dev/null
@@ -491,6 +499,65 @@ assert_dotnet_tools_fail_without_sdk() {
   grep -F ".NET SDK is still not available" <<<"$output" >/dev/null
 }
 
+assert_flatpak_remote_repaired_when_present_but_unusable() {
+  local output
+  output="$({
+    remote_fixed=0
+    flatpak() {
+      case "$1" in
+        remotes)
+          printf 'flathub\n'
+          ;;
+        remote-ls)
+          [[ "$remote_fixed" -eq 1 ]]
+          ;;
+        *)
+          return 1
+          ;;
+      esac
+    }
+    run_cmd_as_root() {
+      printf 'cmd:%s\n' "$*"
+      if [[ "$*" == "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" ]]; then
+        remote_fixed=1
+      fi
+    }
+    DRY_RUN=0
+    flatpak_remote_add_if_missing flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+  } 2>&1)"
+
+  grep -F "Flatpak remote 'flathub' is present but unusable" <<<"$output" >/dev/null
+  grep -F "cmd:flatpak remote-delete --force flathub" <<<"$output" >/dev/null
+  grep -F "cmd:flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" <<<"$output" >/dev/null
+}
+
+assert_dotnet_sdk_fails_when_no_channels_found() {
+  local output
+  output="$({
+    TARGET_HOME="$TEST_ROOT/no-dotnet-channels-home"
+    CACHE_DIR="$TEST_ROOT/no-dotnet-channels-cache"
+    mkdir -p "$TARGET_HOME" "$CACHE_DIR"
+    DRY_RUN=0
+    run_cmd() {
+      case "$1" in
+        curl)
+          printf 'download:%s\n' "${*: -1}"
+          printf '{}\n' >"${*: -1}"
+          ;;
+        chmod)
+          printf 'chmod:%s\n' "$*"
+          ;;
+      esac
+    }
+    dotnet_channel_versions() {
+      return 0
+    }
+    install_dotnet_sdks
+  } 2>&1)" && return 1
+
+  grep -F "No active .NET SDK channels were found" <<<"$output" >/dev/null
+}
+
 assert_base_plan_for_distro fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_required_services_are_base_packages fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_package_module_installs_base_before_optional fedora dnf code niri noctalia-shell sddm zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi
@@ -500,6 +567,8 @@ assert_login_manager_failure_aborts_base_setup
 assert_missing_required_service_retries_package
 assert_doctor_fails_when_planned_niri_is_not_ready
 assert_dotnet_tools_fail_without_sdk
+assert_flatpak_remote_repaired_when_present_but_unusable
+assert_dotnet_sdk_fails_when_no_channels_found
 
 assert_base_plan_for_distro arch "$PLAN_DIR/packages/pacman.pkgs"
 assert_required_services_are_base_packages arch "$PLAN_DIR/packages/pacman.pkgs"
