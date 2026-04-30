@@ -161,7 +161,7 @@ distro_repo_enabled() {
       grep -Eq '^\[multilib\]' /etc/pacman.conf 2>/dev/null
       ;;
     flathub)
-      have_cmd flatpak && flatpak remotes --columns=name 2>/dev/null | grep -Fx flathub >/dev/null 2>&1
+      flatpak_remote_usable flathub
       ;;
     *)
       return 1

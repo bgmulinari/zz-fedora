@@ -582,7 +582,7 @@ assert_flatpak_remote_repaired_when_present_but_unusable() {
     }
     run_cmd_as_root() {
       printf 'cmd:%s\n' "$*"
-      if [[ "$*" == "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" ]]; then
+      if [[ "$*" == "flatpak remote-add flathub https://dl.flathub.org/repo/flathub.flatpakrepo" ]]; then
         remote_fixed=1
       fi
     }
@@ -592,7 +592,33 @@ assert_flatpak_remote_repaired_when_present_but_unusable() {
 
   grep -F "Flatpak remote 'flathub' is present but unusable" <<<"$output" >/dev/null
   grep -F "cmd:flatpak remote-delete --force flathub" <<<"$output" >/dev/null
-  grep -F "cmd:flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" <<<"$output" >/dev/null
+  grep -F "cmd:flatpak remote-add flathub https://dl.flathub.org/repo/flathub.flatpakrepo" <<<"$output" >/dev/null
+}
+
+assert_flathub_repo_enabled_requires_usable_remote() {
+  local output
+  output="$({
+    flatpak() {
+      case "$1" in
+        remotes)
+          printf 'flathub\n'
+          ;;
+        remote-ls)
+          return 1
+          ;;
+        *)
+          return 1
+          ;;
+      esac
+    }
+    if distro_repo_enabled flathub; then
+      printf 'enabled\n'
+    else
+      printf 'disabled\n'
+    fi
+  } 2>&1)"
+
+  grep -Fx "disabled" <<<"$output" >/dev/null
 }
 
 assert_flathub_setup_removes_fedora_remote_first() {
@@ -614,7 +640,7 @@ assert_flathub_setup_removes_fedora_remote_first() {
     }
     run_cmd_as_root() {
       printf 'cmd:%s\n' "$*"
-      if [[ "$*" == "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" ]]; then
+      if [[ "$*" == "flatpak remote-add flathub https://dl.flathub.org/repo/flathub.flatpakrepo" ]]; then
         remote_fixed=1
       fi
     }
@@ -624,7 +650,7 @@ assert_flathub_setup_removes_fedora_remote_first() {
 
   grep -F "Removing Fedora Flatpak remote before configuring Flathub" <<<"$output" >/dev/null
   grep -F "cmd:flatpak remote-delete --force fedora" <<<"$output" >/dev/null
-  grep -F "cmd:flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" <<<"$output" >/dev/null
+  grep -F "cmd:flatpak remote-add flathub https://dl.flathub.org/repo/flathub.flatpakrepo" <<<"$output" >/dev/null
 }
 
 assert_flatpak_install_aborts_when_remote_remains_unusable() {
@@ -729,6 +755,7 @@ assert_missing_required_service_retries_package
 assert_doctor_fails_when_planned_niri_is_not_ready
 assert_dotnet_tools_fail_without_sdk
 assert_flatpak_remote_repaired_when_present_but_unusable
+assert_flathub_repo_enabled_requires_usable_remote
 assert_flathub_setup_removes_fedora_remote_first
 assert_flatpak_install_aborts_when_remote_remains_unusable
 assert_dotnet_sdk_fails_when_no_channels_found

@@ -200,7 +200,7 @@ distro_repo_enabled() {
       dnf repolist --enabled 2>/dev/null | grep -F 'fedora-cisco-openh264' >/dev/null 2>&1
       ;;
     flathub)
-      have_cmd flatpak && flatpak remotes --columns=name 2>/dev/null | grep -Fx flathub >/dev/null 2>&1
+      flatpak_remote_usable flathub
       ;;
     *)
       return 1
