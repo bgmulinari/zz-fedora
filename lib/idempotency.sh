@@ -182,6 +182,14 @@ systemctl_enable_now_if_exists() {
 flatpak_remote_add_if_missing() {
   local name="$1"
   local url="$2"
+
+  if have_cmd flatpak && [[ "$name" == "flathub" ]]; then
+    if flatpak remotes --columns=name 2>/dev/null | grep -Fx fedora >/dev/null 2>&1; then
+      log_info "Removing Fedora Flatpak remote before configuring Flathub"
+      run_cmd_as_root flatpak remote-delete --force fedora || true
+    fi
+  fi
+
   if [[ "$DRY_RUN" -eq 1 ]]; then
     run_cmd_as_root flatpak remote-add --if-not-exists "$name" "$url"
     return 0
