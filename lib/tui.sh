@@ -134,7 +134,7 @@ tui_progress_end() {
 
   printf '\033[r'
   printf '\033[?25h'
-  printf '\033[%s;1H' "$((TUI_PROGRESS_HEIGHT + 1))"
+  printf '\n'
   TUI_PROGRESS_RENDER_ACTIVE=0
 }
 
