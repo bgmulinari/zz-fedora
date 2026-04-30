@@ -222,6 +222,39 @@ NOCTALIA_TEMPLATE_APPLY_PATH="$noctalia_template_apply"
 )
 grep -F 'PALETTE_FILE="$HOME/.cache/noctalia/starship-palette.toml"' "$noctalia_template_apply" >/dev/null
 
+mkdir -p "$TARGET_HOME/.cache/noctalia"
+cat >"$TARGET_HOME/.cache/noctalia/starship-palette.toml" <<'EOF'
+[palettes.noctalia]
+blue = "#89b4fa"
+EOF
+cat >"$noctalia_template_apply" <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+case "$1" in
+starship)
+    PALETTE_FILE="$HOME/.cache/noctalia/starship-palette.toml"
+    CONFIG_FILE="$HOME/.config/starship.toml"
+    {
+        printf '\n# >>> NOCTALIA STARSHIP PALETTE >>>\n'
+        cat "$PALETTE_FILE"
+        printf '# <<< NOCTALIA STARSHIP PALETTE <<<\n'
+    } >>"$CONFIG_FILE"
+    ;;
+esac
+EOF
+chmod +x "$noctalia_template_apply"
+NOCTALIA_TEMPLATE_APPLY_PATH="$noctalia_template_apply"
+(
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+  apply_noctalia_starship_palette_if_available
+)
+grep -F '[palettes.noctalia]' "$TARGET_HOME/.config/starship.toml" >/dev/null
+
 optional_plan="$TEST_ROOT/optional.pkgs"
 printf 'bad-package\ngood-package\n' >"$optional_plan"
 install_attempts=()

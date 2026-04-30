@@ -362,6 +362,28 @@ patch_noctalia_starship_template_apply_if_needed() {
   log_info "Patched Noctalia Starship hook: $script_path"
 }
 
+apply_noctalia_starship_palette_if_available() {
+  local native_plan aur_plan
+  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  aur_plan="$(package_file_for_backend aur)"
+
+  starship_theming_available_for_plan "$native_plan" "$aur_plan" || return 0
+
+  local script_path palette_path
+  script_path="${NOCTALIA_TEMPLATE_APPLY_PATH:-/etc/xdg/quickshell/noctalia-shell/Scripts/bash/template-apply.sh}"
+  palette_path="$TARGET_HOME/.cache/noctalia/starship-palette.toml"
+
+  [[ -x "$script_path" ]] || return 0
+  [[ -f "$palette_path" ]] || return 0
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: apply Noctalia Starship palette via %s\n' "$script_path"
+    return 0
+  fi
+
+  run_cmd_as_user "$TARGET_USER" "$script_path" starship || log_warn "Could not apply Noctalia Starship palette"
+}
+
 update_noctalia_settings() {
   local settings_file="$TARGET_HOME/.config/noctalia/settings.json"
   if [[ ! -f "$settings_file" ]]; then
@@ -614,6 +636,7 @@ module_80_post_actions() {
   install_fedora_jetbrains_mono_nerd_font
   install_noctalia_wallpaper_state
   install_starship_config
+  apply_noctalia_starship_palette_if_available
   update_noctalia_settings
   install_pywalfox_native_host
   configure_zen_browser_noctalia_theme
