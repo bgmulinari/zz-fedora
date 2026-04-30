@@ -328,6 +328,40 @@ install_starship_config() {
   install_user_file_if_changed "$ROOT_DIR/templates/starship.toml" "$TARGET_HOME/.config/starship.toml"
 }
 
+patch_noctalia_starship_template_apply_if_needed() {
+  local script_path="${NOCTALIA_TEMPLATE_APPLY_PATH:-/etc/xdg/quickshell/noctalia-shell/Scripts/bash/template-apply.sh}"
+  [[ -f "$script_path" ]] || return 0
+
+  awk '
+    /^starship\)/ { in_starship = 1; next }
+    in_starship && /^[[:space:]]*;;$/ { exit }
+    in_starship && /PALETTE_FILE=.*starship-palette\.toml/ { found = 1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$script_path" && return 0
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: patch Noctalia Starship hook in %s\n' "$script_path"
+    return 0
+  fi
+
+  local temp_file
+  temp_file="$(mktemp "$CACHE_DIR/noctalia-template-apply.XXXXXX")"
+  awk '
+    /^starship\)/ && !patched {
+      print
+      print "    PALETTE_FILE=\"$HOME/.cache/noctalia/starship-palette.toml\""
+      print ""
+      patched = 1
+      next
+    }
+    { print }
+  ' "$script_path" >"$temp_file"
+
+  run_cmd_as_root install -m 0755 "$temp_file" "$script_path"
+  rm -f "$temp_file"
+  log_info "Patched Noctalia Starship hook: $script_path"
+}
+
 update_noctalia_settings() {
   local settings_file="$TARGET_HOME/.config/noctalia/settings.json"
   if [[ ! -f "$settings_file" ]]; then
@@ -576,6 +610,7 @@ module_80_post_actions() {
   run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3 || true
   run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface color-scheme prefer-dark || true
   run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface icon-theme Yaru-blue || true
+  patch_noctalia_starship_template_apply_if_needed
   install_fedora_jetbrains_mono_nerd_font
   install_noctalia_wallpaper_state
   install_starship_config

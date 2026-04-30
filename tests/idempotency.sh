@@ -191,6 +191,37 @@ install_starship_config
 grep -F 'palette = "noctalia"' "$TARGET_HOME/.config/starship.toml" >/dev/null
 find "$STATE_DIR/backups" -path '*/home/.config/starship.toml' -type f -print -quit | grep -q .
 
+noctalia_template_apply="$TEST_ROOT/template-apply.sh"
+cat >"$noctalia_template_apply" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+starship)
+    # Check if the nested starship config exists first
+    if [ -f "$HOME/.config/starship/starship.toml" ]; then
+        CONFIG_FILE="$HOME/.config/starship/starship.toml"
+    else
+    # Fallback to the default path
+        CONFIG_FILE="$HOME/.config/starship.toml"
+    fi
+
+    # Check if the generated palette file exists
+    if [ ! -f "$PALETTE_FILE" ]; then
+        echo "Error: Starship palette file not found at $PALETTE_FILE" >&2
+        exit 1
+    fi
+    ;;
+esac
+EOF
+chmod +x "$noctalia_template_apply"
+NOCTALIA_TEMPLATE_APPLY_PATH="$noctalia_template_apply"
+(
+  run_cmd_as_root() {
+    "$@"
+  }
+  patch_noctalia_starship_template_apply_if_needed
+)
+grep -F 'PALETTE_FILE="$HOME/.cache/noctalia/starship-palette.toml"' "$noctalia_template_apply" >/dev/null
+
 optional_plan="$TEST_ROOT/optional.pkgs"
 printf 'bad-package\ngood-package\n' >"$optional_plan"
 install_attempts=()
