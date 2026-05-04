@@ -72,7 +72,9 @@ grep -Fx 'vscode' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'wallpapers' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'shell-starship' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'shell-yazi' "$PLAN_DIR/stow/packages.list" >/dev/null
+grep -Fx 'default-apps' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'nautilus' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
+grep -Fx 'xdg-terminal-exec' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
 grep -Fx 'fontconfig' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
 ! grep -Fx 'gnome-themes-extra' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
 grep -Fx 'google-noto-sans-fonts' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
@@ -92,8 +94,45 @@ grep -Fx '~/.config/noctalia/templates/zsh-syntax-highlighting.zsh' "$PLAN_DIR/f
 grep -Fx '~/.config/Code/User/settings.json' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.config/environment.d/10-niri-gtk.conf' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.local/bin/noctalia-sync-icon-theme' "$PLAN_DIR/files/managed-files.list" >/dev/null
+grep -Fx '~/.local/share/applications/nvim.desktop' "$PLAN_DIR/files/managed-files.list" >/dev/null
+grep -Fx '~/.local/share/nautilus-python/extensions/open-terminal-here.py' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.local/share/wallpapers/SilentPeaks.jpg' "$PLAN_DIR/files/managed-files.list" >/dev/null
+grep -F 'spawn "xdg-terminal-exec"' "$ROOT_DIR/dotfiles/niri/.config/niri/cfg/keybinds.kdl" >/dev/null
+grep -F 'Exec=xdg-terminal-exec' "$ROOT_DIR/dotfiles/default-apps/.local/share/applications/nvim.desktop" >/dev/null
+grep -F 'xdg-terminal-exec' "$ROOT_DIR/dotfiles/default-apps/.local/share/nautilus-python/extensions/open-terminal-here.py" >/dev/null
 grep -F 'QT_QPA_PLATFORMTHEME=qt6ct' "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-niri-gtk.conf" >/dev/null
+grep -F 'TERMINAL=xdg-terminal-exec' "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-niri-gtk.conf" >/dev/null
+grep -F 'EDITOR=nvim' "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-niri-gtk.conf" >/dev/null
+grep -F 'VISUAL=nvim' "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-niri-gtk.conf" >/dev/null
+grep -F 'SUDO_EDITOR=nvim' "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-niri-gtk.conf" >/dev/null
+
+default_apps_home="$TEST_ROOT/default-apps-home"
+mkdir -p "$default_apps_home"
+TARGET_HOME="$default_apps_home"
+TARGET_USER="test-user"
+DRY_RUN=0
+default_apps_output="$(
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    if [[ "$*" == "sh -c "* ]]; then
+      HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+    else
+      printf 'user:%s:%s\n' "$user" "$*"
+    fi
+  }
+  configure_default_applications
+)"
+grep -F 'user:test-user:xdg-mime default nvim.desktop text/plain' <<<"$default_apps_output" >/dev/null
+grep -F 'user:test-user:xdg-mime default nvim.desktop application/x-shellscript' <<<"$default_apps_output" >/dev/null
+! grep -F 'x-scheme-handler/terminal' <<<"$default_apps_output" >/dev/null
+grep -F '# Terminal emulator preference order for xdg-terminal-exec' "$default_apps_home/.config/xdg-terminals.list" >/dev/null
+grep -Fx 'com.mitchellh.ghostty.desktop' "$default_apps_home/.config/xdg-terminals.list" >/dev/null
+grep -Fx 'Alacritty.desktop' "$default_apps_home/.config/xdg-terminals.list" >/dev/null
+grep -Fx 'kitty.desktop' "$default_apps_home/.config/xdg-terminals.list" >/dev/null
+DRY_RUN=1
+TARGET_USER="${USER}"
+TARGET_HOME="${HOME}"
 
 settings_home="$TEST_ROOT/settings-home"
 mkdir -p "$settings_home/.config/noctalia"

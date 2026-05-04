@@ -110,6 +110,7 @@ module_90_doctor() {
   doctor_warn_command niri-session
   doctor_warn_command qs
   doctor_warn_command ghostty
+  doctor_warn_command xdg-terminal-exec
   doctor_warn_command nautilus
   doctor_warn_command nvim
   doctor_warn_command evince
@@ -124,6 +125,7 @@ module_90_doctor() {
   doctor_warn_file "$niri_config_home/cfg/misc.kdl"
   doctor_warn_file "$user_config_home/xdg-desktop-portal/niri-portals.conf"
   doctor_warn_file "$user_config_home/environment.d/10-niri-gtk.conf"
+  doctor_warn_file "$user_config_home/xdg-terminals.list"
   doctor_warn_file "$user_config_home/ghostty/config"
   doctor_warn_file "$user_config_home/niri/noctalia.kdl"
   doctor_warn_file "$user_config_home/noctalia/settings.json"
@@ -145,16 +147,21 @@ module_90_doctor() {
   doctor_warn_file "$user_config_home/Code/User/settings.json"
   doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme"
   doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-screenshot"
+  doctor_warn_file "$TARGET_HOME/.local/share/applications/nvim.desktop"
+  doctor_warn_file "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py"
   doctor_warn_file "$TARGET_HOME/.local/share/wallpapers/SilentPeaks.jpg"
   if [[ "$DISTRO" == "fedora" ]]; then
     doctor_check_dir_has_files "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont" '*.ttf'
   fi
 
   doctor_check_contains "$niri_config_home/cfg/autostart.kdl" 'spawn-at-startup "qs" "-c" "noctalia-shell"'
-  doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "ghostty"'
+  doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "xdg-terminal-exec"'
   doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "nautilus"'
   doctor_check_contains "$niri_config_home/config.kdl" 'include "./noctalia.kdl"'
   doctor_check_contains "$user_config_home/ghostty/config" 'theme = noctalia'
+  doctor_check_contains "$user_config_home/xdg-terminals.list" 'Alacritty.desktop'
+  doctor_check_contains "$TARGET_HOME/.local/share/applications/nvim.desktop" 'Exec=xdg-terminal-exec'
+  doctor_check_contains "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py" 'xdg-terminal-exec'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"terminalCommand": "ghostty -e"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"predefinedScheme": "Catppuccin"'
   doctor_check_contains "$user_config_home/noctalia/plugins.json" '"polkit-agent"'
@@ -164,6 +171,8 @@ module_90_doctor() {
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "kcolorscheme"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "ghostty"'
   doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'QT_QPA_PLATFORMTHEME=qt6ct'
+  doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'TERMINAL=xdg-terminal-exec'
+  doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'EDITOR=nvim'
   doctor_check_contains "$user_config_home/kdeglobals" 'widgetStyle=Fusion'
   doctor_check_contains "$user_config_home/kdeglobals" 'Theme='
   doctor_check_contains "$user_config_home/qt5ct/qt5ct.conf" 'icon_theme='

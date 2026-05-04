@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Terminal Editor
+Comment=Edit text files in the default terminal editor
+Exec=xdg-terminal-exec nvim %F
+Terminal=false
+NoDisplay=true
+MimeType=text/plain;text/english;text/markdown;text/x-makefile;text/x-c++hdr;text/x-c++src;text/x-chdr;text/x-csrc;text/x-java;text/x-moc;text/x-pascal;text/x-python;text/x-tcl;text/x-tex;text/x-c;text/x-c++;text/xml;application/json;application/x-shellscript;application/xml;
+Categories=Utility;TextEditor;

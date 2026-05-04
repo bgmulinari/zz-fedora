@@ -616,6 +616,70 @@ ensure_user_file_contains_line() {
   ' sh "$destination" "$line"
 }
 
+configure_xdg_terminal_defaults() {
+  local terminals_file="$TARGET_HOME/.config/xdg-terminals.list"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: write Ghostty terminal defaults to %s\n' "$terminals_file"
+    return 0
+  fi
+
+  run_cmd_as_user "$TARGET_USER" sh -c '
+    terminals_file="$1"
+    mkdir -p "$(dirname "$terminals_file")"
+    cat >"$terminals_file" <<EOF
+# Terminal emulator preference order for xdg-terminal-exec
+# The first found and valid terminal will be used
+com.mitchellh.ghostty.desktop
+Alacritty.desktop
+kitty.desktop
+org.gnome.Console.desktop
+org.gnome.Terminal.desktop
+EOF
+  ' sh "$terminals_file"
+}
+
+configure_default_applications() {
+  local text_editor_desktop="nvim.desktop"
+  local -a text_mime_types=(
+    text/plain
+    text/english
+    text/markdown
+    text/x-makefile
+    text/x-c++hdr
+    text/x-c++src
+    text/x-chdr
+    text/x-csrc
+    text/x-java
+    text/x-moc
+    text/x-pascal
+    text/x-python
+    text/x-tcl
+    text/x-tex
+    text/x-c
+    text/x-c++
+    text/xml
+    application/json
+    application/x-shellscript
+    application/xml
+  )
+  local mime_type
+
+  run_cmd_as_user "$TARGET_USER" xdg-mime default org.gnome.Nautilus.desktop inode/directory || true
+  run_cmd_as_user "$TARGET_USER" xdg-mime default org.gnome.Evince.desktop application/pdf || true
+  for mime_type in "${text_mime_types[@]}"; do
+    run_cmd_as_user "$TARGET_USER" xdg-mime default "$text_editor_desktop" "$mime_type" || true
+  done
+  run_cmd_as_user "$TARGET_USER" xdg-mime default imv.desktop image/png || true
+  run_cmd_as_user "$TARGET_USER" xdg-mime default imv.desktop image/jpeg || true
+  run_cmd_as_user "$TARGET_USER" xdg-mime default imv.desktop image/gif || true
+  run_cmd_as_user "$TARGET_USER" xdg-mime default imv.desktop image/webp || true
+  run_cmd_as_user "$TARGET_USER" xdg-mime default imv.desktop image/bmp || true
+  run_cmd_as_user "$TARGET_USER" xdg-mime default imv.desktop image/tiff || true
+
+  configure_xdg_terminal_defaults
+}
+
 zen_profile_dirs() {
   local root profile_path
   for root in "$TARGET_HOME/.config/zen" "$TARGET_HOME/.zen"; do
@@ -658,31 +722,7 @@ configure_zen_browser_noctalia_theme() {
 module_80_post_actions() {
   run_cmd_as_user "$TARGET_USER" systemctl --user daemon-reload || true
   run_cmd_as_user "$TARGET_USER" xdg-user-dirs-update || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default org.gnome.Nautilus.desktop inode/directory || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default org.gnome.Evince.desktop application/pdf || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/plain || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/english || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/x-makefile || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/x-c++hdr || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/x-c++src || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/x-chdr || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/x-csrc || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/x-java || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/x-moc || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/x-pascal || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/x-tcl || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/x-tex || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop application/x-shellscript || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/x-c || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/x-c++ || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop application/xml || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default nvim.desktop text/xml || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default imv.desktop image/png || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default imv.desktop image/jpeg || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default imv.desktop image/gif || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default imv.desktop image/webp || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default imv.desktop image/bmp || true
-  run_cmd_as_user "$TARGET_USER" xdg-mime default imv.desktop image/tiff || true
+  configure_default_applications
   run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3 || true
   run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface color-scheme prefer-dark || true
   patch_noctalia_starship_template_apply_if_needed

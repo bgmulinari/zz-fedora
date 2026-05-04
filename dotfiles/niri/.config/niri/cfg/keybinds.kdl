@@ -1,6 +1,6 @@
 binds {
-    Mod+Return hotkey-overlay-title="Open Terminal: Ghostty" {
-        spawn "ghostty";
+    Mod+Return hotkey-overlay-title="Open Terminal" {
+        spawn "xdg-terminal-exec";
     }
 
     Mod+D hotkey-overlay-title="Noctalia Launcher" {
