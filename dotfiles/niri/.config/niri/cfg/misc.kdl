@@ -1,6 +1,14 @@
 prefer-no-csd
 screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
 
+blur {
+    on
+    passes 3
+    offset 3
+    noise 0.02
+    saturation 1.5
+}
+
 environment {
     ELECTRON_OZONE_PLATFORM_HINT "auto"
     QT_QPA_PLATFORM "wayland"
