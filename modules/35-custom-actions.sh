@@ -245,7 +245,15 @@ install_fedora_ms_fonts() {
   fi
   rpm -q msttcore-fonts-installer >/dev/null 2>&1 && return 0
   run_cmd_as_root dnf install -y curl cabextract fontconfig mkfontscale xorg-x11-font-utils xset
-  run_cmd_as_root rpm -i --nodigest --nosignature https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-2.6-1.noarch.rpm
+  local xset_wrapper_dir
+  xset_wrapper_dir="$(mktemp -d "$CACHE_DIR/ms-fonts-xset.XXXXXX")"
+  printf '#!/usr/bin/env sh\nexit 0\n' >"$xset_wrapper_dir/xset"
+  chmod 0755 "$xset_wrapper_dir/xset"
+  if ! run_cmd_as_root env "PATH=$xset_wrapper_dir:$PATH" rpm -i --nodigest --nosignature https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-2.6-1.noarch.rpm; then
+    rm -rf "$xset_wrapper_dir"
+    return 1
+  fi
+  rm -rf "$xset_wrapper_dir"
 }
 
 install_fedora_build_tools() {

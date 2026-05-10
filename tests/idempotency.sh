@@ -983,6 +983,8 @@ assert_fedora_ms_fonts_installs_refresh_helpers() {
   } 2>&1)"
 
   grep -F "root:dnf install -y curl cabextract fontconfig mkfontscale xorg-x11-font-utils xset" <<<"$output" >/dev/null
+  grep -F "root:env PATH=$CACHE_DIR/ms-fonts-xset." <<<"$output" >/dev/null
+  grep -F ":$PATH rpm -i --nodigest --nosignature https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-2.6-1.noarch.rpm" <<<"$output" >/dev/null
 }
 
 assert_google_chrome_source_imports_key_before_repo_install() {
