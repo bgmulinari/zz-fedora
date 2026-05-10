@@ -74,6 +74,7 @@ grep -Fx 'vscode' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'shell-starship' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'shell-yazi' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'default-apps' "$PLAN_DIR/stow/packages.list" >/dev/null
+[[ -z "$(stow_package_required_command portals || true)" ]]
 grep -Fx 'nautilus' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
 grep -Fx 'xdg-terminal-exec' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
 grep -Fx 'fontconfig' "$PLAN_DIR/packages/dnf.pkgs" >/dev/null
@@ -655,6 +656,7 @@ assert_doctor_fails_when_planned_niri_is_not_ready() {
   grep -F 'missing command niri' <<<"$output" >/dev/null
   grep -F 'missing file /usr/share/wayland-sessions/niri.desktop' <<<"$output" >/dev/null
   grep -F 'service not enabled sddm' <<<"$output" >/dev/null
+  ! grep -F '.zsh/noctalia-zsh-syntax-highlighting.zsh' <<<"$output" >/dev/null
   grep -F 'Fatal desktop readiness checks failed' <<<"$output" >/dev/null
   grep -F 'doctor-status:1' <<<"$output" >/dev/null
 }

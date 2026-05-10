@@ -114,7 +114,6 @@ module_90_doctor() {
   doctor_warn_command nautilus
   doctor_warn_command nvim
   doctor_warn_command evince
-  doctor_warn_command xdg-desktop-portal
   doctor_warn_command gum
 
   local user_config_home="$TARGET_HOME/.config"
@@ -135,13 +134,8 @@ module_90_doctor() {
   doctor_warn_file "$user_config_home/noctalia/templates/neovim.lua"
   doctor_warn_file "$user_config_home/noctalia/templates/zsh-syntax-highlighting.zsh"
   doctor_warn_file "$TARGET_HOME/.cache/noctalia/wallpapers.json"
-  doctor_warn_file "$user_config_home/gtk-3.0/noctalia.css"
-  doctor_warn_file "$user_config_home/gtk-4.0/noctalia.css"
   doctor_warn_file "$user_config_home/qt5ct/qt5ct.conf"
-  doctor_warn_file "$user_config_home/qt5ct/colors/noctalia.conf"
   doctor_warn_file "$user_config_home/qt6ct/qt6ct.conf"
-  doctor_warn_file "$user_config_home/qt6ct/colors/noctalia.conf"
-  doctor_warn_file "$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
   doctor_warn_file "$user_config_home/kdeglobals"
   doctor_warn_file "$user_config_home/nvim/plugin/noctalia.lua"
   doctor_warn_file "$user_config_home/Code/User/settings.json"
@@ -201,7 +195,6 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "zsh"; then
     doctor_warn_command zsh
     doctor_warn_file "$TARGET_HOME/.zshrc"
-    doctor_warn_file "$TARGET_HOME/.zsh/noctalia-zsh-syntax-highlighting.zsh"
     doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.zshSyntaxHighlighting]'
   fi
   if doctor_plan_has_entry "$native_plan" "starship"; then
@@ -233,7 +226,7 @@ module_90_doctor() {
     doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "btop"'
   fi
   if doctor_plan_has_entry "$native_plan" "fd-find"; then
-    doctor_warn_command fdfind
+    doctor_warn_command fd
   fi
   if doctor_plan_has_entry "$native_plan" "fd"; then
     doctor_warn_command fd
@@ -251,7 +244,6 @@ module_90_doctor() {
   if grep -Fx firefox < <(effective_choice_ids "$DISTRO" "browsers") >/dev/null 2>&1; then
     doctor_warn_command pywalfox
     doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "pywalfox"'
-    doctor_warn_file "$TARGET_HOME/.cache/wal/colors.json"
     doctor_warn_file "$TARGET_HOME/.mozilla/native-messaging-hosts/pywalfox.json"
     doctor_check_contains "$(firefox_distribution_dir)/policies.json" '"pywalfox@frewacom.org"'
     if [[ -f "$TARGET_HOME/.config/mozilla/firefox/profiles.ini" ]]; then
@@ -261,8 +253,6 @@ module_90_doctor() {
   fi
   if grep -E '^(zen-copr|zen-aur)$' < <(effective_choice_ids "$DISTRO" "browsers") >/dev/null 2>&1; then
     doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "zenBrowser"'
-    doctor_warn_file "$TARGET_HOME/.cache/noctalia/zen-browser/zen-userChrome.css"
-    doctor_warn_file "$TARGET_HOME/.cache/noctalia/zen-browser/zen-userContent.css"
     doctor_check_zen_browser_profiles
   fi
 

@@ -12,7 +12,6 @@ stow_package_required_command() {
     nvim) printf 'nvim\n' ;;
     niri) printf 'niri\n' ;;
     noctalia) printf 'qs\n' ;;
-    portals) printf 'xdg-desktop-portal\n' ;;
     shell-fastfetch) printf 'fastfetch\n' ;;
     shell-fzf) printf 'fzf\n' ;;
     shell-starship|starship) printf 'starship\n' ;;
