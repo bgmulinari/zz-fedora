@@ -149,7 +149,7 @@ module_90_doctor() {
   doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-screenshot"
   doctor_warn_file "$TARGET_HOME/.local/share/applications/nvim.desktop"
   doctor_warn_file "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py"
-  doctor_warn_file "$TARGET_HOME/.local/share/wallpapers/SilentPeaks.jpg"
+  doctor_warn_file "$TARGET_HOME/Wallpapers/SilentPeaks.jpg"
   if [[ "$DISTRO" == "fedora" ]]; then
     doctor_check_dir_has_files "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont" '*.ttf'
   fi
@@ -165,6 +165,7 @@ module_90_doctor() {
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"terminalCommand": "ghostty -e"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"predefinedScheme": "Catppuccin"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"syncGsettings": true'
+  doctor_check_contains "$user_config_home/noctalia/settings.json" '"directory": "'"$TARGET_HOME"'/Wallpapers"'
   doctor_check_contains "$user_config_home/noctalia/plugins.json" '"polkit-agent"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "niri"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "gtk"'
@@ -179,7 +180,7 @@ module_90_doctor() {
   doctor_check_contains "$user_config_home/qt5ct/qt5ct.conf" 'icon_theme='
   doctor_check_contains "$user_config_home/qt6ct/qt6ct.conf" 'icon_theme='
   doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.iconTheme]'
-  doctor_check_contains "$TARGET_HOME/.cache/noctalia/wallpapers.json" '"defaultWallpaper": "'"$TARGET_HOME"'/.local/share/wallpapers/SilentPeaks.jpg"'
+  doctor_check_contains "$TARGET_HOME/.cache/noctalia/wallpapers.json" '"defaultWallpaper": "'"$TARGET_HOME"'/Wallpapers/SilentPeaks.jpg"'
   doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.neovim]'
 
   local native_plan

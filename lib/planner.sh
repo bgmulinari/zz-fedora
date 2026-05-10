@@ -140,6 +140,8 @@ build_plan_from_selections() {
 
   append_plan_entries "$PLAN_DIR/services/system-enable-now.list" "${DEFAULT_SYSTEM_SERVICES[@]}"
   : >"$PLAN_DIR/services/user-enable.list"
+  append_managed_file "~/Wallpapers/SilentPeaks.jpg"
+  append_managed_file "~/.cache/noctalia/wallpapers.json"
 
   write_plan_summary
   save_selections

@@ -69,7 +69,7 @@ grep -Fx 'shell' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'nvim' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'noctalia' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'vscode' "$PLAN_DIR/stow/packages.list" >/dev/null
-grep -Fx 'wallpapers' "$PLAN_DIR/stow/packages.list" >/dev/null
+! grep -Fx 'wallpapers' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'shell-starship' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'shell-yazi' "$PLAN_DIR/stow/packages.list" >/dev/null
 grep -Fx 'default-apps' "$PLAN_DIR/stow/packages.list" >/dev/null
@@ -96,7 +96,8 @@ grep -Fx '~/.config/environment.d/10-niri-gtk.conf' "$PLAN_DIR/files/managed-fil
 grep -Fx '~/.local/bin/noctalia-sync-icon-theme' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.local/share/applications/nvim.desktop' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.local/share/nautilus-python/extensions/open-terminal-here.py' "$PLAN_DIR/files/managed-files.list" >/dev/null
-grep -Fx '~/.local/share/wallpapers/SilentPeaks.jpg' "$PLAN_DIR/files/managed-files.list" >/dev/null
+grep -Fx '~/Wallpapers/SilentPeaks.jpg' "$PLAN_DIR/files/managed-files.list" >/dev/null
+grep -Fx '~/.cache/noctalia/wallpapers.json' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -F 'spawn "xdg-terminal-exec"' "$ROOT_DIR/dotfiles/niri/.config/niri/cfg/keybinds.kdl" >/dev/null
 grep -F 'Exec=xdg-terminal-exec' "$ROOT_DIR/dotfiles/default-apps/.local/share/applications/nvim.desktop" >/dev/null
 grep -F 'f"--dir={path}"' "$ROOT_DIR/dotfiles/default-apps/.local/share/nautilus-python/extensions/open-terminal-here.py" >/dev/null
@@ -140,6 +141,7 @@ TARGET_HOME="$settings_home"
 DRY_RUN=0
 update_noctalia_settings
 grep -F '"terminalCommand": "ghostty -e"' "$settings_home/.config/noctalia/settings.json" >/dev/null
+grep -F '"directory": "'"$settings_home"'/Wallpapers"' "$settings_home/.config/noctalia/settings.json" >/dev/null
 grep -F '"id": "ghostty"' "$settings_home/.config/noctalia/settings.json" >/dev/null
 grep -F '"id": "pywalfox"' "$settings_home/.config/noctalia/settings.json" >/dev/null
 grep -F '"id": "starship"' "$settings_home/.config/noctalia/settings.json" >/dev/null
@@ -166,6 +168,16 @@ DRY_RUN=0
 update_noctalia_settings
 grep -F '"enableUserTheming": true' "$external_templates_home/.config/noctalia/settings.json" >/dev/null
 grep -F '"id": "zenBrowser"' "$external_templates_home/.config/noctalia/settings.json" >/dev/null
+DRY_RUN=1
+TARGET_HOME="${HOME}"
+
+wallpaper_seed_home="$TEST_ROOT/wallpaper-seed-home"
+mkdir -p "$wallpaper_seed_home"
+TARGET_HOME="$wallpaper_seed_home"
+DRY_RUN=0
+install_noctalia_wallpaper_state
+cmp -s "$ROOT_DIR/assets/wallpapers/SilentPeaks.jpg" "$wallpaper_seed_home/Wallpapers/SilentPeaks.jpg"
+grep -F '"defaultWallpaper": "'"$wallpaper_seed_home"'/Wallpapers/SilentPeaks.jpg"' "$wallpaper_seed_home/.cache/noctalia/wallpapers.json" >/dev/null
 DRY_RUN=1
 TARGET_HOME="${HOME}"
 
@@ -223,14 +235,6 @@ grep -Fx 'generated colors' "$TARGET_HOME/.config/niri/noctalia.kdl" >/dev/null
 [[ ! -e "$TARGET_HOME/.config/noctalia/user-templates.toml" ]]
 find "$STATE_DIR/backups" -path '*/home/.config/niri/config.kdl' -type f -print -quit | grep -q .
 find "$STATE_DIR/backups" -path '*/home/.config/noctalia/user-templates.toml' -type f -print -quit | grep -q .
-
-mkdir -p "$TARGET_HOME/.local/share/wallpapers"
-printf 'wallpaper\n' >"$TARGET_HOME/.local/share/wallpapers/SilentPeaks.jpg"
-stow_prepare_package_conflicts wallpapers
-[[ -d "$TARGET_HOME/.local" ]]
-[[ -d "$TARGET_HOME/.local/share" ]]
-[[ ! -e "$TARGET_HOME/.local/share/wallpapers/SilentPeaks.jpg" ]]
-find "$STATE_DIR/backups" -path '*/home/.local/share/wallpapers/SilentPeaks.jpg' -type f -print -quit | grep -q .
 
 install_starship_config
 [[ -f "$TARGET_HOME/.config/starship.toml" ]]

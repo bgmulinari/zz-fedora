@@ -7,6 +7,9 @@
     "useWallpaperColors": false,
     "predefinedScheme": "Catppuccin"
   },
+  "wallpaper": {
+    "directory": "~/Wallpapers"
+  },
   "templates": {
     "activeTemplates": [
       {

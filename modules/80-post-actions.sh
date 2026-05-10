@@ -32,9 +32,11 @@ install_user_file_if_changed() {
 install_noctalia_wallpaper_state() {
   local wallpaper_path destination temp_file
 
-  wallpaper_path="$TARGET_HOME/.local/share/wallpapers/SilentPeaks.jpg"
+  wallpaper_path="$TARGET_HOME/Wallpapers/SilentPeaks.jpg"
   destination="$TARGET_HOME/.cache/noctalia/wallpapers.json"
   temp_file="$(mktemp "$CACHE_DIR/noctalia-wallpapers.XXXXXX")"
+
+  install_user_file_if_changed "$ROOT_DIR/assets/wallpapers/SilentPeaks.jpg" "$wallpaper_path"
 
   cat >"$temp_file" <<EOF
 {
@@ -477,6 +479,7 @@ update_noctalia_settings() {
 
   jq \
     --arg scheme "Catppuccin" \
+    --arg wallpaper_dir "$TARGET_HOME/Wallpapers" \
     --argjson active_templates "$templates_json" \
     --argjson managed_template_ids "$managed_templates_json" \
     --argjson enable_user_theming "$enable_user_theming" \
@@ -487,6 +490,9 @@ update_noctalia_settings() {
         syncGsettings: true,
         useWallpaperColors: false,
         predefinedScheme: $scheme
+      }) |
+      .wallpaper = ((.wallpaper // {}) + {
+        directory: $wallpaper_dir
       }) |
       .appLauncher = ((.appLauncher // {}) + {
         terminalCommand: "ghostty -e"
