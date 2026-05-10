@@ -243,7 +243,7 @@ install_fedora_ms_fonts() {
     return 0
   fi
   rpm -q msttcore-fonts-installer >/dev/null 2>&1 && return 0
-  run_cmd_as_root dnf install -y curl cabextract xorg-x11-font-utils fontconfig
+  run_cmd_as_root dnf install -y curl cabextract fontconfig mkfontscale xorg-x11-font-utils xset
   run_cmd_as_root rpm -i --nodigest --nosignature https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-2.6-1.noarch.rpm
 }
 

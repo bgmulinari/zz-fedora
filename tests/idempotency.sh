@@ -962,6 +962,24 @@ EOF
   grep -F -- "--channel 8.0" <<<"$output" >/dev/null
 }
 
+assert_fedora_ms_fonts_installs_refresh_helpers() {
+  local output
+  output="$({
+    rpm() {
+      [[ "$1" == "-q" ]] && return 1
+      return 0
+    }
+    run_cmd_as_root() {
+      printf 'root:%s\n' "$*"
+    }
+    DISTRO=fedora
+    DRY_RUN=0
+    install_fedora_ms_fonts
+  } 2>&1)"
+
+  grep -F "root:dnf install -y curl cabextract fontconfig mkfontscale xorg-x11-font-utils xset" <<<"$output" >/dev/null
+}
+
 assert_base_plan_for_distro fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_required_services_are_base_packages fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_package_module_installs_base_before_optional fedora dnf code niri noctalia-shell sddm zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi
@@ -978,6 +996,7 @@ assert_flatpak_install_aborts_when_remote_remains_unusable
 assert_flatpak_install_uses_system_installation
 assert_dotnet_sdk_fails_when_no_channels_found
 assert_dotnet_sdk_selects_second_lts_floor_and_newer_channels
+assert_fedora_ms_fonts_installs_refresh_helpers
 
 assert_base_plan_for_distro arch "$PLAN_DIR/packages/pacman.pkgs"
 assert_required_services_are_base_packages arch "$PLAN_DIR/packages/pacman.pkgs"
