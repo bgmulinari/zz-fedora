@@ -40,6 +40,7 @@ distro_enable_sources() {
         run_cmd curl -fsSL "$terra_release_url" -o "$terra_bootstrap_dir/terra-release.rpm"
         run_cmd_as_root rpm -Uvh --nosignature "$terra_bootstrap_dir/terra-gpg-keys.rpm" "$terra_bootstrap_dir/terra-release.rpm"
         run_cmd_as_root rpm --import "/etc/pki/rpm-gpg/RPM-GPG-KEY-terra${fedora_release}"
+        run_cmd_as_root dnf config-manager setopt terra.repo_gpgcheck=0
         [[ "$DRY_RUN" -eq 1 ]] || rm -rf "$terra_bootstrap_dir"
       fi
       ;;
@@ -64,8 +65,12 @@ distro_enable_sources() {
             run_cmd_as_root dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
             ;;
           vendor:google-chrome)
-            local repo_file
+            local defaults_file repo_file
+            defaults_file="$(mktemp "$CACHE_DIR/google-chrome-defaults.XXXXXX")"
             repo_file="$(mktemp "$CACHE_DIR/google-chrome.repo.XXXXXX")"
+            cat >"$defaults_file" <<'EOF'
+repo_add_once="false"
+EOF
             cat >"$repo_file" <<'EOF'
 [google-chrome]
 name=google-chrome
@@ -74,13 +79,15 @@ enabled=1
 gpgcheck=1
 gpgkey=https://dl.google.com/linux/linux_signing_key.pub
 EOF
-            run_cmd_as_root rpm --import https://dl.google.com/linux/linux_signing_key.pub
+            run_cmd_as_root bash -c 'rpm --import https://dl.google.com/linux/linux_signing_key.pub 2>/dev/null'
             if [[ "$DRY_RUN" -eq 1 ]]; then
+              printf 'DRY-RUN: install %s -> /etc/default/google-chrome\n' "$defaults_file"
               printf 'DRY-RUN: install %s -> /etc/yum.repos.d/google-chrome.repo\n' "$repo_file"
             else
+              run_cmd_as_root install -Dm0644 "$defaults_file" /etc/default/google-chrome
               run_cmd_as_root install -Dm0644 "$repo_file" /etc/yum.repos.d/google-chrome.repo
             fi
-            rm -f "$repo_file"
+            rm -f "$defaults_file" "$repo_file"
             ;;
           vendor:vscode)
             local repo_file
@@ -101,8 +108,25 @@ EOF
             rm -f "$repo_file"
             ;;
           vendor:claude-desktop)
+            local repo_file
+            repo_file="$(mktemp "$CACHE_DIR/claude-desktop.repo.XXXXXX")"
+            cat >"$repo_file" <<'EOF'
+[claude-desktop]
+name=Claude Desktop for Fedora/RHEL
+baseurl=https://pkg.claude-desktop-debian.dev/rpm/$basearch
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://pkg.claude-desktop-debian.dev/KEY.gpg
+metadata_expire=1h
+EOF
             run_cmd_as_root rpm --import https://pkg.claude-desktop-debian.dev/KEY.gpg
-            run_cmd_as_root curl -fsSL https://aaddrick.github.io/claude-desktop-debian/rpm/claude-desktop.repo -o /etc/yum.repos.d/claude-desktop.repo
+            if [[ "$DRY_RUN" -eq 1 ]]; then
+              printf 'DRY-RUN: install %s -> /etc/yum.repos.d/claude-desktop.repo\n' "$repo_file"
+            else
+              run_cmd_as_root install -Dm0644 "$repo_file" /etc/yum.repos.d/claude-desktop.repo
+            fi
+            rm -f "$repo_file"
             ;;
         esac
       fi

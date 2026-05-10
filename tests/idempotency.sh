@@ -1001,7 +1001,9 @@ assert_google_chrome_source_imports_key_before_repo_install() {
     distro_enable_sources vendor:google-chrome
   } 2>&1)"
 
-  grep -F "root:rpm --import https://dl.google.com/linux/linux_signing_key.pub" <<<"$output" >/dev/null
+  grep -F "root:bash -c rpm --import https://dl.google.com/linux/linux_signing_key.pub 2>/dev/null" <<<"$output" >/dev/null
+  grep -F "root:install -Dm0644" <<<"$output" >/dev/null
+  grep -F "/etc/default/google-chrome" <<<"$output" >/dev/null
   grep -F "root:install -Dm0644" <<<"$output" >/dev/null
 }
 
@@ -1035,9 +1037,10 @@ assert_terra_source_bootstraps_release_rpms_before_importing_key() {
   grep -F "cmd:curl -fsSL https://repos.fyralabs.com/terra44/terra-release-0:44-9.noarch.rpm -o" <<<"$output" >/dev/null
   grep -F "root:rpm -Uvh --nosignature" <<<"$output" >/dev/null
   grep -F "root:rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-terra44" <<<"$output" >/dev/null
+  grep -F "root:dnf config-manager setopt terra.repo_gpgcheck=0" <<<"$output" >/dev/null
 }
 
-assert_claude_desktop_source_imports_key_after_repo_install() {
+assert_claude_desktop_source_imports_key_before_repo_install() {
   local output
   output="$({
     distro_repo_enabled() {
@@ -1052,7 +1055,8 @@ assert_claude_desktop_source_imports_key_after_repo_install() {
   } 2>&1)"
 
   grep -F "root:rpm --import https://pkg.claude-desktop-debian.dev/KEY.gpg" <<<"$output" >/dev/null
-  grep -F "root:curl -fsSL https://aaddrick.github.io/claude-desktop-debian/rpm/claude-desktop.repo -o /etc/yum.repos.d/claude-desktop.repo" <<<"$output" >/dev/null
+  grep -F "root:install -Dm0644" <<<"$output" >/dev/null
+  grep -F "/etc/yum.repos.d/claude-desktop.repo" <<<"$output" >/dev/null
 }
 
 assert_default_browser_uses_mime_fallback_when_xdg_settings_fails() {
@@ -1111,7 +1115,7 @@ assert_dotnet_sdk_selects_second_lts_floor_and_newer_channels
 assert_fedora_ms_fonts_installs_refresh_helpers
 assert_google_chrome_source_imports_key_before_repo_install
 assert_terra_source_bootstraps_release_rpms_before_importing_key
-assert_claude_desktop_source_imports_key_after_repo_install
+assert_claude_desktop_source_imports_key_before_repo_install
 assert_default_browser_uses_mime_fallback_when_xdg_settings_fails
 assert_homebrew_refreshes_ca_certificates_after_install
 
