@@ -765,12 +765,12 @@ assert_flatpak_remote_repaired_when_present_but_unusable() {
     }
     run_cmd_as_user() {
       printf 'user:%s:%s\n' "$1" "${*:2}"
-      if [[ "${*:2}" == "flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" ]]; then
-        remote_fixed=1
-      fi
     }
     run_cmd_as_root() {
       printf 'root:%s\n' "$*"
+      if [[ "$*" == "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" ]]; then
+        remote_fixed=1
+      fi
     }
     TARGET_USER="test-user"
     DRY_RUN=0
@@ -778,9 +778,9 @@ assert_flatpak_remote_repaired_when_present_but_unusable() {
   } 2>&1)"
 
   grep -F "Flatpak remote 'flathub' is present but unusable" <<<"$output" >/dev/null
-  grep -F "user:test-user:flatpak --user remote-delete --force flathub" <<<"$output" >/dev/null
-  grep -F "user:test-user:flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" <<<"$output" >/dev/null
-  ! grep -F "root:flatpak remote-add" <<<"$output" >/dev/null
+  grep -F "root:flatpak remote-delete --force flathub" <<<"$output" >/dev/null
+  grep -F "root:flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" <<<"$output" >/dev/null
+  ! grep -F "user:test-user:flatpak --user remote-add" <<<"$output" >/dev/null
 }
 
 assert_flathub_repo_enabled_requires_usable_remote() {
@@ -814,20 +814,15 @@ assert_flathub_repo_enabled_requires_usable_remote() {
   grep -Fx "disabled" <<<"$output" >/dev/null
 }
 
-assert_flathub_setup_uses_official_command_as_target_user() {
+assert_flathub_setup_uses_official_system_remote() {
   local output
   output="$({
     remote_fixed=0
     flatpak() {
-      local user_scope=0
-      [[ "$1" == "--user" ]] && user_scope=1 && shift
       case "$1" in
         remotes)
-          if [[ "$user_scope" -eq 1 ]]; then
-            [[ "$remote_fixed" -eq 1 ]] && printf 'flathub\n'
-          else
-            printf 'fedora\n'
-          fi
+          printf 'fedora\n'
+          [[ "$remote_fixed" -eq 1 ]] && printf 'flathub\n'
           return 0
           ;;
         remote-ls)
@@ -840,12 +835,12 @@ assert_flathub_setup_uses_official_command_as_target_user() {
     }
     run_cmd_as_user() {
       printf 'user:%s:%s\n' "$1" "${*:2}"
-      if [[ "${*:2}" == "flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" ]]; then
-        remote_fixed=1
-      fi
     }
     run_cmd_as_root() {
       printf 'root:%s\n' "$*"
+      if [[ "$*" == "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" ]]; then
+        remote_fixed=1
+      fi
     }
     TARGET_USER="test-user"
     DRY_RUN=0
@@ -854,7 +849,8 @@ assert_flathub_setup_uses_official_command_as_target_user() {
 
   grep -F "Removing Fedora Flatpak remote before configuring Flathub" <<<"$output" >/dev/null
   grep -F "root:flatpak remote-delete --force fedora" <<<"$output" >/dev/null
-  grep -F "user:test-user:flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" <<<"$output" >/dev/null
+  grep -F "root:flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" <<<"$output" >/dev/null
+  ! grep -F "user:test-user:flatpak --user remote-add" <<<"$output" >/dev/null
 }
 
 assert_flatpak_install_aborts_when_remote_remains_unusable() {
@@ -875,17 +871,21 @@ assert_flatpak_install_aborts_when_remote_remains_unusable() {
   ! grep -F "install:org.onlyoffice.desktopeditors" <<<"$output" >/dev/null
 }
 
-assert_flatpak_install_uses_target_user_installation() {
+assert_flatpak_install_uses_system_installation() {
   local output
   output="$({
     run_cmd_as_user() {
       printf 'user:%s:%s\n' "$1" "${*:2}"
     }
+    run_cmd_as_root() {
+      printf 'root:%s\n' "$*"
+    }
     TARGET_USER="test-user"
     flatpak_install_or_update com.spotify.Client flathub
   } 2>&1)"
 
-  grep -F "user:test-user:flatpak --user install -y --or-update flathub com.spotify.Client" <<<"$output" >/dev/null
+  grep -F "root:flatpak install -y --or-update flathub com.spotify.Client" <<<"$output" >/dev/null
+  ! grep -F "user:test-user:flatpak --user install" <<<"$output" >/dev/null
 }
 
 assert_dotnet_sdk_fails_when_no_channels_found() {
@@ -973,9 +973,9 @@ assert_doctor_fails_when_planned_niri_is_not_ready
 assert_dotnet_tools_fail_without_sdk
 assert_flatpak_remote_repaired_when_present_but_unusable
 assert_flathub_repo_enabled_requires_usable_remote
-assert_flathub_setup_uses_official_command_as_target_user
+assert_flathub_setup_uses_official_system_remote
 assert_flatpak_install_aborts_when_remote_remains_unusable
-assert_flatpak_install_uses_target_user_installation
+assert_flatpak_install_uses_system_installation
 assert_dotnet_sdk_fails_when_no_channels_found
 assert_dotnet_sdk_selects_second_lts_floor_and_newer_channels
 

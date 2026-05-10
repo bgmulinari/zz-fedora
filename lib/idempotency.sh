@@ -185,15 +185,13 @@ systemctl_enable_now_if_exists() {
 flatpak_remote_usable() {
   local name="$1"
   have_cmd flatpak || return 1
-  flatpak --user remotes --columns=name 2>/dev/null | grep -Fx "$name" >/dev/null 2>&1 || return 1
-  flatpak --user remote-ls "$name" >/dev/null 2>&1
+  flatpak remotes --columns=name 2>/dev/null | grep -Fx "$name" >/dev/null 2>&1 || return 1
+  flatpak remote-ls "$name" >/dev/null 2>&1
 }
 
 flatpak_remote_add_if_missing() {
   local name="$1"
   local url="$2"
-  local target_user="${TARGET_USER:-${USER:-}}"
-  [[ -n "$target_user" ]] || target_user="$(id -un)"
 
   if [[ "$name" == "flathub" ]] && have_cmd flatpak; then
     if flatpak remotes --columns=name 2>/dev/null | grep -Fx fedora >/dev/null 2>&1; then
@@ -203,27 +201,25 @@ flatpak_remote_add_if_missing() {
   fi
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    run_cmd_as_user "$target_user" flatpak --user remote-add --if-not-exists "$name" "$url"
+    run_cmd_as_root flatpak remote-add --if-not-exists "$name" "$url"
     return 0
   fi
-  if have_cmd flatpak && flatpak --user remotes --columns=name 2>/dev/null | grep -Fx "$name" >/dev/null 2>&1; then
+  if have_cmd flatpak && flatpak remotes --columns=name 2>/dev/null | grep -Fx "$name" >/dev/null 2>&1; then
     if flatpak_remote_usable "$name"; then
       log_info "Flatpak remote already present: $name"
       return 0
     fi
     log_warn "Flatpak remote '$name' is present but unusable; re-adding it."
-    run_cmd_as_user "$target_user" flatpak --user remote-delete --force "$name"
+    run_cmd_as_root flatpak remote-delete --force "$name"
   fi
-  run_cmd_as_user "$target_user" flatpak --user remote-add --if-not-exists "$name" "$url"
+  run_cmd_as_root flatpak remote-add --if-not-exists "$name" "$url"
   flatpak_remote_usable "$name"
 }
 
 flatpak_install_or_update() {
   local app_id="$1"
   local remote="${2:-flathub}"
-  local target_user="${TARGET_USER:-${USER:-}}"
-  [[ -n "$target_user" ]] || target_user="$(id -un)"
-  run_cmd_as_user "$target_user" flatpak --user install -y --or-update "$remote" "$app_id"
+  run_cmd_as_root flatpak install -y --or-update "$remote" "$app_id"
 }
 
 repo_enable_if_missing() {
