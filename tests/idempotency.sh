@@ -343,6 +343,8 @@ HOME="$TARGET_HOME" XDG_CACHE_HOME="$TARGET_HOME/.cache" "$ROOT_DIR/dotfiles/noc
 grep -F 'Theme=Yaru-purple' "$TARGET_HOME/.config/kdeglobals" >/dev/null
 grep -F 'icon_theme=Yaru-purple' "$TARGET_HOME/.config/qt5ct/qt5ct.conf" >/dev/null
 grep -F 'icon_theme=Yaru-purple' "$TARGET_HOME/.config/qt6ct/qt6ct.conf" >/dev/null
+rm -f "$TARGET_HOME/.cache/noctalia/icon-theme-accent"
+! HOME="$TARGET_HOME" XDG_CACHE_HOME="$TARGET_HOME/.cache" "$ROOT_DIR/dotfiles/noctalia/.local/bin/noctalia-sync-icon-theme" 2>&1 | grep -F 'No such file or directory' >/dev/null
 
 rm -f "$TARGET_HOME/.config/niri/noctalia.kdl"
 install_niri_noctalia_seed_if_missing
