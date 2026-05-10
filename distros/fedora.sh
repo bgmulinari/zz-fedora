@@ -58,6 +58,7 @@ enabled=1
 gpgcheck=1
 gpgkey=https://dl.google.com/linux/linux_signing_key.pub
 EOF
+            run_cmd_as_root rpm --import https://dl.google.com/linux/linux_signing_key.pub
             if [[ "$DRY_RUN" -eq 1 ]]; then
               printf 'DRY-RUN: install %s -> /etc/yum.repos.d/google-chrome.repo\n' "$repo_file"
             else

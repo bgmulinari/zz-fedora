@@ -982,6 +982,24 @@ assert_fedora_ms_fonts_installs_refresh_helpers() {
   grep -F "root:dnf install -y curl cabextract fontconfig mkfontscale xorg-x11-font-utils xset" <<<"$output" >/dev/null
 }
 
+assert_google_chrome_source_imports_key_before_repo_install() {
+  local output
+  output="$({
+    distro_repo_enabled() {
+      return 1
+    }
+    run_cmd_as_root() {
+      printf 'root:%s\n' "$*"
+    }
+    DISTRO=fedora
+    DRY_RUN=0
+    distro_enable_sources vendor:google-chrome
+  } 2>&1)"
+
+  grep -F "root:rpm --import https://dl.google.com/linux/linux_signing_key.pub" <<<"$output" >/dev/null
+  grep -F "root:install -Dm0644" <<<"$output" >/dev/null
+}
+
 assert_base_plan_for_distro fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_required_services_are_base_packages fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_package_module_installs_base_before_optional fedora dnf code niri noctalia-shell sddm zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi
@@ -999,6 +1017,7 @@ assert_flatpak_install_uses_system_installation
 assert_dotnet_sdk_fails_when_no_channels_found
 assert_dotnet_sdk_selects_second_lts_floor_and_newer_channels
 assert_fedora_ms_fonts_installs_refresh_helpers
+assert_google_chrome_source_imports_key_before_repo_install
 
 assert_base_plan_for_distro arch "$PLAN_DIR/packages/pacman.pkgs"
 assert_required_services_are_base_packages arch "$PLAN_DIR/packages/pacman.pkgs"
