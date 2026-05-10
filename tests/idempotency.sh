@@ -1020,6 +1020,23 @@ assert_default_browser_uses_mime_fallback_when_xdg_settings_fails() {
   ! grep -F "Could not set default browser" <<<"$output" >/dev/null
 }
 
+assert_homebrew_refreshes_ca_certificates_after_install() {
+  local output
+  output="$({
+    install_homebrew_if_needed() {
+      return 0
+    }
+    run_user_login_shell() {
+      printf 'shell:%s\n' "$1"
+    }
+    DRY_RUN=0
+    install_brew_package codex
+  } 2>&1)"
+
+  grep -F "shell:brew list 'codex' >/dev/null 2>&1 || brew install 'codex'" <<<"$output" >/dev/null
+  grep -F "brew postinstall ca-certificates" <<<"$output" >/dev/null
+}
+
 assert_base_plan_for_distro fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_required_services_are_base_packages fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_package_module_installs_base_before_optional fedora dnf code niri noctalia-shell sddm zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi
@@ -1039,6 +1056,7 @@ assert_dotnet_sdk_selects_second_lts_floor_and_newer_channels
 assert_fedora_ms_fonts_installs_refresh_helpers
 assert_google_chrome_source_imports_key_before_repo_install
 assert_default_browser_uses_mime_fallback_when_xdg_settings_fails
+assert_homebrew_refreshes_ca_certificates_after_install
 
 assert_base_plan_for_distro arch "$PLAN_DIR/packages/pacman.pkgs"
 assert_required_services_are_base_packages arch "$PLAN_DIR/packages/pacman.pkgs"

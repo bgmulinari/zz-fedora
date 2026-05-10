@@ -52,6 +52,7 @@ install_brew_package() {
     return 0
   fi
   run_user_login_shell "brew list '$package' >/dev/null 2>&1 || brew install '$package'"
+  run_user_login_shell "if brew list openssl@3 >/dev/null 2>&1 || brew list openssl >/dev/null 2>&1; then brew postinstall ca-certificates; fi"
 }
 
 install_claude_code() {
