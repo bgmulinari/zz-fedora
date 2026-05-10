@@ -16,14 +16,6 @@ window-rule {
     draw-border-with-background false
     opacity 0.90
 
-    focus-ring {
-        off
-    }
-
-    border {
-        off
-    }
-
     background-effect {
         blur true
     }

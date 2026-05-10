@@ -99,6 +99,33 @@ grep -Fx '~/.local/share/nautilus-python/extensions/open-terminal-here.py' "$PLA
 grep -Fx '~/Wallpapers/SilentPeaks.jpg' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -Fx '~/.cache/noctalia/wallpapers.json' "$PLAN_DIR/files/managed-files.list" >/dev/null
 grep -F 'spawn "xdg-terminal-exec"' "$ROOT_DIR/dotfiles/niri/.config/niri/cfg/keybinds.kdl" >/dev/null
+nautilus_niri_rule="$(
+  awk '
+    /^window-rule \{/ {
+      in_rule = 1
+      rule = $0 ORS
+      matched = 0
+      next
+    }
+    in_rule {
+      rule = rule $0 ORS
+      if ($0 ~ /org\\\.gnome\\\.Nautilus\|nautilus/) {
+        matched = 1
+      }
+      if ($0 == "}") {
+        if (matched) {
+          printf "%s", rule
+          exit
+        }
+        in_rule = 0
+      }
+    }
+  ' "$ROOT_DIR/dotfiles/niri/.config/niri/cfg/rules.kdl"
+)"
+grep -F 'opacity 0.90' <<<"$nautilus_niri_rule" >/dev/null
+grep -F 'draw-border-with-background false' <<<"$nautilus_niri_rule" >/dev/null
+grep -F 'blur true' <<<"$nautilus_niri_rule" >/dev/null
+! grep -F 'off' <<<"$nautilus_niri_rule" >/dev/null
 grep -F 'Exec=xdg-terminal-exec' "$ROOT_DIR/dotfiles/default-apps/.local/share/applications/nvim.desktop" >/dev/null
 grep -F 'f"--dir={path}"' "$ROOT_DIR/dotfiles/default-apps/.local/share/nautilus-python/extensions/open-terminal-here.py" >/dev/null
 grep -F 'QT_QPA_PLATFORMTHEME=qt6ct' "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-niri-gtk.conf" >/dev/null
