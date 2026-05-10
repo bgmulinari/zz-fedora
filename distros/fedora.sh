@@ -27,6 +27,7 @@ distro_enable_sources() {
     terra)
       if ! distro_repo_enabled "$SOURCE_ID"; then
         run_cmd_as_root dnf install -y --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
+        run_cmd_as_root rpm --import "/etc/pki/rpm-gpg/RPM-GPG-KEY-terra${fedora_release}"
       fi
       ;;
     rpmfusion)
@@ -86,6 +87,7 @@ EOF
             ;;
           vendor:claude-desktop)
             run_cmd_as_root curl -fsSL https://aaddrick.github.io/claude-desktop-debian/rpm/claude-desktop.repo -o /etc/yum.repos.d/claude-desktop.repo
+            run_cmd_as_root rpm --import https://pkg.claude-desktop-debian.dev/KEY.gpg
             ;;
         esac
       fi
