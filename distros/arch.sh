@@ -124,13 +124,13 @@ distro_install_aur_packages() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
     local helper_preview
     helper_preview="$(detect_aur_helper || true)"
-    printf 'DRY-RUN: %s -S --needed' "${helper_preview:-<missing-aur-helper>}"
+    printf 'DRY-RUN: %s -S --needed --noconfirm' "${helper_preview:-<missing-aur-helper>}"
     printf ' %q' "${packages[@]}"
     printf '\n'
     return 0
   fi
   ensure_arch_aur_helper
-  run_cmd_as_user "$TARGET_USER" "$AUR_HELPER" -S --needed "${packages[@]}"
+  run_cmd_as_user "$TARGET_USER" "$AUR_HELPER" -S --needed --noconfirm "${packages[@]}"
 }
 
 distro_install_flatpaks() {
