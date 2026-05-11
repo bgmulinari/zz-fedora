@@ -29,6 +29,8 @@ source "$ROOT_DIR/lib/planner.sh"
 source "$ROOT_DIR/lib/os.sh"
 # shellcheck source=../modules/80-post-actions.sh
 source "$ROOT_DIR/modules/80-post-actions.sh"
+# shellcheck source=../modules/05-bootstrap-tools.sh
+source "$ROOT_DIR/modules/05-bootstrap-tools.sh"
 # shellcheck source=../modules/30-packages.sh
 source "$ROOT_DIR/modules/30-packages.sh"
 # shellcheck source=../modules/10-sources.sh
@@ -1096,6 +1098,32 @@ assert_homebrew_refreshes_ca_certificates_after_install() {
   grep -F "brew postinstall ca-certificates" <<<"$output" >/dev/null
 }
 
+assert_bootstrap_tool_failure_aborts_later_prereqs() {
+  local old_plan_dir="$PLAN_DIR"
+  PLAN_DIR="$TEST_ROOT/bootstrap-plan"
+  mkdir -p "$PLAN_DIR/prereqs"
+  printf 'flatpak\nstow\n' >"$PLAN_DIR/prereqs/pacman.pkgs"
+  printf 'org.example.App\n' >"$PLAN_DIR/prereqs/flatpak.flatpaks"
+
+  local output
+  output="$(
+    package_install_idempotent() {
+      local backend="$1"
+      shift
+      printf 'install:%s:%s\n' "$backend" "$*"
+      [[ "$backend" != "pacman" ]]
+    }
+    module_05_bootstrap_tools
+  )" && {
+    PLAN_DIR="$old_plan_dir"
+    return 1
+  }
+
+  PLAN_DIR="$old_plan_dir"
+  grep -F 'install:pacman:flatpak stow' <<<"$output" >/dev/null
+  ! grep -F 'install:flatpak:org.example.App' <<<"$output" >/dev/null
+}
+
 assert_base_plan_for_distro fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_required_services_are_base_packages fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_package_module_installs_base_before_optional fedora dnf code niri noctalia-shell sddm zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi
@@ -1118,6 +1146,7 @@ assert_terra_source_bootstraps_release_rpms_before_importing_key
 assert_claude_desktop_source_imports_key_before_repo_install
 assert_default_browser_uses_mime_fallback_when_xdg_settings_fails
 assert_homebrew_refreshes_ca_certificates_after_install
+assert_bootstrap_tool_failure_aborts_later_prereqs
 
 assert_base_plan_for_distro arch "$PLAN_DIR/packages/pacman.pkgs"
 assert_required_services_are_base_packages arch "$PLAN_DIR/packages/pacman.pkgs"
