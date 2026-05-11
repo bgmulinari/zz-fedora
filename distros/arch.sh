@@ -58,10 +58,37 @@ arch_clean_unsigned_package_cache() {
   ' bash "$cache_dir"
 }
 
+arch_pacman_config_for_install() {
+  local source_conf="${PACMAN_CONFIG:-/etc/pacman.conf}"
+  local temp_conf
+  temp_conf="$(mktemp "$CACHE_DIR/pacman-install.XXXXXX")"
+  awk '
+    BEGIN { inserted = 0 }
+    /^\[core\]/ && !inserted {
+      print "DisableSandboxFilesystem"
+      print "DisableSandboxSyscalls"
+      inserted = 1
+    }
+    { print }
+    END {
+      if (!inserted) {
+        print "DisableSandboxFilesystem"
+        print "DisableSandboxSyscalls"
+      }
+    }
+  ' "$source_conf" >"$temp_conf"
+  printf '%s\n' "$temp_conf"
+}
+
 arch_run_pacman_sync_install() {
+  local pacman_config
   arch_prepare_pacman_keyring || return 1
   arch_clean_unsigned_package_cache || return 1
-  run_cmd_as_root pacman -Syu --needed --noconfirm "$@"
+  pacman_config="$(arch_pacman_config_for_install)"
+  local status=0
+  run_cmd_as_root pacman --config "$pacman_config" -Syu --needed --noconfirm "$@" || status=$?
+  rm -f "$pacman_config"
+  return "$status"
 }
 
 bootstrap_arch_aur_helper() {

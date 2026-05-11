@@ -1180,6 +1180,15 @@ assert_arch_pacman_skips_installed_targets() {
   # shellcheck source=../distros/arch.sh
   source "$ROOT_DIR/distros/arch.sh"
 
+  local pacman_conf="$TEST_ROOT/pacman-skip.conf"
+  cat >"$pacman_conf" <<'EOF'
+[options]
+Architecture = auto
+
+[core]
+Include = /etc/pacman.d/mirrorlist
+EOF
+
   local output
   output="$(
     pacman() {
@@ -1189,11 +1198,40 @@ assert_arch_pacman_skips_installed_targets() {
       printf 'root:%s\n' "$*"
     }
     DRY_RUN=0
+    PACMAN_CONFIG="$pacman_conf"
     distro_install_pacman_packages already-installed missing-package
   )"
 
-  grep -F 'root:pacman -Syu --needed --noconfirm missing-package' <<<"$output" >/dev/null
+  grep -F 'root:pacman --config ' <<<"$output" >/dev/null
+  grep -F ' -Syu --needed --noconfirm missing-package' <<<"$output" >/dev/null
   ! grep -F 'already-installed' <<<"$output" >/dev/null
+}
+
+assert_arch_pacman_install_config_disables_sandbox() {
+  # shellcheck source=../distros/arch.sh
+  source "$ROOT_DIR/distros/arch.sh"
+
+  local pacman_conf="$TEST_ROOT/pacman.conf"
+  cat >"$pacman_conf" <<'EOF'
+[options]
+Architecture = auto
+
+[core]
+Include = /etc/pacman.d/mirrorlist
+EOF
+
+  local generated
+  (
+    CACHE_DIR="$TEST_ROOT/cache"
+    PACMAN_CONFIG="$pacman_conf"
+    mkdir -p "$CACHE_DIR"
+    arch_pacman_config_for_install
+  ) >"$TEST_ROOT/generated-pacman-config-path"
+  generated="$(<"$TEST_ROOT/generated-pacman-config-path")"
+
+  grep -F 'DisableSandboxFilesystem' "$generated" >/dev/null
+  grep -F 'DisableSandboxSyscalls' "$generated" >/dev/null
+  rm -f "$generated"
 }
 
 assert_arch_pacman_removes_unsigned_cached_packages() {
@@ -1248,6 +1286,7 @@ assert_bootstrap_tool_failure_aborts_later_prereqs
 assert_arch_aur_backend_prereqs_include_build_tools
 assert_arch_aur_helper_bootstraps_when_missing
 assert_arch_pacman_skips_installed_targets
+assert_arch_pacman_install_config_disables_sandbox
 assert_arch_pacman_removes_unsigned_cached_packages
 
 assert_base_plan_for_distro arch "$PLAN_DIR/packages/pacman.pkgs"
