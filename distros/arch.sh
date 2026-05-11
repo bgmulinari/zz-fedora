@@ -25,6 +25,45 @@ detect_aur_helper() {
   return 1
 }
 
+arch_pacman_keyring_ready() {
+  [[ -s /etc/pacman.d/gnupg/pubring.gpg ]] || return 1
+  run_cmd_as_root pacman-key --list-keys >/dev/null 2>&1
+}
+
+arch_prepare_pacman_keyring() {
+  [[ "$DRY_RUN" -eq 0 ]] || return 0
+  arch_pacman_keyring_ready && return 0
+  run_cmd_as_root pacman-key --init || return 1
+  run_cmd_as_root pacman-key --populate archlinux
+}
+
+arch_clean_unsigned_package_cache() {
+  local cache_dir="${PACMAN_CACHE_DIR:-/var/cache/pacman/pkg}"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: remove cached pacman packages without detached signatures from %s\n' "$cache_dir"
+    return 0
+  fi
+
+  run_cmd_as_root bash -c '
+    set -Eeuo pipefail
+    cache_dir="$1"
+    [[ -d "$cache_dir" ]] || exit 0
+    find "$cache_dir" -maxdepth 1 -type f \
+      \( -name "*.pkg.tar.zst" -o -name "*.pkg.tar.xz" -o -name "*.pkg.tar.gz" \) \
+      ! -name "*.sig" -print0 |
+      while IFS= read -r -d "" package_file; do
+        [[ -f "$package_file.sig" ]] || rm -f "$package_file"
+      done
+  ' bash "$cache_dir"
+}
+
+arch_run_pacman_sync_install() {
+  arch_prepare_pacman_keyring || return 1
+  arch_clean_unsigned_package_cache || return 1
+  run_cmd_as_root pacman -Syu --needed --noconfirm "$@"
+}
+
 bootstrap_arch_aur_helper() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: bootstrap yay-bin from AUR\n'
@@ -87,7 +126,7 @@ enable_arch_multilib() {
   run_cmd_as_root cp /etc/pacman.conf "/etc/pacman.conf.zz-linux-setup.$(timestamp).bak"
   run_cmd_as_root install -m 0644 "$temp_conf" /etc/pacman.conf
   rm -f "$temp_conf"
-  run_cmd_as_root pacman -Syu --noconfirm
+  arch_run_pacman_sync_install
 }
 
 distro_enable_sources() {
@@ -127,7 +166,7 @@ distro_install_pacman_packages() {
     packages=("${missing_packages[@]}")
     [[ "${#packages[@]}" -gt 0 ]] || return 0
   fi
-  run_cmd_as_root pacman -Syu --needed --noconfirm "${packages[@]}"
+  arch_run_pacman_sync_install "${packages[@]}"
 }
 
 distro_install_dnf_packages() {

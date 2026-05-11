@@ -1196,6 +1196,32 @@ assert_arch_pacman_skips_installed_targets() {
   ! grep -F 'already-installed' <<<"$output" >/dev/null
 }
 
+assert_arch_pacman_removes_unsigned_cached_packages() {
+  # shellcheck source=../distros/arch.sh
+  source "$ROOT_DIR/distros/arch.sh"
+
+  local cache_dir="$TEST_ROOT/pacman-cache"
+  mkdir -p "$cache_dir"
+  printf 'package\n' >"$cache_dir/unsigned-1.pkg.tar.zst"
+  printf 'package\n' >"$cache_dir/signed-1.pkg.tar.zst"
+  printf 'signature\n' >"$cache_dir/signed-1.pkg.tar.zst.sig"
+  printf 'metadata\n' >"$cache_dir/ignored.db"
+
+  (
+    run_cmd_as_root() {
+      "$@"
+    }
+    DRY_RUN=0
+    PACMAN_CACHE_DIR="$cache_dir"
+    arch_clean_unsigned_package_cache
+  )
+
+  [[ ! -e "$cache_dir/unsigned-1.pkg.tar.zst" ]]
+  [[ -e "$cache_dir/signed-1.pkg.tar.zst" ]]
+  [[ -e "$cache_dir/signed-1.pkg.tar.zst.sig" ]]
+  [[ -e "$cache_dir/ignored.db" ]]
+}
+
 assert_base_plan_for_distro fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_required_services_are_base_packages fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_package_module_installs_base_before_optional fedora dnf code niri noctalia-shell sddm zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi
@@ -1222,6 +1248,7 @@ assert_bootstrap_tool_failure_aborts_later_prereqs
 assert_arch_aur_backend_prereqs_include_build_tools
 assert_arch_aur_helper_bootstraps_when_missing
 assert_arch_pacman_skips_installed_targets
+assert_arch_pacman_removes_unsigned_cached_packages
 
 assert_base_plan_for_distro arch "$PLAN_DIR/packages/pacman.pkgs"
 assert_required_services_are_base_packages arch "$PLAN_DIR/packages/pacman.pkgs"
