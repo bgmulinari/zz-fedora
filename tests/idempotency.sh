@@ -1124,6 +1124,55 @@ assert_bootstrap_tool_failure_aborts_later_prereqs() {
   ! grep -F 'install:flatpak:org.example.App' <<<"$output" >/dev/null
 }
 
+assert_arch_aur_backend_prereqs_include_build_tools() {
+  local old_distro="$DISTRO"
+  DISTRO="arch"
+
+  [[ "$(backend_prerequisite_backend aur)" == "pacman" ]]
+  mapfile -t aur_prereqs < <(backend_prerequisite_items aur)
+  DISTRO="$old_distro"
+
+  printf '%s\n' "${aur_prereqs[@]}" | grep -Fx base-devel >/dev/null
+}
+
+assert_arch_aur_helper_bootstraps_when_missing() {
+  # shellcheck source=../distros/arch.sh
+  source "$ROOT_DIR/distros/arch.sh"
+
+  local old_dry_run="$DRY_RUN"
+  local output
+  output="$(
+    detect_aur_helper() {
+      [[ -f "$TEST_ROOT/helper-ready" ]] || return 1
+      printf 'yay\n'
+    }
+    id() {
+      if [[ "$1" == "-gn" ]]; then
+        printf 'test-user\n'
+        return 0
+      fi
+      command id "$@"
+    }
+    run_cmd_as_root() {
+      printf 'root:%s\n' "$*"
+    }
+    run_cmd_as_user() {
+      local user="$1"
+      shift
+      printf 'user:%s:%s\n' "$user" "$*"
+      [[ "$*" == *"makepkg -si --needed --noconfirm"* ]] && touch "$TEST_ROOT/helper-ready"
+    }
+    DRY_RUN=0
+    TARGET_USER=test-user
+    ensure_arch_aur_helper
+  )"
+  DRY_RUN="$old_dry_run"
+
+  grep -F 'root:chown test-user:test-user ' <<<"$output" >/dev/null
+  grep -F 'user:test-user:git clone https://aur.archlinux.org/yay-bin.git ' <<<"$output" >/dev/null
+  grep -F 'user:test-user:bash -lc cd "$1" && makepkg -si --needed --noconfirm bash ' <<<"$output" >/dev/null
+}
+
 assert_base_plan_for_distro fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_required_services_are_base_packages fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_package_module_installs_base_before_optional fedora dnf code niri noctalia-shell sddm zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi
@@ -1147,6 +1196,8 @@ assert_claude_desktop_source_imports_key_before_repo_install
 assert_default_browser_uses_mime_fallback_when_xdg_settings_fails
 assert_homebrew_refreshes_ca_certificates_after_install
 assert_bootstrap_tool_failure_aborts_later_prereqs
+assert_arch_aur_backend_prereqs_include_build_tools
+assert_arch_aur_helper_bootstraps_when_missing
 
 assert_base_plan_for_distro arch "$PLAN_DIR/packages/pacman.pkgs"
 assert_required_services_are_base_packages arch "$PLAN_DIR/packages/pacman.pkgs"

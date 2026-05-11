@@ -33,7 +33,13 @@ prereq_file_for_backend() {
 
 backend_prerequisite_backend() {
   case "$1" in
-    dnf|pacman|aur|action) return 1 ;;
+    dnf|pacman|action) return 1 ;;
+    aur)
+      case "$DISTRO" in
+        arch) printf 'pacman\n' ;;
+        *) return 1 ;;
+      esac
+      ;;
     flatpak) native_backend_for_distro "$DISTRO" ;;
     *) die "Unsupported backend: $1" ;;
   esac
@@ -41,7 +47,14 @@ backend_prerequisite_backend() {
 
 backend_prerequisite_items() {
   case "$1" in
-    dnf|pacman|aur|action) return 0 ;;
+    dnf|pacman|action) return 0 ;;
+    aur)
+      case "$DISTRO" in
+        arch)
+          manifest_entries "$ROOT_DIR/packages/arch/official/base-devel.pkgs"
+          ;;
+      esac
+      ;;
     flatpak)
       manifest_entries "$ROOT_DIR/packages/$DISTRO/official/flatpak.pkgs"
       ;;

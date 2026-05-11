@@ -25,6 +25,29 @@ detect_aur_helper() {
   return 1
 }
 
+bootstrap_arch_aur_helper() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: bootstrap yay-bin from AUR\n'
+    AUR_HELPER="${AUR_HELPER:-yay}"
+    return 0
+  fi
+
+  local build_dir target_group
+  build_dir="$(mktemp -d "$CACHE_DIR/yay-bin.XXXXXX")"
+  target_group="$(id -gn "$TARGET_USER")"
+  run_cmd_as_root chown "$TARGET_USER:$target_group" "$build_dir"
+  run_cmd_as_user "$TARGET_USER" git clone https://aur.archlinux.org/yay-bin.git "$build_dir"
+  run_cmd_as_user "$TARGET_USER" bash -lc 'cd "$1" && makepkg -si --needed --noconfirm' bash "$build_dir"
+  AUR_HELPER="$(detect_aur_helper || true)"
+  [[ -n "$AUR_HELPER" ]] || die "AUR helper bootstrap completed but no supported helper was found."
+}
+
+ensure_arch_aur_helper() {
+  AUR_HELPER="$(detect_aur_helper || true)"
+  [[ -n "$AUR_HELPER" ]] && return 0
+  bootstrap_arch_aur_helper
+}
+
 distro_name() {
   printf 'arch\n'
 }
@@ -65,12 +88,7 @@ distro_enable_sources() {
   load_source_descriptor arch "$source_id" || die "Unknown Arch source: $source_id"
   case "$SOURCE_KIND" in
     aur)
-      if [[ "$DRY_RUN" -eq 1 ]]; then
-        AUR_HELPER="${AUR_HELPER:-<missing>}"
-        return 0
-      fi
-      AUR_HELPER="$(detect_aur_helper || true)"
-      [[ -n "$AUR_HELPER" ]] || die "AUR packages were selected but no supported AUR helper was found. Install paru or yay, then rerun."
+      ensure_arch_aur_helper
       ;;
     multilib)
       enable_arch_multilib
@@ -111,8 +129,7 @@ distro_install_aur_packages() {
     printf '\n'
     return 0
   fi
-  AUR_HELPER="$(detect_aur_helper || true)"
-  [[ -n "$AUR_HELPER" ]] || die "AUR packages were selected but no supported AUR helper was found. Install paru or yay, then rerun."
+  ensure_arch_aur_helper
   run_cmd_as_user "$TARGET_USER" "$AUR_HELPER" -S --needed "${packages[@]}"
 }
 
