@@ -371,13 +371,71 @@ install_qt_theme_config() {
   install_kde_qt_theme_config
 }
 
+set_ini_key_for_user() {
+  local file="$1"
+  local section="$2"
+  local key="$3"
+  local value="$4"
+  local temp_file
+
+  run_cmd_as_user "$TARGET_USER" mkdir -p "$(dirname "$file")"
+  run_cmd_as_user "$TARGET_USER" touch "$file"
+  temp_file="$(mktemp "$CACHE_DIR/ini.XXXXXX")"
+  awk -v section="$section" -v key="$key" -v value="$value" '
+    BEGIN {
+      in_section = 0
+      section_seen = 0
+      key_written = 0
+    }
+    $0 == "[" section "]" {
+      if (in_section && !key_written) {
+        print key "=" value
+        key_written = 1
+      }
+      in_section = 1
+      section_seen = 1
+      print
+      next
+    }
+    /^\[/ {
+      if (in_section && !key_written) {
+        print key "=" value
+        key_written = 1
+      }
+      in_section = 0
+      print
+      next
+    }
+    in_section && $0 ~ "^" key "=" {
+      print key "=" value
+      key_written = 1
+      next
+    }
+    { print }
+    END {
+      if (!section_seen) {
+        print "[" section "]"
+        print key "=" value
+      } else if (in_section && !key_written) {
+        print key "=" value
+      }
+    }
+  ' "$file" >"$temp_file"
+  install_user_file_if_changed "$temp_file" "$file"
+  rm -f "$temp_file"
+}
+
 install_kde_config_key() {
   local group="$1"
   local key="$2"
   local value="$3"
+  local config_file="$TARGET_HOME/.config/kdeglobals"
 
-  have_cmd kwriteconfig6 || return 0
-  run_cmd_as_user "$TARGET_USER" env HOME="$TARGET_HOME" kwriteconfig6 --file kdeglobals --group "$group" --key "$key" "$value"
+  if have_cmd kwriteconfig6; then
+    run_cmd_as_user "$TARGET_USER" env HOME="$TARGET_HOME" kwriteconfig6 --file kdeglobals --group "$group" --key "$key" "$value"
+    return 0
+  fi
+  set_ini_key_for_user "$config_file" "$group" "$key" "$value"
 }
 
 install_kde_qt_theme_config() {
@@ -596,7 +654,13 @@ install_pywalfox_native_host() {
     fi
   fi
 
-  run_cmd_as_user "$TARGET_USER" bash -lc 'pywalfox install' || log_warn "Could not install Pywalfox native messaging host"
+  if ! run_cmd_as_user "$TARGET_USER" bash -lc 'pywalfox install'; then
+    if [[ -f "$TARGET_HOME/.mozilla/native-messaging-hosts/pywalfox.json" ]]; then
+      log_info "Pywalfox native messaging host manifest is installed"
+    else
+      log_warn "Could not install Pywalfox native messaging host"
+    fi
+  fi
   install_firefox_pywalfox_extension_policy
   ensure_firefox_profile_compat_for_pywalfox
 

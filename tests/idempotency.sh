@@ -1176,6 +1176,26 @@ assert_arch_aur_helper_bootstraps_when_missing() {
   grep -F 'user:test-user:bash -lc cd "$1" && makepkg -si --needed --noconfirm bash ' <<<"$output" >/dev/null
 }
 
+assert_arch_pacman_skips_installed_targets() {
+  # shellcheck source=../distros/arch.sh
+  source "$ROOT_DIR/distros/arch.sh"
+
+  local output
+  output="$(
+    pacman() {
+      [[ "$1" == "-Q" && "$2" == "already-installed" ]]
+    }
+    run_cmd_as_root() {
+      printf 'root:%s\n' "$*"
+    }
+    DRY_RUN=0
+    distro_install_pacman_packages already-installed missing-package
+  )"
+
+  grep -F 'root:pacman -Syu --needed --noconfirm missing-package' <<<"$output" >/dev/null
+  ! grep -F 'already-installed' <<<"$output" >/dev/null
+}
+
 assert_base_plan_for_distro fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_required_services_are_base_packages fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_package_module_installs_base_before_optional fedora dnf code niri noctalia-shell sddm zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi
@@ -1201,6 +1221,7 @@ assert_homebrew_refreshes_ca_certificates_after_install
 assert_bootstrap_tool_failure_aborts_later_prereqs
 assert_arch_aur_backend_prereqs_include_build_tools
 assert_arch_aur_helper_bootstraps_when_missing
+assert_arch_pacman_skips_installed_targets
 
 assert_base_plan_for_distro arch "$PLAN_DIR/packages/pacman.pkgs"
 assert_required_services_are_base_packages arch "$PLAN_DIR/packages/pacman.pkgs"

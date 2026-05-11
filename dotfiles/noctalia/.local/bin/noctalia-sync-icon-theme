@@ -164,6 +164,8 @@ done
 
 if command -v kwriteconfig6 >/dev/null 2>&1; then
   kwriteconfig6 --file kdeglobals --group Icons --key Theme "$best_theme" || true
+else
+  set_ini_key "$HOME/.config/kdeglobals" Icons Theme "$best_theme"
 fi
 
 if command -v systemctl >/dev/null 2>&1; then

@@ -109,6 +109,17 @@ distro_enable_sources() {
 distro_install_pacman_packages() {
   local -a packages=("$@")
   [[ "${#packages[@]}" -gt 0 ]] || return 0
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    local -a missing_packages=()
+    local package_name
+    for package_name in "${packages[@]}"; do
+      if ! pacman -Q "$package_name" >/dev/null 2>&1; then
+        missing_packages+=("$package_name")
+      fi
+    done
+    packages=("${missing_packages[@]}")
+    [[ "${#packages[@]}" -gt 0 ]] || return 0
+  fi
   run_cmd_as_root pacman -Syu --needed --noconfirm "${packages[@]}"
 }
 
