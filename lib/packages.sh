@@ -52,6 +52,7 @@ backend_prerequisite_items() {
       case "$DISTRO" in
         arch)
           manifest_entries "$ROOT_DIR/packages/arch/official/base-devel.pkgs"
+          printf '%s\n' ca-certificates git
           ;;
       esac
       ;;

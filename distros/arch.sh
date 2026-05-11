@@ -35,9 +35,9 @@ bootstrap_arch_aur_helper() {
   local build_dir target_group
   build_dir="$(mktemp -d "$CACHE_DIR/yay-bin.XXXXXX")"
   target_group="$(id -gn "$TARGET_USER")"
-  run_cmd_as_root chown "$TARGET_USER:$target_group" "$build_dir"
-  run_cmd_as_user "$TARGET_USER" git clone https://aur.archlinux.org/yay-bin.git "$build_dir"
-  run_cmd_as_user "$TARGET_USER" bash -lc 'cd "$1" && makepkg -si --needed --noconfirm' bash "$build_dir"
+  run_cmd_as_root chown "$TARGET_USER:$target_group" "$build_dir" || return 1
+  run_cmd_as_user "$TARGET_USER" git clone https://aur.archlinux.org/yay-bin.git "$build_dir" || return 1
+  run_cmd_as_user "$TARGET_USER" bash -lc 'cd "$1" && makepkg -si --needed --noconfirm' bash "$build_dir" || return 1
   AUR_HELPER="$(detect_aur_helper || true)"
   [[ -n "$AUR_HELPER" ]] || die "AUR helper bootstrap completed but no supported helper was found."
 }

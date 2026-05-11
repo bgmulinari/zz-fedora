@@ -1133,6 +1133,8 @@ assert_arch_aur_backend_prereqs_include_build_tools() {
   DISTRO="$old_distro"
 
   printf '%s\n' "${aur_prereqs[@]}" | grep -Fx base-devel >/dev/null
+  printf '%s\n' "${aur_prereqs[@]}" | grep -Fx ca-certificates >/dev/null
+  printf '%s\n' "${aur_prereqs[@]}" | grep -Fx git >/dev/null
 }
 
 assert_arch_aur_helper_bootstraps_when_missing() {
@@ -1161,6 +1163,7 @@ assert_arch_aur_helper_bootstraps_when_missing() {
       shift
       printf 'user:%s:%s\n' "$user" "$*"
       [[ "$*" == *"makepkg -si --needed --noconfirm"* ]] && touch "$TEST_ROOT/helper-ready"
+      return 0
     }
     DRY_RUN=0
     TARGET_USER=test-user
