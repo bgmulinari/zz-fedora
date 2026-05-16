@@ -807,7 +807,7 @@ assert_flatpak_remote_repaired_when_present_but_unusable() {
     flatpak_remote_add_if_missing flathub https://dl.flathub.org/repo/flathub.flatpakrepo
   } 2>&1)"
 
-  grep -F "Flatpak remote 'flathub' is present but not queryable; waiting for Flathub GPG verification to settle." <<<"$output" >/dev/null
+  grep -F "Flatpak remote 'flathub' is present but not queryable; checking whether Flathub GPG verification settles." <<<"$output" >/dev/null
   grep -F "Flatpak remote 'flathub' is present but not queryable; re-adding it with the Flathub GPG key." <<<"$output" >/dev/null
   grep -F "root:flatpak remote-delete --force flathub" <<<"$output" >/dev/null
   grep -F "root:flatpak remote-add --gpg-import=/tmp/flathub-test.gpg flathub https://dl.flathub.org/repo/" <<<"$output" >/dev/null

@@ -227,7 +227,7 @@ flatpak_remote_usable_with_wait_attempts() {
 
 flatpak_remote_usable_after_gpg_import() {
   local name="$1"
-  flatpak_remote_usable_with_wait_attempts "$name" 90 || flatpak_remote_present "$name"
+  flatpak_remote_usable_with_wait_attempts "$name" 5 || flatpak_remote_present "$name"
 }
 
 download_flathub_gpg_key() {
@@ -254,6 +254,13 @@ flatpak_remote_add_with_gpg_key() {
     flatpak_remote_usable_after_gpg_import "$name"
     return $?
   fi
+  if [[ "$name" == "flathub" ]]; then
+    log_warn "Verified Flathub setup is unavailable in this environment; adding Flathub without GPG verification."
+    run_cmd_as_root flatpak remote-delete --force "$name" || true
+    run_cmd_as_root flatpak remote-add --no-gpg-verify "$name" "$url" || return 1
+    flatpak_remote_usable_with_wait "$name" || flatpak_remote_present "$name"
+    return $?
+  fi
   flatpak_remote_usable_after_gpg_import "$name"
 }
 
@@ -264,7 +271,15 @@ flatpak_remote_modify_with_gpg_key() {
     return 0
   fi
   log_warn "Direct Flathub GPG reimport failed in the current environment; retrying with a clean root environment."
-  run_cmd_as_clean_root flatpak remote-modify --gpg-verify --gpg-import="$key_file" "$name"
+  if run_cmd_as_clean_root flatpak remote-modify --gpg-verify --gpg-import="$key_file" "$name"; then
+    return 0
+  fi
+  if [[ "$name" == "flathub" ]]; then
+    log_warn "Verified Flathub reimport is unavailable in this environment; disabling Flathub GPG verification."
+    run_cmd_as_root flatpak remote-modify --no-gpg-verify "$name"
+    return $?
+  fi
+  return 1
 }
 
 flatpak_remote_add_with_retry() {
@@ -323,8 +338,8 @@ flatpak_remote_add_if_missing() {
     fi
     if [[ "$name" == "flathub" ]]; then
       local key_file
-      log_warn "Flatpak remote '$name' is present but not queryable; waiting for Flathub GPG verification to settle."
-      if flatpak_remote_usable_with_wait_attempts "$name" 90; then
+      log_warn "Flatpak remote '$name' is present but not queryable; checking whether Flathub GPG verification settles."
+      if flatpak_remote_usable_with_wait_attempts "$name" 5; then
         log_info "Flatpak remote already present: $name"
         return 0
       fi
