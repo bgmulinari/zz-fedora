@@ -860,10 +860,17 @@ assert_flathub_setup_uses_official_system_remote() {
   ! grep -F "user:test-user:flatpak --user remote-add" <<<"$output" >/dev/null
 }
 
-assert_flathub_setup_falls_back_without_gpg_verify() {
+assert_flathub_setup_falls_back_to_direct_gpg_import() {
   local output
   output="$({
     remote_fixed=0
+    mktemp() {
+      printf '/tmp/flathub-test.gpg\n'
+    }
+    curl() {
+      printf 'curl:%s\n' "$*" >&2
+      [[ "$*" == "-fsSL https://flathub.org/repo/flathub.gpg -o /tmp/flathub-test.gpg" ]]
+    }
     flatpak() {
       case "$1" in
         remotes)
@@ -880,7 +887,7 @@ assert_flathub_setup_falls_back_without_gpg_verify() {
     }
     run_cmd_as_root() {
       printf 'root:%s\n' "$*"
-      if [[ "$*" == "flatpak remote-add --no-gpg-verify flathub https://dl.flathub.org/repo/" ]]; then
+      if [[ "$*" == "flatpak remote-add --gpg-import=/tmp/flathub-test.gpg flathub https://dl.flathub.org/repo/" ]]; then
         remote_fixed=1
         return 0
       fi
@@ -895,9 +902,10 @@ assert_flathub_setup_falls_back_without_gpg_verify() {
   } 2>&1)"
 
   grep -F "Flatpak remote add failed for 'flathub'; retrying." <<<"$output" >/dev/null
-  grep -F "Verified Flathub remote setup failed; retrying without Flatpak GPG verification." <<<"$output" >/dev/null
+  grep -F "Verified Flathub remote setup failed; importing Flathub GPG key directly and retrying." <<<"$output" >/dev/null
+  grep -F "curl:-fsSL https://flathub.org/repo/flathub.gpg -o /tmp/flathub-test.gpg" <<<"$output" >/dev/null
   grep -F "root:flatpak remote-delete --force flathub" <<<"$output" >/dev/null
-  grep -F "root:flatpak remote-add --no-gpg-verify flathub https://dl.flathub.org/repo/" <<<"$output" >/dev/null
+  grep -F "root:flatpak remote-add --gpg-import=/tmp/flathub-test.gpg flathub https://dl.flathub.org/repo/" <<<"$output" >/dev/null
 }
 
 assert_flatpak_install_aborts_when_remote_remains_unusable() {
@@ -935,10 +943,17 @@ assert_flatpak_install_uses_system_installation() {
   ! grep -F "user:test-user:flatpak --user install" <<<"$output" >/dev/null
 }
 
-assert_flatpak_install_retries_flathub_without_gpg_verify() {
+assert_flatpak_install_retries_flathub_after_gpg_import() {
   local output
   output="$({
     install_attempts=0
+    mktemp() {
+      printf '/tmp/flathub-test.gpg\n'
+    }
+    curl() {
+      printf 'curl:%s\n' "$*" >&2
+      [[ "$*" == "-fsSL https://flathub.org/repo/flathub.gpg -o /tmp/flathub-test.gpg" ]]
+    }
     run_cmd_as_root() {
       printf 'root:%s\n' "$*"
       case "$*" in
@@ -950,7 +965,7 @@ assert_flatpak_install_retries_flathub_without_gpg_verify() {
           fi
           return 0
           ;;
-        "flatpak remote-modify --no-gpg-verify flathub")
+        "flatpak remote-modify --gpg-verify --gpg-import=/tmp/flathub-test.gpg flathub")
           return 0
           ;;
       esac
@@ -962,8 +977,9 @@ assert_flatpak_install_retries_flathub_without_gpg_verify() {
     flatpak_install_or_update com.spotify.Client flathub
   } 2>&1)"
 
-  grep -F "Flatpak install from 'flathub' failed GPG verification; disabling Flatpak GPG verification for that remote and retrying." <<<"$output" >/dev/null
-  grep -F "root:flatpak remote-modify --no-gpg-verify flathub" <<<"$output" >/dev/null
+  grep -F "Flatpak install from 'flathub' failed GPG verification; importing Flathub GPG key directly and retrying." <<<"$output" >/dev/null
+  grep -F "curl:-fsSL https://flathub.org/repo/flathub.gpg -o /tmp/flathub-test.gpg" <<<"$output" >/dev/null
+  grep -F "root:flatpak remote-modify --gpg-verify --gpg-import=/tmp/flathub-test.gpg flathub" <<<"$output" >/dev/null
   grep -F "Flatpak install details for com.spotify.Client:" <<<"$output" >/dev/null
 }
 
@@ -1357,10 +1373,10 @@ assert_dotnet_tools_fail_without_sdk
 assert_flatpak_remote_repaired_when_present_but_unusable
 assert_flathub_repo_enabled_requires_usable_remote
 assert_flathub_setup_uses_official_system_remote
-assert_flathub_setup_falls_back_without_gpg_verify
+assert_flathub_setup_falls_back_to_direct_gpg_import
 assert_flatpak_install_aborts_when_remote_remains_unusable
 assert_flatpak_install_uses_system_installation
-assert_flatpak_install_retries_flathub_without_gpg_verify
+assert_flatpak_install_retries_flathub_after_gpg_import
 assert_dotnet_sdk_fails_when_no_channels_found
 assert_dotnet_sdk_selects_second_lts_floor_and_newer_channels
 assert_fedora_ms_fonts_installs_refresh_helpers
