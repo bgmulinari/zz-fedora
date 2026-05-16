@@ -8,6 +8,8 @@ trap 'rm -rf "$TEST_ROOT"' EXIT
 export XDG_STATE_HOME="$TEST_ROOT/state"
 export XDG_CACHE_HOME="$TEST_ROOT/cache"
 export XDG_CONFIG_HOME="$TEST_ROOT/config"
+export FLATPAK_REMOTE_WAIT_SECONDS=0
+export FLATPAK_REMOTE_RETRY_SECONDS=0
 
 # shellcheck source=../lib/common.sh
 source "$ROOT_DIR/lib/common.sh"

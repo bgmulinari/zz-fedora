@@ -215,12 +215,13 @@ flatpak_remote_usable_with_wait() {
 flatpak_remote_usable_with_wait_attempts() {
   local name="$1"
   local max_attempts="$2"
+  local wait_seconds="${FLATPAK_REMOTE_WAIT_SECONDS:-1}"
   local attempt
   for ((attempt = 1; attempt <= max_attempts; attempt++)); do
     if flatpak_remote_usable "$name"; then
       return 0
     fi
-    sleep 1
+    [[ "$wait_seconds" == "0" ]] || sleep "$wait_seconds"
   done
   return 1
 }
@@ -290,7 +291,7 @@ flatpak_remote_add_with_retry() {
     fi
     [[ "$attempt" -lt 3 ]] || break
     log_warn "Flatpak remote add failed for '$name'; retrying."
-    sleep 2
+    [[ "${FLATPAK_REMOTE_RETRY_SECONDS:-2}" == "0" ]] || sleep "${FLATPAK_REMOTE_RETRY_SECONDS:-2}"
   done
 
   if [[ "$name" == "flathub" ]]; then
