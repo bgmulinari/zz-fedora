@@ -246,13 +246,11 @@ flatpak_remote_add_with_gpg_key() {
   local name="$2"
   local url="$3"
   if run_cmd_as_root flatpak remote-add --gpg-import="$key_file" "$name" "$url"; then
-    flatpak_remote_usable_after_gpg_import "$name"
-    return $?
+    flatpak_remote_usable_after_gpg_import "$name" && return 0
   fi
   log_warn "Direct Flathub GPG import failed in the current environment; retrying with a clean root environment."
   if run_cmd_as_clean_root flatpak remote-add --gpg-import="$key_file" "$name" "$url"; then
-    flatpak_remote_usable_after_gpg_import "$name"
-    return $?
+    flatpak_remote_usable_after_gpg_import "$name" && return 0
   fi
   if [[ "$name" == "flathub" ]]; then
     log_warn "Verified Flathub setup is unavailable in this environment; adding Flathub without GPG verification."
