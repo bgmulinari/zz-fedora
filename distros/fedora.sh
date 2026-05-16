@@ -37,18 +37,22 @@ distro_enable_sources() {
       fi
       ;;
     rpmfusion)
-      if ! distro_repo_enabled "$SOURCE_ID"; then
-        case "$SOURCE_ID" in
-          rpmfusion-free)
+      case "$SOURCE_ID" in
+        rpmfusion-free)
+          if ! distro_repo_enabled "$SOURCE_ID"; then
             run_cmd_as_root rpm --import https://download1.rpmfusion.org/free/fedora/RPM-GPG-KEY-rpmfusion-free-fedora-2020
             run_cmd_as_root dnf install -y --setopt=localpkg_gpgcheck=1 "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-${fedora_release}.noarch.rpm"
-            ;;
-          rpmfusion-nonfree)
+          fi
+          run_cmd_as_root dnf install -y rpmfusion-free-appstream-data
+          ;;
+        rpmfusion-nonfree)
+          if ! distro_repo_enabled "$SOURCE_ID"; then
             run_cmd_as_root rpm --import https://download1.rpmfusion.org/nonfree/fedora/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020
             run_cmd_as_root dnf install -y --setopt=localpkg_gpgcheck=1 "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${fedora_release}.noarch.rpm"
-            ;;
-        esac
-      fi
+          fi
+          run_cmd_as_root dnf install -y rpmfusion-nonfree-appstream-data
+          ;;
+      esac
       ;;
     vendor)
       if ! distro_repo_enabled "$SOURCE_ID"; then

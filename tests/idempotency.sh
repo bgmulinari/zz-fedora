@@ -1327,6 +1327,56 @@ assert_terra_source_bootstraps_release_packages_before_importing_key() {
   grep -F "root:dnf config-manager setopt terra.repo_gpgcheck=0" <<<"$output" >/dev/null
 }
 
+assert_rpmfusion_source_installs_appstream_metadata() {
+  local output
+  output="$({
+    distro_repo_enabled() {
+      return 1
+    }
+    run_cmd_as_root() {
+      printf 'root:%s\n' "$*"
+    }
+    rpm() {
+      [[ "$*" == "-E %fedora" ]] && printf '44\n'
+    }
+    DISTRO=fedora
+    DRY_RUN=0
+    distro_enable_sources rpmfusion-free
+    distro_enable_sources rpmfusion-nonfree
+  } 2>&1)"
+
+  grep -F "root:rpm --import https://download1.rpmfusion.org/free/fedora/RPM-GPG-KEY-rpmfusion-free-fedora-2020" <<<"$output" >/dev/null
+  grep -F "root:dnf install -y --setopt=localpkg_gpgcheck=1 https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-44.noarch.rpm" <<<"$output" >/dev/null
+  grep -F "root:dnf install -y rpmfusion-free-appstream-data" <<<"$output" >/dev/null
+  grep -F "root:rpm --import https://download1.rpmfusion.org/nonfree/fedora/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020" <<<"$output" >/dev/null
+  grep -F "root:dnf install -y --setopt=localpkg_gpgcheck=1 https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-44.noarch.rpm" <<<"$output" >/dev/null
+  grep -F "root:dnf install -y rpmfusion-nonfree-appstream-data" <<<"$output" >/dev/null
+}
+
+assert_rpmfusion_source_refreshes_appstream_when_repo_already_enabled() {
+  local output
+  output="$({
+    distro_repo_enabled() {
+      return 0
+    }
+    run_cmd_as_root() {
+      printf 'root:%s\n' "$*"
+    }
+    rpm() {
+      [[ "$*" == "-E %fedora" ]] && printf '44\n'
+    }
+    DISTRO=fedora
+    DRY_RUN=0
+    distro_enable_sources rpmfusion-free
+    distro_enable_sources rpmfusion-nonfree
+  } 2>&1)"
+
+  ! grep -F "root:rpm --import https://download1.rpmfusion.org/free/fedora/RPM-GPG-KEY-rpmfusion-free-fedora-2020" <<<"$output" >/dev/null
+  ! grep -F "root:rpm --import https://download1.rpmfusion.org/nonfree/fedora/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020" <<<"$output" >/dev/null
+  grep -F "root:dnf install -y rpmfusion-free-appstream-data" <<<"$output" >/dev/null
+  grep -F "root:dnf install -y rpmfusion-nonfree-appstream-data" <<<"$output" >/dev/null
+}
+
 assert_claude_desktop_source_imports_key_before_repo_install() {
   local output
   output="$({
@@ -1593,6 +1643,8 @@ assert_dotnet_sdk_selects_second_lts_floor_and_newer_channels
 assert_fedora_ms_fonts_installs_refresh_helpers
 assert_google_chrome_source_imports_key_before_repo_install
 assert_terra_source_bootstraps_release_packages_before_importing_key
+assert_rpmfusion_source_installs_appstream_metadata
+assert_rpmfusion_source_refreshes_appstream_when_repo_already_enabled
 assert_claude_desktop_source_imports_key_before_repo_install
 assert_default_browser_uses_mime_fallback_when_xdg_settings_fails
 assert_homebrew_refreshes_ca_certificates_after_install
