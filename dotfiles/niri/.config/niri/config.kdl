@@ -1,5 +1,5 @@
 // Managed by zz-linux-setup.
-// Omarchy-aligned Niri + Noctalia desktop baseline.
+// Managed Niri + Noctalia desktop baseline.
 
 include "./cfg/animation.kdl"
 include "./cfg/autostart.kdl"

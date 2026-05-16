@@ -428,7 +428,7 @@ distro_install_dnf_packages() {
   install_attempts+=("$*")
   [[ " $* " != *" bad-package "* ]]
 }
-install_from_plan_file dnf "$optional_plan" optional && exit 1
+install_from_plan_file dnf "$optional_plan" optional
 [[ "${install_attempts[0]}" == "bad-package good-package" ]]
 [[ "${install_attempts[1]}" == "bad-package" ]]
 [[ "${install_attempts[2]}" == "good-package" ]]

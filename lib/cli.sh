@@ -4,7 +4,7 @@ set -Eeuo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./install.sh [wizard|install|doctor|print-plan|list-profiles|list-choices|list-sources] [options]
+  ./install.sh [wizard|install|check|doctor|print-plan|list-profiles|list-choices|list-sources] [options]
 
 Common options:
   --yes
@@ -16,6 +16,7 @@ Common options:
   --select category=a,b,c
   --no-tui
   --stow-adopt
+  --format text|json
 EOF
 }
 
@@ -48,6 +49,14 @@ parse_cli() {
         ;;
       --stow-adopt)
         STOW_ADOPT=1
+        ;;
+      --format)
+        idx=$((idx + 1))
+        PLAN_FORMAT="${args[$idx]:-}"
+        case "$PLAN_FORMAT" in
+          text|json) ;;
+          *) die "Unsupported --format value: $PLAN_FORMAT" ;;
+        esac
         ;;
       --target-user)
         idx=$((idx + 1))

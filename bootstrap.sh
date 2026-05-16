@@ -133,6 +133,10 @@ clone_or_update_repo() {
   if [[ ! -d "$INSTALL_DIR/.git" ]]; then
     run git clone --filter=blob:none "$REPO_URL" "$INSTALL_DIR"
   fi
+  if [[ "$DRY_RUN" -eq 0 && -n "$(git -C "$INSTALL_DIR" status --porcelain)" ]]; then
+    printf 'Refusing to update %s because it has uncommitted changes. Commit, stash, or move them before bootstrapping again.\n' "$INSTALL_DIR" >&2
+    exit 1
+  fi
   run git -C "$INSTALL_DIR" fetch --all --tags --prune
   checkout_ref
 }

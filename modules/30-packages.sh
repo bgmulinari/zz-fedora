@@ -27,9 +27,11 @@ install_from_plan_file() {
       continue
     fi
     log_warn "Optional $backend package failed and will be skipped for now: $package_name"
+    append_warning "Optional $backend package failed and was skipped: $package_name"
     failed=1
   done
-  return "$failed"
+  [[ "$failed" -eq 0 ]] || log_warn "Continuing after optional $backend package failures."
+  return 0
 }
 
 build_base_package_plan_for_backend() {
@@ -64,10 +66,10 @@ build_base_package_plan_for_backend() {
 }
 
 is_early_base_bundle() {
-  case "$1" in
-    base-bootstrap|base-login-manager|base-system-services) return 0 ;;
-    *) return 1 ;;
-  esac
+  local early_var="EARLY_BASE_BUNDLE_IDS_${DISTRO}"
+  declare -p "$early_var" >/dev/null 2>&1 || return 1
+  local -n early_base_bundle_ids_ref="$early_var"
+  array_contains "$1" "${early_base_bundle_ids_ref[@]:-}"
 }
 
 install_base_packages_for_backend() {

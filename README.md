@@ -1,6 +1,6 @@
 # ZZ Linux Setup
 
-ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper for a minimal Niri + Noctalia Shell desktop with GTK-oriented applications and GTK/Qt integration. Ghostty is the default terminal. `gum` provides the primary interactive wizard.
+ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper for a minimal Niri + Noctalia v4 Shell desktop with GTK-oriented applications and GTK/Qt integration. Ghostty is the default terminal. `gum` provides the primary interactive wizard.
 
 ## Status
 
@@ -10,7 +10,7 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 ## Desktop Philosophy
 
 - Niri is the compositor/session target.
-- Noctalia Shell is a shell layer, not a full desktop environment.
+- Noctalia v4 Shell is a shell layer, not a full desktop environment. Fedora installs it from Terra with the `noctalia-shell` package.
 - GTK desktop defaults are the baseline:
   - Nautilus for file management
   - Neovim as the default handler for plain text and source files
@@ -32,6 +32,7 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 - When Visual Studio Code is selected, `~/.config/Code/User/settings.json` is also managed so the editor stays on `NoctaliaTheme`.
 - `~/.config/noctalia/plugins.json` enables Noctalia's built-in `polkit-agent` plugin from the official plugin source, so no separate session polkit binary is launched from Niri.
 - Noctalia template activation is plan-aware: GTK, Qt, and KColorScheme are always enabled; built-in templates are enabled for installed supported apps such as Niri, Ghostty, Starship, btop, Yazi, VS Code, Pywalfox, and Zen Browser; user templates are kept for repo-specific Neovim, Zsh syntax highlighting, and icon-theme integration.
+- Noctalia v4 uses the existing JSON settings flow in `~/.config/noctalia/settings.json`; TOML settings/package handling for later Noctalia releases is intentionally out of scope.
 - Firefox Noctalia theming uses Pywalfox. Fedora installs it globally with `sudo python3 -m pip install --upgrade pywalfox` and then registers the native messaging host for the target user.
 - The installer never starts SDDM immediately. Reboot to begin using the graphical login.
 - Selecting Visual Studio Code also enables Noctalia's built-in `code` template automatically. Fedora uses Microsoft's RPM repo.
@@ -91,11 +92,15 @@ Supported commands:
 ./install.sh install --dry-run
 ./install.sh install --use-saved
 ./install.sh print-plan
+./install.sh print-plan --format json
+./install.sh check
 ./install.sh doctor
 ./install.sh list-profiles
 ./install.sh list-choices
 ./install.sh list-sources
 ```
+
+`check` is read-only. It accepts the same selection flags as `install` and `print-plan`, builds the plan, and reports readiness, source status, service status, managed-config conflicts, and key command availability without enabling repos, installing packages, or changing dotfiles.
 
 ## Idempotency
 
@@ -110,6 +115,7 @@ Managed items:
 - system services
 - SDDM enablement
 - managed dotfiles through `stow --restow`
+- managed dotfile conflict previews before Stow moves or backs up existing files
 - modular Niri config under `~/.config/niri/cfg/`
 - MIME defaults and selected post-actions
 
@@ -170,6 +176,8 @@ Add another distro:
 The common modules should not need changes for a straightforward new adapter.
 
 ## Tests
+
+Logs default to `$XDG_STATE_HOME/zz-linux-setup/logs` or `~/.local/state/zz-linux-setup/logs`. Set `LOG_DIR` to override the location.
 
 Run:
 

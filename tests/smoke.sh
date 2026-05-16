@@ -16,6 +16,7 @@ tests/bootstrap.sh
 tests/distro-detect.sh
 tests/scope.sh
 tests/logging.sh
+tests/hardening.sh
 tests/tui.sh
 tests/planner.sh
 tests/idempotency.sh

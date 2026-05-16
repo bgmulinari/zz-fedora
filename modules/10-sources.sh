@@ -27,6 +27,7 @@ enable_source_best_effort() {
     return 0
   fi
   log_warn "Optional source failed and will be skipped for now: $source_id"
+  append_warning "Optional source failed and was skipped: $source_id"
   return 0
 }
 

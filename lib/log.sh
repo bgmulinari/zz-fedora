@@ -18,11 +18,37 @@ shell_quote() {
   printf '%s' "$quoted"
 }
 
+redact_arg() {
+  local arg="$1"
+  local lower="${arg,,}"
+  case "$lower" in
+    *password=*|*passwd=*|*token=*|*secret=*|*apikey=*|*api_key=*|*credential=*)
+      printf '%s=REDACTED' "${arg%%=*}"
+      ;;
+    *password*|*passwd*|*token*|*secret*|*apikey*|*api_key*|*credential*)
+      printf 'REDACTED'
+      ;;
+    *)
+      printf '%s' "$arg"
+      ;;
+  esac
+}
+
+redacted_shell_quote() {
+  local -a redacted=()
+  local arg
+  for arg in "$@"; do
+    redacted+=("$(redact_arg "$arg")")
+  done
+  shell_quote "${redacted[@]}"
+}
+
 init_log_file() {
   [[ -n "${LOG_FILE:-}" ]] && return 0
   ensure_state_dirs
   LOG_FILE="$LOG_DIR/${COMMAND}-$(date '+%Y-%m-%d_%H-%M-%S').log"
   export LOG_FILE
+  [[ "${PLAN_FORMAT:-text}" == "json" ]] || printf 'Log file: %s\n' "$LOG_FILE"
 }
 
 log_to_file() {
@@ -77,12 +103,13 @@ log_error() {
 
 die() {
   log_error "$*"
+  [[ -n "${LOG_FILE:-}" ]] && printf 'Log file: %s\n' "$LOG_FILE" >&2
   exit 1
 }
 
 log_command() {
   [[ -n "${LOG_FILE:-}" ]] || return 0
-  log_to_file info "CMD: $(shell_quote "$@")"
+  log_to_file info "CMD: $(redacted_shell_quote "$@")"
 }
 
 run_with_log_capture() {

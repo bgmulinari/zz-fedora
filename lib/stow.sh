@@ -120,6 +120,77 @@ stow_prepare_conflicts() {
   stow_prepare_known_conflicts "$@"
 }
 
+stow_preview_conflict_path() {
+  printf '%s/files/config-conflicts.tsv\n' "$PLAN_DIR"
+}
+
+stow_preview_record_conflict() {
+  local relative_path="$1"
+  local package_name="$2"
+  local target_path="$TARGET_HOME/$relative_path"
+  [[ -e "$target_path" || -L "$target_path" ]] || return 0
+  [[ -L "$target_path" ]] && return 0
+  printf '%s\t%s\tbackup-before-stow\n' "~/$relative_path" "$package_name" >>"$(stow_preview_conflict_path)"
+}
+
+stow_preview_package_conflicts() {
+  local package_name="$1"
+  local package_dir="$ROOT_DIR/dotfiles/$package_name"
+  [[ -d "$package_dir" ]] || return 0
+
+  local relative_path
+  while IFS= read -r relative_path; do
+    [[ -n "$relative_path" ]] || continue
+    if [[ -d "$package_dir/$relative_path" ]] && stow_path_has_managed_descendant "$package_dir" "$relative_path"; then
+      continue
+    fi
+    stow_preview_record_conflict "$relative_path" "$package_name"
+  done < <(find "$package_dir" -mindepth 1 -printf '%P\n' | sort -u)
+}
+
+stow_preview_known_conflicts() {
+  local package_name
+  for package_name in "$@"; do
+    case "$package_name" in
+      noctalia)
+        stow_preview_record_conflict ".config/noctalia/plugins.json" "$package_name"
+        stow_preview_record_conflict ".config/noctalia/user-templates.toml" "$package_name"
+        stow_preview_record_conflict ".config/noctalia/templates/neovim.lua" "$package_name"
+        stow_preview_record_conflict ".config/noctalia/templates/zsh-syntax-highlighting.zsh" "$package_name"
+        ;;
+      shell)
+        stow_preview_record_conflict ".bashrc" "$package_name"
+        stow_preview_record_conflict ".bash_profile" "$package_name"
+        stow_preview_record_conflict ".profile" "$package_name"
+        ;;
+    esac
+  done
+}
+
+stow_write_conflict_preview() {
+  local preview_file
+  preview_file="$(stow_preview_conflict_path)"
+  mkdir -p "$(dirname "$preview_file")"
+  : >"$preview_file"
+
+  [[ -n "${TARGET_HOME:-}" && -d "$TARGET_HOME" ]] || return 0
+
+  local -a packages=()
+  local package_name
+  while IFS= read -r package_name; do
+    [[ -n "$package_name" ]] || continue
+    stow_package_has_payload "$package_name" || continue
+    packages+=("$package_name")
+  done < <(stow_packages_from_plan)
+  [[ "${#packages[@]}" -gt 0 ]] || return 0
+
+  for package_name in "${packages[@]}"; do
+    stow_preview_package_conflicts "$package_name"
+  done
+  stow_preview_known_conflicts "${packages[@]}"
+  sort -u "$preview_file" -o "$preview_file"
+}
+
 stow_apply_plan() {
   [[ "$SKIP_DOTFILES" -eq 1 ]] && return 0
   local -a packages=()

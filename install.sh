@@ -25,6 +25,8 @@ source "$ROOT_DIR/lib/os.sh"
 source "$ROOT_DIR/lib/tui.sh"
 # shellcheck source=./lib/planner.sh
 source "$ROOT_DIR/lib/planner.sh"
+# shellcheck source=./lib/readiness.sh
+source "$ROOT_DIR/lib/readiness.sh"
 
 for module_file in "$ROOT_DIR"/modules/*.sh; do
   # shellcheck disable=SC1090
@@ -55,6 +57,48 @@ step_should_run_dotfiles() {
 
 step_should_run_doctor() {
   [[ "$COMMAND" == "doctor" || "$COMMAND" == "apply" || "$DRY_RUN" -ne 1 ]]
+}
+
+declare -ag STEP_IDS=()
+declare -ag STEP_LABELS=()
+declare -ag STEP_DESCRIPTIONS=()
+declare -ag STEP_FUNCTIONS=()
+declare -ag STEP_PREDICATES=()
+declare -ag STEP_FAILURE_POLICIES=()
+
+register_step() {
+  STEP_IDS+=("$1")
+  STEP_LABELS+=("$2")
+  STEP_DESCRIPTIONS+=("$3")
+  STEP_FUNCTIONS+=("$4")
+  STEP_PREDICATES+=("$5")
+  STEP_FAILURE_POLICIES+=("$6")
+}
+
+reset_step_registry() {
+  STEP_IDS=()
+  STEP_LABELS=()
+  STEP_DESCRIPTIONS=()
+  STEP_FUNCTIONS=()
+  STEP_PREDICATES=()
+  STEP_FAILURE_POLICIES=()
+}
+
+build_step_registry() {
+  local include_planning="${1:-0}"
+  reset_step_registry
+  register_step preflight "Preflight" "Validate the environment, target user, and install prerequisites." module_00_preflight step_should_run_always fatal
+  if [[ "$include_planning" -eq 1 ]]; then
+    register_step planning "Planning" "Build and review the final install plan from defaults and selected bundles." module_20_plan step_should_run_always fatal
+  fi
+  register_step bootstrap-tools "Bootstrap Tools" "Install the package-manager helpers needed for the selected distro." module_05_bootstrap_tools step_should_run_always fatal
+  register_step sources "Software Sources" "Enable repositories and remotes required by the current plan." module_10_sources step_should_run_always fatal
+  register_step base-setup "Base Setup" "Install non-optional base packages and configure the base shell before optional selections." module_30_packages step_should_run_always fatal
+  register_step optional-packages "Optional Packages" "Install optional Fedora and Flatpak packages from the generated plan." module_32_optional_packages step_should_run_always continue
+  register_step custom-actions "Custom Actions" "Run selected direct installers and package-manager actions." module_35_custom_actions step_should_run_always continue
+  register_step dotfiles "Dotfiles" "Stow managed configuration into the target home directory." module_60_dotfiles step_should_run_dotfiles fatal
+  register_step post-actions "Post Actions" "Apply defaults, desktop associations, and final user/system tweaks." module_80_post_actions step_should_run_always continue
+  register_step doctor "Doctor" "Run the final verification checks and environment summary." module_90_doctor step_should_run_doctor fatal
 }
 
 exec_setup_as_root_if_needed() {
@@ -91,6 +135,7 @@ run_install_step() {
   local description="$4"
   local function_name="$5"
   local predicate="${6:-step_should_run_always}"
+  local failure_policy="${7:-fatal}"
   local step_status
 
   tui_step_start "$current" "$total" "$label" "$description"
@@ -123,137 +168,38 @@ run_install_step() {
 
   log_error "Failed step $current/$total: $label"
   tui_step_failed "$label"
+  if [[ "$failure_policy" == "continue" ]]; then
+    append_warning "Step failed and setup continued: $label"
+    return 0
+  fi
   return 1
 }
 
-run_install_modules() {
-  local -a functions=(
-    module_00_preflight
-    module_20_plan
-    module_05_bootstrap_tools
-    module_10_sources
-    module_30_packages
-    module_32_optional_packages
-    module_35_custom_actions
-    module_60_dotfiles
-    module_80_post_actions
-    module_90_doctor
-  )
-  local -a labels=(
-    "Preflight"
-    "Planning"
-    "Bootstrap Tools"
-    "Software Sources"
-    "Base Setup"
-    "Optional Packages"
-    "Custom Actions"
-    "Dotfiles"
-    "Post Actions"
-    "Doctor"
-  )
-  local -a descriptions=(
-    "Validate the environment, target user, and install prerequisites."
-    "Build the final install plan from defaults and selected bundles."
-    "Install the package-manager helpers needed for the selected distro."
-    "Enable repositories and remotes required by the current plan."
-    "Install non-optional base packages and configure the base shell before optional selections."
-    "Install optional Fedora and Flatpak packages from the generated plan."
-    "Run selected direct installers and package-manager actions."
-    "Stow managed configuration into the target home directory."
-    "Apply defaults, desktop associations, and final user/system tweaks."
-    "Run the final verification checks and environment summary."
-  )
-  local -a predicates=(
-    step_should_run_always
-    step_should_run_always
-    step_should_run_always
-    step_should_run_always
-    step_should_run_always
-    step_should_run_always
-    step_should_run_always
-    step_should_run_dotfiles
-    step_should_run_always
-    step_should_run_doctor
-  )
-  local total="${#functions[@]}"
+run_registered_steps() {
+  local include_planning="${1:-0}"
+  build_step_registry "$include_planning"
+  local total="${#STEP_FUNCTIONS[@]}"
   local idx
+  local failed=0
 
-  tui_register_steps "${labels[@]}"
+  tui_register_steps "${STEP_LABELS[@]}"
   tui_progress_begin
 
-  for idx in "${!functions[@]}"; do
-    run_install_step \
+  for idx in "${!STEP_FUNCTIONS[@]}"; do
+    if ! run_install_step \
       "$((idx + 1))" \
       "$total" \
-      "${labels[$idx]}" \
-      "${descriptions[$idx]}" \
-      "${functions[$idx]}" \
-      "${predicates[$idx]}"
+      "${STEP_LABELS[$idx]}" \
+      "${STEP_DESCRIPTIONS[$idx]}" \
+      "${STEP_FUNCTIONS[$idx]}" \
+      "${STEP_PREDICATES[$idx]}" \
+      "${STEP_FAILURE_POLICIES[$idx]}"; then
+      failed=1
+      break
+    fi
   done
   tui_progress_end
-}
-
-run_apply_modules() {
-  local -a functions=(
-    module_00_preflight
-    module_05_bootstrap_tools
-    module_10_sources
-    module_30_packages
-    module_32_optional_packages
-    module_35_custom_actions
-    module_60_dotfiles
-    module_80_post_actions
-    module_90_doctor
-  )
-  local -a labels=(
-    "Preflight"
-    "Bootstrap Tools"
-    "Software Sources"
-    "Base Setup"
-    "Optional Packages"
-    "Custom Actions"
-    "Dotfiles"
-    "Post Actions"
-    "Doctor"
-  )
-  local -a descriptions=(
-    "Validate the environment, target user, and install prerequisites."
-    "Install the package-manager helpers needed for the selected distro."
-    "Enable repositories and remotes required by the current plan."
-    "Install non-optional base packages and configure the base shell before optional selections."
-    "Install optional Fedora and Flatpak packages from the generated plan."
-    "Run selected direct installers and package-manager actions."
-    "Stow managed configuration into the target home directory."
-    "Apply defaults, desktop associations, and final user/system tweaks."
-    "Run the final verification checks and environment summary."
-  )
-  local -a predicates=(
-    step_should_run_always
-    step_should_run_always
-    step_should_run_always
-    step_should_run_always
-    step_should_run_always
-    step_should_run_always
-    step_should_run_dotfiles
-    step_should_run_always
-    step_should_run_doctor
-  )
-  local total="${#functions[@]}"
-  local idx
-
-  tui_register_steps "${labels[@]}"
-  tui_progress_begin
-
-  for idx in "${!functions[@]}"; do
-    run_install_step \
-      "$((idx + 1))" \
-      "$total" \
-      "${labels[$idx]}" \
-      "${descriptions[$idx]}" \
-      "${functions[$idx]}" \
-      "${predicates[$idx]}"
-  done
-  tui_progress_end
+  return "$failed"
 }
 
 apply_install_plan() {
@@ -265,11 +211,15 @@ apply_install_plan() {
   fi
 
   TUI_PROGRESS_ACTIVE=1
-  run_apply_modules
+  local install_status=0
+  run_registered_steps 0 || install_status=$?
   tui_progress_end
   TUI_PROGRESS_ACTIVE=0
   tui_summary
-  prompt_for_reboot
+  if [[ "$install_status" -eq 0 ]]; then
+    prompt_for_reboot
+  fi
+  return "$install_status"
 }
 
 prompt_for_reboot() {
@@ -316,8 +266,19 @@ main() {
       build_plan_from_selections
       print_plan_summary
       ;;
+    check)
+      DRY_RUN=1
+      build_plan_from_selections
+      generate_readiness_status
+      print_plan_summary
+      printf '\n'
+      render_readiness_report
+      ;;
     doctor)
       module_00_preflight
+      [[ -f "$PLAN_DIR/bundles.list" ]] || build_plan_from_selections
+      generate_readiness_status
+      render_readiness_report
       module_90_doctor
       ;;
     list-profiles)

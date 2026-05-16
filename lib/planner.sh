@@ -142,9 +142,12 @@ build_plan_from_selections() {
   : >"$PLAN_DIR/services/user-enable.list"
   append_managed_file "~/Wallpapers/SilentPeaks.jpg"
   append_managed_file "~/.cache/noctalia/wallpapers.json"
+  if declare -F stow_write_conflict_preview >/dev/null 2>&1; then
+    stow_write_conflict_preview
+  fi
 
   write_plan_summary
-  save_selections
+  [[ "$COMMAND" == "check" ]] || save_selections
 }
 
 count_plan_entries() {
@@ -213,6 +216,11 @@ write_plan_summary() {
       sed 's/^/  - /' "$PLAN_DIR/files/managed-files.list"
     fi
 
+    printf '\nConfig conflicts:\n'
+    if [[ -f "$PLAN_DIR/files/config-conflicts.tsv" ]]; then
+      awk -F'\t' 'NF>=3 {printf "  - %s (%s: %s)\n", $1, $2, $3}' "$PLAN_DIR/files/config-conflicts.tsv"
+    fi
+
     printf '\nStow:\n'
     if [[ -f "$PLAN_DIR/stow/packages.list" ]]; then
       sed 's/^/  - /' "$PLAN_DIR/stow/packages.list"
@@ -227,5 +235,115 @@ write_plan_summary() {
 
 print_plan_summary() {
   [[ -f "$PLAN_DIR/summary.txt" ]] || die "No generated plan found."
-  cat "$PLAN_DIR/summary.txt"
+  case "$PLAN_FORMAT" in
+    text) cat "$PLAN_DIR/summary.txt" ;;
+    json) print_plan_json ;;
+    *) die "Unsupported plan format: $PLAN_FORMAT" ;;
+  esac
+}
+
+json_escape() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/\\n}"
+  value="${value//$'\t'/\\t}"
+  printf '%s' "$value"
+}
+
+json_array_from_file() {
+  local file="$1"
+  local first=1
+  local entry
+  printf '['
+  if [[ -f "$file" ]]; then
+    while IFS= read -r entry; do
+      [[ -n "$entry" ]] || continue
+      [[ "$first" -eq 1 ]] || printf ','
+      printf '"%s"' "$(json_escape "$entry")"
+      first=0
+    done < <(read_plan_file "$file")
+  fi
+  printf ']'
+}
+
+json_array_from_files() {
+  local first=1
+  local file entry
+  printf '['
+  for file in "$@"; do
+    [[ -f "$file" ]] || continue
+    while IFS= read -r entry; do
+      [[ -n "$entry" ]] || continue
+      [[ "$first" -eq 1 ]] || printf ','
+      printf '"%s"' "$(json_escape "$entry")"
+      first=0
+    done < <(read_plan_file "$file")
+  done
+  printf ']'
+}
+
+json_warnings_array() {
+  local first=1
+  local warning
+  printf '['
+  for warning in "${WARNING_MESSAGES[@]:-}"; do
+    [[ "$first" -eq 1 ]] || printf ','
+    printf '"%s"' "$(json_escape "$warning")"
+    first=0
+  done
+  printf ']'
+}
+
+json_conflicts_array() {
+  local file="$PLAN_DIR/files/config-conflicts.tsv"
+  local first=1
+  local path package action
+  printf '['
+  if [[ -f "$file" ]]; then
+    while IFS=$'\t' read -r path package action; do
+      [[ -n "$path" ]] || continue
+      [[ "$first" -eq 1 ]] || printf ','
+      printf '{"path":"%s","package":"%s","action":"%s"}' \
+        "$(json_escape "$path")" \
+        "$(json_escape "$package")" \
+        "$(json_escape "$action")"
+      first=0
+    done <"$file"
+  fi
+  printf ']'
+}
+
+print_plan_json() {
+  local native_backend
+  native_backend="$(native_backend_for_distro "$DISTRO")"
+  printf '{'
+  printf '"distro":"%s",' "$(json_escape "$DISTRO")"
+  printf '"target_user":"%s",' "$(json_escape "$TARGET_USER")"
+  printf '"selected_bundles":'
+  json_array_from_file "$PLAN_DIR/bundles.list"
+  printf ',"sources":'
+  json_array_from_files "$PLAN_DIR"/sources/*.list
+  printf ',"native_backend":"%s",' "$(json_escape "$native_backend")"
+  printf '"native_packages":'
+  json_array_from_file "$(package_file_for_backend "$native_backend")"
+  printf ',"flatpaks":'
+  json_array_from_file "$PLAN_DIR/flatpak/apps.flatpaks"
+  printf ',"custom_actions":'
+  json_array_from_file "$PLAN_DIR/actions/actions.list"
+  printf ',"services":{"system_enable_now":'
+  json_array_from_file "$PLAN_DIR/services/system-enable-now.list"
+  printf ',"system_enable":'
+  json_array_from_file "$PLAN_DIR/services/system-enable.list"
+  printf ',"user_enable":'
+  json_array_from_file "$PLAN_DIR/services/user-enable.list"
+  printf '},"stow_packages":'
+  json_array_from_file "$PLAN_DIR/stow/packages.list"
+  printf ',"managed_files":'
+  json_array_from_file "$PLAN_DIR/files/managed-files.list"
+  printf ',"config_conflicts":'
+  json_conflicts_array
+  printf ',"warnings":'
+  json_warnings_array
+  printf '}\n'
 }

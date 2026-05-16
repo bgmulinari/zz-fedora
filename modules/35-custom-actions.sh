@@ -299,5 +299,6 @@ module_35_custom_actions() {
       continue
     fi
     log_warn "Optional custom action failed and will be skipped for now: $action"
+    append_warning "Optional custom action failed and was skipped: $action"
   done < <(read_plan_file "$PLAN_DIR/actions/actions.list")
 }

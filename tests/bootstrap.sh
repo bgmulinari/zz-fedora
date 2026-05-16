@@ -45,4 +45,11 @@ clone_or_update_repo
 [[ "$(cat "$TEST_ROOT/install/version.txt")" == "new" ]]
 [[ "$(git -C "$TEST_ROOT/install" rev-parse HEAD)" != "$old_commit" ]]
 
+printf 'dirty\n' >"$TEST_ROOT/install/local.txt"
+dirty_output="$(clone_or_update_repo 2>&1)" && {
+  printf 'dirty clone update should fail\n' >&2
+  exit 1
+} || true
+grep -F 'has uncommitted changes' <<<"$dirty_output" >/dev/null
+
 printf 'bootstrap ok\n'

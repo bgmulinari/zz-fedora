@@ -45,9 +45,23 @@ run_with_log_capture file emit_command_output
 grep -F 'CMD: printf command\ output' "$LOG_FILE" >/dev/null
 grep -F 'command output' "$LOG_FILE" >/dev/null
 
+run_cmd true --password=hunter2 api-token >/dev/null 2>&1
+grep -F 'CMD: true --password=REDACTED REDACTED' "$LOG_FILE" >/dev/null
+! grep -F 'hunter2' "$LOG_FILE" >/dev/null
+
 DRY_RUN=1
 dry_run_output="$(run_cmd touch "$TEST_ROOT/should-not-exist")"
 grep -F 'DRY-RUN: touch' <<<"$dry_run_output" >/dev/null
 [[ ! -e "$TEST_ROOT/should-not-exist" ]]
+
+default_log_output="$(
+  unset LOG_DIR
+  unset LOG_FILE
+  XDG_STATE_HOME="$TEST_ROOT/default-state" \
+  XDG_CACHE_HOME="$TEST_ROOT/default-cache" \
+  XDG_CONFIG_HOME="$TEST_ROOT/default-config" \
+  bash -c 'source "'"$ROOT_DIR"'/lib/common.sh"; COMMAND=default-log-test; init_log_file; printf "%s\n" "$LOG_FILE"'
+)"
+grep -F "$TEST_ROOT/default-state/zz-linux-setup/logs/default-log-test-" <<<"$default_log_output" >/dev/null
 
 printf 'logging ok\n'

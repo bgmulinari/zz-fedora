@@ -12,6 +12,12 @@ DEFAULT_SYSTEM_SERVICES=(
   power-profiles-daemon
 )
 
+EARLY_BASE_BUNDLE_IDS_fedora=(
+  base-bootstrap
+  base-login-manager
+  base-system-services
+)
+
 BASE_BUNDLE_IDS_fedora=(
   base-bootstrap
   base-login-manager
