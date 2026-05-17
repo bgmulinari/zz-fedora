@@ -920,6 +920,7 @@ module_80_post_actions() {
   install_niri_noctalia_seed_if_missing
   install_qt_theme_config
   install_pywalfox_native_host
+  update_noctalia_settings
   install_vscode_noctalia_extension
   register_first_run_hook
   write_managed_files_report

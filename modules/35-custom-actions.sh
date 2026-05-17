@@ -309,7 +309,7 @@ install_fedora_build_tools() {
 install_fedora_media_codecs() {
   [[ "$DISTRO" == "fedora" ]] || return 0
   run_cmd_as_root dnf swap -y ffmpeg-free ffmpeg --allowerasing
-  run_cmd_as_root dnf install -y 'gstreamer1-plugins-bad-*' 'gstreamer1-plugins-good-*' gstreamer1-plugins-base gstreamer1-plugin-openh264 gstreamer1-libav 'lame*' --exclude=gstreamer1-plugins-bad-free-devel
+  run_cmd_as_root dnf install -y 'gstreamer1-plugins-bad-*' 'gstreamer1-plugins-good-*' gstreamer1-plugins-base gstreamer1-plugin-openh264 gstreamer1-libav 'lame*' --exclude=gstreamer1-plugins-bad-free-devel --exclude=gstreamer1-plugins-good-qt6
   run_cmd_as_root dnf group install -y multimedia
   run_cmd_as_root dnf group install -y sound-and-video
   run_cmd_as_root dnf install -y ffmpeg-libs libva libva-utils openh264 gstreamer1-plugin-openh264 mozilla-openh264

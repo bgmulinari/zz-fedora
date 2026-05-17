@@ -54,6 +54,8 @@ noctalia_dnf_output="$(distro_install_dnf_packages noctalia-shell qt6ct 2>&1)"
 grep -F "dnf install -y --setopt=best=False --setopt=install_weak_deps=False noctalia-shell qt6ct" <<<"$noctalia_dnf_output" >/dev/null
 regular_dnf_output="$(distro_install_dnf_packages qt6ct 2>&1)"
 ! grep -F -- "--setopt=best=False" <<<"$regular_dnf_output" >/dev/null
+media_codecs_output="$(install_fedora_media_codecs 2>&1)"
+grep -F -- "--exclude=gstreamer1-plugins-good-qt6" <<<"$media_codecs_output" >/dev/null
 add_category_selection "browser" "zen-copr"
 add_category_selection "dev" "vscode,neovim"
 add_category_selection "ai" "codex,codex"
@@ -1520,6 +1522,46 @@ assert_first_run_creates_marker_and_removes_hook() {
   TARGET_HOME="${HOME}"
 }
 
+assert_post_actions_seed_noctalia_settings_before_first_run() {
+  DISTRO="fedora"
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/post-actions-home"
+  DRY_RUN=0
+  mkdir -p "$TARGET_HOME"
+  reset_test_selections
+  add_category_selection "browser" "zen-copr"
+  add_category_selection "dev" "vscode,neovim"
+  build_plan_from_selections
+
+  install_zz_launcher() { :; }
+  configure_default_applications() { :; }
+  patch_noctalia_starship_template_apply_if_needed() { :; }
+  install_noctalia_wallpaper_state() { :; }
+  install_starship_config() { :; }
+  install_niri_noctalia_seed_if_missing() { :; }
+  install_qt_theme_config() { :; }
+  install_pywalfox_native_host() { :; }
+  install_vscode_noctalia_extension() { :; }
+  register_first_run_hook() { :; }
+  write_managed_files_report() { :; }
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  module_80_post_actions
+  [[ -f "$TARGET_HOME/.config/noctalia/settings.json" ]]
+  grep -F '"terminalCommand": "ghostty -e"' "$TARGET_HOME/.config/noctalia/settings.json" >/dev/null
+  grep -F '"directory": "'"$TARGET_HOME"'/Wallpapers"' "$TARGET_HOME/.config/noctalia/settings.json" >/dev/null
+  grep -F '"id": "zenBrowser"' "$TARGET_HOME/.config/noctalia/settings.json" >/dev/null
+  grep -F '"enableUserTheming": true' "$TARGET_HOME/.config/noctalia/settings.json" >/dev/null
+
+  DRY_RUN=1
+  TARGET_USER="${USER}"
+  TARGET_HOME="${HOME}"
+}
+
 assert_base_plan_for_distro fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_required_services_are_base_packages fedora "$PLAN_DIR/packages/dnf.pkgs"
 assert_package_module_installs_base_before_optional fedora dnf code niri noctalia-shell sddm zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi
@@ -1552,5 +1594,6 @@ assert_bootstrap_tool_failure_aborts_later_prereqs
 assert_required_install_verification_reports_missing_native_package
 assert_required_base_action_verification_reports_missing_font
 assert_first_run_creates_marker_and_removes_hook
+assert_post_actions_seed_noctalia_settings_before_first_run
 
 printf 'idempotency ok\n'
