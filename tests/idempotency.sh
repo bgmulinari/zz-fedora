@@ -328,10 +328,12 @@ EOF
 chmod +x "$fake_bin/kwriteconfig6"
 PATH="$fake_bin:$PATH"
 install_qt_theme_config
-grep -F "color_scheme_path=$TARGET_HOME/.config/qt5ct/colors/noctalia.conf" "$TARGET_HOME/.config/qt5ct/qt5ct.conf" >/dev/null
-grep -F "color_scheme_path=$TARGET_HOME/.config/qt6ct/colors/noctalia.conf" "$TARGET_HOME/.config/qt6ct/qt6ct.conf" >/dev/null
+grep -F "color_scheme_path=$TARGET_HOME/.local/share/color-schemes/noctalia.colors" "$TARGET_HOME/.config/qt5ct/qt5ct.conf" >/dev/null
+grep -F "color_scheme_path=$TARGET_HOME/.local/share/color-schemes/noctalia.colors" "$TARGET_HOME/.config/qt6ct/qt6ct.conf" >/dev/null
 grep -F 'custom_palette=true' "$TARGET_HOME/.config/qt5ct/qt5ct.conf" >/dev/null
 grep -F 'style=Fusion' "$TARGET_HOME/.config/qt6ct/qt6ct.conf" >/dev/null
+grep -F 'ColorScheme=Noctalia' "$TARGET_HOME/.config/kdeglobals" >/dev/null
+grep -F 'Name=noctalia' "$TARGET_HOME/.config/kdeglobals" >/dev/null
 grep -F 'widgetStyle=Fusion' "$TARGET_HOME/.config/kdeglobals" >/dev/null
 
 cat >"$fake_bin/gsettings" <<'EOF'

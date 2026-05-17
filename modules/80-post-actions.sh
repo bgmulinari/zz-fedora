@@ -303,7 +303,7 @@ install_qtct_config() {
   local config_file temp_file color_file
 
   config_file="$TARGET_HOME/.config/qt${version}ct/qt${version}ct.conf"
-  color_file="$TARGET_HOME/.config/qt${version}ct/colors/noctalia.conf"
+  color_file="$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
   temp_file="$(mktemp "$CACHE_DIR/qt${version}ct.XXXXXX")"
 
   cat >"$temp_file" <<EOF
@@ -397,6 +397,8 @@ install_kde_config_key() {
 }
 
 install_kde_qt_theme_config() {
+  install_kde_config_key General ColorScheme Noctalia
+  install_kde_config_key General Name noctalia
   install_kde_config_key KDE widgetStyle Fusion
 }
 
