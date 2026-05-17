@@ -16,6 +16,7 @@ Common options:
   --select category=a,b,c
   --no-tui
   --stow-adopt
+  --preview-commands
   --format text|json
 EOF
 }
@@ -49,6 +50,9 @@ parse_cli() {
         ;;
       --stow-adopt)
         STOW_ADOPT=1
+        ;;
+      --preview-commands)
+        COMMAND_PREVIEW=1
         ;;
       --format)
         idx=$((idx + 1))

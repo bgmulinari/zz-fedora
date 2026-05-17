@@ -292,6 +292,16 @@ readiness_generate_config_conflicts() {
   done <"$conflict_file"
 }
 
+readiness_generate_managed_config_policy() {
+  local policy_file="$PLAN_DIR/files/managed-config-policy.tsv"
+  local path mode conflict owner description
+  [[ -f "$policy_file" ]] || return 0
+  while IFS=$'\t' read -r path mode conflict owner description; do
+    [[ -n "$path" ]] || continue
+    readiness_record "managed-config" "$path" "$mode" "info" "$owner:$conflict ${description:-}"
+  done <"$policy_file"
+}
+
 readiness_generate_key_commands() {
   local command_name status severity
   for command_name in niri niri-session qs ghostty xdg-terminal-exec nautilus satty brightnessctl ddcutil mpv pwvucontrol system-config-printer simple-scan; do
@@ -317,6 +327,7 @@ generate_readiness_status() {
   readiness_generate_desktop_files
   readiness_generate_target_home
   readiness_generate_config_conflicts
+  readiness_generate_managed_config_policy
   readiness_generate_key_commands
 }
 

@@ -143,6 +143,9 @@ build_plan_from_selections() {
   : >"$PLAN_DIR/services/user-enable.list"
   append_managed_file "~/Wallpapers/SilentPeaks.jpg"
   append_managed_file "~/.cache/noctalia/wallpapers.json"
+  append_managed_file "~/.config/noctalia/settings.json"
+  append_managed_file "~/.config/niri/noctalia.kdl"
+  append_managed_file "~/.config/starship.toml"
   append_managed_file "~/.config/autostart/zz-first-run.desktop"
   append_managed_file "~/.local/bin/zz"
   if declare -F stow_write_conflict_preview >/dev/null 2>&1; then
@@ -150,6 +153,9 @@ build_plan_from_selections() {
   fi
 
   write_base_rationale_report
+  if declare -F write_managed_config_policy_plan >/dev/null 2>&1; then
+    write_managed_config_policy_plan
+  fi
   write_plan_summary
   write_managed_files_report
   [[ "$COMMAND" == "check" ]] || save_selections
@@ -164,27 +170,117 @@ count_plan_entries() {
   wc -l <"$file" | tr -d ' '
 }
 
+base_responsibility_file() {
+  printf '%s/config/base-responsibility.tsv\n' "$ROOT_DIR"
+}
+
+base_responsibility_record() {
+  local backend="$1"
+  local item="$2"
+  local policy_file
+  policy_file="$(base_responsibility_file)"
+  [[ -f "$policy_file" ]] || return 1
+  awk -F'\t' -v backend="$backend" -v item="$item" 'NF>=5 && $1 !~ /^#/ && $1 == backend && $2 == item {print; found=1; exit} END {exit found ? 0 : 1}' "$policy_file"
+}
+
+base_responsibility_fields() {
+  local backend="$1"
+  local item="$2"
+  local record
+  record="$(base_responsibility_record "$backend" "$item" || true)"
+  [[ -n "$record" ]] || die "Missing base responsibility metadata for $backend item: $item"
+  awk -F'\t' '{printf "%s\t%s\t%s", $3, $4, $5}' <<<"$record"
+}
+
+write_base_rationale_row() {
+  local report="$1"
+  local backend="$2"
+  local item="$3"
+  local owner_bundle="$4"
+  local fallback_reason="$5"
+  local metadata classification consumer reason
+  metadata="$(base_responsibility_fields "$backend" "$item")"
+  classification="$(awk -F'\t' '{print $1}' <<<"$metadata")"
+  consumer="$(awk -F'\t' '{print $2}' <<<"$metadata")"
+  reason="$(awk -F'\t' '{print $3}' <<<"$metadata")"
+  [[ -n "$reason" ]] || reason="$fallback_reason"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$backend" "$item" "$owner_bundle" "$classification" "$consumer" "$reason" >>"$report"
+}
+
 write_base_rationale_report() {
   local report="$PLAN_DIR/base-rationale.tsv"
   local base_var="BASE_BUNDLE_IDS_${DISTRO}"
-  printf 'backend\titem\towner_bundle\treason\n' >"$report"
+  printf 'backend\titem\towner_bundle\tclassification\tconsumer\treason\n' >"$report"
   declare -p "$base_var" >/dev/null 2>&1 || return 0
   local -n base_bundle_ids_ref="$base_var"
 
   local bundle_id item
+  local -A seen_base_sources=()
   for bundle_id in "${base_bundle_ids_ref[@]:-}"; do
     load_bundle_descriptor "$DISTRO" "$bundle_id" || die "Unknown base bundle: $bundle_id"
+    if [[ -n "${BUNDLE_SOURCE_ID:-}" && -z "${seen_base_sources[$BUNDLE_SOURCE_ID]:-}" ]]; then
+      write_base_rationale_row "$report" source "$BUNDLE_SOURCE_ID" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
+      seen_base_sources["$BUNDLE_SOURCE_ID"]=1
+    fi
     while IFS= read -r item; do
       [[ -n "$item" ]] || continue
-      printf '%s\t%s\t%s\t%s\n' "$BUNDLE_INSTALLER" "$item" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION" >>"$report"
+      write_base_rationale_row "$report" "$BUNDLE_INSTALLER" "$item" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
     done < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
   done
+
+  if grep -Fx 'base-source-flathub' "$PLAN_DIR/bundles.list" >/dev/null 2>&1; then
+    write_base_rationale_row "$report" flatpak "org.gtk.Gtk3theme.adw-gtk3" "base-source-flathub" "GTK Flatpak theme runtime for the base desktop"
+    write_base_rationale_row "$report" flatpak "org.gtk.Gtk3theme.adw-gtk3-dark" "base-source-flathub" "GTK Flatpak dark theme runtime for the base desktop"
+  fi
+  {
+    head -n 1 "$report"
+    tail -n +2 "$report" | sort -u
+  } >"$report.tmp"
+  mv "$report.tmp" "$report"
+}
+
+base_rationale_count() {
+  local backend="$1"
+  local file="$PLAN_DIR/base-rationale.tsv"
+  [[ -f "$file" ]] || {
+    printf '0\n'
+    return 0
+  }
+  awk -F'\t' -v backend="$backend" 'NR>1 && $1 == backend {count++} END {print count+0}' "$file"
+}
+
+plan_source_count() {
+  tui_count_plan_group "$PLAN_DIR"/sources/*.list 2>/dev/null || {
+    local total=0 source_list
+    for source_list in "$PLAN_DIR"/sources/*.list; do
+      [[ -f "$source_list" ]] || continue
+      total=$((total + $(count_plan_entries "$source_list")))
+    done
+    printf '%s\n' "$total"
+  }
 }
 
 write_plan_summary() {
   {
     printf 'Distro: %s\n' "$DISTRO"
     printf 'Target user: %s\n' "$TARGET_USER"
+
+    local native_backend native_total native_base flatpak_total flatpak_base action_total action_base source_total source_base
+    native_backend="$(native_backend_for_distro "$DISTRO")"
+    native_total="$(count_plan_entries "$(package_file_for_backend "$native_backend")")"
+    native_base="$(base_rationale_count "$native_backend")"
+    flatpak_total="$(count_plan_entries "$PLAN_DIR/flatpak/apps.flatpaks")"
+    flatpak_base="$(base_rationale_count flatpak)"
+    action_total="$(count_plan_entries "$PLAN_DIR/actions/actions.list")"
+    action_base="$(base_rationale_count action)"
+    source_total="$(plan_source_count)"
+    source_base="$(base_rationale_count source)"
+
+    printf '\nPlan counts:\n'
+    printf '  %s packages: base=%s optional=%s total=%s\n' "${native_backend^^}" "$native_base" "$((native_total - native_base))" "$native_total"
+    printf '  Flatpaks: base=%s optional=%s total=%s\n' "$flatpak_base" "$((flatpak_total - flatpak_base))" "$flatpak_total"
+    printf '  Actions: base=%s optional=%s total=%s\n' "$action_base" "$((action_total - action_base))" "$action_total"
+    printf '  Sources: required/base=%s optional=%s total=%s\n' "$source_base" "$((source_total - source_base))" "$source_total"
 
     printf '\nBundles:\n'
     if [[ -f "$PLAN_DIR/bundles.list" ]]; then
@@ -200,11 +296,19 @@ write_plan_summary() {
     done
 
     printf '\nSources:\n'
-    local source_list
+    local source_list source_id required_label exception_label
     for source_list in "$PLAN_DIR"/sources/*.list; do
       [[ -f "$source_list" ]] || continue
       printf '  %s (%s)\n' "$(basename "$source_list")" "$(count_plan_entries "$source_list")"
-      sed 's/^/    - /' "$source_list" 2>/dev/null || true
+      while IFS= read -r source_id; do
+        [[ -n "$source_id" ]] || continue
+        load_source_descriptor "$DISTRO" "$source_id" || continue
+        required_label="optional"
+        [[ "${SOURCE_REQUIRED:-0}" -eq 1 ]] && required_label="required"
+        exception_label=""
+        [[ "${SOURCE_BOOTSTRAP_EXCEPTION:-0}" -eq 1 ]] && exception_label=", bootstrap-exception"
+        printf '    - %s (%s, %s%s): %s\n' "$SOURCE_ID" "$required_label" "$SOURCE_GPG_POLICY" "$exception_label" "$SOURCE_REASON"
+      done < <(read_plan_file "$source_list")
     done
 
     printf '\nPackages:\n'
@@ -243,6 +347,11 @@ write_plan_summary() {
       awk -F'\t' 'NF>=3 {printf "  - %s (%s: %s)\n", $1, $2, $3}' "$PLAN_DIR/files/config-conflicts.tsv"
     fi
 
+    printf '\nManaged config policy:\n'
+    if [[ -f "$PLAN_DIR/files/managed-config-policy.tsv" ]]; then
+      awk -F'\t' 'NF>=5 {printf "  - %s (%s, %s, owner=%s) %s\n", $1, $2, $3, $4, $5}' "$PLAN_DIR/files/managed-config-policy.tsv"
+    fi
+
     printf '\nStow:\n'
     if [[ -f "$PLAN_DIR/stow/packages.list" ]]; then
       sed 's/^/  - /' "$PLAN_DIR/stow/packages.list"
@@ -250,7 +359,7 @@ write_plan_summary() {
 
     printf '\nBase rationale:\n'
     if [[ -f "$PLAN_DIR/base-rationale.tsv" ]]; then
-      awk -F'\t' 'NR>1 {printf "  - %s (%s: %s) %s\n", $2, $1, $3, $4}' "$PLAN_DIR/base-rationale.tsv"
+      awk -F'\t' 'NR>1 {printf "  - %s (%s: %s, %s, consumer=%s) %s\n", $2, $1, $3, $4, $5, $6}' "$PLAN_DIR/base-rationale.tsv"
     fi
 
     if [[ "${#WARNING_MESSAGES[@]}" -gt 0 ]]; then
@@ -341,6 +450,75 @@ json_conflicts_array() {
   printf ']'
 }
 
+json_source_details_array() {
+  local first=1
+  local source_file source_id required bootstrap_exception
+  printf '['
+  for source_file in "$PLAN_DIR"/sources/*.list; do
+    [[ -f "$source_file" ]] || continue
+    while IFS= read -r source_id; do
+      [[ -n "$source_id" ]] || continue
+      load_source_descriptor "$DISTRO" "$source_id" || continue
+      [[ "$first" -eq 1 ]] || printf ','
+      required=false
+      bootstrap_exception=false
+      [[ "${SOURCE_REQUIRED:-0}" -eq 1 ]] && required=true
+      [[ "${SOURCE_BOOTSTRAP_EXCEPTION:-0}" -eq 1 ]] && bootstrap_exception=true
+      printf '{"id":"%s","kind":"%s","label":"%s","required":%s,"gpg_policy":"%s","bootstrap_exception":%s,"reason":"%s"}' \
+        "$(json_escape "$SOURCE_ID")" \
+        "$(json_escape "$SOURCE_KIND")" \
+        "$(json_escape "$SOURCE_LABEL")" \
+        "$required" \
+        "$(json_escape "$SOURCE_GPG_POLICY")" \
+        "$bootstrap_exception" \
+        "$(json_escape "$SOURCE_REASON")"
+      first=0
+    done < <(read_plan_file "$source_file")
+  done
+  printf ']'
+}
+
+json_base_rationale_array() {
+  local file="$PLAN_DIR/base-rationale.tsv"
+  local first=1 backend item owner classification consumer reason
+  printf '['
+  if [[ -f "$file" ]]; then
+    while IFS=$'\t' read -r backend item owner classification consumer reason; do
+      [[ "$backend" != "backend" && -n "$backend" ]] || continue
+      [[ "$first" -eq 1 ]] || printf ','
+      printf '{"backend":"%s","item":"%s","owner_bundle":"%s","classification":"%s","consumer":"%s","reason":"%s"}' \
+        "$(json_escape "$backend")" \
+        "$(json_escape "$item")" \
+        "$(json_escape "$owner")" \
+        "$(json_escape "$classification")" \
+        "$(json_escape "$consumer")" \
+        "$(json_escape "$reason")"
+      first=0
+    done <"$file"
+  fi
+  printf ']'
+}
+
+json_managed_config_policy_array() {
+  local file="$PLAN_DIR/files/managed-config-policy.tsv"
+  local first=1 path mode conflict owner description
+  printf '['
+  if [[ -f "$file" ]]; then
+    while IFS=$'\t' read -r path mode conflict owner description; do
+      [[ -n "$path" ]] || continue
+      [[ "$first" -eq 1 ]] || printf ','
+      printf '{"path":"%s","mode":"%s","conflict":"%s","owner":"%s","description":"%s"}' \
+        "$(json_escape "$path")" \
+        "$(json_escape "$mode")" \
+        "$(json_escape "$conflict")" \
+        "$(json_escape "$owner")" \
+        "$(json_escape "$description")"
+      first=0
+    done <"$file"
+  fi
+  printf ']'
+}
+
 print_plan_json() {
   local native_backend
   native_backend="$(native_backend_for_distro "$DISTRO")"
@@ -351,6 +529,8 @@ print_plan_json() {
   json_array_from_file "$PLAN_DIR/bundles.list"
   printf ',"sources":'
   json_array_from_files "$PLAN_DIR"/sources/*.list
+  printf ',"source_details":'
+  json_source_details_array
   printf ',"native_backend":"%s",' "$(json_escape "$native_backend")"
   printf '"native_packages":'
   json_array_from_file "$(package_file_for_backend "$native_backend")"
@@ -370,6 +550,10 @@ print_plan_json() {
   json_array_from_file "$PLAN_DIR/files/managed-files.list"
   printf ',"config_conflicts":'
   json_conflicts_array
+  printf ',"managed_config_policy":'
+  json_managed_config_policy_array
+  printf ',"base_rationale":'
+  json_base_rationale_array
   printf ',"warnings":'
   json_warnings_array
   printf '}\n'

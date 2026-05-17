@@ -50,6 +50,9 @@ main() {
   } >"$workdir/manifest.txt"
 
   copy_redacted_if_present "$PLAN_DIR/summary.txt" "$workdir/plan/summary.txt"
+  copy_redacted_if_present "$PLAN_DIR/base-rationale.tsv" "$workdir/plan/base-rationale.tsv"
+  copy_redacted_if_present "$PLAN_DIR/files/managed-config-policy.tsv" "$workdir/plan/managed-config-policy.tsv"
+  copy_redacted_if_present "$PLAN_DIR/files/config-conflicts.tsv" "$workdir/plan/config-conflicts.tsv"
   copy_redacted_if_present "$PLAN_DIR/readiness/status.tsv" "$workdir/plan/readiness-status.tsv"
   copy_redacted_if_present "$STATE_DIR/managed-files-report.txt" "$workdir/managed-files-report.txt"
   latest="$(latest_log || true)"

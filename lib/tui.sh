@@ -256,6 +256,58 @@ tui_step_failed() {
   printf 'failed: %s\n' "$title"
 }
 
+tui_failure_log_tail() {
+  [[ -n "${LOG_FILE:-}" && -f "$LOG_FILE" ]] || return 0
+  printf '\nLast log lines:\n'
+  tail -n "${FAILURE_LOG_TAIL_LINES:-20}" "$LOG_FILE" || true
+}
+
+tui_failure_context() {
+  local label="$1"
+  local exit_code="$2"
+  printf '\nRequired step failed: %s\n' "$label" >&2
+  printf 'Exit code: %s\n' "$exit_code" >&2
+  [[ -n "${LAST_COMMAND_CONTEXT:-}" ]] && printf 'Last command: %s\n' "$LAST_COMMAND_CONTEXT" >&2
+  [[ -n "${LOG_FILE:-}" ]] && printf 'Log file: %s\n' "$LOG_FILE" >&2
+  tui_failure_log_tail >&2
+  if declare -F print_readiness_warnings_for_failure >/dev/null 2>&1; then
+    print_readiness_warnings_for_failure
+  fi
+}
+
+tui_required_failure_action() {
+  local label="$1"
+  local exit_code="$2"
+  local progress_was_active=0
+  [[ "${ASSUME_YES:-0}" -ne 1 && "${DRY_RUN:-0}" -eq 0 ]] || return 1
+  is_tty || return 1
+
+  if [[ "$TUI_PROGRESS_RENDER_ACTIVE" -eq 1 ]]; then
+    progress_was_active=1
+    tui_progress_end
+  fi
+
+  tui_failure_context "$label" "$exit_code"
+
+  if tui_can_style; then
+    local choice
+    choice="$(gum choose --header "Required step failed" "Retry step" "Abort install" || true)"
+    if [[ "$choice" == "Retry step" ]]; then
+      [[ "$progress_was_active" -eq 0 ]] || tui_progress_begin
+      return 0
+    fi
+    return 1
+  fi
+
+  local reply=""
+  read -r -p "Retry this step? [y/N] " reply
+  if [[ "$reply" =~ ^[Yy]([Ee][Ss])?$ ]]; then
+    [[ "$progress_was_active" -eq 0 ]] || tui_progress_begin
+    return 0
+  fi
+  return 1
+}
+
 tui_step_skipped() {
   local title="$1"
   TUI_STEP_STATUS["$title"]="skipped"
@@ -322,7 +374,7 @@ tui_show_install_plan() {
     return 0
   fi
 
-  local native_backend native_packages flatpaks actions sources services dotfiles
+  local native_backend native_packages flatpaks actions sources services dotfiles native_base flatpak_base action_base source_base conflicts first_run
   native_backend="$(native_backend_for_distro "$DISTRO")"
   native_packages="$(count_plan_entries "$(package_file_for_backend "$native_backend")")"
   flatpaks="$(count_plan_entries "$PLAN_DIR/flatpak/apps.flatpaks")"
@@ -330,6 +382,12 @@ tui_show_install_plan() {
   sources="$(tui_count_plan_group "$PLAN_DIR"/sources/*.list)"
   services="$(tui_count_plan_group "$PLAN_DIR"/services/*.list)"
   dotfiles="$(count_plan_entries "$PLAN_DIR/stow/packages.list")"
+  native_base="$(base_rationale_count "$native_backend")"
+  flatpak_base="$(base_rationale_count flatpak)"
+  action_base="$(base_rationale_count action)"
+  source_base="$(base_rationale_count source)"
+  conflicts="$(count_plan_entries "$PLAN_DIR/files/config-conflicts.tsv")"
+  first_run="$(awk -F'\t' '$2=="first-run"{count++} END{print count+0}' "$PLAN_DIR/files/managed-config-policy.tsv" 2>/dev/null || printf '0')"
 
   printf '\n'
   gum style --bold --foreground 4 "Install Plan"
@@ -351,12 +409,30 @@ tui_show_install_plan() {
 
   printf '\n'
   gum style --bold "Planned Actions"
-  printf '  %s %s %s package%s\n' "$(gum style --foreground 2 '+')" "${native_backend^^}" "$native_packages" "$([[ "$native_packages" -eq 1 ]] && printf '' || printf 's')"
-  [[ "$flatpaks" -gt 0 ]] && printf '  %s Flatpak %s app%s\n' "$(gum style --foreground 2 '+')" "$flatpaks" "$([[ "$flatpaks" -eq 1 ]] && printf '' || printf 's')"
-  [[ "$actions" -gt 0 ]] && printf '  %s %s custom action%s\n' "$(gum style --foreground 2 '+')" "$actions" "$([[ "$actions" -eq 1 ]] && printf '' || printf 's')"
-  [[ "$sources" -gt 0 ]] && printf '  %s %s source%s\n' "$(gum style --foreground 2 '+')" "$sources" "$([[ "$sources" -eq 1 ]] && printf '' || printf 's')"
+  printf '  %s %s packages: %s base, %s optional\n' "$(gum style --foreground 2 '+')" "${native_backend^^}" "$native_base" "$((native_packages - native_base))"
+  [[ "$flatpaks" -gt 0 ]] && printf '  %s Flatpaks: %s base, %s optional\n' "$(gum style --foreground 2 '+')" "$flatpak_base" "$((flatpaks - flatpak_base))"
+  [[ "$actions" -gt 0 ]] && printf '  %s Actions: %s base, %s optional\n' "$(gum style --foreground 2 '+')" "$action_base" "$((actions - action_base))"
+  [[ "$sources" -gt 0 ]] && printf '  %s Sources: %s required/base, %s optional\n' "$(gum style --foreground 2 '+')" "$source_base" "$((sources - source_base))"
   [[ "$services" -gt 0 ]] && printf '  %s %s service action%s\n' "$(gum style --foreground 2 '+')" "$services" "$([[ "$services" -eq 1 ]] && printf '' || printf 's')"
   [[ "$dotfiles" -gt 0 ]] && printf '  %s %s dotfile package%s\n' "$(gum style --foreground 2 '+')" "$dotfiles" "$([[ "$dotfiles" -eq 1 ]] && printf '' || printf 's')"
+  [[ "$conflicts" -gt 0 ]] && printf '  %s %s managed config conflict%s will be backed up\n' "$(gum style --foreground 11 '!')" "$conflicts" "$([[ "$conflicts" -eq 1 ]] && printf '' || printf 's')"
+  [[ "$first_run" -gt 0 ]] && printf '  %s %s first-run config task%s\n' "$(gum style --foreground 12 '→')" "$first_run" "$([[ "$first_run" -eq 1 ]] && printf '' || printf 's')"
+
+  if [[ -f "$PLAN_DIR/base-rationale.tsv" ]]; then
+    local trust_exceptions
+    trust_exceptions="$(awk -F'\t' '$1=="source" {print $2}' "$PLAN_DIR/base-rationale.tsv" | while IFS= read -r source_id; do
+      [[ -n "$source_id" ]] || continue
+      load_source_descriptor "$DISTRO" "$source_id" || continue
+      [[ "${SOURCE_BOOTSTRAP_EXCEPTION:-0}" -eq 1 ]] && printf '%s (%s)\n' "$SOURCE_ID" "$SOURCE_GPG_POLICY"
+    done)"
+    if [[ -n "$trust_exceptions" ]]; then
+      printf '\n'
+      gum style --bold --foreground 11 "Trust Exceptions"
+      while IFS= read -r line; do
+        [[ -n "$line" ]] && printf '  %s %s\n' "$(gum style --foreground 11 '!')" "$line"
+      done <<<"$trust_exceptions"
+    fi
+  fi
 
   if [[ "${#INFO_MESSAGES[@]}" -gt 0 ]]; then
     printf '\n'

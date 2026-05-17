@@ -44,7 +44,8 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 - A base bundle failure is fatal because the result would not be a functioning desktop baseline.
 - `DEFAULT_BUNDLE_IDS_fedora` is intentionally empty while the base desktop is being hardened. AI, development, .NET, office, gaming, media, and extra browser bundles are opt-in.
 - Wizard and `--select` choices add optional categories. Optional package/source/action failures warn and continue where possible so one broken optional component does not prevent the base desktop setup from completing.
-- Each generated plan writes `base-rationale.tsv` under the plan directory so required base package and action ownership is explicit.
+- Each generated plan writes `base-rationale.tsv` under the plan directory so required base package, action, Flatpak runtime, and source ownership is explicit. The report includes a responsibility class, consumer, and reason for each base item.
+- Each generated plan writes `files/managed-config-policy.tsv` so planned config paths are visible as `stow`, `seed-if-missing`, `first-run`, or `generated`, with the conflict behavior shown before install.
 
 ## Shell Tooling
 
@@ -62,12 +63,24 @@ Remote install:
 curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-linux-setup/main/bootstrap.sh | bash -s -- --ref main
 ```
 
-This clones the repo to `~/zz-linux-setup` by default before launching the installer.
+This prints the bootstrap packages it will install, asks for confirmation, clones the repo to `~/zz-linux-setup` by default, and then launches the installer.
 
 Pinned install:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-linux-setup/main/bootstrap.sh | bash -s -- --ref v0.1.0
+```
+
+Unattended dry-run bootstrap:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-linux-setup/main/bootstrap.sh | bash -s -- --yes --dry-run --ref main
+```
+
+Clone to a custom directory:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-linux-setup/main/bootstrap.sh | bash -s -- --dir "$HOME/src/zz-linux-setup" --ref main
 ```
 
 Local install:
@@ -97,6 +110,7 @@ zz commands --json
 ./install.sh wizard
 ./install.sh install --yes
 ./install.sh install --dry-run
+./install.sh install --preview-commands
 ./install.sh install --use-saved
 ./install.sh print-plan
 ./install.sh print-plan --format json
@@ -109,7 +123,9 @@ zz commands --json
 ./install.sh list-sources
 ```
 
-`check` is read-only. It accepts the same selection flags as `install` and `print-plan`, builds the plan, and reports readiness, source status, service status, managed-config conflicts, and key command availability without enabling repos, installing packages, or changing dotfiles.
+`check` is read-only. It accepts the same selection flags as `install` and `print-plan`, builds the plan, and reports readiness, source trust policy, service status, managed-config conflicts, managed-config policy, and key command availability without enabling repos, installing packages, or changing dotfiles.
+
+`--preview-commands` prints each command before running it and asks for confirmation in an interactive terminal. Use it with `install` when debugging a live run. `--yes --preview-commands` prints the commands without stopping for each confirmation.
 
 ## Idempotency
 
@@ -149,8 +165,9 @@ Re-running should:
 ## Third-Party Source Warnings
 
 - Fedora COPRs are optional or required depending on the base and selected component set. Review them before enabling.
-- RPM Fusion is part of Fedora's default selections because codecs and Steam are default-selected, but it is not part of the protected base desktop baseline.
-- Flathub is part of the default selections when default Flatpak apps are planned, but it is not part of the protected base desktop baseline.
+- RPM Fusion is part of the protected Fedora base source set so appstream metadata and RPM Fusion packages are available before optional package planning.
+- Flathub is part of the protected Fedora base source set because the base plan installs GTK Flatpak theme runtimes and optional Flatpak apps use the same remote.
+- Terra is a required base source for Noctalia Shell and Ghostty. Its generated source-trust line is marked as an explicit bootstrap exception.
 - Selecting `zsh` also fetches Oh My Zsh plus the `zsh-autosuggestions` and `zsh-syntax-highlighting` plugin repositories from GitHub.
 
 ## How To Extend

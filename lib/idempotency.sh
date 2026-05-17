@@ -53,6 +53,20 @@ run_cmd() {
     return 0
   fi
   LAST_COMMAND_CONTEXT="$(redacted_shell_quote "$@")"
+  if [[ "${COMMAND_PREVIEW:-0}" -eq 1 ]]; then
+    printf 'Command: %s\n' "$LAST_COMMAND_CONTEXT" >&2
+    if [[ "${ASSUME_YES:-0}" -ne 1 ]]; then
+      if declare -F tui_confirm >/dev/null 2>&1; then
+        tui_confirm "Run this command?" || die "Command preview aborted before: $LAST_COMMAND_CONTEXT"
+      elif is_tty; then
+        local reply=""
+        read -r -p "Run this command? [y/N] " reply
+        [[ "$reply" =~ ^[Yy]([Ee][Ss])?$ ]] || die "Command preview aborted before: $LAST_COMMAND_CONTEXT"
+      else
+        die "Command preview requires a TTY unless --yes is used."
+      fi
+    fi
+  fi
   log_command "$@"
   "$@"
 }

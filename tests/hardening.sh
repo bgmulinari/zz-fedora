@@ -20,18 +20,23 @@ json_plan="$(run_installer json print-plan --distro fedora --dry-run --format js
 [[ "${json_plan:0:1}" == "{" ]]
 grep -F '"distro":"fedora"' <<<"$json_plan" >/dev/null
 grep -F '"selected_bundles":' <<<"$json_plan" >/dev/null
+grep -F '"source_details":' <<<"$json_plan" >/dev/null
 grep -F '"native_packages":' <<<"$json_plan" >/dev/null
 grep -F '"flatpaks":' <<<"$json_plan" >/dev/null
 grep -F '"custom_actions":' <<<"$json_plan" >/dev/null
 grep -F '"services":' <<<"$json_plan" >/dev/null
 grep -F '"stow_packages":' <<<"$json_plan" >/dev/null
 grep -F '"managed_files":' <<<"$json_plan" >/dev/null
+grep -F '"managed_config_policy":' <<<"$json_plan" >/dev/null
+grep -F '"base_rationale":' <<<"$json_plan" >/dev/null
+grep -F '"gpg_policy":"unsigned-bootstrap"' <<<"$json_plan" >/dev/null
 grep -F '"warnings":' <<<"$json_plan" >/dev/null
 ! grep -F 'Log file:' <<<"$json_plan" >/dev/null
 
 check_output="$(run_installer check check --distro fedora --dry-run --no-tui)"
 grep -F 'Readiness:' <<<"$check_output" >/dev/null
 grep -F 'noctalia-v4 command:qs' <<<"$check_output" >/dev/null
+grep -F 'managed-config ~/.config/autostart/zz-first-run.desktop: first-run' <<<"$check_output" >/dev/null
 grep -F 'Fatal readiness issues:' <<<"$check_output" >/dev/null
 grep -F 'package-manager locks' <<<"$check_output" >/dev/null
 grep -F 'disk ' <<<"$check_output" >/dev/null
@@ -53,6 +58,10 @@ for source_file in "$ROOT_DIR"/sources/fedora/**/*.source; do
 done
 grep -F 'SOURCE_GPG_POLICY="unsigned-bootstrap"' "$ROOT_DIR/sources/fedora/terra/terra.source" >/dev/null
 grep -F 'SOURCE_BOOTSTRAP_EXCEPTION=1' "$ROOT_DIR/sources/fedora/terra/terra.source" >/dev/null
+grep -F $'dnf\tgnome-software\tdefault-app' "$ROOT_DIR/config/base-responsibility.tsv" >/dev/null
+grep -F $'dnf\tddcutil\tdesktop-service' "$ROOT_DIR/config/base-responsibility.tsv" >/dev/null
+grep -F $'source\tterra\tnoctalia' "$ROOT_DIR/config/base-responsibility.tsv" >/dev/null
+grep -F $'~/.config/noctalia/settings.json\tseed-if-missing\tpreserve' "$ROOT_DIR/config/managed-config.tsv" >/dev/null
 
 (
   export XDG_STATE_HOME="$TEST_ROOT/source-state"
@@ -85,8 +94,13 @@ grep -F 'SOURCE_BOOTSTRAP_EXCEPTION=1' "$ROOT_DIR/sources/fedora/terra/terra.sou
   grep -F '~/.bashrc' "$PLAN_DIR/files/config-conflicts.tsv" >/dev/null
   grep -F '~/.config/noctalia/user-templates.toml' "$PLAN_DIR/files/config-conflicts.tsv" >/dev/null
   grep -F $'action\tjetbrains-mono-nerd-font-fedora\tbase-jetbrains-mono-nerd-font' "$PLAN_DIR/base-rationale.tsv" >/dev/null
+  grep -F $'flatpak\torg.gtk.Gtk3theme.adw-gtk3\tbase-source-flathub\ttheme-font' "$PLAN_DIR/base-rationale.tsv" >/dev/null
+  grep -F $'source\tterra\tbase-noctalia\tnoctalia' "$PLAN_DIR/base-rationale.tsv" >/dev/null
+  grep -F $'~/.bashrc\tstow\tbackup-before-stow\tshell' "$PLAN_DIR/files/managed-config-policy.tsv" >/dev/null
+  grep -F $'~/.config/noctalia/settings.json\tseed-if-missing\tpreserve\tnoctalia-settings' "$PLAN_DIR/files/managed-config-policy.tsv" >/dev/null
   generate_readiness_status
   grep -F $'config-conflict\t~/.bashrc\tconflict\twarn' "$(readiness_file)" >/dev/null
+  grep -F $'managed-config\t~/.config/noctalia/settings.json\tseed-if-missing\tinfo' "$(readiness_file)" >/dev/null
 )
 
 grep -Fx 'brightnessctl' "$ROOT_DIR/packages/fedora/official/wayland-tools.pkgs" >/dev/null

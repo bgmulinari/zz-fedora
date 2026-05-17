@@ -1,0 +1,118 @@
+# backend	item	classification	consumer	reason
+source	rpmfusion-free	desktop-service	Fedora package manager	Required source metadata for RPM Fusion Free packages and appstream data.
+source	rpmfusion-nonfree	desktop-service	Fedora package manager	Required source metadata for RPM Fusion Nonfree packages and appstream data.
+source	flathub	theme-font	Flatpak theme runtimes	Required remote for base GTK Flatpak theme runtimes and optional Flatpak apps.
+source	cisco-openh264	desktop-service	Fedora package manager	Enables Fedora OpenH264 metadata for desktop media compatibility.
+source	copr:yalter/niri	niri	Niri session	Provides the required Niri compositor package.
+source	terra	noctalia	Noctalia Shell and Ghostty	Bootstraps Terra release packages for required Noctalia Shell and Ghostty packages.
+source	copr:atim/starship	theme-font	Starship prompt	Provides the Starship package used by the base shell prompt.
+source	copr:lihaohong/yazi	default-app	Yazi shell file manager	Provides the Yazi package used by the base shell tooling.
+dnf	ca-certificates	installer-bootstrap	curl/git/source setup	Allows TLS package, source, and bootstrap downloads.
+dnf	curl	installer-bootstrap	bootstrap and post-actions	Fetches installer prerequisites, Pywalfox policy assets, and shell bootstrap scripts.
+dnf	git	installer-bootstrap	repo clone and shell plugins	Clones this repo and shell plugin repositories.
+dnf	gum	installer-bootstrap	wizard and TUI	Provides the interactive wizard and installer prompts.
+dnf	stow	installer-bootstrap	dotfile deployment	Deploys managed dotfiles without copying user config.
+dnf	rsync	installer-bootstrap	file deployment	Supports robust local file synchronization when needed by setup tasks.
+dnf	jq	installer-bootstrap	JSON defaults and browser policy editing	Edits and validates JSON config in post-install actions.
+dnf	tar	installer-bootstrap	archive handling	Handles downloaded archives and debug bundles.
+dnf	unzip	installer-bootstrap	archive handling	Extracts zip payloads used by installer-managed assets.
+dnf	zstd	installer-bootstrap	package tooling	Supports compressed package metadata and archives.
+dnf	bash-completion	installer-bootstrap	shell baseline	Provides shell completion support for the base shell.
+dnf	dnf-plugins-core	installer-bootstrap	Fedora source setup	Provides DNF plugins used by COPR and repo configuration.
+dnf	dnf5-plugins	installer-bootstrap	Fedora source setup	Provides DNF5 plugin compatibility for current Fedora releases.
+dnf	sddm	desktop-service	graphical login	Provides the display manager and Niri session chooser.
+dnf	niri	niri	Niri session	Provides the compositor and Wayland session entry.
+dnf	noctalia-shell	noctalia	Noctalia Shell	Provides the shell layer launched by Niri autostart.
+dnf	ghostty	default-app	default terminal	Provides the default terminal used by keybindings and xdg-terminal-exec.
+action	ms-fonts-fedora	theme-font	document compatibility	Installs Microsoft core fonts for common document rendering.
+action	jetbrains-mono-nerd-font-fedora	theme-font	terminal and prompt rendering	Installs the pinned Nerd Font used by Ghostty and Starship glyphs.
+flatpak	org.gtk.Gtk3theme.adw-gtk3	theme-font	Flatpak GTK apps	Matches Flatpak GTK3 apps to the base GTK theme.
+flatpak	org.gtk.Gtk3theme.adw-gtk3-dark	theme-font	Flatpak GTK apps	Matches Flatpak GTK3 apps to the base dark GTK theme.
+dnf	xwayland-satellite	niri	Xwayland apps under Niri	Provides Xwayland compatibility for the Niri session.
+dnf	xdg-desktop-portal	desktop-service	desktop portals	Provides the base portal service for Wayland apps.
+dnf	xdg-desktop-portal-gtk	desktop-service	GTK portals	Provides GTK portal implementations for file pickers and settings.
+dnf	xdg-desktop-portal-gnome	desktop-service	GNOME portal integration	Provides portal coverage expected by GTK/GNOME applications.
+dnf	gnome-keyring	desktop-service	secret storage	Provides keyring integration for desktop applications.
+dnf	NetworkManager	desktop-service	network service	Provides the base network management service.
+dnf	NetworkManager-wifi	desktop-service	network service	Adds Wi-Fi support to NetworkManager.
+dnf	NetworkManager-bluetooth	desktop-service	network service	Adds Bluetooth networking support to NetworkManager.
+dnf	NetworkManager-tui	desktop-service	network diagnostics	Provides terminal network configuration fallback.
+dnf	firewalld	desktop-service	firewall service	Provides the default Fedora firewall service.
+dnf	chrony	desktop-service	time sync	Provides time synchronization.
+dnf	bluez	desktop-service	Bluetooth service	Provides Bluetooth daemon support.
+dnf	bluez-tools	desktop-service	Bluetooth diagnostics	Provides CLI Bluetooth tools.
+dnf	pipewire-pulseaudio	desktop-service	audio stack	Provides PulseAudio compatibility through PipeWire.
+dnf	pipewire-alsa	desktop-service	audio stack	Provides ALSA compatibility through PipeWire.
+dnf	wireplumber	desktop-service	audio session manager	Provides PipeWire session policy.
+dnf	alsa-utils	desktop-service	audio diagnostics	Provides low-level audio controls and diagnostics.
+dnf	pavucontrol	desktop-service	audio mixer	Provides a GUI mixer fallback.
+dnf	pamixer	desktop-service	audio keybindings	Provides CLI volume control for keybindings/scripts.
+dnf	playerctl	desktop-service	media keybindings	Provides MPRIS media controls.
+dnf	upower	desktop-service	power status	Provides battery and power state data to desktop components.
+dnf	power-profiles-daemon	desktop-service	power profiles	Provides power mode control.
+dnf	cups	desktop-service	print service	Provides printing support.
+dnf	system-config-printer	desktop-service	print UI	Provides printer configuration UI.
+dnf	ipp-usb	desktop-service	printer/scanner discovery	Supports driverless USB printer/scanner devices.
+dnf	avahi	desktop-service	network discovery	Provides mDNS discovery for printers and local services.
+dnf	nss-mdns	desktop-service	network discovery	Resolves mDNS hostnames.
+dnf	evolution-data-server	desktop-service	GTK account/calendar integration	Provides common data services consumed by GNOME/GTK applications.
+dnf	nautilus	default-app	file manager	Provides the default graphical file manager.
+dnf	evince	default-app	document viewer	Provides the default PDF/document viewer.
+dnf	imv	default-app	image viewer	Provides lightweight image viewing.
+dnf	ImageMagick	default-app	screenshot/OCR helper	Provides image conversion helpers for screenshot workflows.
+dnf	mpv	default-app	media player	Provides the default local media player.
+dnf	pwvucontrol	desktop-service	audio control	Provides PipeWire-native audio routing UI.
+dnf	tesseract	default-app	OCR workflow	Provides OCR engine for screenshot/image workflows.
+dnf	tesseract-langpack-eng	default-app	OCR workflow	Provides English OCR data.
+dnf	simple-scan	default-app	scanner workflow	Provides a scanner UI for the printer/scanner baseline.
+dnf	satty	default-app	screenshot workflow	Provides screenshot annotation used by the Niri screenshot script.
+dnf	gnome-calculator	default-app	utility app	Provides a basic calculator.
+dnf	gnome-text-editor	default-app	text editor fallback	Provides a simple GUI text editor.
+dnf	gnome-software	default-app	app discovery	Provides a GUI software browsing/update front end.
+dnf	nm-connection-editor	desktop-service	network UI	Provides graphical NetworkManager connection editing.
+dnf	blueman	desktop-service	Bluetooth UI	Provides graphical Bluetooth device management.
+dnf	file-roller	default-app	archive manager	Provides graphical archive handling from the file manager.
+dnf	gnome-disk-utility	default-app	disk utility	Provides graphical disk inspection and formatting.
+dnf	gvfs-mtp	file-integration	file manager	Enables MTP device access in Nautilus/GVFS.
+dnf	gvfs-nfs	file-integration	file manager	Enables NFS access in Nautilus/GVFS.
+dnf	gvfs-smb	file-integration	file manager	Enables SMB access in Nautilus/GVFS.
+dnf	nautilus-python	file-integration	Nautilus extension	Supports the repo-managed open-terminal-here extension.
+dnf	udisks2	file-integration	removable media	Provides disk management APIs for desktop storage.
+dnf	udiskie	file-integration	removable media	Provides user-session automount support.
+dnf	xdg-utils	file-integration	default apps	Provides XDG helper commands for MIME/default app setup.
+dnf	xdg-terminal-exec	file-integration	default terminal	Connects terminal launches to Ghostty.
+dnf	xdg-user-dirs	file-integration	user directories	Creates standard desktop user directories.
+dnf	desktop-file-utils	file-integration	MIME/default apps	Updates desktop entry and MIME caches.
+dnf	shared-mime-info	file-integration	MIME/default apps	Provides shared MIME database.
+dnf	libnotify	file-integration	notifications	Provides notification command/library support.
+dnf	ffmpegthumbnailer	file-integration	file previews	Provides video thumbnails in file managers.
+dnf	wl-clipboard	niri	Wayland clipboard	Provides clipboard commands for Wayland keybindings/scripts.
+dnf	cliphist	niri	clipboard history	Provides clipboard history for Wayland workflows.
+dnf	grim	niri	screenshot workflow	Captures screenshots under Wayland.
+dnf	slurp	niri	screenshot workflow	Selects Wayland screen regions for screenshots.
+dnf	wlsunset	desktop-service	display color temperature	Provides lightweight Wayland night-light behavior.
+dnf	wev	niri	input diagnostics	Provides Wayland event diagnostics for keybinding work.
+dnf	wtype	niri	input automation	Provides Wayland text injection for helper workflows.
+dnf	brightnessctl	desktop-service	brightness keybindings	Controls panel brightness from keybindings/scripts.
+dnf	ddcutil	desktop-service	external monitor brightness	Controls DDC/CI-capable external displays.
+dnf	fontconfig	theme-font	font baseline	Provides font discovery and configuration.
+dnf	adw-gtk3-theme	theme-font	GTK theme	Provides Adwaita-compatible GTK3 theme assets.
+dnf	google-noto-sans-fonts	theme-font	font baseline	Provides default sans-serif coverage.
+dnf	google-noto-sans-cjk-fonts	theme-font	font baseline	Provides CJK glyph coverage.
+dnf	google-noto-color-emoji-fonts	theme-font	font baseline	Provides emoji glyph coverage.
+dnf	fontawesome-6-free-fonts	theme-font	icon glyphs	Provides icon glyphs for shell/prompt UI.
+dnf	yaru-icon-theme	theme-font	icon theme	Provides the selected desktop icon theme.
+dnf	qt5ct	theme-font	Qt theming	Provides Qt5 theme configuration.
+dnf	qt6ct	theme-font	Qt theming	Provides Qt6 theme configuration.
+dnf	zsh	installer-bootstrap	base shell	Provides the default login shell and managed shell config target.
+dnf	starship	theme-font	shell prompt	Provides the prompt themed by Noctalia templates.
+dnf	zoxide	installer-bootstrap	shell navigation	Provides directory jumping in the base shell.
+dnf	fastfetch	installer-bootstrap	shell diagnostics	Provides quick system summary command.
+dnf	gh	installer-bootstrap	GitHub workflow	Provides GitHub CLI for development and diagnostics.
+dnf	btop	installer-bootstrap	system monitor	Provides terminal system monitoring.
+dnf	fd-find	installer-bootstrap	shell search	Provides fast file search.
+dnf	fzf	installer-bootstrap	shell picker	Provides fuzzy finding for shell workflows.
+dnf	bat	installer-bootstrap	shell pager	Provides syntax-highlighted file viewing.
+dnf	yazi	default-app	terminal file manager	Provides terminal file manager used by shell tooling.
+dnf	firefox	default-app	default browser	Provides the baseline browser.
+dnf	python3-pip	installer-bootstrap	Pywalfox	Installs Pywalfox for Firefox Noctalia theming.

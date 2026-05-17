@@ -66,6 +66,15 @@ dry_run_output="$(run_cmd touch "$TEST_ROOT/should-not-exist")"
 grep -F 'DRY-RUN: touch' <<<"$dry_run_output" >/dev/null
 [[ ! -e "$TEST_ROOT/should-not-exist" ]]
 
+DRY_RUN=0
+COMMAND_PREVIEW=1
+ASSUME_YES=1
+preview_output="$(run_cmd printf 'preview command\n' 2>&1)"
+grep -F 'Command: printf preview\ command' <<<"$preview_output" >/dev/null
+grep -F 'preview command' <<<"$preview_output" >/dev/null
+COMMAND_PREVIEW=0
+ASSUME_YES=0
+
 default_log_output="$(
   unset LOG_DIR
   unset LOG_FILE

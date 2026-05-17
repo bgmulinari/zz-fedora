@@ -1,0 +1,8 @@
+# path	mode	conflict	owner	description
+~/Wallpapers/SilentPeaks.jpg	seed-if-missing	preserve	wallpaper	Seeds the default wallpaper asset for Noctalia.
+~/.cache/noctalia/wallpapers.json	generated	regenerate	noctalia-wallpaper-state	Points Noctalia's wallpaper picker at the seeded wallpaper.
+~/.config/autostart/zz-first-run.desktop	first-run	regenerate	first-run	Launches one-time user-session setup after login.
+~/.local/bin/zz	generated	regenerate	zz-launcher	Installs the post-install zz utility.
+~/.config/noctalia/settings.json	seed-if-missing	preserve	noctalia-settings	Seeds writable Noctalia settings and then leaves GUI-managed state alone.
+~/.config/niri/noctalia.kdl	seed-if-missing	preserve	niri-noctalia	Seeds the Noctalia Niri include when absent.
+~/.config/starship.toml	seed-if-missing	preserve	starship	Seeds Starship only when the user has no config.
