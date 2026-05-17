@@ -31,6 +31,12 @@ grep -F '"name":"first-run"' <<<"$commands_json" >/dev/null
 grep -F '"name":"defaults"' <<<"$commands_json" >/dev/null
 grep -F '"usage":"zz doctor [options]"' <<<"$commands_json" >/dev/null
 
+mkdir -p "$TEST_ROOT/home/.local/bin"
+ln -sfn "$ROOT_DIR/bin/zz" "$TEST_ROOT/home/.local/bin/zz"
+symlink_commands_json="$("$TEST_ROOT/home/.local/bin/zz" commands --json)"
+grep -F '"name":"doctor"' <<<"$symlink_commands_json" >/dev/null
+grep -F '"name":"logs"' <<<"$symlink_commands_json" >/dev/null
+
 unknown_output="$(
   set +e
   bash "$ROOT_DIR/bin/zz" does-not-exist 2>&1
