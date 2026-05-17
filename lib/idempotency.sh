@@ -242,22 +242,69 @@ flatpak_remote_usable_with_wait_attempts() {
   return 1
 }
 
+download_flathub_gpg_key() {
+  local key_file
+  key_file="$(mktemp)"
+  if ! curl -fsSL "https://flathub.org/repo/flathub.gpg" -o "$key_file"; then
+    rm -f "$key_file"
+    return 1
+  fi
+  chmod 0644 "$key_file"
+  printf '%s\n' "$key_file"
+}
+
+flatpak_remote_add_with_flathub_key() {
+  local name="$1"
+  local key_file
+  [[ "$name" == "flathub" ]] || return 1
+  log_warn "Official Flathub remote setup did not settle; importing the Flathub GPG key directly."
+  key_file="$(download_flathub_gpg_key)" || return 1
+  run_cmd_as_root flatpak remote-delete --force "$name" || true
+  if run_cmd_as_root flatpak remote-add --gpg-import="$key_file" "$name" "https://dl.flathub.org/repo/" &&
+    flatpak_remote_usable_with_wait "$name"; then
+    rm -f "$key_file"
+    return 0
+  fi
+  rm -f "$key_file"
+  return 1
+}
+
+flatpak_remote_import_flathub_key() {
+  local name="$1"
+  local key_file
+  [[ "$name" == "flathub" ]] || return 1
+  log_warn "Flatpak remote '$name' is present but unusable; importing the Flathub GPG key directly."
+  key_file="$(download_flathub_gpg_key)" || return 1
+  if run_cmd_as_root flatpak remote-modify --gpg-verify --gpg-import="$key_file" "$name" &&
+    flatpak_remote_usable_with_wait "$name"; then
+    rm -f "$key_file"
+    return 0
+  fi
+  rm -f "$key_file"
+  flatpak_remote_add_with_flathub_key "$name"
+}
+
 flatpak_remote_add_with_retry() {
   local name="$1"
   local url="$2"
   local -a add_args=(remote-add --if-not-exists "$name" "$url")
+  local max_attempts="${FLATPAK_REMOTE_RETRY_ATTEMPTS:-3}"
+  local wait_seconds="${FLATPAK_REMOTE_RETRY_SECONDS:-2}"
   local attempt
-  for attempt in 1 2 3; do
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
     if run_cmd_as_root flatpak "${add_args[@]}"; then
       if flatpak_remote_usable_with_wait "$name"; then
         return 0
       fi
       log_warn "Flatpak remote '$name' was added but is not queryable yet."
     fi
-    [[ "$attempt" -lt 3 ]] || break
+    [[ "$attempt" -lt "$max_attempts" ]] || break
     log_warn "Flatpak remote add failed for '$name'; retrying."
-    [[ "${FLATPAK_REMOTE_RETRY_SECONDS:-2}" == "0" ]] || sleep "${FLATPAK_REMOTE_RETRY_SECONDS:-2}"
+    [[ "$wait_seconds" == "0" ]] || sleep "$wait_seconds"
   done
+  if [[ "$name" == "flathub" ]] && flatpak_remote_add_with_flathub_key "$name"; then
+    return 0
+  fi
   return 1
 }
 
@@ -285,6 +332,9 @@ flatpak_remote_add_if_missing() {
       log_info "Flatpak remote already present: $name"
       return 0
     fi
+    if [[ "$name" == "flathub" ]] && flatpak_remote_import_flathub_key "$name"; then
+      return 0
+    fi
     log_warn "Flatpak remote '$name' is present but unusable; re-adding it."
     run_cmd_as_root flatpak remote-delete --force "$name"
   fi
@@ -293,11 +343,10 @@ flatpak_remote_add_if_missing() {
 
 flatpak_readd_remote_from_repo_file() {
   local name="$1"
-  local url="$2"
+  local _url="$2"
   [[ "$name" == "flathub" ]] || return 1
-  log_warn "Flatpak install from '$name' failed GPG verification; re-adding the official Flathub remote."
-  run_cmd_as_root flatpak remote-delete --force "$name" || true
-  flatpak_remote_add_with_retry "$name" "$url"
+  log_warn "Flatpak install from '$name' failed GPG verification; importing the Flathub GPG key directly."
+  flatpak_remote_import_flathub_key "$name"
 }
 
 flatpak_install_or_update() {

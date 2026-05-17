@@ -45,7 +45,7 @@ module_10_sources() {
 
   for source_id in "${source_ids[@]:-}"; do
     source_required_for_install "$source_id" || continue
-    distro_enable_sources "$source_id"
+    distro_enable_sources "$source_id" || return 1
   done
 
   for source_id in "${source_ids[@]:-}"; do
