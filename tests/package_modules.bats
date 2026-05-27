@@ -242,3 +242,24 @@ setup() {
   [ "$status" -ne 0 ]
   assert_contains "$output" "Required base packages missing after install: missing-native-package"
 }
+
+@test "Fedora package verification accepts installed providers" {
+  mkdir -p "$TEST_ROOT/bin"
+  cat >"$TEST_ROOT/bin/rpm" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$1" == "-q" && "$2" == "nodejs" ]]; then
+  exit 1
+fi
+if [[ "$1" == "-q" && "$2" == "--whatprovides" && "$3" == "nodejs" ]]; then
+  printf 'nodejs22-22.22.2-3.fc44.x86_64\n'
+  exit 0
+fi
+exit 1
+EOF
+  chmod +x "$TEST_ROOT/bin/rpm"
+  PATH="$TEST_ROOT/bin:$PATH"
+
+  run distro_package_installed nodejs
+
+  [ "$status" -eq 0 ]
+}

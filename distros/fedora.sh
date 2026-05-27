@@ -177,7 +177,7 @@ distro_preview_plan() {
 }
 
 distro_package_installed() {
-  rpm -q "$1" >/dev/null 2>&1
+  rpm -q "$1" >/dev/null 2>&1 || rpm -q --whatprovides "$1" >/dev/null 2>&1
 }
 
 distro_command_exists() {
