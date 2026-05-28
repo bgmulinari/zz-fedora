@@ -137,8 +137,11 @@ setup() {
 
   install_noctalia_wallpaper_state
 
-  cmp -s "$ROOT_DIR/assets/wallpapers/SilentPeaks.jpg" "$TARGET_HOME/Wallpapers/SilentPeaks.jpg"
-  assert_file_contains "$TARGET_HOME/.cache/noctalia/wallpapers.json" '"defaultWallpaper": "'"$TARGET_HOME"'/Wallpapers/SilentPeaks.jpg"'
+  local wallpaper_name
+  while IFS= read -r wallpaper_name; do
+    cmp -s "$ROOT_DIR/assets/wallpapers/$wallpaper_name" "$TARGET_HOME/Wallpapers/$wallpaper_name"
+  done < <(find "$ROOT_DIR/assets/wallpapers" -maxdepth 1 -type f -printf '%f\n' | sort)
+  assert_file_contains "$TARGET_HOME/.cache/noctalia/wallpapers.json" '"defaultWallpaper": "'"$TARGET_HOME"'/Wallpapers/BlueTide.jpg"'
 }
 
 @test "Firefox Pywalfox policy and compatibility symlink are created for Firefox selections" {

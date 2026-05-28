@@ -151,7 +151,7 @@ build_plan_from_selections() {
   if plan_file_has_entry "$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")" "ghostty"; then
     append_plan_entries "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
   fi
-  append_managed_file "~/Wallpapers/SilentPeaks.jpg"
+  append_managed_file "~/Wallpapers"
   append_managed_file "~/.cache/noctalia/wallpapers.json"
   append_managed_file "~/.config/noctalia/settings.json"
   append_managed_file "~/.config/noctalia/plugins.json"

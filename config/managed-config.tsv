@@ -1,5 +1,5 @@
 # path	mode	conflict	owner	description
-~/Wallpapers/SilentPeaks.jpg	seed-if-missing	preserve	wallpaper	Seeds the default wallpaper asset for Noctalia.
+~/Wallpapers	seed-if-missing	preserve	wallpapers	Seeds bundled wallpaper assets for Noctalia.
 ~/.cache/noctalia/wallpapers.json	generated	regenerate	noctalia-wallpaper-state	Points Noctalia's wallpaper picker at the seeded wallpaper.
 ~/.config/autostart/zz-first-run.desktop	first-run	regenerate	first-run	Launches one-time user-session setup after login.
 ~/.local/bin/zz	generated	regenerate	zz-launcher	Installs the post-install zz utility.

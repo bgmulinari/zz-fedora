@@ -29,14 +29,24 @@ install_user_file_if_changed() {
   run_cmd_as_user "$TARGET_USER" install -m "$mode" "$source_file" "$destination"
 }
 
+install_bundled_wallpapers() {
+  local source_file wallpaper_name
+
+  for source_file in "$ROOT_DIR"/assets/wallpapers/*.{jpg,jpeg,png,webp,avif}; do
+    [[ -f "$source_file" ]] || continue
+    wallpaper_name="$(basename "$source_file")"
+    install_user_file_if_changed "$source_file" "$TARGET_HOME/Wallpapers/$wallpaper_name"
+  done
+}
+
 install_noctalia_wallpaper_state() {
   local wallpaper_path destination temp_file
 
-  wallpaper_path="$TARGET_HOME/Wallpapers/SilentPeaks.jpg"
+  wallpaper_path="$TARGET_HOME/Wallpapers/BlueTide.jpg"
   destination="$TARGET_HOME/.cache/noctalia/wallpapers.json"
   temp_file="$(mktemp "$CACHE_DIR/noctalia-wallpapers.XXXXXX")"
 
-  install_user_file_if_changed "$ROOT_DIR/assets/wallpapers/SilentPeaks.jpg" "$wallpaper_path"
+  install_bundled_wallpapers
 
   cat >"$temp_file" <<EOF
 {
