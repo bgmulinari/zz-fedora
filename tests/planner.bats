@@ -23,6 +23,7 @@ setup() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nodejs24-npm"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "starship"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "yazi"
+  assert_plan_has "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/zz"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/autostart/zz-first-run.desktop"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-noctalia'

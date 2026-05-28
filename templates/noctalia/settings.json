@@ -1,6 +1,6 @@
 {
   "appLauncher": {
-    "terminalCommand": "ghostty -e"
+    "terminalCommand": "ghostty +new-window -e"
   },
   "colorSchemes": {
     "syncGsettings": true,

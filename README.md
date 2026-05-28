@@ -19,13 +19,13 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
   - Satty-backed screenshots using the `grim` + `slurp` capture flow
   - GTK/GNOME portals, Noctalia's `polkit-agent` plugin, Adwaita GTK defaults, Yaru icons, and qtct integration
   - Noctalia's `gtk`, `qt`, and `kcolorscheme` templates drive GTK and Qt application color theming
-- Ghostty is the default terminal.
+- Ghostty is the default terminal. The installer enables Ghostty's user systemd service on first login, keeps the background process running, and uses `ghostty +new-window` for Niri/Noctalia terminal launches.
 
 ## Session Model
 
 - SDDM provides the graphical login and session chooser.
 - Choose the `Niri` session at login.
-- Noctalia is launched from Niri autostart with `spawn-at-startup "qs" "-c" "noctalia-shell"`.
+- Noctalia is launched from Niri autostart with `spawn-at-startup "qs" "-c" "noctalia-shell"`, and Niri's terminal keybinding opens Ghostty through `ghostty +new-window`.
 - Noctalia ships with the Niri template pre-enabled through managed user settings.
 - The default wallpaper is seeded to `~/Wallpapers/SilentPeaks.jpg`, Noctalia's wallpaper picker is pointed at `~/Wallpapers`, and `~/.cache/noctalia/wallpapers.json` selects it by default.
 - Niri config and Noctalia templates/plugins are stowed from this repo. Noctalia's live `settings.json` is seeded into `~/.config/noctalia/settings.json` and then left as writable user state so GUI changes do not dirty the repo.

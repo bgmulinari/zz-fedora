@@ -54,6 +54,17 @@ doctor_check_enabled() {
   fi
 }
 
+doctor_check_user_enabled() {
+  local service_name="$1"
+  if systemctl --user is-enabled "$service_name" >/dev/null 2>&1; then
+    printf '[ok] user service enabled %s\n' "$service_name"
+    return 0
+  else
+    printf '[warn] user service not enabled %s\n' "$service_name"
+    return 1
+  fi
+}
+
 doctor_warn_command() {
   doctor_check_command "$1" || true
 }
@@ -64,6 +75,10 @@ doctor_warn_file() {
 
 doctor_warn_enabled() {
   doctor_check_enabled "$1" || true
+}
+
+doctor_warn_user_enabled() {
+  doctor_check_user_enabled "$1" || true
 }
 
 doctor_plan_has_entry() {
@@ -110,6 +125,7 @@ module_90_doctor() {
   doctor_warn_command niri-session
   doctor_warn_command qs
   doctor_warn_command ghostty
+  doctor_warn_user_enabled app-com.mitchellh.ghostty.service
   doctor_warn_command xdg-terminal-exec
   doctor_warn_command nautilus
   doctor_warn_command nvim
@@ -153,14 +169,15 @@ module_90_doctor() {
   fi
 
   doctor_check_contains "$niri_config_home/cfg/autostart.kdl" 'spawn-at-startup "qs" "-c" "noctalia-shell"'
-  doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "xdg-terminal-exec"'
+  doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "ghostty" "+new-window"'
+  doctor_check_contains "$user_config_home/ghostty/config" 'quit-after-last-window-closed = false'
   doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "nautilus"'
   doctor_check_contains "$niri_config_home/config.kdl" 'include "./noctalia.kdl"'
   doctor_check_contains "$user_config_home/ghostty/config" 'theme = noctalia'
   doctor_check_contains "$user_config_home/xdg-terminals.list" 'Alacritty.desktop'
   doctor_check_contains "$TARGET_HOME/.local/share/applications/nvim.desktop" 'Exec=xdg-terminal-exec'
   doctor_check_contains "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py" 'xdg-terminal-exec'
-  doctor_check_contains "$user_config_home/noctalia/settings.json" '"terminalCommand": "ghostty -e"'
+  doctor_check_contains "$user_config_home/noctalia/settings.json" '"terminalCommand": "ghostty +new-window -e"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"predefinedScheme": "Catppuccin"'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"syncGsettings": true'
   doctor_check_contains "$user_config_home/noctalia/settings.json" '"directory": "'"$TARGET_HOME"'/Wallpapers"'

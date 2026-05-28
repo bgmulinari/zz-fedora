@@ -531,7 +531,7 @@ update_noctalia_settings() {
         directory: $wallpaper_dir
       }) |
       .appLauncher = ((.appLauncher // {}) + {
-        terminalCommand: "ghostty -e"
+        terminalCommand: "ghostty +new-window -e"
       }) |
       .templates = ((.templates // {}) + {
         activeTemplates: ($user_templates + $active_templates),
@@ -766,6 +766,18 @@ configure_default_applications() {
   configure_xdg_terminal_defaults
 }
 
+enable_user_services() {
+  local service_name
+  while IFS= read -r service_name; do
+    [[ -n "$service_name" ]] || continue
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      printf 'DRY-RUN: systemctl --user enable --now %s\n' "$service_name"
+      continue
+    fi
+    run_cmd_as_user "$TARGET_USER" systemctl --user enable --now "$service_name" || log_warn "Could not enable user service: $service_name"
+  done < <(user_services_from_plan)
+}
+
 set_default_browser() {
   local desktop_file="$1"
   local -a browser_mime_types=(
@@ -906,6 +918,7 @@ module_80_first_run() {
   fi
 
   run_cmd_as_user "$TARGET_USER" systemctl --user daemon-reload || true
+  enable_user_services
   run_cmd_as_user "$TARGET_USER" xdg-user-dirs-update || true
   run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark || true
   run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface color-scheme prefer-dark || true

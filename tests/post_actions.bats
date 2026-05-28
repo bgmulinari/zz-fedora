@@ -99,7 +99,7 @@ setup() {
 
   update_noctalia_settings
 
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"terminalCommand": "ghostty -e"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"terminalCommand": "ghostty +new-window -e"'
   assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"directory": "'"$TARGET_HOME"'/Wallpapers"'
   assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"id": "ghostty"'
   assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"id": "starship"'
@@ -166,6 +166,7 @@ setup() {
   [[ -f "$(first_run_marker)" ]]
   [[ ! -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user daemon-reload"
+  assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user enable --now app-com.mitchellh.ghostty.service"
 
   : >"$TEST_ROOT/first-run-commands.log"
   module_80_first_run
@@ -200,7 +201,7 @@ setup() {
   module_80_post_actions
 
   [[ -f "$TARGET_HOME/.config/noctalia/settings.json" ]]
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"terminalCommand": "ghostty -e"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"terminalCommand": "ghostty +new-window -e"'
   assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"directory": "'"$TARGET_HOME"'/Wallpapers"'
   assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"id": "zenBrowser"'
   assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"enableUserTheming": true'

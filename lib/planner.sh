@@ -24,6 +24,13 @@ append_info() {
   append_unique INFO_MESSAGES "$1"
 }
 
+plan_file_has_entry() {
+  local plan_file="$1"
+  local entry="$2"
+  [[ -f "$plan_file" ]] || return 1
+  grep -Fx "$entry" "$plan_file" >/dev/null 2>&1
+}
+
 append_bundle_payload_to_plan() {
   local destination
   destination="$(package_file_for_backend "$BUNDLE_INSTALLER")"
@@ -141,6 +148,9 @@ build_plan_from_selections() {
 
   append_plan_entries "$PLAN_DIR/services/system-enable-now.list" "${DEFAULT_SYSTEM_SERVICES[@]}"
   : >"$PLAN_DIR/services/user-enable.list"
+  if plan_file_has_entry "$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")" "ghostty"; then
+    append_plan_entries "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
+  fi
   append_managed_file "~/Wallpapers/SilentPeaks.jpg"
   append_managed_file "~/.cache/noctalia/wallpapers.json"
   append_managed_file "~/.config/noctalia/settings.json"
@@ -353,6 +363,9 @@ write_plan_summary() {
     fi
     if [[ -f "$PLAN_DIR/services/system-enable.list" ]]; then
       sed 's/^/  - /' "$PLAN_DIR/services/system-enable.list"
+    fi
+    if [[ -f "$PLAN_DIR/services/user-enable.list" ]]; then
+      sed 's/^/  - /' "$PLAN_DIR/services/user-enable.list"
     fi
 
     printf '\nFiles:\n'
