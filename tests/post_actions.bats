@@ -111,6 +111,25 @@ setup() {
   assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"enableUserTheming": true'
 }
 
+@test "Noctalia plugins seed enabled plugin state when absent" {
+  build_fedora_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/plugins-home"
+  mkdir -p "$TARGET_HOME/.config/noctalia"
+  DRY_RUN=0
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_noctalia_plugins_seed_if_missing
+
+  assert_file_contains "$TARGET_HOME/.config/noctalia/plugins.json" '"polkit-agent"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/plugins.json" '"display-settings"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/plugins.json" '"keybind-cheatsheet"'
+}
+
 @test "wallpaper state is installed idempotently" {
   TARGET_HOME="$TEST_ROOT/wallpaper-home"
   mkdir -p "$TARGET_HOME"
@@ -186,6 +205,7 @@ setup() {
   install_noctalia_wallpaper_state() { :; }
   install_starship_config() { :; }
   install_niri_noctalia_seed_if_missing() { :; }
+  install_noctalia_plugins_seed_if_missing() { :; }
   install_qt_theme_config() { :; }
   configure_flatpak_theme_access() { :; }
   install_pywalfox_native_host() { :; }

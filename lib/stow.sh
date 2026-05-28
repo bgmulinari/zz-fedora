@@ -85,7 +85,6 @@ stow_prepare_known_conflicts() {
   for package_name in "$@"; do
     case "$package_name" in
       noctalia)
-        stow_backup_existing_target ".config/noctalia/plugins.json"
         stow_backup_existing_target ".config/noctalia/user-templates.toml"
         stow_backup_existing_target ".config/noctalia/templates/neovim.lua"
         stow_backup_existing_target ".config/noctalia/templates/zsh-syntax-highlighting.zsh"
@@ -153,7 +152,6 @@ stow_preview_known_conflicts() {
   for package_name in "$@"; do
     case "$package_name" in
       noctalia)
-        stow_preview_record_conflict ".config/noctalia/plugins.json" "$package_name"
         stow_preview_record_conflict ".config/noctalia/user-templates.toml" "$package_name"
         stow_preview_record_conflict ".config/noctalia/templates/neovim.lua" "$package_name"
         stow_preview_record_conflict ".config/noctalia/templates/zsh-syntax-highlighting.zsh" "$package_name"

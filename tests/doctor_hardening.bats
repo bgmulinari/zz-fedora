@@ -77,6 +77,7 @@ setup() {
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tddcutil\tdesktop-service\texternal monitor brightness\tControls DDC/CI-capable external displays.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tterra\tnoctalia\tNoctalia Shell and Ghostty\tBootstraps Terra release packages for required Noctalia Shell and Ghostty packages.'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/settings.json\tseed-if-missing\tpreserve'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/plugins.json\tseed-if-missing\tpreserve'
 }
 
 @test "managed config conflicts and base rationale are generated in plan" {
@@ -90,10 +91,12 @@ setup() {
 
   assert_file_contains "$PLAN_DIR/files/config-conflicts.tsv" "~/.bashrc"
   assert_file_contains "$PLAN_DIR/files/config-conflicts.tsv" "~/.config/noctalia/user-templates.toml"
+  refute_file_contains "$PLAN_DIR/files/config-conflicts.tsv" "~/.config/noctalia/plugins.json"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'flatpak\torg.gtk.Gtk3theme.adw-gtk3\tbase-source-flathub\ttheme-font'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-noctalia\tnoctalia'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.bashrc\tstow\tbackup-before-stow\tshell'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/settings.json\tseed-if-missing\tpreserve\tnoctalia-settings'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/plugins.json\tseed-if-missing\tpreserve\tnoctalia-plugins'
 }
 
 @test "doctor fails when planned Niri desktop readiness is missing" {
