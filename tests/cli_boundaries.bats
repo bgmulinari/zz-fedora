@@ -24,6 +24,7 @@ setup() {
   assert_contains "$output" "zz debug"
   assert_contains "$output" "zz first-run"
   assert_contains "$output" "zz defaults"
+  assert_contains "$output" "zz update"
 
   run bash "$ROOT_DIR/bin/zz" commands --json
   [ "$status" -eq 0 ]
@@ -32,5 +33,6 @@ setup() {
   refute_contains "$output" '"name":"install"'
   refute_contains "$output" '"name":"plan"'
   assert_contains "$output" '"name":"first-run"'
+  assert_contains "$output" '"name":"update"'
   assert_contains "$output" '"usage":"zz doctor [options]"'
 }

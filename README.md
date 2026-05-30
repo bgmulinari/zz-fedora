@@ -106,6 +106,7 @@ zz logs --tail
 zz debug
 zz first-run
 zz defaults
+zz update all
 zz commands --json
 ./install.sh wizard
 ./install.sh install --yes

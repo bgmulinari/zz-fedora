@@ -1,0 +1,740 @@
+#!/usr/bin/env bash
+# zz-name: update
+# zz-summary: Update installed package managers and developer tools.
+# zz-usage: zz update <all|dnf|flatpak|brew|npm|dotnet|dotnet-sdk|dotnet-tools|claude|cleanup> [options]
+set -Eeuo pipefail
+
+BREW_CANDIDATE="/home/linuxbrew/.linuxbrew/bin/brew"
+RUN_USER="${ZZ_UPDATE_RUN_USER:-${SUDO_USER:-${USER:-$(id -un)}}}"
+RUN_HOME="${HOME:-}"
+if [[ -n "${ZZ_UPDATE_RUN_HOME:-}" ]]; then
+  RUN_HOME="$ZZ_UPDATE_RUN_HOME"
+elif [[ "$EUID" -eq 0 && -n "${SUDO_USER:-}" && "${SUDO_USER:-}" != "root" ]]; then
+  RUN_HOME="$(getent passwd "$RUN_USER" 2>/dev/null | cut -d: -f6)"
+fi
+RUN_HOME="${RUN_HOME:-$HOME}"
+DOTNET_INSTALL_DIR="${DOTNET_INSTALL_DIR:-$RUN_HOME/.dotnet}"
+
+DRY_RUN=0
+CLEANUP_AFTER_ALL=1
+DNF_STAGED=0
+DNF_OFFLINE_SCHEDULED=0
+SUMMARY_PRINTED=0
+declare -ag UPDATE_SUMMARY_TARGETS=()
+declare -Ag UPDATE_SUMMARY_STATUS=()
+declare -Ag UPDATE_SUMMARY_DETAIL=()
+
+usage() {
+  cat <<'EOF'
+Usage:
+  zz update <target> [options]
+
+Targets:
+  all           Run dnf, flatpak, brew, npm, dotnet, claude, and cleanup.
+  dnf           Stage Fedora package updates for an offline upgrade.
+  flatpak       Update Flatpak apps and runtimes.
+  brew          Update Homebrew formulae.
+  npm           Update globally installed npm packages.
+  dotnet        Update active .NET SDK channels and installed global tools.
+  dotnet-sdk    Update active .NET SDK channels only.
+  dotnet-tools  Update installed .NET global tools only.
+  claude        Run Claude Code's self-updater when installed.
+  cleanup       Remove unused DNF and Flatpak packages.
+
+Options:
+  --dry-run     Print commands without running them.
+  --no-cleanup  Skip cleanup when target is all.
+  -h, --help    Show this help.
+EOF
+}
+
+shell_quote() {
+  local quoted="" arg
+  for arg in "$@"; do
+    printf -v arg "%q" "$arg"
+    [[ -z "$quoted" ]] || quoted+=" "
+    quoted+="$arg"
+  done
+  printf '%s' "$quoted"
+}
+
+join_by() {
+  local delimiter="$1"
+  shift || true
+  local first=1 item
+  for item in "$@"; do
+    if [[ "$first" -eq 1 ]]; then
+      printf '%s' "$item"
+      first=0
+    else
+      printf '%s%s' "$delimiter" "$item"
+    fi
+  done
+}
+
+section() {
+  printf '\n==> %s\n' "$1"
+}
+
+skip() {
+  printf 'Skipping %s: not installed.\n' "$1"
+}
+
+target_label() {
+  case "$1" in
+    brew) printf 'homebrew' ;;
+    dotnet-sdk) printf '.NET SDK' ;;
+    dotnet-tools) printf '.NET tools' ;;
+    dotnet) printf '.NET' ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+remember_summary_target() {
+  local target="$1"
+  local current
+  for current in "${UPDATE_SUMMARY_TARGETS[@]:-}"; do
+    [[ "$current" == "$target" ]] && return 0
+  done
+  UPDATE_SUMMARY_TARGETS+=("$target")
+}
+
+set_update_summary() {
+  local target="$1"
+  local status="$2"
+  local detail="$3"
+  remember_summary_target "$target"
+  UPDATE_SUMMARY_STATUS["$target"]="$status"
+  UPDATE_SUMMARY_DETAIL["$target"]="$detail"
+}
+
+remove_update_summary_target() {
+  local target="$1"
+  local current kept=()
+  for current in "${UPDATE_SUMMARY_TARGETS[@]:-}"; do
+    [[ "$current" == "$target" ]] && continue
+    kept+=("$current")
+  done
+  UPDATE_SUMMARY_TARGETS=("${kept[@]:-}")
+}
+
+command_missing_summary() {
+  local target="$1"
+  local command_name="$2"
+  skip "$command_name"
+  set_update_summary "$target" skipped "$command_name is not installed"
+}
+
+join_lines_csv() {
+  awk 'NF {if (out) out = out ", " $0; else out = $0} END {print out}'
+}
+
+plural() {
+  local count="$1"
+  local singular="$2"
+  local plural_text="${3:-${singular}s}"
+  if [[ "$count" -eq 1 ]]; then
+    printf '%s %s' "$count" "$singular"
+  else
+    printf '%s %s' "$count" "$plural_text"
+  fi
+}
+
+print_update_summary() {
+  [[ "$SUMMARY_PRINTED" -eq 0 ]] || return 0
+  SUMMARY_PRINTED=1
+  [[ "${#UPDATE_SUMMARY_TARGETS[@]}" -gt 0 ]] || return 0
+
+  local target label status detail
+  printf '\n----------------------------------------\n\n'
+  printf 'Update complete.\n\n'
+  for target in "${UPDATE_SUMMARY_TARGETS[@]}"; do
+    label="$(target_label "$target")"
+    status="${UPDATE_SUMMARY_STATUS[$target]:-unknown}"
+    detail="${UPDATE_SUMMARY_DETAIL[$target]:-no details available}"
+    printf -- '- %-12s %s' "$label:" "$detail"
+    [[ "$status" == "ok" ]] || printf ' [%s]' "$status"
+    printf '\n'
+  done
+}
+
+find_command() {
+  local name="$1"
+  local fallback="${2:-}"
+  if command -v "$name" >/dev/null 2>&1; then
+    command -v "$name"
+    return 0
+  fi
+  if [[ -n "$fallback" && -x "$fallback" ]]; then
+    printf '%s\n' "$fallback"
+    return 0
+  fi
+  return 1
+}
+
+run_cmd() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: %s\n' "$(shell_quote "$@")"
+    return 0
+  fi
+  "$@"
+}
+
+run_user_cmd() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    if [[ "$EUID" -eq 0 && "$RUN_USER" != "root" ]]; then
+      printf 'DRY-RUN: sudo -u %s env HOME=%s %s\n' "$RUN_USER" "$(shell_quote "$RUN_HOME")" "$(shell_quote "$@")"
+    else
+      printf 'DRY-RUN: %s\n' "$(shell_quote "$@")"
+    fi
+    return 0
+  fi
+
+  if [[ "$EUID" -eq 0 && "$RUN_USER" != "root" ]]; then
+    sudo -u "$RUN_USER" env HOME="$RUN_HOME" "$@"
+  else
+    "$@"
+  fi
+}
+
+run_user_capture() {
+  if [[ "$EUID" -eq 0 && "$RUN_USER" != "root" ]]; then
+    sudo -u "$RUN_USER" env HOME="$RUN_HOME" "$@"
+  else
+    "$@"
+  fi
+}
+
+run_root_cmd() {
+  if [[ "$EUID" -eq 0 ]]; then
+    run_cmd "$@"
+    return $?
+  fi
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: sudo %s\n' "$(shell_quote "$@")"
+    return 0
+  fi
+  command -v sudo >/dev/null 2>&1 || {
+    printf 'sudo is required to run: %s\n' "$(shell_quote "$@")" >&2
+    return 1
+  }
+  sudo -n "$@"
+}
+
+root_required_for_target() {
+  case "$1" in
+    all|dnf|flatpak|npm|cleanup) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+exec_update_as_root_if_needed() {
+  local target="$1"
+  shift
+  [[ "$DRY_RUN" -eq 0 ]] || return 0
+  root_required_for_target "$target" || return 0
+  [[ "$EUID" -ne 0 && "${ZZ_UPDATE_ROOT_CONTEXT:-0}" -ne 1 ]] || return 0
+
+  command -v sudo >/dev/null 2>&1 || {
+    printf 'sudo is required for zz update %s.\n' "$target" >&2
+    return 1
+  }
+
+  printf 'Root privileges are required for zz update %s. You may be prompted for your password once.\n' "$target"
+  sudo -v
+  exec sudo env \
+    "ZZ_UPDATE_RUN_USER=$RUN_USER" \
+    "ZZ_UPDATE_RUN_HOME=$RUN_HOME" \
+    "ZZ_UPDATE_ROOT_CONTEXT=1" \
+    "HOME=/root" \
+    "$0" "$@"
+}
+
+dnf_offline_reboot_command() {
+  if command -v dnf5 >/dev/null 2>&1; then
+    printf 'dnf5\n'
+  else
+    printf 'dnf\n'
+  fi
+}
+
+update_dnf() {
+  section "DNF"
+  local dnf_bin
+  dnf_bin="$(find_command dnf || true)"
+  [[ -n "$dnf_bin" ]] || {
+    command_missing_summary dnf dnf
+    return 0
+  }
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    run_root_cmd "$dnf_bin" upgrade -y --refresh --offline
+    set_update_summary dnf ok "dry-run: would prepare offline package updates"
+    return 0
+  fi
+
+  local output_file status errexit_was_set=0
+  output_file="$(mktemp)"
+  [[ $- == *e* ]] && errexit_was_set=1
+  set +e
+  run_root_cmd "$dnf_bin" upgrade -y --refresh --offline 2>&1 | tee "$output_file"
+  status="${PIPESTATUS[0]}"
+  if [[ "$errexit_was_set" -eq 1 ]]; then
+    set -e
+  else
+    set +e
+  fi
+  if [[ "$status" -ne 0 ]]; then
+    set_update_summary dnf failed "update check failed"
+    rm -f "$output_file"
+    return "$status"
+  fi
+
+  if ! grep -Eiq 'Nothing to do|No packages marked for upgrade|Nothing to do\.' "$output_file"; then
+    DNF_STAGED=1
+    set_update_summary dnf ok "offline transaction prepared; will be applied on the next boot"
+  else
+    set_update_summary dnf ok "no updates available"
+  fi
+  rm -f "$output_file"
+}
+
+update_flatpak() {
+  section "Flatpak"
+  local flatpak_bin
+  flatpak_bin="$(find_command flatpak || true)"
+  [[ -n "$flatpak_bin" ]] || {
+    command_missing_summary flatpak flatpak
+    return 0
+  }
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    run_root_cmd "$flatpak_bin" update -y
+    set_update_summary flatpak ok "dry-run: would update system Flatpaks"
+    return 0
+  fi
+
+  local output_file status failed_count failed_apps attempted_count detail errexit_was_set=0
+  output_file="$(mktemp)"
+  [[ $- == *e* ]] && errexit_was_set=1
+  set +e
+  run_root_cmd "$flatpak_bin" update -y 2>&1 | tee "$output_file"
+  status="${PIPESTATUS[0]}"
+  if [[ "$errexit_was_set" -eq 1 ]]; then
+    set -e
+  else
+    set +e
+  fi
+
+  failed_apps="$(awk '/\[[^]]*(✗|x|X)[^]]*\]/ {
+    for (idx = 1; idx <= NF; idx++) {
+      if ($idx ~ /^\[[^]]*(✗|x|X)[^]]*\]$/ && (idx + 1) <= NF) {
+        print $(idx + 1)
+        break
+      }
+    }
+  }' "$output_file" | join_lines_csv)"
+  failed_count="$(awk '/\[[^]]*(✗|x|X)[^]]*\]/ {count++} END {print count+0}' "$output_file")"
+  attempted_count="$(awk '/^[[:space:]]*[0-9]+\. \[/ {count++} END {print count+0}' "$output_file")"
+
+  if [[ "$status" -eq 0 ]]; then
+    if grep -Eiq 'Nothing to do|No updates' "$output_file"; then
+      detail="no updates available"
+    elif [[ "$attempted_count" -gt 0 ]]; then
+      detail="$(plural "$attempted_count" update) completed"
+    else
+      detail="updates completed"
+    fi
+    set_update_summary flatpak ok "$detail"
+  else
+    if [[ "$failed_count" -gt 0 ]]; then
+      detail="$(plural "$failed_count" update) failed"
+      [[ -n "$failed_apps" ]] && detail+=" ($failed_apps)"
+      if [[ "$attempted_count" -gt "$failed_count" ]]; then
+        detail="$(plural "$((attempted_count - failed_count))" update) completed, $detail"
+      fi
+    else
+      detail="update failed"
+    fi
+    set_update_summary flatpak failed "$detail"
+  fi
+  rm -f "$output_file"
+  return "$status"
+}
+
+update_brew() {
+  section "Homebrew"
+  local brew_bin
+  brew_bin="$(find_command brew "$BREW_CANDIDATE" || true)"
+  [[ -n "$brew_bin" ]] || {
+    command_missing_summary brew brew
+    return 0
+  }
+  if run_user_cmd "$brew_bin" update && run_user_cmd "$brew_bin" upgrade; then
+    set_update_summary brew ok "updates completed"
+    return 0
+  fi
+  set_update_summary brew failed "update check or upgrade failed"
+  return 1
+}
+
+update_npm() {
+  section "npm"
+  local npm_bin
+  npm_bin="$(find_command npm || true)"
+  [[ -n "$npm_bin" ]] || {
+    command_missing_summary npm npm
+    return 0
+  }
+  if run_root_cmd "$npm_bin" update -g; then
+    set_update_summary npm ok "global packages updated"
+    return 0
+  fi
+  set_update_summary npm failed "global package update failed"
+  return 1
+}
+
+version_ge() {
+  local version="$1"
+  local floor="$2"
+  [[ "$(printf '%s\n%s\n' "$floor" "$version" | sort -V | head -n1)" == "$floor" ]]
+}
+
+dotnet_channel_lines() {
+  local metadata_file="$1"
+  jq -r '
+    .["releases-index"][]
+    | select(.["support-phase"] == "active" or .["support-phase"] == "maintenance")
+    | [.["channel-version"], .["release-type"]]
+    | @tsv
+  ' "$metadata_file" | sort -Vr
+}
+
+dotnet_selected_channels() {
+  local metadata_file="$1"
+  local channel_lines floor channel release_type
+  channel_lines="$(dotnet_channel_lines "$metadata_file" || true)"
+  [[ -n "$channel_lines" ]] || return 1
+
+  floor="$(awk -F'\t' '$2 == "lts" {count++; if (count == 2) {print $1; exit}}' <<<"$channel_lines")"
+  [[ -n "$floor" ]] || floor="$(tail -n1 <<<"$channel_lines" | cut -f1)"
+
+  while IFS=$'\t' read -r channel release_type; do
+    [[ -n "$channel" ]] || continue
+    if version_ge "$channel" "$floor"; then
+      printf '%s\n' "$channel"
+    fi
+  done <<<"$channel_lines"
+}
+
+prune_old_dotnet_sdks() {
+  local sdk_dir="$DOTNET_INSTALL_DIR/sdk"
+  [[ -d "$sdk_dir" ]] || return 0
+
+  local previous_channel="" previous_version="" version channel
+  while IFS= read -r version; do
+    channel="${version%.*}"
+    if [[ "$channel" == "$previous_channel" && -n "$previous_version" ]]; then
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        printf 'DRY-RUN: rm -rf %s\n' "$(shell_quote "$sdk_dir/$previous_version")"
+      else
+        run_user_cmd rm -rf "$sdk_dir/$previous_version"
+      fi
+    fi
+    previous_channel="$channel"
+    previous_version="$version"
+  done < <(find "$sdk_dir" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -V)
+}
+
+update_dotnet_sdk() {
+  section ".NET SDK"
+  if [[ ! -x "$DOTNET_INSTALL_DIR/dotnet" ]]; then
+    command_missing_summary dotnet-sdk "$DOTNET_INSTALL_DIR/dotnet"
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: install active .NET SDK channels -> %s\n' "$DOTNET_INSTALL_DIR"
+    prune_old_dotnet_sdks
+    set_update_summary dotnet-sdk ok "dry-run: would update active SDK channels"
+    return 0
+  fi
+
+  command -v curl >/dev/null 2>&1 || {
+    printf 'curl is required to update .NET SDKs.\n' >&2
+    set_update_summary dotnet-sdk failed "curl is required"
+    return 1
+  }
+  command -v jq >/dev/null 2>&1 || {
+    printf 'jq is required to parse .NET release metadata.\n' >&2
+    set_update_summary dotnet-sdk failed "jq is required"
+    return 1
+  }
+
+  local metadata install_script failed=0 channel channels=()
+  metadata="$(mktemp)"
+  install_script="$(mktemp)"
+
+  if ! curl -fsSL https://dotnetcli.azureedge.net/dotnet/release-metadata/releases-index.json -o "$metadata"; then
+    rm -f "$metadata" "$install_script"
+    set_update_summary dotnet-sdk failed "release metadata download failed"
+    return 1
+  fi
+  if ! curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$install_script"; then
+    rm -f "$metadata" "$install_script"
+    set_update_summary dotnet-sdk failed "installer download failed"
+    return 1
+  fi
+  if ! chmod 0755 "$install_script"; then
+    rm -f "$metadata" "$install_script"
+    set_update_summary dotnet-sdk failed "could not prepare installer"
+    return 1
+  fi
+
+  while IFS= read -r channel; do
+    [[ -n "$channel" ]] && channels+=("$channel")
+  done < <(dotnet_selected_channels "$metadata")
+
+  if [[ "${#channels[@]}" -eq 0 ]]; then
+    printf 'No active .NET SDK channels were found.\n' >&2
+    rm -f "$metadata" "$install_script"
+    set_update_summary dotnet-sdk failed "no active SDK channels found"
+    return 1
+  fi
+
+  printf 'Channels: %s\n' "${channels[*]}"
+  for channel in "${channels[@]}"; do
+    if ! run_user_cmd bash "$install_script" --channel "$channel" --install-dir "$DOTNET_INSTALL_DIR"; then
+      failed=1
+    fi
+  done
+
+  prune_old_dotnet_sdks
+  rm -f "$metadata" "$install_script"
+  if [[ "$failed" -eq 0 ]]; then
+    set_update_summary dotnet-sdk ok "updated channels: ${channels[*]}"
+    return 0
+  fi
+  set_update_summary dotnet-sdk failed "one or more SDK channels failed (${channels[*]})"
+  return 1
+}
+
+dotnet_bin() {
+  find_command dotnet "$DOTNET_INSTALL_DIR/dotnet"
+}
+
+update_dotnet_tools() {
+  section ".NET tools"
+  local dotnet
+  dotnet="$(dotnet_bin || true)"
+  [[ -n "$dotnet" ]] || {
+    command_missing_summary dotnet-tools dotnet
+    return 0
+  }
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: update installed .NET global tools with %s\n' "$dotnet"
+    set_update_summary dotnet-tools ok "dry-run: would update installed global tools"
+    return 0
+  fi
+
+  local tools tool failed=0
+  tools="$(run_user_capture "$dotnet" tool list -g | awk 'NR > 2 && $1 != "" {print $1}')"
+  if [[ -z "$tools" ]]; then
+    printf 'No .NET global tools are installed.\n'
+    set_update_summary dotnet-tools ok "no global tools installed"
+    return 0
+  fi
+
+  local updated_count=0 failed_tools=()
+  while IFS= read -r tool; do
+    [[ -n "$tool" ]] || continue
+    if ! run_user_cmd "$dotnet" tool update -g "$tool"; then
+      failed_tools+=("$tool")
+      failed=1
+    else
+      updated_count=$((updated_count + 1))
+    fi
+  done <<<"$tools"
+  if [[ "$failed" -eq 0 ]]; then
+    set_update_summary dotnet-tools ok "$(plural "$updated_count" tool) updated"
+    return 0
+  fi
+  set_update_summary dotnet-tools failed "$(plural "$updated_count" tool) updated, $(plural "${#failed_tools[@]}" tool) failed ($(join_by ', ' "${failed_tools[@]}"))"
+  return 1
+}
+
+update_dotnet() {
+  local failed=0
+  update_dotnet_sdk || failed=1
+  update_dotnet_tools || failed=1
+  remove_update_summary_target dotnet-sdk
+  remove_update_summary_target dotnet-tools
+  if [[ "$failed" -eq 0 ]]; then
+    local sdk_detail tools_detail
+    sdk_detail="${UPDATE_SUMMARY_DETAIL[dotnet-sdk]:-SDK update complete}"
+    tools_detail="${UPDATE_SUMMARY_DETAIL[dotnet-tools]:-tool update complete}"
+    set_update_summary dotnet ok "$sdk_detail; $tools_detail"
+    return 0
+  fi
+  set_update_summary dotnet failed "${UPDATE_SUMMARY_DETAIL[dotnet-sdk]:-SDK update incomplete}; ${UPDATE_SUMMARY_DETAIL[dotnet-tools]:-tool update incomplete}"
+  return 1
+}
+
+update_claude() {
+  section "Claude Code"
+  local claude_bin
+  claude_bin="$(find_command claude "$RUN_HOME/.local/bin/claude" || true)"
+  [[ -n "$claude_bin" ]] || {
+    command_missing_summary claude claude
+    return 0
+  }
+  if run_user_cmd "$claude_bin" update; then
+    set_update_summary claude ok "update completed"
+    return 0
+  fi
+  set_update_summary claude failed "update failed"
+  return 1
+}
+
+cleanup_updates() {
+  section "Cleanup"
+  local failed=0 dnf_bin flatpak_bin
+  dnf_bin="$(find_command dnf || true)"
+  if [[ -n "$dnf_bin" ]]; then
+    run_root_cmd "$dnf_bin" autoremove -y || failed=1
+  else
+    skip "dnf"
+  fi
+
+  flatpak_bin="$(find_command flatpak || true)"
+  if [[ -n "$flatpak_bin" ]]; then
+    run_root_cmd "$flatpak_bin" uninstall --unused -y || failed=1
+  else
+    skip "flatpak"
+  fi
+  if [[ "$failed" -eq 0 ]]; then
+    set_update_summary cleanup ok "unused packages cleaned up"
+    return 0
+  fi
+  set_update_summary cleanup failed "cleanup failed"
+  return 1
+}
+
+run_target() {
+  case "$1" in
+    dnf) update_dnf ;;
+    flatpak) update_flatpak ;;
+    brew) update_brew ;;
+    npm) update_npm ;;
+    dotnet) update_dotnet ;;
+    dotnet-sdk) update_dotnet_sdk ;;
+    dotnet-tools) update_dotnet_tools ;;
+    claude) update_claude ;;
+    cleanup) cleanup_updates ;;
+    *)
+      printf 'Unknown zz update target: %s\n\n' "$1" >&2
+      usage >&2
+      return 1
+      ;;
+  esac
+}
+
+run_all() {
+  local target failed=0
+  local -a targets=(dnf flatpak brew npm dotnet claude)
+  [[ "$CLEANUP_AFTER_ALL" -eq 0 ]] || targets+=(cleanup)
+
+  for target in "${targets[@]}"; do
+    if ! run_target "$target"; then
+      failed=1
+    fi
+  done
+  return "$failed"
+}
+
+prompt_reboot_now() {
+  [[ -t 0 && -t 1 ]] || return 1
+
+  local answer
+  printf 'Reboot now to apply the DNF offline upgrade? [y/N] '
+  read -r answer
+  case "${answer,,}" in
+    y|yes) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+arm_dnf_offline_update() {
+  [[ "$DNF_STAGED" -eq 1 ]] || return 0
+
+  local reboot_cmd
+  reboot_cmd="$(dnf_offline_reboot_command)"
+  if run_root_cmd env DNF_SYSTEM_UPGRADE_NO_REBOOT=1 "$reboot_cmd" -y offline reboot; then
+    DNF_OFFLINE_SCHEDULED=1
+    set_update_summary dnf ok "offline transaction prepared; will be applied on the next boot"
+    return 0
+  fi
+
+  set_update_summary dnf failed "offline transaction prepared, but scheduling it for next boot failed"
+  return 1
+}
+
+main() {
+  local target=""
+  local -a positional=()
+  local -a original_args=("$@")
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --dry-run)
+        DRY_RUN=1
+        ;;
+      --no-cleanup)
+        CLEANUP_AFTER_ALL=0
+        ;;
+      -h|--help)
+        usage
+        return 0
+        ;;
+      *)
+        positional+=("$1")
+        ;;
+    esac
+    shift
+  done
+
+  if [[ "${#positional[@]}" -ne 1 ]]; then
+    usage >&2
+    return 1
+  fi
+  target="${positional[0]}"
+  exec_update_as_root_if_needed "$target" "${original_args[@]}"
+
+  set +e
+  case "$target" in
+    all) run_all ;;
+    *) run_target "$target" ;;
+  esac
+  local status="$?"
+  set -e
+
+  if [[ "$DNF_STAGED" -eq 1 ]]; then
+    if ! arm_dnf_offline_update; then
+      status=1
+    fi
+  fi
+
+  print_update_summary
+
+  if [[ "$DNF_OFFLINE_SCHEDULED" -eq 1 ]]; then
+    printf '\n'
+    if prompt_reboot_now; then
+      run_root_cmd systemctl reboot
+    else
+      printf 'DNF offline upgrade will be applied when you next reboot normally.\n'
+    fi
+  fi
+  return "$status"
+}
+
+main "$@"
