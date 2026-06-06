@@ -28,7 +28,7 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 - Noctalia is launched from Niri autostart with `spawn-at-startup "qs" "-c" "noctalia-shell"`, and Niri's terminal keybinding opens Ghostty through `ghostty +new-window`.
 - Noctalia ships with the Niri template pre-enabled through managed user settings.
 - Bundled wallpapers are seeded to `~/Wallpapers`, Noctalia's wallpaper picker is pointed there, and `~/.cache/noctalia/wallpapers.json` selects `BlueTide.jpg` by default.
-- Niri config and Noctalia user templates are stowed from this repo. Noctalia's live `settings.json` and `plugins.json` are seeded into `~/.config/noctalia/` and then left as writable user state so GUI changes do not dirty the repo.
+- Niri config and Noctalia user templates are stowed from this repo. Hardware-specific Niri display config, Noctalia's live `settings.json`, and `plugins.json` are seeded and then left as writable user state so local changes do not dirty the repo.
 - When Visual Studio Code is selected, `~/.config/Code/User/settings.json` is also managed so the editor stays on `NoctaliaTheme`.
 - `~/.config/noctalia/plugins.json` enables Noctalia's built-in `polkit-agent` plugin from the official plugin source, so no separate session polkit binary is launched from Niri.
 - Noctalia template activation is plan-aware: GTK, Qt, and KColorScheme are always enabled; built-in templates are enabled for installed supported apps such as Niri, Ghostty, Starship, btop, Yazi, VS Code, Pywalfox, and Zen Browser; user templates are kept for repo-specific Neovim, Zsh syntax highlighting, and icon-theme integration.
@@ -142,7 +142,7 @@ Managed items:
 - SDDM enablement
 - managed dotfiles through `stow --restow`
 - managed dotfile conflict previews before Stow moves or backs up existing files
-- modular Niri config under `~/.config/niri/cfg/`
+- modular Niri config under `~/.config/niri/cfg/`, with display config seeded only when absent
 - MIME defaults and selected post-actions
 
 Re-running should:

@@ -130,6 +130,28 @@ setup() {
   assert_file_contains "$TARGET_HOME/.config/noctalia/plugins.json" '"keybind-cheatsheet"'
 }
 
+@test "Niri display config is seeded only when absent" {
+  build_fedora_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/niri-display-home"
+  mkdir -p "$TARGET_HOME/.config/niri/cfg"
+  DRY_RUN=0
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_niri_display_seed_if_missing
+
+  assert_file_contains "$TARGET_HOME/.config/niri/cfg/display.kdl" 'output "DP-1"'
+
+  printf 'custom display\n' >"$TARGET_HOME/.config/niri/cfg/display.kdl"
+  install_niri_display_seed_if_missing
+
+  assert_file_contains "$TARGET_HOME/.config/niri/cfg/display.kdl" "custom display"
+}
+
 @test "wallpaper state is installed idempotently" {
   TARGET_HOME="$TEST_ROOT/wallpaper-home"
   mkdir -p "$TARGET_HOME"

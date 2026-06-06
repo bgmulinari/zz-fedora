@@ -308,6 +308,16 @@ install_niri_noctalia_seed_if_missing() {
   install_user_file_if_changed "$ROOT_DIR/templates/niri/noctalia.kdl" "$destination"
 }
 
+install_niri_display_seed_if_missing() {
+  local native_plan destination
+  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  plan_has_any_backend_entry "$native_plan" niri || return 0
+
+  destination="$TARGET_HOME/.config/niri/cfg/display.kdl"
+  [[ -e "$destination" || -L "$destination" ]] && return 0
+  install_user_file_if_changed "$ROOT_DIR/templates/niri/display.kdl" "$destination"
+}
+
 install_noctalia_plugins_seed_if_missing() {
   local native_plan destination
   native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
@@ -967,6 +977,7 @@ module_80_post_actions() {
   patch_noctalia_starship_template_apply_if_needed
   install_noctalia_wallpaper_state
   install_starship_config
+  install_niri_display_seed_if_missing
   install_niri_noctalia_seed_if_missing
   install_noctalia_plugins_seed_if_missing
   install_qt_theme_config
