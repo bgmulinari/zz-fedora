@@ -73,6 +73,7 @@ setup() {
 
 @test "base responsibility and managed config policy include critical rationale rows" {
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tbats\tinstaller-bootstrap\ttest-runner\tProvides the Bats test runner used by the repository regression suite.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tnss-tools\tinstaller-bootstrap\tbrowser certificate trust\tProvides certutil for importing development CAs into Firefox-style browser profiles.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tgnome-software\tdefault-app\tapp discovery\tProvides a GUI software browsing/update front end.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tddcutil\tdesktop-service\texternal monitor brightness\tControls DDC/CI-capable external displays.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tterra\tnoctalia\tNoctalia Shell and Ghostty\tBootstraps Terra release packages for required Noctalia Shell and Ghostty packages.'

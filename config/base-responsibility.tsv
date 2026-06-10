@@ -8,6 +8,7 @@ source	terra	noctalia	Noctalia Shell and Ghostty	Bootstraps Terra release packag
 source	copr:atim/starship	theme-font	Starship prompt	Provides the Starship package used by the base shell prompt.
 source	copr:lihaohong/yazi	default-app	Yazi shell file manager	Provides the Yazi package used by the base shell tooling.
 dnf	ca-certificates	installer-bootstrap	curl/git/source setup	Allows TLS package, source, and bootstrap downloads.
+dnf	nss-tools	installer-bootstrap	browser certificate trust	Provides certutil for importing development CAs into Firefox-style browser profiles.
 dnf	curl	installer-bootstrap	bootstrap and post-actions	Fetches installer prerequisites, Pywalfox policy assets, and shell bootstrap scripts.
 dnf	git	installer-bootstrap	repo clone and shell plugins	Clones this repo and shell plugin repositories.
 dnf	gum	installer-bootstrap	wizard and TUI	Provides the interactive wizard and installer prompts.

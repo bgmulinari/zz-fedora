@@ -19,6 +19,7 @@ grep -F 'zz logs' <<<"$help_output" >/dev/null
 grep -F 'zz debug' <<<"$help_output" >/dev/null
 grep -F 'zz first-run' <<<"$help_output" >/dev/null
 grep -F 'zz defaults' <<<"$help_output" >/dev/null
+grep -F 'zz dotnet' <<<"$help_output" >/dev/null
 grep -F 'zz update' <<<"$help_output" >/dev/null
 ! grep -F 'zz repair' <<<"$help_output" >/dev/null
 
@@ -27,9 +28,11 @@ commands_json="$(bash "$ROOT_DIR/bin/zz" commands --json)"
 ! grep -F '"name":"wizard"' <<<"$commands_json" >/dev/null
 ! grep -F '"name":"install"' <<<"$commands_json" >/dev/null
 ! grep -F '"name":"plan"' <<<"$commands_json" >/dev/null
+grep -F '"name":"dotnet"' <<<"$commands_json" >/dev/null
 grep -F '"name":"first-run"' <<<"$commands_json" >/dev/null
 grep -F '"name":"defaults"' <<<"$commands_json" >/dev/null
 grep -F '"name":"update"' <<<"$commands_json" >/dev/null
+grep -F '"usage":"zz dotnet <devcert> [options]"' <<<"$commands_json" >/dev/null
 grep -F '"usage":"zz doctor [options]"' <<<"$commands_json" >/dev/null
 
 mkdir -p "$TEST_ROOT/home/.local/bin"

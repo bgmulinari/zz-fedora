@@ -1,0 +1,374 @@
+#!/usr/bin/env bash
+# zz-name: dotnet
+# zz-summary: Manage .NET development utilities.
+# zz-usage: zz dotnet <devcert> [options]
+set -Eeuo pipefail
+
+RUN_HOME="${ZZ_DOTNET_HOME:-$HOME}"
+RUN_CONFIG_HOME="${ZZ_DOTNET_CONFIG_HOME:-${XDG_CONFIG_HOME:-$RUN_HOME/.config}}"
+DOTNET_INSTALL_DIR="${DOTNET_INSTALL_DIR:-$RUN_HOME/.dotnet}"
+DEVCERT_USER="${ZZ_DOTNET_DEVCERT_USER:-$(id -un 2>/dev/null || whoami)}"
+NSS_CERT_NAME="ASP.NET Core Dev Cert"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  zz dotnet <command> [options]
+
+Commands:
+  devcert    Manage the ASP.NET Core HTTPS dev certificate and browser trust.
+EOF
+}
+
+devcert_usage() {
+  cat <<'EOF'
+Usage:
+  zz dotnet devcert <command>
+
+Commands:
+  status     Show the dev certificate and browser import state.
+  create     Generate the dev certificate and import its CA into browsers.
+EOF
+}
+
+dotnet_bin() {
+  local path
+  path="$(command -v dotnet 2>/dev/null || true)"
+  if [[ -n "$path" ]]; then
+    printf '%s\n' "$path"
+    return 0
+  fi
+  if [[ -x "$DOTNET_INSTALL_DIR/dotnet" ]]; then
+    printf '%s\n' "$DOTNET_INSTALL_DIR/dotnet"
+    return 0
+  fi
+  return 1
+}
+
+has_linux_dev_certs() {
+  local dotnet="$1"
+  "$dotnet" tool list -g 2>/dev/null | awk '
+    NR > 2 && $1 == "linux-dev-certs" { found = 1 }
+    END { exit found ? 0 : 1 }
+  '
+}
+
+ca_cert_candidates() {
+  if [[ -n "${ZZ_DOTNET_DEVCERT_CA_CERT:-}" ]]; then
+    printf '%s\n' "$ZZ_DOTNET_DEVCERT_CA_CERT"
+  fi
+  printf '%s\n' \
+    "/etc/pki/ca-trust/source/anchors/aspnet-dev-${DEVCERT_USER}.pem" \
+    "/usr/local/share/ca-certificates/aspnet-dev-${DEVCERT_USER}.crt" \
+    "/etc/ca-certificates/trust-source/anchors/aspnet-dev-${DEVCERT_USER}.crt" \
+    "/usr/share/pki/trust/anchors/aspnet-dev-${DEVCERT_USER}.crt"
+}
+
+find_ca_cert() {
+  local path
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    if [[ -f "$path" ]]; then
+      printf '%s\n' "$path"
+      return 0
+    fi
+  done < <(ca_cert_candidates)
+  return 1
+}
+
+browser_roots() {
+  if [[ -n "${ZZ_DOTNET_DEVCERT_BROWSER_ROOTS:-}" ]]; then
+    tr ':' '\n' <<<"$ZZ_DOTNET_DEVCERT_BROWSER_ROOTS"
+    return 0
+  fi
+  printf '%s\n' \
+    "$RUN_HOME/.mozilla/firefox" \
+    "$RUN_CONFIG_HOME/mozilla/firefox" \
+    "$RUN_HOME/.zen" \
+    "$RUN_HOME/.librewolf" \
+    "$RUN_HOME/.waterfox" \
+    "$RUN_HOME/.floorp" \
+    "$RUN_HOME/.var/app/org.mozilla.firefox/.mozilla/firefox" \
+    "$RUN_HOME/.var/app/org.mozilla.firefox/.config/mozilla/firefox" \
+    "$RUN_HOME/.var/app/app.zen_browser.zen/.zen" \
+    "$RUN_HOME/.var/app/io.gitlab.librewolf-community/.librewolf" \
+    "$RUN_HOME/.var/app/net.waterfox.waterfox/.waterfox" \
+    "$RUN_HOME/.var/app/one.ablaze.floorp/.floorp"
+}
+
+find_browser_profiles() {
+  local dir
+  while IFS= read -r dir; do
+    [[ -d "$dir" ]] || continue
+    find "$dir" -name cert9.db -print 2>/dev/null | while IFS= read -r db; do
+      dirname "$db"
+    done
+  done < <(browser_roots)
+}
+
+firefox_like_browser_installed() {
+  command -v firefox >/dev/null 2>&1 && return 0
+  local dir
+  while IFS= read -r dir; do
+    [[ -d "$dir" ]] && return 0
+  done < <(browser_roots)
+  return 1
+}
+
+print_no_browser_profiles_message() {
+  if firefox_like_browser_installed; then
+    printf '    Firefox-style browser is installed, but no profile certificate database was found.\n'
+    printf '    Launch the browser once to create a profile, then rerun `zz dotnet devcert create`.\n'
+  else
+    printf '    No Firefox-based browser profiles found.\n'
+  fi
+}
+
+cmd_devcert_status() {
+  printf '==> Dev certificate\n'
+
+  local dotnet
+  dotnet="$(dotnet_bin || true)"
+  if [[ -z "$dotnet" ]]; then
+    printf '    dotnet: not installed\n'
+    return 0
+  fi
+  printf '    dotnet: %s\n' "$dotnet"
+
+  if ! has_linux_dev_certs "$dotnet"; then
+    printf '    linux-dev-certs tool: not installed\n'
+    printf '    Install it with: dotnet tool install -g linux-dev-certs\n'
+    return 0
+  fi
+
+  local ca_cert expiry
+  if ca_cert="$(find_ca_cert)"; then
+    printf '    CA certificate: %s\n' "$ca_cert"
+    if command -v openssl >/dev/null 2>&1; then
+      expiry="$(openssl x509 -enddate -noout -in "$ca_cert" 2>/dev/null | cut -d= -f2- || true)"
+      if [[ -n "$expiry" ]]; then
+        printf '    Expires: %s\n' "$expiry"
+      fi
+      if openssl x509 -checkend 0 -noout -in "$ca_cert" >/dev/null 2>&1; then
+        printf '    Status: valid\n'
+      else
+        printf '    Status: expired or unreadable\n'
+      fi
+    fi
+  else
+    printf '    CA certificate: not found\n'
+    printf '    Run `zz dotnet devcert create` to generate one.\n'
+    return 0
+  fi
+
+  printf '\n==> Browser profiles\n'
+
+  if ! command -v certutil >/dev/null 2>&1; then
+    printf '    certutil (nss-tools): not installed; cannot check browser imports\n'
+    return 0
+  fi
+
+  local -a profiles=()
+  mapfile -t profiles < <(find_browser_profiles)
+  if [[ "${#profiles[@]}" -eq 0 ]]; then
+    print_no_browser_profiles_message
+    return 0
+  fi
+
+  local profile_dir profile_name
+  for profile_dir in "${profiles[@]}"; do
+    profile_name="$(basename "$profile_dir")"
+    if certutil -L -d "sql:$profile_dir" -n "$NSS_CERT_NAME" >/dev/null 2>&1; then
+      printf '    %s: imported\n' "$profile_name"
+    else
+      printf '    %s: not imported\n' "$profile_name"
+    fi
+  done
+}
+
+require_devcert_tools() {
+  local dotnet
+  dotnet="$(dotnet_bin || true)"
+  if [[ -z "$dotnet" ]]; then
+    printf 'ERROR: dotnet is not installed.\n' >&2
+    return 1
+  fi
+  if ! has_linux_dev_certs "$dotnet"; then
+    printf 'ERROR: linux-dev-certs is not installed.\n' >&2
+    printf 'Install it with: dotnet tool install -g linux-dev-certs\n' >&2
+    return 1
+  fi
+  printf '%s\n' "$dotnet"
+}
+
+devcert_store_dir() {
+  printf '%s\n' "$RUN_HOME/.dotnet/corefx/cryptography/x509stores/my"
+}
+
+devcert_error_thumbprint() {
+  local output_file="$1"
+  awk -F"'" '/thumbprint '\''[A-Fa-f0-9]{40}'\''/ { print $2; exit }' "$output_file"
+}
+
+quarantine_devcert_pfx() {
+  local thumbprint="$1"
+  [[ "$thumbprint" =~ ^[A-Fa-f0-9]{40}$ ]] || return 1
+
+  local store_dir path lower backup
+  store_dir="$(devcert_store_dir)"
+  lower="${thumbprint,,}"
+
+  for path in "$store_dir/$thumbprint.pfx" "$store_dir/$lower.pfx"; do
+    [[ -f "$path" ]] || continue
+    backup="$path.zz-quarantine-$(date +%Y%m%d%H%M%S)"
+    mv "$path" "$backup"
+    printf '    Quarantined stale certificate: %s\n' "$backup" >&2
+    return 0
+  done
+
+  printf '    Stale certificate file was not found in %s\n' "$store_dir" >&2
+  return 1
+}
+
+recover_devcert_clean_failure() {
+  local dotnet="$1"
+  local clean_output="$2"
+  local thumbprint
+
+  thumbprint="$(devcert_error_thumbprint "$clean_output" || true)"
+  if [[ -z "$thumbprint" ]]; then
+    return 1
+  fi
+
+  printf '\n==> dotnet could not remove stale HTTPS dev certificate %s.\n' "$thumbprint" >&2
+  printf '    Moving the stale .NET user-store PFX aside, then retrying cleanup.\n' >&2
+  quarantine_devcert_pfx "$thumbprint" || return 1
+  "$dotnet" dev-certs https --clean
+}
+
+run_linux_dev_certs_install() {
+  local dotnet="$1"
+  local output_file clean_output
+  output_file="$(mktemp)"
+
+  if "$dotnet" linux-dev-certs install 2>&1 | tee "$output_file"; then
+    rm -f "$output_file"
+    return 0
+  fi
+
+  if ! grep -Eq "dev-certs https --clean|error trying to clean HTTPS development certificates" "$output_file"; then
+    rm -f "$output_file"
+    return 1
+  fi
+  rm -f "$output_file"
+
+  printf '\n==> linux-dev-certs could not clean the existing HTTPS dev certificate.\n' >&2
+  printf '    Retrying cleanup as the current user, then running linux-dev-certs again.\n' >&2
+  clean_output="$(mktemp)"
+  if ! "$dotnet" dev-certs https --clean 2>&1 | tee "$clean_output"; then
+    if ! recover_devcert_clean_failure "$dotnet" "$clean_output"; then
+      rm -f "$clean_output"
+      return 1
+    fi
+  fi
+  rm -f "$clean_output"
+  "$dotnet" linux-dev-certs install
+}
+
+cmd_devcert_create() {
+  local dotnet
+  dotnet="$(require_devcert_tools)"
+
+  printf '==> Generating dev certificate...\n'
+  run_linux_dev_certs_install "$dotnet"
+
+  local -a profiles=()
+  mapfile -t profiles < <(find_browser_profiles)
+  if [[ "${#profiles[@]}" -eq 0 ]]; then
+    printf '\n==> Browser profiles\n'
+    print_no_browser_profiles_message
+    printf '    Skipping NSS import.\n'
+    printf '    Done.\n'
+    return 0
+  fi
+
+  if ! command -v certutil >/dev/null 2>&1; then
+    printf '\nWARNING: certutil (nss-tools) is not installed.\n' >&2
+    printf '  The dev certificate was generated, but browser import was skipped.\n' >&2
+    return 0
+  fi
+
+  local ca_cert
+  ca_cert="$(find_ca_cert)" || {
+    printf 'ERROR: Could not locate the CA certificate in the system trust store.\n' >&2
+    return 1
+  }
+
+  printf '\n==> Importing CA into browser profiles...\n'
+
+  local imported=0 profile_dir profile_name
+  for profile_dir in "${profiles[@]}"; do
+    profile_name="$(basename "$profile_dir")"
+    if certutil -L -d "sql:$profile_dir" -n "$NSS_CERT_NAME" >/dev/null 2>&1; then
+      certutil -D -d "sql:$profile_dir" -n "$NSS_CERT_NAME"
+    fi
+    certutil -A -d "sql:$profile_dir" -n "$NSS_CERT_NAME" -t "CT,C,C" -i "$ca_cert"
+    printf '    Imported into: %s\n' "$profile_name"
+    imported=$((imported + 1))
+  done
+
+  printf '\n==> Done. Imported into %s profile(s).\n' "$imported"
+  printf '    Restart your browser for the change to take effect.\n'
+}
+
+cmd_devcert() {
+  local command="${1:-}"
+  case "$command" in
+    ""|-h|--help|help)
+      devcert_usage
+      return 0
+      ;;
+    status)
+      shift
+      [[ "$#" -eq 0 ]] || {
+        printf 'Unknown zz dotnet devcert status option: %s\n' "$1" >&2
+        return 1
+      }
+      cmd_devcert_status
+      ;;
+    create)
+      shift
+      [[ "$#" -eq 0 ]] || {
+        printf 'Unknown zz dotnet devcert create option: %s\n' "$1" >&2
+        return 1
+      }
+      cmd_devcert_create
+      ;;
+    *)
+      printf 'Unknown zz dotnet devcert command: %s\n\n' "$command" >&2
+      devcert_usage >&2
+      return 1
+      ;;
+  esac
+}
+
+main() {
+  local command="${1:-}"
+  case "$command" in
+    ""|-h|--help|help)
+      usage
+      return 0
+      ;;
+    devcert)
+      shift
+      cmd_devcert "$@"
+      ;;
+    *)
+      printf 'Unknown zz dotnet command: %s\n\n' "$command" >&2
+      usage >&2
+      return 1
+      ;;
+  esac
+}
+
+main "$@"

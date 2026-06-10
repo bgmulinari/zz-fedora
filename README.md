@@ -106,6 +106,8 @@ zz logs --tail
 zz debug
 zz first-run
 zz defaults
+zz dotnet devcert status
+zz dotnet devcert create
 zz update all
 zz commands --json
 ./install.sh wizard

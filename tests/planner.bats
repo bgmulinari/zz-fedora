@@ -19,6 +19,7 @@ setup() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "jetbrains-mono-nerd-font-fedora"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "zsh"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "bats"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nss-tools"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nodejs24"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nodejs24-npm"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "starship"
@@ -28,6 +29,7 @@ setup() {
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/autostart/zz-first-run.desktop"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-noctalia'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbats\tbase-bootstrap\tinstaller-bootstrap'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnss-tools\tbase-bootstrap\tinstaller-bootstrap\tbrowser certificate trust'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24\tbase-nodejs'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24-npm\tbase-nodejs'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tjetbrains-mono-nerd-font-fedora\tbase-jetbrains-mono-nerd-font'
