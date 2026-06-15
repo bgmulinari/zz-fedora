@@ -121,87 +121,128 @@ module_90_doctor() {
     return 0
   fi
 
-  doctor_warn_command niri
-  doctor_warn_command niri-session
-  doctor_warn_command qs
-  doctor_warn_command ghostty
-  doctor_warn_user_enabled app-com.mitchellh.ghostty.service
-  doctor_warn_command xdg-terminal-exec
-  doctor_warn_command nautilus
-  doctor_warn_command nvim
-  doctor_warn_command evince
+  local native_plan
+  local native_backend
+  native_backend="$(native_backend_for_distro "$DISTRO")"
+  native_plan="$(package_file_for_backend "$native_backend")"
+
+  if doctor_plan_has_entry "$native_plan" "niri"; then
+    doctor_warn_command niri
+    doctor_warn_command niri-session
+  fi
+  if doctor_plan_has_entry "$native_plan" "noctalia-shell"; then
+    doctor_warn_command qs
+  fi
+  if doctor_plan_has_entry "$native_plan" "ghostty"; then
+    doctor_warn_command ghostty
+    doctor_warn_user_enabled app-com.mitchellh.ghostty.service
+  fi
+  doctor_plan_has_entry "$native_plan" "xdg-terminal-exec" && doctor_warn_command xdg-terminal-exec
+  doctor_plan_has_entry "$native_plan" "nautilus" && doctor_warn_command nautilus
+  if doctor_plan_has_entry "$native_plan" "neovim" || doctor_plan_has_entry "$native_plan" "nvim"; then
+    doctor_warn_command nvim
+  fi
+  doctor_plan_has_entry "$native_plan" "evince" && doctor_warn_command evince
   doctor_warn_command gum
-  doctor_warn_command mpv
-  doctor_warn_command pavucontrol
-  doctor_warn_command system-config-printer
-  doctor_warn_command simple-scan
+  doctor_plan_has_entry "$native_plan" "mpv" && doctor_warn_command mpv
+  doctor_plan_has_entry "$native_plan" "pavucontrol" && doctor_warn_command pavucontrol
+  doctor_plan_has_entry "$native_plan" "system-config-printer" && doctor_warn_command system-config-printer
+  doctor_plan_has_entry "$native_plan" "simple-scan" && doctor_warn_command simple-scan
 
   local user_config_home="$TARGET_HOME/.config"
   local niri_config_home="$user_config_home/niri"
-  doctor_warn_file "$user_config_home/niri/config.kdl"
-  doctor_warn_file "$niri_config_home/cfg/autostart.kdl"
-  doctor_warn_file "$niri_config_home/cfg/keybinds.kdl"
-  doctor_warn_file "$niri_config_home/cfg/misc.kdl"
-  doctor_warn_file "$user_config_home/xdg-desktop-portal/niri-portals.conf"
-  doctor_warn_file "$user_config_home/environment.d/10-niri-gtk.conf"
+  if doctor_plan_has_entry "$native_plan" "niri"; then
+    doctor_warn_file "$user_config_home/niri/config.kdl"
+    doctor_warn_file "$niri_config_home/cfg/autostart.kdl"
+    doctor_warn_file "$niri_config_home/cfg/keybinds.kdl"
+    doctor_warn_file "$niri_config_home/cfg/misc.kdl"
+    doctor_warn_file "$user_config_home/environment.d/10-niri-gtk.conf"
+    doctor_warn_file "$user_config_home/niri/noctalia.kdl"
+  fi
+  if doctor_plan_has_entry "$native_plan" "xdg-desktop-portal"; then
+    doctor_warn_file "$user_config_home/xdg-desktop-portal/niri-portals.conf"
+  fi
   doctor_warn_file "$user_config_home/xdg-terminals.list"
-  doctor_warn_file "$user_config_home/ghostty/config"
-  doctor_warn_file "$user_config_home/niri/noctalia.kdl"
-  doctor_warn_file "$user_config_home/noctalia/settings.json"
-  doctor_warn_file "$user_config_home/noctalia/plugins.json"
-  doctor_warn_file "$user_config_home/noctalia/user-templates.toml"
-  doctor_warn_file "$user_config_home/noctalia/templates/icon-theme-accent"
-  doctor_warn_file "$user_config_home/noctalia/templates/neovim.lua"
-  doctor_warn_file "$user_config_home/noctalia/templates/zsh-syntax-highlighting.zsh"
-  doctor_warn_file "$TARGET_HOME/.cache/noctalia/wallpapers.json"
-  doctor_warn_file "$user_config_home/qt5ct/qt5ct.conf"
-  doctor_warn_file "$user_config_home/qt6ct/qt6ct.conf"
-  doctor_warn_file "$user_config_home/kdeglobals"
-  doctor_warn_file "$user_config_home/nvim/plugin/noctalia.lua"
-  doctor_warn_file "$user_config_home/Code/User/settings.json"
+  doctor_plan_has_entry "$native_plan" "ghostty" && doctor_warn_file "$user_config_home/ghostty/config"
+  if doctor_plan_has_entry "$native_plan" "noctalia-shell"; then
+    doctor_warn_file "$user_config_home/noctalia/settings.json"
+    doctor_warn_file "$user_config_home/noctalia/plugins.json"
+    doctor_warn_file "$user_config_home/noctalia/user-templates.toml"
+    doctor_warn_file "$TARGET_HOME/.cache/noctalia/wallpapers.json"
+  fi
+  if doctor_plan_has_entry "$native_plan" "qt5ct" || doctor_plan_has_entry "$native_plan" "qt6ct"; then
+    doctor_warn_file "$user_config_home/noctalia/templates/icon-theme-accent"
+    doctor_warn_file "$user_config_home/qt5ct/qt5ct.conf"
+    doctor_warn_file "$user_config_home/qt6ct/qt6ct.conf"
+    doctor_warn_file "$user_config_home/kdeglobals"
+  fi
+  if doctor_plan_has_entry "$native_plan" "neovim" || doctor_plan_has_entry "$native_plan" "nvim"; then
+    doctor_warn_file "$user_config_home/noctalia/templates/neovim.lua"
+    doctor_warn_file "$user_config_home/nvim/plugin/noctalia.lua"
+  fi
+  if doctor_plan_has_entry "$native_plan" "zsh"; then
+    doctor_warn_file "$user_config_home/noctalia/templates/zsh-syntax-highlighting.zsh"
+  fi
+  if doctor_plan_has_entry "$native_plan" "code" || doctor_plan_has_entry "$native_plan" "codium" || doctor_plan_has_entry "$native_plan" "code-insiders" || doctor_plan_has_entry "$native_plan" "vscodium"; then
+    doctor_warn_file "$user_config_home/Code/User/settings.json"
+  fi
   doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme"
   doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-screenshot"
   doctor_warn_file "$TARGET_HOME/.local/share/applications/nvim.desktop"
-  doctor_warn_file "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py"
+  doctor_plan_has_entry "$native_plan" "nautilus-python" && doctor_warn_file "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py"
   doctor_warn_file "$TARGET_HOME/Wallpapers/BlueTide.jpg"
   if [[ "$DISTRO" == "fedora" ]]; then
     doctor_check_dir_has_files "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont" '*.ttf'
   fi
 
-  doctor_check_contains "$niri_config_home/cfg/autostart.kdl" 'spawn-at-startup "qs" "-c" "noctalia-shell"'
-  doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "ghostty" "+new-window"'
-  doctor_check_contains "$user_config_home/ghostty/config" 'quit-after-last-window-closed = false'
-  doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "nautilus"'
-  doctor_check_contains "$niri_config_home/config.kdl" 'include "./noctalia.kdl"'
-  doctor_check_contains "$user_config_home/ghostty/config" 'theme = noctalia'
-  doctor_check_contains "$user_config_home/xdg-terminals.list" 'Alacritty.desktop'
-  doctor_check_contains "$TARGET_HOME/.local/share/applications/nvim.desktop" 'Exec=xdg-terminal-exec'
-  doctor_check_contains "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py" 'xdg-terminal-exec'
-  doctor_check_contains "$user_config_home/noctalia/settings.json" '"terminalCommand": "ghostty +new-window -e"'
-  doctor_check_contains "$user_config_home/noctalia/settings.json" '"predefinedScheme": "Catppuccin"'
-  doctor_check_contains "$user_config_home/noctalia/settings.json" '"syncGsettings": true'
-  doctor_check_contains "$user_config_home/noctalia/settings.json" '"directory": "'"$TARGET_HOME"'/Wallpapers"'
-  doctor_check_contains "$user_config_home/noctalia/plugins.json" '"polkit-agent"'
-  doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "niri"'
-  doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "gtk"'
-  doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "qt"'
-  doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "kcolorscheme"'
-  doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "ghostty"'
-  doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'QT_QPA_PLATFORMTHEME=qt6ct'
-  doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'TERMINAL=xdg-terminal-exec'
-  doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'EDITOR=nvim'
-  doctor_check_contains "$user_config_home/kdeglobals" 'widgetStyle=Fusion'
-  doctor_check_contains "$user_config_home/kdeglobals" 'Theme='
-  doctor_check_contains "$user_config_home/qt5ct/qt5ct.conf" 'icon_theme='
-  doctor_check_contains "$user_config_home/qt6ct/qt6ct.conf" 'icon_theme='
-  doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.iconTheme]'
-  doctor_check_contains "$TARGET_HOME/.cache/noctalia/wallpapers.json" '"defaultWallpaper": "'"$TARGET_HOME"'/Wallpapers/BlueTide.jpg"'
-  doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.neovim]'
+  if doctor_plan_has_entry "$native_plan" "niri"; then
+    doctor_check_contains "$niri_config_home/cfg/autostart.kdl" 'spawn-at-startup "qs" "-c" "noctalia-shell"'
+    doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "ghostty" "+new-window"'
+    doctor_check_contains "$niri_config_home/config.kdl" 'include "./noctalia.kdl"'
+    doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'TERMINAL=xdg-terminal-exec'
+    doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'EDITOR=nvim'
+    if doctor_plan_has_entry "$native_plan" "nautilus"; then
+      doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "nautilus"'
+    fi
+    if doctor_plan_has_entry "$native_plan" "qt5ct" || doctor_plan_has_entry "$native_plan" "qt6ct"; then
+      doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'QT_QPA_PLATFORMTHEME=qt6ct'
+    fi
+  fi
+  if doctor_plan_has_entry "$native_plan" "ghostty"; then
+    doctor_check_contains "$user_config_home/ghostty/config" 'quit-after-last-window-closed = false'
+    doctor_check_contains "$user_config_home/ghostty/config" 'theme = noctalia'
+    doctor_check_contains "$user_config_home/noctalia/settings.json" '"terminalCommand": "ghostty +new-window -e"'
+    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "ghostty"'
+  fi
+  if doctor_plan_has_entry "$native_plan" "xdg-terminal-exec"; then
+    doctor_check_contains "$user_config_home/xdg-terminals.list" 'Alacritty.desktop'
+    doctor_check_contains "$TARGET_HOME/.local/share/applications/nvim.desktop" 'Exec=xdg-terminal-exec'
+  fi
+  if doctor_plan_has_entry "$native_plan" "nautilus-python"; then
+    doctor_check_contains "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py" 'xdg-terminal-exec'
+  fi
+  if doctor_plan_has_entry "$native_plan" "noctalia-shell"; then
+    doctor_check_contains "$user_config_home/noctalia/settings.json" '"predefinedScheme": "Catppuccin"'
+    doctor_check_contains "$user_config_home/noctalia/settings.json" '"syncGsettings": true'
+    doctor_check_contains "$user_config_home/noctalia/settings.json" '"directory": "'"$TARGET_HOME"'/Wallpapers"'
+    doctor_check_contains "$user_config_home/noctalia/plugins.json" '"polkit-agent"'
+    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "niri"'
+    doctor_check_contains "$TARGET_HOME/.cache/noctalia/wallpapers.json" '"defaultWallpaper": "'"$TARGET_HOME"'/Wallpapers/BlueTide.jpg"'
+  fi
+  if doctor_plan_has_entry "$native_plan" "qt5ct" || doctor_plan_has_entry "$native_plan" "qt6ct"; then
+    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "gtk"'
+    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "qt"'
+    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "kcolorscheme"'
+    doctor_check_contains "$user_config_home/kdeglobals" 'widgetStyle=Fusion'
+    doctor_check_contains "$user_config_home/kdeglobals" 'Theme='
+    doctor_check_contains "$user_config_home/qt5ct/qt5ct.conf" 'icon_theme='
+    doctor_check_contains "$user_config_home/qt6ct/qt6ct.conf" 'icon_theme='
+    doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.iconTheme]'
+  fi
+  if doctor_plan_has_entry "$native_plan" "neovim" || doctor_plan_has_entry "$native_plan" "nvim"; then
+    doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.neovim]'
+  fi
 
-  local native_plan
-  local native_backend
-  native_backend="$(native_backend_for_distro "$DISTRO")"
-  native_plan="$(package_file_for_backend "$native_backend")"
   local fatal_checks=0
 
   if doctor_plan_has_entry "$native_plan" "niri"; then

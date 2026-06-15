@@ -115,6 +115,7 @@ exec_setup_as_root_if_needed() {
     "STATE_OWNER_USER=${STATE_OWNER_USER:-${USER:-}}"
     "TARGET_USER=$TARGET_USER"
     "TARGET_HOME=$TARGET_HOME"
+    "DESKTOP_APP_PROFILE=$DESKTOP_APP_PROFILE"
   )
   local optional_env
   for optional_env in \
@@ -317,6 +318,9 @@ main() {
       ;;
     list-profiles)
       printf 'base\n'
+      printf 'desktop-app:auto\n'
+      printf 'desktop-app:full\n'
+      printf 'desktop-app:minimal\n'
       ;;
     list-choices)
       local category file

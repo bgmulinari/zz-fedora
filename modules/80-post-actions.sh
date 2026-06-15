@@ -521,8 +521,12 @@ update_noctalia_settings() {
     enable_user_theming=true
   fi
 
-  local -a template_ids=("gtk" "qt" "kcolorscheme")
-  local -a managed_template_ids=("niri" "gtk" "qt" "kcolorscheme" "ghostty" "starship" "btop" "yazi" "code" "pywalfox" "zenBrowser")
+  local -a template_ids=()
+  local -a managed_template_ids=("niri" "ghostty" "starship" "btop" "yazi" "code" "pywalfox" "zenBrowser")
+  if [[ "$(resolved_desktop_app_profile)" == "full" ]]; then
+    template_ids=("gtk" "qt" "kcolorscheme")
+    managed_template_ids+=("gtk" "qt" "kcolorscheme")
+  fi
   if vscode_theming_available_for_plan "$native_plan"; then
     template_ids+=("code")
   fi
@@ -792,7 +796,11 @@ install_zz_launcher() {
 }
 
 configure_default_applications() {
-  configure_default_applications_from_tsv
+  if [[ "$(resolved_desktop_app_profile)" == "full" ]]; then
+    configure_default_applications_from_tsv
+  else
+    log_info "Skipping full desktop default applications for desktop app profile: $(resolved_desktop_app_profile)"
+  fi
   configure_xdg_terminal_defaults
 }
 
@@ -950,8 +958,10 @@ module_80_first_run() {
   run_cmd_as_user "$TARGET_USER" systemctl --user daemon-reload || true
   enable_user_services
   run_cmd_as_user "$TARGET_USER" xdg-user-dirs-update || true
-  run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark || true
-  run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface color-scheme prefer-dark || true
+  if [[ "$(resolved_desktop_app_profile)" == "full" ]]; then
+    run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark || true
+    run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface color-scheme prefer-dark || true
+  fi
   if [[ -x "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme" ]]; then
     run_cmd_as_user "$TARGET_USER" env HOME="$TARGET_HOME" "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme" || true
   fi

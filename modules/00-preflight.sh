@@ -27,6 +27,7 @@ module_00_preflight() {
   printf 'Target home: %s\n' "$TARGET_HOME"
   printf 'Mode: %s\n' "$COMMAND"
   printf 'Dry-run: %s\n' "$DRY_RUN"
+  printf 'Desktop app profile: %s\n' "$(resolved_desktop_app_profile)"
   printf 'Selected profiles: base\n'
   printf 'Selected choices:\n'
   local category

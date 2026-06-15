@@ -13,6 +13,7 @@ Common options:
   --skip-dotfiles
   --target-user USER
   --distro auto|fedora
+  --desktop-app-profile auto|full|minimal
   --select category=a,b,c
   --no-tui
   --stow-adopt
@@ -69,6 +70,11 @@ parse_cli() {
       --distro)
         idx=$((idx + 1))
         DISTRO="${args[$idx]:-}"
+        ;;
+      --desktop-app-profile)
+        idx=$((idx + 1))
+        DESKTOP_APP_PROFILE="${args[$idx]:-}"
+        desktop_app_profile_value >/dev/null
         ;;
       --select)
         idx=$((idx + 1))

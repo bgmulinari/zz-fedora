@@ -51,6 +51,49 @@ setup() {
   refute_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-tools"
 }
 
+@test "minimal desktop app profile keeps Niri baseline but skips full desktop app fill-ins" {
+  DESKTOP_APP_PROFILE=minimal
+  build_fedora_plan
+
+  assert_plan_has "$PLAN_DIR/bundles.list" "base-desktop-niri"
+  assert_plan_has "$PLAN_DIR/bundles.list" "base-noctalia"
+  assert_plan_has "$PLAN_DIR/bundles.list" "base-ghostty"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "niri"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "noctalia-shell"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-terminal-exec"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/share/applications/nvim.desktop"
+
+  refute_plan_has "$PLAN_DIR/bundles.list" "base-desktop-apps"
+  refute_plan_has "$PLAN_DIR/bundles.list" "base-gtk-portals"
+  refute_plan_has "$PLAN_DIR/bundles.list" "base-gtk-look"
+  refute_plan_has "$PLAN_DIR/bundles.list" "base-file-integration-gtk"
+  refute_plan_has "$PLAN_DIR/sources/fedora-rpmfusion.list" "rpmfusion-free"
+  refute_plan_has "$PLAN_DIR/sources/fedora-flatpak-remotes.list" "flathub"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-software"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-desktop-portal-gnome"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus-python"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt6ct"
+  refute_plan_has "$PLAN_DIR/flatpak/apps.flatpaks" "org.gtk.Gtk3theme.adw-gtk3"
+  refute_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/xdg-desktop-portal/niri-portals.conf"
+  refute_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/share/nautilus-python/extensions/open-terminal-here.py"
+}
+
+@test "auto desktop app profile uses minimal when an existing full desktop is detected" {
+  DESKTOP_APP_PROFILE=auto
+  existing_full_desktop_detected() {
+    return 0
+  }
+
+  build_fedora_plan
+
+  assert_file_contains "$PLAN_DIR/summary.txt" "Desktop app profile: minimal"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "niri"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-desktop-portal-gnome"
+}
+
 @test "browser and development selections add their sources and packages" {
   build_fedora_plan "browser=brave" "dev=vscode,lazygit" "ai=codex"
 

@@ -92,15 +92,14 @@ build_plan_from_selections() {
   local -a selected_bundle_ids=()
   local -a plan_sources=()
   local -a plan_backends=()
-  local base_var="BASE_BUNDLE_IDS_${DISTRO}"
-  local -n base_bundle_ids_ref="$base_var"
   local default_var="DEFAULT_BUNDLE_IDS_${DISTRO}"
   local -n default_bundle_ids_ref="$default_var"
   local bundle_id
 
-  for bundle_id in "${base_bundle_ids_ref[@]}"; do
+  while IFS= read -r bundle_id; do
+    [[ -n "$bundle_id" ]] || continue
     append_unique selected_bundle_ids "$bundle_id"
-  done
+  done < <(effective_base_bundle_ids "$DISTRO")
 
   for bundle_id in "${default_bundle_ids_ref[@]}"; do
     append_unique selected_bundle_ids "$bundle_id"
@@ -133,7 +132,7 @@ build_plan_from_selections() {
   done
   append_dotfiles_prereqs
 
-  if array_contains "flatpak" "${plan_backends[@]:-}"; then
+  if [[ "$(resolved_desktop_app_profile)" == "full" ]] && array_contains "flatpak" "${plan_backends[@]:-}"; then
     append_plan_entries \
       "$PLAN_DIR/flatpak/apps.flatpaks" \
       "org.gtk.Gtk3theme.adw-gtk3" \
@@ -239,14 +238,12 @@ write_base_rationale_row() {
 
 write_base_rationale_report() {
   local report="$PLAN_DIR/base-rationale.tsv"
-  local base_var="BASE_BUNDLE_IDS_${DISTRO}"
   printf 'backend\titem\towner_bundle\tclassification\tconsumer\treason\n' >"$report"
-  declare -p "$base_var" >/dev/null 2>&1 || return 0
-  local -n base_bundle_ids_ref="$base_var"
 
   local bundle_id item
   local -A seen_base_sources=()
-  for bundle_id in "${base_bundle_ids_ref[@]:-}"; do
+  while IFS= read -r bundle_id; do
+    [[ -n "$bundle_id" ]] || continue
     load_bundle_descriptor "$DISTRO" "$bundle_id" || die "Unknown base bundle: $bundle_id"
     if [[ -n "${BUNDLE_SOURCE_ID:-}" && -z "${seen_base_sources[$BUNDLE_SOURCE_ID]:-}" ]]; then
       write_base_rationale_row "$report" source "$BUNDLE_SOURCE_ID" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
@@ -256,9 +253,9 @@ write_base_rationale_report() {
       [[ -n "$item" ]] || continue
       write_base_rationale_row "$report" "$BUNDLE_INSTALLER" "$item" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
     done < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
-  done
+  done < <(effective_base_bundle_ids "$DISTRO")
 
-  if grep -Fx 'base-source-flathub' "$PLAN_DIR/bundles.list" >/dev/null 2>&1; then
+  if [[ "$(resolved_desktop_app_profile)" == "full" ]] && grep -Fx 'base-source-flathub' "$PLAN_DIR/bundles.list" >/dev/null 2>&1; then
     write_base_rationale_row "$report" flatpak "org.gtk.Gtk3theme.adw-gtk3" "base-source-flathub" "GTK Flatpak theme runtime for the base desktop"
     write_base_rationale_row "$report" flatpak "org.gtk.Gtk3theme.adw-gtk3-dark" "base-source-flathub" "GTK Flatpak dark theme runtime for the base desktop"
   fi
@@ -294,6 +291,7 @@ write_plan_summary() {
   {
     printf 'Distro: %s\n' "$DISTRO"
     printf 'Target user: %s\n' "$TARGET_USER"
+    printf 'Desktop app profile: %s\n' "$(resolved_desktop_app_profile)"
 
     local native_backend native_total native_base flatpak_total flatpak_base action_total action_base source_total source_base
     native_backend="$(native_backend_for_distro "$DISTRO")"
@@ -558,6 +556,7 @@ print_plan_json() {
   printf '{'
   printf '"distro":"%s",' "$(json_escape "$DISTRO")"
   printf '"target_user":"%s",' "$(json_escape "$TARGET_USER")"
+  printf '"desktop_app_profile":"%s",' "$(json_escape "$(resolved_desktop_app_profile)")"
   printf '"selected_bundles":'
   json_array_from_file "$PLAN_DIR/bundles.list"
   printf ',"sources":'

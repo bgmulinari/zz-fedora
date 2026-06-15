@@ -74,13 +74,11 @@ build_base_package_plan_for_backend() {
   local backend="$1"
   local base_plan="$2"
   local filter="${3:-all}"
-  local base_var="BASE_BUNDLE_IDS_${DISTRO}"
-  declare -p "$base_var" >/dev/null 2>&1 || return 0
-  local -n base_bundle_ids_ref="$base_var"
 
   local bundle_id
   local -a bundle_items=()
-  for bundle_id in "${base_bundle_ids_ref[@]:-}"; do
+  while IFS= read -r bundle_id; do
+    [[ -n "$bundle_id" ]] || continue
     case "$filter" in
       all)
         ;;
@@ -98,7 +96,7 @@ build_base_package_plan_for_backend() {
     [[ "$BUNDLE_INSTALLER" == "$backend" ]] || continue
     mapfile -t bundle_items < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
     append_plan_entries "$base_plan" "${bundle_items[@]:-}"
-  done
+  done < <(effective_base_bundle_ids "$DISTRO")
 }
 
 apply_existing_system_policy_to_base_plan() {

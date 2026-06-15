@@ -4,6 +4,7 @@ set -Eeuo pipefail
 DEFAULT_COMMAND="wizard"
 DEFAULT_DISTRO="auto"
 DEFAULT_TARGET_USER="${SUDO_USER:-$USER}"
+DEFAULT_DESKTOP_APP_PROFILE="auto"
 DEFAULT_SYSTEM_SERVICES=(
   NetworkManager
   firewalld
@@ -37,6 +38,7 @@ BASE_BUNDLE_IDS_fedora=(
   base-system-services
   base-desktop-apps
   base-file-integration
+  base-file-integration-gtk
   base-wayland-tools
   base-gtk-look
   base-nodejs
@@ -53,6 +55,17 @@ BASE_BUNDLE_IDS_fedora=(
 )
 
 DEFAULT_BUNDLE_IDS_fedora=(
+)
+
+MINIMAL_DESKTOP_SKIP_BUNDLE_IDS_fedora=(
+  base-source-rpmfusion-free
+  base-source-rpmfusion-nonfree
+  base-source-flathub
+  base-source-cisco-openh264
+  base-gtk-portals
+  base-desktop-apps
+  base-file-integration-gtk
+  base-gtk-look
 )
 
 SUPPORTED_DISTROS=(

@@ -26,6 +26,19 @@ setup() {
   refute_file_contains "$TEST_ROOT/commands.log" "x-scheme-handler/mailto"
 }
 
+@test "minimal desktop app profile skips full desktop MIME defaults but keeps terminal defaults" {
+  DESKTOP_APP_PROFILE=minimal
+  build_fedora_plan
+
+  run configure_default_applications
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "xdg-terminals.list"
+  refute_contains "$output" "xdg-mime default org.gnome.Nautilus.desktop"
+  refute_contains "$output" "xdg-mime default org.gnome.Evince.desktop"
+  refute_contains "$output" "xdg-mime default mpv.desktop"
+}
+
 @test "selected browser default falls back to MIME when xdg-settings fails" {
   run_cmd_as_user() {
     local user="$1"

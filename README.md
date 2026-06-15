@@ -11,7 +11,7 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 
 - Niri is the compositor/session target.
 - Noctalia v4 Shell is a shell layer, not a full desktop environment. Fedora installs it from Terra with the `noctalia-shell` package.
-- GTK desktop defaults are the baseline:
+- The full desktop app profile installs GTK desktop defaults:
   - Nautilus for file management
   - Neovim as the default handler for plain text and source files
   - Evince for PDFs and other document viewing
@@ -35,12 +35,14 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 - Noctalia v4 uses the existing JSON settings flow in `~/.config/noctalia/settings.json`; TOML settings/package handling for later Noctalia releases is intentionally out of scope.
 - Firefox Noctalia theming uses Pywalfox. Fedora installs it globally with `sudo python3 -m pip install --upgrade pywalfox` and then registers the native messaging host for the target user.
 - The installer never starts SDDM immediately. When no display manager is already enabled, reboot to begin using the graphical login.
+- On systems that already have a full GNOME/KDE/Plasma desktop, the installer can use the minimal desktop app profile. This keeps Niri, Noctalia, Ghostty, shell tooling, and Niri support packages, while skipping replacement desktop apps, GTK/GNOME portal fill-ins, GTK/Qt look packages, and base media/source enablement that are only needed for the complete GTK-oriented baseline.
 - Selecting Visual Studio Code also enables Noctalia's built-in `code` template automatically. Fedora uses Microsoft's RPM repo.
 
 ## Bundle Model
 
 - `BASE_BUNDLE_IDS_fedora` defines the non-optional base bundles.
-- Base bundles are always planned and installed first. They are the protected desktop baseline, including Niri, Noctalia, SDDM when no display manager is already enabled, Zsh, Firefox, core services, portals, GTK/Qt integration, project-managed fonts, shell tooling, file integration, and managed base dotfiles.
+- Base bundles are planned and installed first after applying `--desktop-app-profile`. The full profile is the protected desktop baseline, including Niri, Noctalia, SDDM when no display manager is already enabled, Zsh, core services, portals, GTK/Qt integration, project-managed fonts, shell tooling, file integration, and managed base dotfiles.
+- `--desktop-app-profile auto|full|minimal` controls desktop app fill-ins. `auto` uses `minimal` when an existing GNOME/KDE/Plasma desktop is detected and `full` otherwise. `minimal` still installs the Niri/Noctalia/Ghostty baseline, but skips bundles listed in `MINIMAL_DESKTOP_SKIP_BUNDLE_IDS_fedora`.
 - A base bundle failure is fatal because the result would not be a functioning desktop baseline.
 - `DEFAULT_BUNDLE_IDS_fedora` is intentionally empty while the base desktop is being hardened. AI, development, .NET, office, gaming, media, and extra browser bundles are opt-in.
 - Wizard and `--select` choices add optional categories. Optional package/source/action failures warn and continue where possible so one broken optional component does not prevent the base desktop setup from completing.
@@ -95,6 +97,7 @@ Non-interactive install:
 
 ```bash
 ./install.sh install --yes
+./install.sh install --yes --desktop-app-profile minimal
 ./install.sh install --yes --select browser=brave --select dev=vscode,neovim
 ```
 

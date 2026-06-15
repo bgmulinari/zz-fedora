@@ -39,3 +39,14 @@ setup() {
   assert_contains "$output" '"usage":"zz dotnet <devcert> [options]"'
   assert_contains "$output" '"usage":"zz doctor [options]"'
 }
+
+@test "install list-profiles exposes desktop app profiles" {
+  run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" \
+    bash "$ROOT_DIR/install.sh" list-profiles --distro fedora --dry-run --no-tui
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "base"
+  assert_contains "$output" "desktop-app:auto"
+  assert_contains "$output" "desktop-app:full"
+  assert_contains "$output" "desktop-app:minimal"
+}

@@ -45,6 +45,7 @@ INSTALL_WEAK_DEPS="${INSTALL_WEAK_DEPS:-0}"
 VERIFY_INSTALLS="${VERIFY_INSTALLS:-1}"
 PLAN_FORMAT="${PLAN_FORMAT:-text}"
 COMMAND_PREVIEW="${COMMAND_PREVIEW:-0}"
+DESKTOP_APP_PROFILE="${DESKTOP_APP_PROFILE:-$DEFAULT_DESKTOP_APP_PROFILE}"
 PREFERRED_BROWSER="${PREFERRED_BROWSER:-}"
 CURRENT_ADAPTER="${CURRENT_ADAPTER:-}"
 LOCK_ACQUIRED="${LOCK_ACQUIRED:-0}"
@@ -119,6 +120,83 @@ array_contains() {
     [[ "$item" == "$needle" ]] && return 0
   done
   return 1
+}
+
+desktop_app_profile_value() {
+  case "${DESKTOP_APP_PROFILE:-auto}" in
+    auto|full|minimal)
+      printf '%s\n' "${DESKTOP_APP_PROFILE:-auto}"
+      ;;
+    *)
+      die "Unsupported desktop app profile: $DESKTOP_APP_PROFILE"
+      ;;
+  esac
+}
+
+existing_full_desktop_detected() {
+  local current_desktop="${XDG_CURRENT_DESKTOP:-}"
+  local desktop_session="${DESKTOP_SESSION:-}"
+  local lowered marker
+
+  lowered="$(printf '%s:%s\n' "$current_desktop" "$desktop_session" | tr '[:upper:]' '[:lower:]')"
+  case "$lowered" in
+    *gnome*|*kde*|*plasma*)
+      return 0
+      ;;
+  esac
+
+  for marker in \
+    /usr/share/wayland-sessions/gnome.desktop \
+    /usr/share/xsessions/gnome.desktop \
+    /usr/share/wayland-sessions/plasma.desktop \
+    /usr/share/xsessions/plasma.desktop; do
+    [[ -f "$marker" ]] && return 0
+  done
+
+  for marker in gnome-shell plasmashell startplasma-wayland startplasma-x11; do
+    command -v "$marker" >/dev/null 2>&1 && return 0
+  done
+
+  return 1
+}
+
+resolved_desktop_app_profile() {
+  local profile
+  profile="$(desktop_app_profile_value)"
+  if [[ "$profile" == "auto" ]]; then
+    if existing_full_desktop_detected; then
+      printf 'minimal\n'
+    else
+      printf 'full\n'
+    fi
+    return 0
+  fi
+  printf '%s\n' "$profile"
+}
+
+minimal_desktop_skips_bundle() {
+  local distro="$1"
+  local bundle_id="$2"
+  local skip_var="MINIMAL_DESKTOP_SKIP_BUNDLE_IDS_${distro}"
+  declare -p "$skip_var" >/dev/null 2>&1 || return 1
+  local -n skip_bundle_ids_ref="$skip_var"
+  array_contains "$bundle_id" "${skip_bundle_ids_ref[@]:-}"
+}
+
+effective_base_bundle_ids() {
+  local distro="$1"
+  local base_var="BASE_BUNDLE_IDS_${distro}"
+  declare -p "$base_var" >/dev/null 2>&1 || return 0
+  local -n base_bundle_ids_ref="$base_var"
+  local profile bundle_id
+  profile="$(resolved_desktop_app_profile)"
+
+  for bundle_id in "${base_bundle_ids_ref[@]:-}"; do
+    if [[ "$profile" == "minimal" ]] && minimal_desktop_skips_bundle "$distro" "$bundle_id"; then
+      continue
+    fi
+    printf '%s\n' "$bundle_id"
+  done
 }
 
 split_csv() {
@@ -542,6 +620,7 @@ save_selections() {
   {
     printf 'distro=%s\n' "$DISTRO"
     printf 'target_user=%s\n' "$TARGET_USER"
+    printf 'desktop_app_profile=%s\n' "$DESKTOP_APP_PROFILE"
     printf 'preferred_browser=%s\n' "$PREFERRED_BROWSER"
     local category
     for category in $(category_names "$DISTRO"); do
@@ -562,6 +641,7 @@ load_saved_selections() {
     case "$key" in
       distro) DISTRO="$value" ;;
       target_user) TARGET_USER="$value" ;;
+      desktop_app_profile) DESKTOP_APP_PROFILE="$value" ;;
       preferred_browser) PREFERRED_BROWSER="$value" ;;
       select.*)
         set_category_override "${key#select.}" "$value"
