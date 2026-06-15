@@ -28,6 +28,18 @@ setup() {
   assert_equal "dnf:good-package" "${install_attempts[2]}"
 }
 
+@test "display manager detector recognizes Plasma Login Manager" {
+  DRY_RUN=0
+  systemd_unit_enabled() {
+    [[ "$1" == "plasmalogin.service" ]]
+  }
+
+  run detect_enabled_display_manager
+
+  [ "$status" -eq 0 ]
+  assert_equal "plasmalogin.service" "$output"
+}
+
 @test "required package transaction aborts without optional retry loop" {
   plan_file="$TEST_ROOT/required.pkgs"
   printf 'bad-package\ngood-package\n' >"$plan_file"

@@ -38,6 +38,7 @@ systemd_unit_file_exists() {
 known_display_manager_units() {
   printf '%s\n' \
     sddm.service \
+    plasmalogin.service \
     gdm.service \
     gdm3.service \
     lightdm.service \
