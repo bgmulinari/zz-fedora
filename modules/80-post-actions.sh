@@ -289,13 +289,53 @@ starship_theming_available_for_plan() {
   return 1
 }
 
+install_starship_fallback_palette_if_needed() {
+  local config_file="$1"
+  [[ -f "$config_file" || -L "$config_file" ]] || return 0
+  grep -Eq '^[[:space:]]*palette[[:space:]]*=[[:space:]]*"noctalia"' "$config_file" || return 0
+  grep -Eq '^[[:space:]]*\[palettes\.noctalia\]' "$config_file" && return 0
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: append fallback Noctalia Starship palette -> %s\n' "$config_file"
+    return 0
+  fi
+
+  local backup_root backup_path palette_file
+  backup_root="$STATE_DIR/backups/$(timestamp)"
+  backup_path="$backup_root$config_file"
+  palette_file="$(mktemp "$CACHE_DIR/starship-palette.XXXXXX")"
+
+  awk '
+    /^# >>> NOCTALIA STARSHIP PALETTE >>>$/ { copy = 1 }
+    copy { print }
+    /^# <<< NOCTALIA STARSHIP PALETTE <<<$/{ copy = 0 }
+  ' "$ROOT_DIR/templates/starship.toml" >"$palette_file"
+  chmod 0644 "$palette_file"
+
+  if [[ ! -s "$palette_file" ]]; then
+    rm -f "$palette_file"
+    log_warn "Could not find fallback Noctalia Starship palette in template"
+    return 0
+  fi
+
+  run_cmd_as_user "$TARGET_USER" mkdir -p "$(dirname "$backup_path")"
+  run_cmd_as_user "$TARGET_USER" cp -a "$config_file" "$backup_path"
+  run_cmd_as_user "$TARGET_USER" sh -c 'printf "\n" >> "$1"; cat "$2" >> "$1"' sh "$config_file" "$palette_file"
+  rm -f "$palette_file"
+  log_info "Added fallback Noctalia Starship palette to $config_file"
+}
+
 install_starship_config() {
-  local native_plan
+  local native_plan destination
   native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  destination="$TARGET_HOME/.config/starship.toml"
 
   starship_theming_available_for_plan "$native_plan" || return 0
-  [[ -e "$TARGET_HOME/.config/starship.toml" || -L "$TARGET_HOME/.config/starship.toml" ]] && return 0
-  install_user_file_if_changed "$ROOT_DIR/templates/starship.toml" "$TARGET_HOME/.config/starship.toml"
+  if [[ -e "$destination" || -L "$destination" ]]; then
+    install_starship_fallback_palette_if_needed "$destination"
+    return 0
+  fi
+  install_user_file_if_changed "$ROOT_DIR/templates/starship.toml" "$destination"
 }
 
 install_niri_noctalia_seed_if_missing() {

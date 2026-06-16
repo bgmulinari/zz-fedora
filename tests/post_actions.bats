@@ -124,6 +124,47 @@ setup() {
   assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"enableUserTheming": true'
 }
 
+@test "Starship seed includes fallback Noctalia palette" {
+  build_fedora_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/starship-home"
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_starship_config
+
+  assert_file_contains "$TARGET_HOME/.config/starship.toml" 'palette = "noctalia"'
+  assert_file_contains "$TARGET_HOME/.config/starship.toml" '# >>> NOCTALIA STARSHIP PALETTE >>>'
+  assert_file_contains "$TARGET_HOME/.config/starship.toml" '[palettes.noctalia]'
+  assert_file_contains "$TARGET_HOME/.config/starship.toml" 'surface0 = "#313244"'
+  assert_file_contains "$TARGET_HOME/.config/starship.toml" '# <<< NOCTALIA STARSHIP PALETTE <<<'
+}
+
+@test "Starship rerun repairs existing Noctalia palette reference" {
+  build_fedora_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/starship-existing-home"
+  mkdir -p "$TARGET_HOME/.config"
+  printf 'palette = "noctalia"\nformat = "$character"\n' >"$TARGET_HOME/.config/starship.toml"
+  DRY_RUN=0
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_starship_config
+
+  assert_file_contains "$TARGET_HOME/.config/starship.toml" 'format = "$character"'
+  assert_file_contains "$TARGET_HOME/.config/starship.toml" '# >>> NOCTALIA STARSHIP PALETTE >>>'
+  assert_file_contains "$TARGET_HOME/.config/starship.toml" '[palettes.noctalia]'
+}
+
 @test "Noctalia plugins seed enabled plugin state when absent" {
   build_fedora_plan
   TARGET_USER="test-user"
