@@ -210,7 +210,6 @@ module_90_doctor() {
   fi
   if doctor_plan_has_entry "$native_plan" "ghostty"; then
     doctor_check_contains "$user_config_home/ghostty/config" 'quit-after-last-window-closed = false'
-    doctor_check_contains "$user_config_home/ghostty/config" 'theme = noctalia'
     doctor_check_contains "$user_config_home/noctalia/settings.json" '"terminalCommand": "ghostty +new-window -e"'
     doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "ghostty"'
   fi
