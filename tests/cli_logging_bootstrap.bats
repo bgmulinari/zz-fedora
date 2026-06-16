@@ -7,7 +7,7 @@ setup() {
 }
 
 @test "install dry-run keeps base setup before optional work" {
-  run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" \
+  run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
     bash "$ROOT_DIR/install.sh" install --distro fedora --dry-run --no-tui
 
   [ "$status" -eq 0 ]
@@ -18,7 +18,7 @@ setup() {
   assert_contains "$output" "==> [9/9] Doctor"
   refute_contains "$output" "DRY-RUN: brew install codex"
   refute_contains "$output" "DRY-RUN: install active .NET SDK channels"
-  assert_contains "$output" "DRY-RUN: install JetBrains Mono Nerd Font"
+  assert_contains "$output" "jetbrains-mono-nerd-font-fedora"
   assert_contains "$output" "sudo systemctl daemon-reload"
   assert_contains "$output" "sudo systemctl set-default graphical.target"
   assert_contains "$output" "sudo systemctl enable --force sddm.service"
@@ -137,12 +137,36 @@ setup() {
 
   REPO_URL="$TEST_ROOT/origin.git"
   INSTALL_DIR="$TEST_ROOT/install"
-  REF="main"
+  REF=""
   clone_or_update_repo
 
   assert_equal "$new_commit" "$(git -C "$TEST_ROOT/install" rev-parse HEAD)"
   assert_equal "new" "$(cat "$TEST_ROOT/install/version.txt")"
   [[ "$(git -C "$TEST_ROOT/install" rev-parse HEAD)" != "$old_commit" ]]
+
+  git -C "$TEST_ROOT/source" switch -c desktop >/dev/null
+  printf 'desktop old\n' >"$TEST_ROOT/source/version.txt"
+  git -C "$TEST_ROOT/source" commit -am "desktop old" >/dev/null
+  git -C "$TEST_ROOT/source" push -u origin desktop >/dev/null 2>&1
+  git -C "$TEST_ROOT/install" fetch origin desktop >/dev/null 2>&1
+  git -C "$TEST_ROOT/install" switch -c desktop origin/desktop >/dev/null
+  desktop_old_commit="$(git -C "$TEST_ROOT/install" rev-parse HEAD)"
+  printf 'desktop new\n' >"$TEST_ROOT/source/version.txt"
+  git -C "$TEST_ROOT/source" commit -am "desktop new" >/dev/null
+  git -C "$TEST_ROOT/source" push >/dev/null 2>&1
+  desktop_new_commit="$(git -C "$TEST_ROOT/source" rev-parse HEAD)"
+
+  REF=""
+  clone_or_update_repo
+  assert_equal "desktop" "$(git -C "$TEST_ROOT/install" branch --show-current)"
+  assert_equal "$desktop_new_commit" "$(git -C "$TEST_ROOT/install" rev-parse HEAD)"
+  assert_equal "desktop new" "$(cat "$TEST_ROOT/install/version.txt")"
+  [[ "$(git -C "$TEST_ROOT/install" rev-parse HEAD)" != "$desktop_old_commit" ]]
+
+  REF="main"
+  clone_or_update_repo
+  assert_equal "main" "$(git -C "$TEST_ROOT/install" branch --show-current)"
+  assert_equal "$new_commit" "$(git -C "$TEST_ROOT/install" rev-parse HEAD)"
 
   printf 'dirty\n' >"$TEST_ROOT/install/local.txt"
   set +e

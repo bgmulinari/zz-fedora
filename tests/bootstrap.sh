@@ -38,12 +38,36 @@ source "$bootstrap_source"
 
 REPO_URL="$TEST_ROOT/origin.git"
 INSTALL_DIR="$TEST_ROOT/install"
-REF="main"
+REF=""
 clone_or_update_repo
 
 [[ "$(git -C "$TEST_ROOT/install" rev-parse HEAD)" == "$new_commit" ]]
 [[ "$(cat "$TEST_ROOT/install/version.txt")" == "new" ]]
 [[ "$(git -C "$TEST_ROOT/install" rev-parse HEAD)" != "$old_commit" ]]
+
+git -C "$TEST_ROOT/source" switch -c desktop >/dev/null
+printf 'desktop old\n' >"$TEST_ROOT/source/version.txt"
+git -C "$TEST_ROOT/source" commit -am "desktop old" >/dev/null
+git -C "$TEST_ROOT/source" push -u origin desktop >/dev/null 2>&1
+git -C "$TEST_ROOT/install" fetch origin desktop >/dev/null 2>&1
+git -C "$TEST_ROOT/install" switch -c desktop origin/desktop >/dev/null
+desktop_old_commit="$(git -C "$TEST_ROOT/install" rev-parse HEAD)"
+printf 'desktop new\n' >"$TEST_ROOT/source/version.txt"
+git -C "$TEST_ROOT/source" commit -am "desktop new" >/dev/null
+git -C "$TEST_ROOT/source" push >/dev/null 2>&1
+desktop_new_commit="$(git -C "$TEST_ROOT/source" rev-parse HEAD)"
+
+REF=""
+clone_or_update_repo
+[[ "$(git -C "$TEST_ROOT/install" branch --show-current)" == "desktop" ]]
+[[ "$(git -C "$TEST_ROOT/install" rev-parse HEAD)" == "$desktop_new_commit" ]]
+[[ "$(cat "$TEST_ROOT/install/version.txt")" == "desktop new" ]]
+[[ "$(git -C "$TEST_ROOT/install" rev-parse HEAD)" != "$desktop_old_commit" ]]
+
+REF="main"
+clone_or_update_repo
+[[ "$(git -C "$TEST_ROOT/install" branch --show-current)" == "main" ]]
+[[ "$(git -C "$TEST_ROOT/install" rev-parse HEAD)" == "$new_commit" ]]
 
 printf 'dirty\n' >"$TEST_ROOT/install/local.txt"
 dirty_output="$(clone_or_update_repo 2>&1)" && {

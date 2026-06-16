@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 REPO_URL="https://github.com/bgmulinari/zz-linux-setup.git"
-REF="main"
+REF=""
 INSTALL_DIR="${HOME}/zz-linux-setup"
 FORWARD_ARGS=()
 DRY_RUN=0
@@ -51,6 +51,11 @@ bootstrap_notice() {
 
   printf 'ZZ Linux Setup bootstrap\n'
   printf 'This will install bootstrap packages for %s, clone or update %s, and then launch the installer.\n' "$distro" "$INSTALL_DIR"
+  if [[ -n "$REF" ]]; then
+    printf 'Ref: %s\n' "$REF"
+  else
+    printf 'Ref: current/default checkout\n'
+  fi
   printf 'Packages: %s\n' "$packages"
 }
 
@@ -138,7 +143,11 @@ clone_or_update_repo() {
     exit 1
   fi
   run git -C "$INSTALL_DIR" fetch --all --tags --prune
-  checkout_ref
+  if [[ -n "$REF" ]]; then
+    checkout_ref
+  else
+    update_current_ref
+  fi
 }
 
 checkout_ref() {
@@ -159,6 +168,31 @@ checkout_ref() {
 
   printf 'Could not resolve ref after fetch: %s\n' "$REF" >&2
   exit 1
+}
+
+update_current_ref() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: keep current/default checkout in %s\n' "$INSTALL_DIR"
+    return 0
+  fi
+
+  local current_branch upstream
+  current_branch="$(git -C "$INSTALL_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  if [[ -z "$current_branch" ]]; then
+    printf 'No --ref provided and %s is on a detached HEAD; leaving checkout unchanged.\n' "$INSTALL_DIR"
+    return 0
+  fi
+
+  upstream="$(git -C "$INSTALL_DIR" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
+  if [[ -z "$upstream" ]] && git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/remotes/origin/$current_branch"; then
+    upstream="origin/$current_branch"
+  fi
+  if [[ -z "$upstream" ]]; then
+    printf 'No --ref provided and branch %s has no upstream; leaving checkout unchanged.\n' "$current_branch"
+    return 0
+  fi
+
+  run git -C "$INSTALL_DIR" merge --ff-only "$upstream"
 }
 
 exec_installer() {
