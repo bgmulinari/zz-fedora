@@ -54,8 +54,11 @@ plan_has_any_backend_entry() {
 
 noctalia_shell_available_for_plan() {
   local native_plan="$1"
+  local action_plan
 
-  plan_has_any_backend_entry "$native_plan" noctalia-git noctalia
+  plan_has_any_backend_entry "$native_plan" noctalia-git noctalia && return 0
+  action_plan="$(package_file_for_backend action)"
+  plan_has_any_backend_entry "$action_plan" noctalia-v5-fedora
 }
 
 noctalia_builtin_template_ids() {

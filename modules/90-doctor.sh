@@ -88,6 +88,14 @@ doctor_plan_has_entry() {
   grep -Fx "$entry" "$plan_file" >/dev/null 2>&1
 }
 
+doctor_noctalia_planned() {
+  local native_plan="$1"
+  local action_plan
+  doctor_plan_has_entry "$native_plan" "noctalia-git" && return 0
+  action_plan="$(package_file_for_backend action)"
+  doctor_plan_has_entry "$action_plan" "noctalia-v5-fedora"
+}
+
 module_90_doctor() {
   if [[ "$COMMAND" != "doctor" && "$DRY_RUN" -eq 1 ]]; then
     printf 'Doctor skipped in dry-run mode.\n'
@@ -103,7 +111,7 @@ module_90_doctor() {
     doctor_warn_command niri
     doctor_warn_command niri-session
   fi
-  if doctor_plan_has_entry "$native_plan" "noctalia-git"; then
+  if doctor_noctalia_planned "$native_plan"; then
     doctor_warn_command noctalia
   fi
   if doctor_plan_has_entry "$native_plan" "ghostty"; then
@@ -138,7 +146,7 @@ module_90_doctor() {
   doctor_warn_file "$user_config_home/xdg-terminals.list"
   doctor_plan_has_entry "$native_plan" "ghostty" && doctor_warn_file "$user_config_home/ghostty/config"
   doctor_plan_has_entry "$native_plan" "ghostty" && doctor_warn_file "$user_config_home/ghostty/themes/noctalia"
-  if doctor_plan_has_entry "$native_plan" "noctalia-git"; then
+  if doctor_noctalia_planned "$native_plan"; then
     doctor_warn_file "$user_config_home/noctalia/config.toml"
   fi
   if doctor_plan_has_entry "$native_plan" "qt5ct" || doctor_plan_has_entry "$native_plan" "qt6ct"; then
@@ -182,7 +190,7 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "nautilus-python"; then
     doctor_check_contains "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py" 'xdg-terminal-exec'
   fi
-  if doctor_plan_has_entry "$native_plan" "noctalia-git"; then
+  if doctor_noctalia_planned "$native_plan"; then
     doctor_check_contains "$user_config_home/noctalia/config.toml" 'polkit_agent = true'
     doctor_check_contains "$user_config_home/noctalia/config.toml" 'builtin = "Noctalia"'
     doctor_check_contains "$user_config_home/noctalia/config.toml" 'directory = "'"$TARGET_HOME"'/Wallpapers"'

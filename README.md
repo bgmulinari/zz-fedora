@@ -10,7 +10,7 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 ## Desktop Philosophy
 
 - Niri is the compositor/session target.
-- Noctalia v5 is a native Wayland shell layer, not a full desktop environment. Fedora installs it from the `lionheartp/Hyprland` Copr with the `noctalia-git` package.
+- Noctalia v5 is a native Wayland shell layer, not a full desktop environment. Fedora installs a pinned known-good `noctalia-git` build from the `lionheartp/Hyprland` Copr.
 - The full desktop app profile installs GTK desktop defaults:
   - Nautilus for file management
   - Neovim as the default handler for plain text and source files

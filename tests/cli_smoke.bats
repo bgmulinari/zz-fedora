@@ -19,7 +19,7 @@ setup() {
   assert_contains "$output" '"base_rationale":'
   assert_contains "$output" '"bats"'
   assert_contains "$output" '"niri"'
-  assert_contains "$output" '"noctalia-git"'
+  assert_contains "$output" '"noctalia-v5-fedora"'
   assert_contains "$output" '"copr:lionheartp/Hyprland"'
   refute_contains "$output" '"code"'
   refute_contains "$output" "Log file:"
