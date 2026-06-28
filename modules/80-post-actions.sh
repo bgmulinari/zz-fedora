@@ -52,30 +52,6 @@ plan_has_any_backend_entry() {
   return 1
 }
 
-noctalia_shell_available_for_plan() {
-  local native_plan="$1"
-  local action_plan
-
-  plan_has_any_backend_entry "$native_plan" noctalia-git noctalia && return 0
-  action_plan="$(package_file_for_backend action)"
-  plan_has_any_backend_entry "$action_plan" noctalia-v5-fedora
-}
-
-noctalia_builtin_template_ids() {
-  local native_plan="$1"
-  local template_id
-
-  plan_has_any_backend_entry "$native_plan" niri && printf 'niri\n'
-  plan_has_any_backend_entry "$native_plan" ghostty && printf 'ghostty\n'
-  plan_has_any_backend_entry "$native_plan" starship && printf 'starship\n'
-  plan_has_any_backend_entry "$native_plan" btop && printf 'btop\n'
-  if [[ "$(resolved_desktop_app_profile)" == "full" ]]; then
-    for template_id in gtk3 gtk4 qt kcolorscheme; do
-      printf '%s\n' "$template_id"
-    done
-  fi
-}
-
 starship_theming_available_for_plan() {
   local native_plan="$1"
 
@@ -161,72 +137,6 @@ install_niri_display_seed_if_missing() {
   destination="$TARGET_HOME/.config/niri/cfg/display.kdl"
   [[ -e "$destination" || -L "$destination" ]] && return 0
   install_user_file_if_changed "$ROOT_DIR/templates/niri/display.kdl" "$destination"
-}
-
-toml_quote() {
-  local value="$1"
-  value="${value//\\/\\\\}"
-  value="${value//\"/\\\"}"
-  printf '"%s"' "$value"
-}
-
-toml_array() {
-  local item first=1
-  printf '['
-  for item in "$@"; do
-    [[ "$first" -eq 1 ]] || printf ', '
-    toml_quote "$item"
-    first=0
-  done
-  printf ']'
-}
-
-install_noctalia_config_if_missing() {
-  local native_plan destination wallpaper_dir default_wallpaper templates_array temp_file
-  local -a template_ids=()
-  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
-  noctalia_shell_available_for_plan "$native_plan" || return 0
-
-  destination="$TARGET_HOME/.config/noctalia/config.toml"
-  [[ -e "$destination" || -L "$destination" ]] && return 0
-
-  install_bundled_wallpapers
-  wallpaper_dir="$TARGET_HOME/Wallpapers"
-  default_wallpaper="$wallpaper_dir/BlueTide.jpg"
-  mapfile -t template_ids < <(noctalia_builtin_template_ids "$native_plan")
-  templates_array="$(toml_array "${template_ids[@]}")"
-  temp_file="$(mktemp "$CACHE_DIR/noctalia-config.XXXXXX")"
-
-  {
-    printf '# Managed by zz-linux-setup.\n'
-    printf '# Noctalia v5 reads TOML from ~/.config/noctalia/ and writes GUI overrides to ~/.local/state/noctalia/settings.toml.\n\n'
-    printf '[shell]\n'
-    printf 'font_family = "JetBrainsMono Nerd Font"\n'
-    printf 'polkit_agent = true\n'
-    printf 'telemetry_enabled = false\n\n'
-    printf '[shell.screenshot]\n'
-    printf 'directory = %s\n' "$(toml_quote "$TARGET_HOME/Pictures/Screenshots")"
-    printf 'filename_pattern = "Screenshot from %%Y-%%m-%%d %%H-%%M-%%S"\n'
-    printf 'save_to_file = true\n'
-    printf 'copy_to_clipboard = true\n\n'
-    printf '[wallpaper]\n'
-    printf 'directory = %s\n\n' "$(toml_quote "$wallpaper_dir")"
-    printf '[wallpaper.default]\n'
-    printf 'path = %s\n\n' "$(toml_quote "$default_wallpaper")"
-    printf '[theme]\n'
-    printf 'mode = "dark"\n'
-    printf 'source = "builtin"\n'
-    printf 'builtin = "Noctalia"\n\n'
-    printf '[theme.templates]\n'
-    printf 'enable_builtin_templates = true\n'
-    printf 'builtin_ids = %s\n' "$templates_array"
-    printf 'enable_community_templates = false\n'
-    printf 'community_ids = []\n'
-  } >"$temp_file"
-  chmod 0644 "$temp_file"
-
-  install_user_file_if_changed "$temp_file" "$destination"
-  rm -f "$temp_file"
 }
 
 install_qtct_config() {
@@ -579,7 +489,6 @@ module_80_first_run() {
     run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark || true
     run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface color-scheme prefer-dark || true
   fi
-  install_noctalia_config_if_missing
   module_80_defaults
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -597,7 +506,6 @@ module_80_post_actions() {
   install_zz_launcher
   configure_default_applications
   install_bundled_wallpapers
-  install_noctalia_config_if_missing
   install_starship_config
   install_ghostty_theme_seed_if_missing
   install_niri_display_seed_if_missing

@@ -104,35 +104,6 @@ setup() {
   refute_file_contains "$TEST_ROOT/browser-default-commands.log" "firefox.desktop"
 }
 
-@test "Noctalia v5 config seeds wallpaper, polkit, and built-in templates" {
-  build_fedora_plan
-  TARGET_HOME="$TEST_ROOT/settings-home"
-  mkdir -p "$TARGET_HOME"
-  DRY_RUN=0
-
-  run_cmd_as_user() {
-    local user="$1"
-    shift
-    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
-  }
-
-  install_noctalia_config_if_missing
-
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'polkit_agent = true'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'save_to_file = true'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'directory = "'"$TARGET_HOME"'/Wallpapers"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'path = "'"$TARGET_HOME"'/Wallpapers/BlueTide.jpg"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'builtin = "Noctalia"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"niri"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"ghostty"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"starship"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"btop"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"gtk3"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"gtk4"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"qt"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"kcolorscheme"'
-}
-
 @test "Starship seed includes fallback Noctalia palette" {
   build_fedora_plan
   TARGET_USER="test-user"
@@ -212,24 +183,6 @@ setup() {
   refute_file_contains "$TARGET_HOME/.config/ghostty/themes/noctalia" 'palette = 0=#11111b'
 }
 
-@test "Noctalia v5 config seed preserves existing config" {
-  build_fedora_plan
-  TARGET_USER="test-user"
-  TARGET_HOME="$TEST_ROOT/plugins-home"
-  mkdir -p "$TARGET_HOME/.config/noctalia"
-  printf '[theme]\nbuiltin = "Custom"\n' >"$TARGET_HOME/.config/noctalia/config.toml"
-  DRY_RUN=0
-  run_cmd_as_user() {
-    local user="$1"
-    shift
-    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
-  }
-
-  install_noctalia_config_if_missing
-
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'builtin = "Custom"'
-}
-
 @test "Niri display config is seeded only when absent" {
   build_fedora_plan
   TARGET_USER="test-user"
@@ -271,7 +224,6 @@ setup() {
   TARGET_HOME="$TEST_ROOT/first-run-home"
   mkdir -p "$TARGET_HOME"
   DRY_RUN=0
-  install_noctalia_config_if_missing() { :; }
   run_cmd_as_user() {
     local user="$1"
     shift
@@ -298,38 +250,6 @@ setup() {
   : >"$TEST_ROOT/first-run-commands.log"
   module_80_first_run
   [[ ! -s "$TEST_ROOT/first-run-commands.log" ]]
-}
-
-@test "post-actions seed Noctalia settings before first-run hook" {
-  build_fedora_plan
-  TARGET_USER="test-user"
-  TARGET_HOME="$TEST_ROOT/post-actions-home"
-  mkdir -p "$TARGET_HOME"
-  DRY_RUN=0
-
-  install_zz_launcher() { :; }
-  configure_default_applications() { :; }
-  install_bundled_wallpapers() { :; }
-  install_starship_config() { :; }
-  install_ghostty_theme_seed_if_missing() { :; }
-  install_niri_noctalia_seed_if_missing() { :; }
-  install_qt_theme_config() { :; }
-  configure_flatpak_theme_access() { :; }
-  register_first_run_hook() { :; }
-  write_managed_files_report() { :; }
-  run_cmd_as_user() {
-    local user="$1"
-    shift
-    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
-  }
-
-  module_80_post_actions
-
-  [[ -f "$TARGET_HOME/.config/noctalia/config.toml" ]]
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'polkit_agent = true'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'save_to_file = true'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'directory = "'"$TARGET_HOME"'/Wallpapers"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"ghostty"'
 }
 
 @test "Flatpak theme access override is applied as user override" {

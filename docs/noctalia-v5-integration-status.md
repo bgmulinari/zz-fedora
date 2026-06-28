@@ -58,29 +58,20 @@ Niri:
 
 Noctalia config:
 
-- Seeded only when absent at `~/.config/noctalia/config.toml`.
-- GUI/runtime overrides remain in `~/.local/state/noctalia/settings.toml`.
-- The seed includes:
-  - `font_family = "JetBrainsMono Nerd Font"`
-  - `polkit_agent = true`
-  - `telemetry_enabled = false`
-  - screenshot defaults through Noctalia v5 IPC
-  - wallpaper directory `~/Wallpapers`
-  - default wallpaper `~/Wallpapers/BlueTide.jpg`
-  - builtin theme `Noctalia`
-  - built-in template IDs selected from the install plan
+- No `~/.config/noctalia/*.toml` files are seeded.
+- The baseline intentionally starts from upstream Noctalia v5 defaults.
+- GUI/runtime overrides remain app-managed in `~/.local/state/noctalia/settings.toml`.
+- Local verification on the pinned `d2d2f9b` build showed it starts from an isolated empty XDG config/state/cache profile with `no config files found, using defaults`.
+- Upstream defaults are therefore left intact for now, including the default shell font (`sans-serif`), setup wizard behavior, polkit setting, theme, wallpaper, and screenshot settings.
 
 Templates:
 
-- Always enabled when relevant: `niri`, `ghostty`, `starship`, `btop`.
-- Full desktop profile also enables: `gtk3`, `gtk4`, `qt`, `kcolorscheme`.
-- Community templates are disabled.
-- No v4 plugins, browser theming, QuickShell config, or migration shims are present.
+- No Noctalia v5 built-in templates are pre-enabled by this repo yet.
+- No community templates, v4 plugins, browser theming, QuickShell config, or migration shims are present.
 
 Related managed files:
 
 - `~/Wallpapers`
-- `~/.config/noctalia/config.toml`
 - `~/.config/niri/cfg/display.kdl`
 - `~/.config/niri/noctalia.kdl`
 - `~/.config/ghostty/themes/noctalia`
@@ -116,6 +107,8 @@ bats tests/planner.bats tests/package_modules.bats tests/post_actions.bats tests
 ./tests/smoke.sh
 ```
 
+Tests were not re-run for the follow-up that removed the Noctalia config seed, per request.
+
 ## Future Update Checklist
 
 When revisiting Noctalia v5:
@@ -127,8 +120,7 @@ When revisiting Noctalia v5:
 
    ```bash
    base="$(mktemp -d)"
-   mkdir -p "$base/config/noctalia" "$base/state" "$base/cache"
-   cp ~/.config/noctalia/config.toml "$base/config/noctalia/config.toml"
+   mkdir -p "$base/config" "$base/state" "$base/cache"
    timeout -s TERM 8s env \
      HOME="$HOME" \
      XDG_CONFIG_HOME="$base/config" \
@@ -150,4 +142,4 @@ When revisiting Noctalia v5:
 
 - When Noctalia v5 publishes a stable release, decide whether Fedora should use a versioned stable package instead of `noctalia-git`.
 - If Terra continues to ship `noctalia-git`, decide whether repo priority/excludes are needed after the pin is removed.
-- Revisit whether `setup_wizard_enabled = false` should be seeded for declarative installs once the upstream first-run crash is gone. It is documented as valid for preseeded deployments, but it was not the fix for the crash.
+- Treat any future Noctalia config seed, including `setup_wizard_enabled = false`, fonts, polkit, wallpapers, or templates, as an explicit customization checkpoint rather than part of the current vanilla baseline.

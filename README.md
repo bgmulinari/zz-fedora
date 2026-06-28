@@ -18,8 +18,7 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
   - Evince for PDFs and other document viewing
   - imv for lightweight image viewing
   - Noctalia v5 screenshots through `noctalia msg screenshot-region`
-  - GTK/GNOME portals, Noctalia's built-in polkit agent, Adwaita GTK defaults, Yaru icons, and qtct integration
-  - Noctalia's `gtk3`, `gtk4`, `qt`, and `kcolorscheme` templates drive GTK and Qt application color theming
+  - GTK/GNOME portals, Adwaita GTK defaults, Yaru icons, and qtct integration
 - Ghostty is the default terminal. The installer enables Ghostty's user systemd service on first login, keeps the background process running, and uses `ghostty +new-window` for Niri/Noctalia terminal launches.
 
 ## Session Model
@@ -27,10 +26,10 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 - SDDM provides the graphical login and session chooser.
 - Choose the `Niri` session at login.
 - Noctalia is launched from Niri autostart with `spawn-at-startup "noctalia"`, and Niri shell keybindings call `noctalia msg ...`.
-- Noctalia v5 reads the seeded base config from `~/.config/noctalia/config.toml`. GUI-managed overrides live in `~/.local/state/noctalia/settings.toml`, outside the repo-managed config layer.
-- Bundled wallpapers are seeded to `~/Wallpapers`; the v5 TOML config points the wallpaper picker there and sets `BlueTide.jpg` as the initial default.
-- Niri config is stowed from this repo. Hardware-specific Niri display config, `~/.config/niri/noctalia.kdl`, and Noctalia's v5 TOML config are seeded only when absent.
-- Noctalia template activation starts clean and plan-aware: Niri, Ghostty, Starship, and btop are enabled when installed; GTK3, GTK4, Qt, and KColorScheme are enabled in the full desktop profile. Community templates, plugins, browser theming, and repo-specific user templates are not enabled by default.
+- Noctalia v5 starts from upstream defaults. This repo does not seed `~/.config/noctalia/*.toml` yet; GUI-managed overrides live in `~/.local/state/noctalia/settings.toml`.
+- Bundled wallpapers are seeded to `~/Wallpapers` for later user selection, but the installer does not force a Noctalia wallpaper default.
+- Niri config is stowed from this repo. Hardware-specific Niri display config and `~/.config/niri/noctalia.kdl` are seeded only when absent.
+- Noctalia app templates, plugins, browser theming, and repo-specific user customizations are intentionally not preconfigured while the v5 baseline is still vanilla.
 - The installer never starts SDDM immediately. When no display manager is already enabled, reboot to begin using the graphical login.
 - On systems that already have a full GNOME/KDE/Plasma desktop, the installer can use the minimal desktop app profile. This keeps Niri, Noctalia, Ghostty, shell tooling, and Niri support packages, while skipping replacement desktop apps, GTK/GNOME portal fill-ins, GTK/Qt look packages, and base media/source enablement that are only needed for the complete GTK-oriented baseline.
 
@@ -49,7 +48,7 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 
 - The base install always includes Zsh and its managed config.
 - The base install always includes Zsh, Oh My Zsh setup, Starship, zoxide, fastfetch, `gh`, btop, fd, fzf, bat, Yazi, and their managed dotfiles.
-- The Starship prompt uses a managed static config and Noctalia v5's built-in `starship` template injects the active theme palette.
+- The Starship prompt uses a managed static config with a fallback Noctalia palette; dynamic Noctalia template-driven theming is deferred until the v5 baseline stabilizes.
 - Zsh setup bootstraps Oh My Zsh, installs the managed `~/.zshrc`, and changes the target user's login shell to `/bin/zsh`.
 - `doctor` checks the selected shell tools and their managed config files when they are present in the saved plan.
 

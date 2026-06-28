@@ -1,8 +1,7 @@
 # path	mode	conflict	owner	description
-~/Wallpapers	seed-if-missing	preserve	wallpapers	Seeds bundled wallpaper assets for Noctalia.
+~/Wallpapers	seed-if-missing	preserve	wallpapers	Seeds bundled wallpaper assets for later selection.
 ~/.config/autostart/zz-first-run.desktop	first-run	regenerate	first-run	Launches one-time user-session setup after login.
 ~/.local/bin/zz	generated	regenerate	zz-launcher	Installs the post-install zz utility.
-~/.config/noctalia/config.toml	seed-if-missing	preserve	noctalia-config	Seeds the Noctalia v5 TOML base config and leaves GUI state under XDG state.
 ~/.config/niri/cfg/display.kdl	seed-if-missing	preserve	niri-display	Seeds hardware-specific Niri display config when absent.
 ~/.config/niri/noctalia.kdl	seed-if-missing	preserve	niri-noctalia	Seeds the Noctalia v5 Niri template include when absent.
 ~/.config/starship.toml	seed-if-missing	preserve	starship	Seeds Starship only when the user has no config.

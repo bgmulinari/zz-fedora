@@ -146,9 +146,6 @@ module_90_doctor() {
   doctor_warn_file "$user_config_home/xdg-terminals.list"
   doctor_plan_has_entry "$native_plan" "ghostty" && doctor_warn_file "$user_config_home/ghostty/config"
   doctor_plan_has_entry "$native_plan" "ghostty" && doctor_warn_file "$user_config_home/ghostty/themes/noctalia"
-  if doctor_noctalia_planned "$native_plan"; then
-    doctor_warn_file "$user_config_home/noctalia/config.toml"
-  fi
   if doctor_plan_has_entry "$native_plan" "qt5ct" || doctor_plan_has_entry "$native_plan" "qt6ct"; then
     doctor_warn_file "$user_config_home/qt5ct/qt5ct.conf"
     doctor_warn_file "$user_config_home/qt6ct/qt6ct.conf"
@@ -181,7 +178,6 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "ghostty"; then
     doctor_check_contains "$user_config_home/ghostty/config" 'quit-after-last-window-closed = false'
     doctor_check_contains "$user_config_home/ghostty/config" 'theme = noctalia'
-    doctor_check_contains "$user_config_home/noctalia/config.toml" '"ghostty"'
   fi
   if doctor_plan_has_entry "$native_plan" "xdg-terminal-exec"; then
     doctor_check_contains "$user_config_home/xdg-terminals.list" 'Alacritty.desktop'
@@ -190,18 +186,7 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "nautilus-python"; then
     doctor_check_contains "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py" 'xdg-terminal-exec'
   fi
-  if doctor_noctalia_planned "$native_plan"; then
-    doctor_check_contains "$user_config_home/noctalia/config.toml" 'polkit_agent = true'
-    doctor_check_contains "$user_config_home/noctalia/config.toml" 'builtin = "Noctalia"'
-    doctor_check_contains "$user_config_home/noctalia/config.toml" 'directory = "'"$TARGET_HOME"'/Wallpapers"'
-    doctor_check_contains "$user_config_home/noctalia/config.toml" 'path = "'"$TARGET_HOME"'/Wallpapers/BlueTide.jpg"'
-    doctor_check_contains "$user_config_home/noctalia/config.toml" '"niri"'
-  fi
   if doctor_plan_has_entry "$native_plan" "qt5ct" || doctor_plan_has_entry "$native_plan" "qt6ct"; then
-    doctor_check_contains "$user_config_home/noctalia/config.toml" '"gtk3"'
-    doctor_check_contains "$user_config_home/noctalia/config.toml" '"gtk4"'
-    doctor_check_contains "$user_config_home/noctalia/config.toml" '"qt"'
-    doctor_check_contains "$user_config_home/noctalia/config.toml" '"kcolorscheme"'
     doctor_check_contains "$user_config_home/kdeglobals" 'widgetStyle=Fusion'
     doctor_check_contains "$user_config_home/kdeglobals" 'Theme='
     doctor_check_contains "$user_config_home/qt5ct/qt5ct.conf" 'icon_theme='
@@ -226,7 +211,6 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "starship"; then
     doctor_warn_command starship
     doctor_warn_file "$user_config_home/starship.toml"
-    doctor_check_contains "$user_config_home/noctalia/config.toml" '"starship"'
   fi
   if doctor_plan_has_entry "$native_plan" "code" || doctor_plan_has_entry "$native_plan" "codium" || doctor_plan_has_entry "$native_plan" "code-insiders" || doctor_plan_has_entry "$native_plan" "vscodium"; then
     doctor_warn_command code
@@ -244,7 +228,6 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "btop"; then
     doctor_warn_command btop
     doctor_warn_file "$user_config_home/btop/btop.conf"
-    doctor_check_contains "$user_config_home/noctalia/config.toml" '"btop"'
   fi
   if doctor_plan_has_entry "$native_plan" "fd-find"; then
     doctor_warn_command fd

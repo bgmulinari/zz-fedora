@@ -240,8 +240,7 @@ readiness_generate_desktop_files() {
     "$niri_config_home/cfg/keybinds.kdl" \
     "$niri_config_home/cfg/misc.kdl" \
     "$user_config_home/xdg-desktop-portal/niri-portals.conf" \
-    "$user_config_home/environment.d/10-niri-gtk.conf" \
-    "$user_config_home/noctalia/config.toml"; do
+    "$user_config_home/environment.d/10-niri-gtk.conf"; do
     status="$(readiness_status_for_file "$item")"
     severity="info"
     [[ "$status" == "missing" ]] && severity="warn"
