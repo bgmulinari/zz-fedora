@@ -6,6 +6,7 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 
 - Fedora is the supported target for v1.
 - The design keeps Fedora-specific package-manager logic isolated so additional distros can be added later without rewriting common modules.
+- Noctalia v5 support is experimental while v5 is in alpha; track checkpoints in `docs/noctalia-v5-integration-status.md`.
 
 ## Desktop Philosophy
 
