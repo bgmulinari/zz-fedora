@@ -16,7 +16,7 @@ setup() {
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "Readiness:"
-  assert_contains "$output" "noctalia-v4 command:qs"
+  assert_contains "$output" "noctalia-v5 command:noctalia"
   assert_contains "$output" "managed-config ~/.config/autostart/zz-first-run.desktop: first-run"
   assert_contains "$output" "Fatal readiness issues:"
   assert_contains "$output" "package-manager locks"
@@ -76,9 +76,9 @@ setup() {
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tnss-tools\tinstaller-bootstrap\tbrowser certificate trust\tProvides certutil for importing development CAs into Firefox-style browser profiles.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tgnome-software\tdefault-app\tapp discovery\tProvides a GUI software browsing/update front end.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tddcutil\tdesktop-service\texternal monitor brightness\tControls DDC/CI-capable external displays.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tterra\tnoctalia\tNoctalia Shell and Ghostty\tBootstraps Terra release packages for required Noctalia Shell and Ghostty packages.'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/settings.json\tseed-if-missing\tpreserve'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/plugins.json\tseed-if-missing\tpreserve'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tcopr:lionheartp/Hyprland\tnoctalia\tNoctalia v5 shell\tProvides Noctalia v5 for the required base desktop shell.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tterra\tdefault-app\tGhostty\tBootstraps Terra release packages for required Ghostty packages.'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/config.toml\tseed-if-missing\tpreserve'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve'
 }
@@ -87,19 +87,15 @@ setup() {
   TARGET_HOME="$TEST_ROOT/home"
   mkdir -p "$TARGET_HOME/.config/noctalia" "$TARGET_HOME/.config/niri"
   printf 'existing shell\n' >"$TARGET_HOME/.bashrc"
-  printf 'existing templates\n' >"$TARGET_HOME/.config/noctalia/user-templates.toml"
 
   ZZ_TEST_CONFLICT_PREVIEW=1
   build_fedora_plan
 
   assert_file_contains "$PLAN_DIR/files/config-conflicts.tsv" "~/.bashrc"
-  assert_file_contains "$PLAN_DIR/files/config-conflicts.tsv" "~/.config/noctalia/user-templates.toml"
-  refute_file_contains "$PLAN_DIR/files/config-conflicts.tsv" "~/.config/noctalia/plugins.json"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'flatpak\torg.gtk.Gtk3theme.adw-gtk3\tbase-source-flathub\ttheme-font'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-noctalia\tnoctalia'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-noctalia\tnoctalia'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.bashrc\tstow\tbackup-before-stow\tshell'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/settings.json\tseed-if-missing\tpreserve\tnoctalia-settings'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/plugins.json\tseed-if-missing\tpreserve\tnoctalia-plugins'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/config.toml\tseed-if-missing\tpreserve\tnoctalia-config'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve\tniri-display'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve\tghostty-theme'
 }

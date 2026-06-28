@@ -104,24 +104,33 @@ setup() {
   refute_file_contains "$TEST_ROOT/browser-default-commands.log" "firefox.desktop"
 }
 
-@test "Noctalia settings seed terminal, wallpaper, and selected template integrations" {
-  build_fedora_plan "browser=zen-copr" "dev=vscode,neovim"
+@test "Noctalia v5 config seeds wallpaper, polkit, and built-in templates" {
+  build_fedora_plan
   TARGET_HOME="$TEST_ROOT/settings-home"
-  mkdir -p "$TARGET_HOME/.config/noctalia" "$TARGET_HOME/.config/Code/User"
+  mkdir -p "$TARGET_HOME"
   DRY_RUN=0
 
-  update_noctalia_settings
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
 
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"terminalCommand": "ghostty +new-window -e"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"directory": "'"$TARGET_HOME"'/Wallpapers"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"id": "ghostty"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"id": "starship"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"id": "yazi"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"id": "qt"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"id": "kcolorscheme"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"id": "code"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"id": "zenBrowser"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"enableUserTheming": true'
+  install_noctalia_config_if_missing
+
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'polkit_agent = true'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'save_to_file = true'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'directory = "'"$TARGET_HOME"'/Wallpapers"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'path = "'"$TARGET_HOME"'/Wallpapers/BlueTide.jpg"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'builtin = "Noctalia"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"niri"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"ghostty"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"starship"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"btop"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"gtk3"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"gtk4"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"qt"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"kcolorscheme"'
 }
 
 @test "Starship seed includes fallback Noctalia palette" {
@@ -203,11 +212,12 @@ setup() {
   refute_file_contains "$TARGET_HOME/.config/ghostty/themes/noctalia" 'palette = 0=#11111b'
 }
 
-@test "Noctalia plugins seed enabled plugin state when absent" {
+@test "Noctalia v5 config seed preserves existing config" {
   build_fedora_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/plugins-home"
   mkdir -p "$TARGET_HOME/.config/noctalia"
+  printf '[theme]\nbuiltin = "Custom"\n' >"$TARGET_HOME/.config/noctalia/config.toml"
   DRY_RUN=0
   run_cmd_as_user() {
     local user="$1"
@@ -215,11 +225,9 @@ setup() {
     HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
   }
 
-  install_noctalia_plugins_seed_if_missing
+  install_noctalia_config_if_missing
 
-  assert_file_contains "$TARGET_HOME/.config/noctalia/plugins.json" '"polkit-agent"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/plugins.json" '"display-settings"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/plugins.json" '"keybind-cheatsheet"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'builtin = "Custom"'
 }
 
 @test "Niri display config is seeded only when absent" {
@@ -244,43 +252,26 @@ setup() {
   assert_file_contains "$TARGET_HOME/.config/niri/cfg/display.kdl" "custom display"
 }
 
-@test "wallpaper state is installed idempotently" {
+@test "bundled wallpapers are installed idempotently" {
   TARGET_HOME="$TEST_ROOT/wallpaper-home"
   mkdir -p "$TARGET_HOME"
   DRY_RUN=0
 
-  install_noctalia_wallpaper_state
+  install_bundled_wallpapers
 
   local wallpaper_name
   while IFS= read -r wallpaper_name; do
     cmp -s "$ROOT_DIR/assets/wallpapers/$wallpaper_name" "$TARGET_HOME/Wallpapers/$wallpaper_name"
   done < <(find "$ROOT_DIR/assets/wallpapers" -maxdepth 1 -type f -printf '%f\n' | sort)
-  assert_file_contains "$TARGET_HOME/.cache/noctalia/wallpapers.json" '"defaultWallpaper": "'"$TARGET_HOME"'/Wallpapers/BlueTide.jpg"'
-}
-
-@test "Firefox Pywalfox policy and compatibility symlink are created for Firefox selections" {
-  build_fedora_plan "browser=firefox"
-  TARGET_HOME="$TEST_ROOT/firefox-home"
-  mkdir -p "$TARGET_HOME/.config/mozilla/firefox"
-  printf '[Profile0]\nPath=test.default\nIsRelative=1\n' >"$TARGET_HOME/.config/mozilla/firefox/profiles.ini"
-  FIREFOX_DISTRIBUTION_DIR="$TEST_ROOT/firefox/distribution"
-  DRY_RUN=0
-
-  install_firefox_pywalfox_extension_policy
-  jq -e '.policies.ExtensionSettings["pywalfox@frewacom.org"].installation_mode == "normal_installed"' "$FIREFOX_DISTRIBUTION_DIR/policies.json" >/dev/null
-  jq -e '.policies.ExtensionSettings["pywalfox@frewacom.org"].install_url == "https://addons.mozilla.org/firefox/downloads/latest/pywalfox/latest.xpi"' "$FIREFOX_DISTRIBUTION_DIR/policies.json" >/dev/null
-
-  ensure_firefox_profile_compat_for_pywalfox
-  assert_equal "$TARGET_HOME/.config/mozilla/firefox" "$(readlink "$TARGET_HOME/.mozilla/firefox")"
 }
 
 @test "first-run creates marker, removes autostart hook, and stays idempotent" {
   build_fedora_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/first-run-home"
-  mkdir -p "$TARGET_HOME/.config/noctalia"
-  printf '{}\n' >"$TARGET_HOME/.config/noctalia/settings.json"
+  mkdir -p "$TARGET_HOME"
   DRY_RUN=0
+  install_noctalia_config_if_missing() { :; }
   run_cmd_as_user() {
     local user="$1"
     shift
@@ -310,7 +301,7 @@ setup() {
 }
 
 @test "post-actions seed Noctalia settings before first-run hook" {
-  build_fedora_plan "browser=zen-copr" "dev=vscode,neovim"
+  build_fedora_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/post-actions-home"
   mkdir -p "$TARGET_HOME"
@@ -318,16 +309,12 @@ setup() {
 
   install_zz_launcher() { :; }
   configure_default_applications() { :; }
-  patch_noctalia_starship_template_apply_if_needed() { :; }
-  install_noctalia_wallpaper_state() { :; }
+  install_bundled_wallpapers() { :; }
   install_starship_config() { :; }
   install_ghostty_theme_seed_if_missing() { :; }
   install_niri_noctalia_seed_if_missing() { :; }
-  install_noctalia_plugins_seed_if_missing() { :; }
   install_qt_theme_config() { :; }
   configure_flatpak_theme_access() { :; }
-  install_pywalfox_native_host() { :; }
-  install_vscode_noctalia_extension() { :; }
   register_first_run_hook() { :; }
   write_managed_files_report() { :; }
   run_cmd_as_user() {
@@ -338,11 +325,11 @@ setup() {
 
   module_80_post_actions
 
-  [[ -f "$TARGET_HOME/.config/noctalia/settings.json" ]]
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"terminalCommand": "ghostty +new-window -e"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"directory": "'"$TARGET_HOME"'/Wallpapers"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"id": "zenBrowser"'
-  assert_file_contains "$TARGET_HOME/.config/noctalia/settings.json" '"enableUserTheming": true'
+  [[ -f "$TARGET_HOME/.config/noctalia/config.toml" ]]
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'polkit_agent = true'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'save_to_file = true'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" 'directory = "'"$TARGET_HOME"'/Wallpapers"'
+  assert_file_contains "$TARGET_HOME/.config/noctalia/config.toml" '"ghostty"'
 }
 
 @test "Flatpak theme access override is applied as user override" {

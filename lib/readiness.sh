@@ -241,9 +241,7 @@ readiness_generate_desktop_files() {
     "$niri_config_home/cfg/misc.kdl" \
     "$user_config_home/xdg-desktop-portal/niri-portals.conf" \
     "$user_config_home/environment.d/10-niri-gtk.conf" \
-    "$user_config_home/noctalia/settings.json" \
-    "$user_config_home/noctalia/plugins.json" \
-    "$user_config_home/noctalia/user-templates.toml"; do
+    "$user_config_home/noctalia/config.toml"; do
     status="$(readiness_status_for_file "$item")"
     severity="info"
     [[ "$status" == "missing" ]] && severity="warn"
@@ -259,10 +257,10 @@ readiness_generate_desktop_files() {
   [[ "$status" == "missing" ]] && severity="fatal"
   readiness_record "niri" "/usr/share/wayland-sessions/niri.desktop" "$status" "$severity" ""
 
-  status="$(readiness_status_for_command qs)"
+  status="$(readiness_status_for_command noctalia)"
   severity="info"
   [[ "$status" == "missing" ]] && severity="fatal"
-  readiness_record "noctalia-v4" "command:qs" "$status" "$severity" "Expected package: noctalia-shell"
+  readiness_record "noctalia-v5" "command:noctalia" "$status" "$severity" "Expected package: noctalia-git"
 }
 
 readiness_generate_target_home() {
@@ -321,11 +319,10 @@ readiness_generate_key_commands() {
   done <<'EOF'
 niri	niri
 niri	niri-session
-noctalia-shell	qs
+noctalia-git	noctalia
 ghostty	ghostty
 xdg-terminal-exec	xdg-terminal-exec
 nautilus	nautilus
-satty	satty
 brightnessctl	brightnessctl
 ddcutil	ddcutil
 mpv	mpv

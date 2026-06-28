@@ -4,7 +4,7 @@ binds {
     }
 
     Mod+D hotkey-overlay-title="Noctalia Launcher" {
-        spawn-sh "qs -c noctalia-shell ipc call launcher toggle";
+        spawn-sh "noctalia msg panel-toggle launcher";
     }
 
     Mod+E hotkey-overlay-title="Open File Manager: Nautilus" {
@@ -16,27 +16,27 @@ binds {
     }
 
     Mod+Space hotkey-overlay-title="Noctalia Launcher" {
-        spawn-sh "qs -c noctalia-shell ipc call launcher toggle";
+        spawn-sh "noctalia msg panel-toggle launcher";
     }
 
     Mod+S hotkey-overlay-title="Noctalia Control Center" {
-        spawn-sh "qs -c noctalia-shell ipc call controlCenter toggle";
+        spawn-sh "noctalia msg panel-toggle control-center";
     }
 
     Mod+Comma hotkey-overlay-title="Noctalia Settings" {
-        spawn-sh "qs -c noctalia-shell ipc call settings toggle";
+        spawn-sh "noctalia msg settings-toggle";
     }
 
     Mod+Shift+Q hotkey-overlay-title="Noctalia Session Menu" {
-        spawn-sh "qs -c noctalia-shell ipc call sessionMenu toggle";
+        spawn-sh "noctalia msg panel-toggle session";
     }
 
     Mod+Alt+L hotkey-overlay-title="Noctalia Lock Screen" {
-        spawn-sh "qs -c noctalia-shell ipc call lockScreen lock";
+        spawn-sh "noctalia msg session lock";
     }
 
-    Print hotkey-overlay-title="Screenshot: Satty" {
-        spawn-sh "$HOME/.local/bin/noctalia-screenshot";
+    Print hotkey-overlay-title="Noctalia Screenshot: Region" {
+        spawn-sh "noctalia msg screenshot-region";
     }
 
     Mod+Shift+Slash hotkey-overlay-title="Show Niri Hotkeys" {
@@ -44,43 +44,43 @@ binds {
     }
 
     XF86AudioRaiseVolume allow-when-locked=true {
-        spawn-sh "qs -c noctalia-shell ipc call volume increase";
+        spawn-sh "noctalia msg volume-up";
     }
 
     XF86AudioLowerVolume allow-when-locked=true {
-        spawn-sh "qs -c noctalia-shell ipc call volume decrease";
+        spawn-sh "noctalia msg volume-down";
     }
 
     XF86AudioMute allow-when-locked=true {
-        spawn-sh "qs -c noctalia-shell ipc call volume muteOutput";
+        spawn-sh "noctalia msg volume-mute";
     }
 
     XF86AudioMicMute allow-when-locked=true {
-        spawn-sh "qs -c noctalia-shell ipc call volume muteInput";
+        spawn-sh "noctalia msg mic-mute";
     }
 
     XF86AudioNext allow-when-locked=true {
-        spawn-sh "qs -c noctalia-shell ipc call media next";
+        spawn-sh "noctalia msg media next";
     }
 
     XF86AudioPrev allow-when-locked=true {
-        spawn-sh "qs -c noctalia-shell ipc call media previous";
+        spawn-sh "noctalia msg media previous";
     }
 
     XF86AudioPlay allow-when-locked=true {
-        spawn-sh "qs -c noctalia-shell ipc call media playPause";
+        spawn-sh "noctalia msg media toggle";
     }
 
     XF86AudioPause allow-when-locked=true {
-        spawn-sh "qs -c noctalia-shell ipc call media playPause";
+        spawn-sh "noctalia msg media toggle";
     }
 
     XF86MonBrightnessUp allow-when-locked=true {
-        spawn-sh "qs -c noctalia-shell ipc call brightness increase";
+        spawn-sh "noctalia msg brightness-up";
     }
 
     XF86MonBrightnessDown allow-when-locked=true {
-        spawn-sh "qs -c noctalia-shell ipc call brightness decrease";
+        spawn-sh "noctalia msg brightness-down";
     }
 
     Mod+Q {

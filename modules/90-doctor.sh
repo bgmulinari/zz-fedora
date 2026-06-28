@@ -88,33 +88,6 @@ doctor_plan_has_entry() {
   grep -Fx "$entry" "$plan_file" >/dev/null 2>&1
 }
 
-doctor_check_zen_browser_profiles() {
-  local user_chrome_import user_content_import profile_dir found_profile
-  user_chrome_import="@import \"$TARGET_HOME/.cache/noctalia/zen-browser/zen-userChrome.css\";"
-  user_content_import="@import \"$TARGET_HOME/.cache/noctalia/zen-browser/zen-userContent.css\";"
-  found_profile=0
-
-  while IFS= read -r profile_dir; do
-    [[ -n "$profile_dir" ]] || continue
-    found_profile=1
-    doctor_check_contains "$profile_dir/chrome/userChrome.css" "$user_chrome_import"
-    doctor_check_contains "$profile_dir/chrome/userContent.css" "$user_content_import"
-    doctor_check_contains "$profile_dir/user.js" 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
-  done < <(zen_profile_dirs)
-
-  if [[ "$found_profile" -eq 0 ]]; then
-    printf '[ok] Zen Browser profile theming pending first launch\n'
-  fi
-}
-
-doctor_check_pywalfox_firefox_extension() {
-  if pywalfox_firefox_extension_installed; then
-    printf '[ok] Firefox extension pywalfox@frewacom.org\n'
-  else
-    printf '[ok] Firefox Pywalfox extension policy installed; browser add-on pending first launch\n'
-  fi
-}
-
 module_90_doctor() {
   if [[ "$COMMAND" != "doctor" && "$DRY_RUN" -eq 1 ]]; then
     printf 'Doctor skipped in dry-run mode.\n'
@@ -130,8 +103,8 @@ module_90_doctor() {
     doctor_warn_command niri
     doctor_warn_command niri-session
   fi
-  if doctor_plan_has_entry "$native_plan" "noctalia-shell"; then
-    doctor_warn_command qs
+  if doctor_plan_has_entry "$native_plan" "noctalia-git"; then
+    doctor_warn_command noctalia
   fi
   if doctor_plan_has_entry "$native_plan" "ghostty"; then
     doctor_warn_command ghostty
@@ -165,30 +138,17 @@ module_90_doctor() {
   doctor_warn_file "$user_config_home/xdg-terminals.list"
   doctor_plan_has_entry "$native_plan" "ghostty" && doctor_warn_file "$user_config_home/ghostty/config"
   doctor_plan_has_entry "$native_plan" "ghostty" && doctor_warn_file "$user_config_home/ghostty/themes/noctalia"
-  if doctor_plan_has_entry "$native_plan" "noctalia-shell"; then
-    doctor_warn_file "$user_config_home/noctalia/settings.json"
-    doctor_warn_file "$user_config_home/noctalia/plugins.json"
-    doctor_warn_file "$user_config_home/noctalia/user-templates.toml"
-    doctor_warn_file "$TARGET_HOME/.cache/noctalia/wallpapers.json"
+  if doctor_plan_has_entry "$native_plan" "noctalia-git"; then
+    doctor_warn_file "$user_config_home/noctalia/config.toml"
   fi
   if doctor_plan_has_entry "$native_plan" "qt5ct" || doctor_plan_has_entry "$native_plan" "qt6ct"; then
-    doctor_warn_file "$user_config_home/noctalia/templates/icon-theme-accent"
     doctor_warn_file "$user_config_home/qt5ct/qt5ct.conf"
     doctor_warn_file "$user_config_home/qt6ct/qt6ct.conf"
     doctor_warn_file "$user_config_home/kdeglobals"
   fi
-  if doctor_plan_has_entry "$native_plan" "neovim" || doctor_plan_has_entry "$native_plan" "nvim"; then
-    doctor_warn_file "$user_config_home/noctalia/templates/neovim.lua"
-    doctor_warn_file "$user_config_home/nvim/plugin/noctalia.lua"
-  fi
-  if doctor_plan_has_entry "$native_plan" "zsh"; then
-    doctor_warn_file "$user_config_home/noctalia/templates/zsh-syntax-highlighting.zsh"
-  fi
   if doctor_plan_has_entry "$native_plan" "code" || doctor_plan_has_entry "$native_plan" "codium" || doctor_plan_has_entry "$native_plan" "code-insiders" || doctor_plan_has_entry "$native_plan" "vscodium"; then
     doctor_warn_file "$user_config_home/Code/User/settings.json"
   fi
-  doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme"
-  doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-screenshot"
   doctor_warn_file "$TARGET_HOME/.local/share/applications/nvim.desktop"
   doctor_plan_has_entry "$native_plan" "nautilus-python" && doctor_warn_file "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py"
   doctor_warn_file "$TARGET_HOME/Wallpapers/BlueTide.jpg"
@@ -197,7 +157,8 @@ module_90_doctor() {
   fi
 
   if doctor_plan_has_entry "$native_plan" "niri"; then
-    doctor_check_contains "$niri_config_home/cfg/autostart.kdl" 'spawn-at-startup "qs" "-c" "noctalia-shell"'
+    doctor_check_contains "$niri_config_home/cfg/autostart.kdl" 'spawn-at-startup "noctalia"'
+    doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'noctalia msg panel-toggle launcher'
     doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "ghostty" "+new-window"'
     doctor_check_contains "$niri_config_home/config.kdl" 'include "./noctalia.kdl"'
     doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'TERMINAL=xdg-terminal-exec'
@@ -212,8 +173,7 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "ghostty"; then
     doctor_check_contains "$user_config_home/ghostty/config" 'quit-after-last-window-closed = false'
     doctor_check_contains "$user_config_home/ghostty/config" 'theme = noctalia'
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"terminalCommand": "ghostty +new-window -e"'
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "ghostty"'
+    doctor_check_contains "$user_config_home/noctalia/config.toml" '"ghostty"'
   fi
   if doctor_plan_has_entry "$native_plan" "xdg-terminal-exec"; then
     doctor_check_contains "$user_config_home/xdg-terminals.list" 'Alacritty.desktop'
@@ -222,26 +182,22 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "nautilus-python"; then
     doctor_check_contains "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py" 'xdg-terminal-exec'
   fi
-  if doctor_plan_has_entry "$native_plan" "noctalia-shell"; then
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"predefinedScheme": "Catppuccin"'
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"syncGsettings": true'
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"directory": "'"$TARGET_HOME"'/Wallpapers"'
-    doctor_check_contains "$user_config_home/noctalia/plugins.json" '"polkit-agent"'
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "niri"'
-    doctor_check_contains "$TARGET_HOME/.cache/noctalia/wallpapers.json" '"defaultWallpaper": "'"$TARGET_HOME"'/Wallpapers/BlueTide.jpg"'
+  if doctor_plan_has_entry "$native_plan" "noctalia-git"; then
+    doctor_check_contains "$user_config_home/noctalia/config.toml" 'polkit_agent = true'
+    doctor_check_contains "$user_config_home/noctalia/config.toml" 'builtin = "Noctalia"'
+    doctor_check_contains "$user_config_home/noctalia/config.toml" 'directory = "'"$TARGET_HOME"'/Wallpapers"'
+    doctor_check_contains "$user_config_home/noctalia/config.toml" 'path = "'"$TARGET_HOME"'/Wallpapers/BlueTide.jpg"'
+    doctor_check_contains "$user_config_home/noctalia/config.toml" '"niri"'
   fi
   if doctor_plan_has_entry "$native_plan" "qt5ct" || doctor_plan_has_entry "$native_plan" "qt6ct"; then
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "gtk"'
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "qt"'
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "kcolorscheme"'
+    doctor_check_contains "$user_config_home/noctalia/config.toml" '"gtk3"'
+    doctor_check_contains "$user_config_home/noctalia/config.toml" '"gtk4"'
+    doctor_check_contains "$user_config_home/noctalia/config.toml" '"qt"'
+    doctor_check_contains "$user_config_home/noctalia/config.toml" '"kcolorscheme"'
     doctor_check_contains "$user_config_home/kdeglobals" 'widgetStyle=Fusion'
     doctor_check_contains "$user_config_home/kdeglobals" 'Theme='
     doctor_check_contains "$user_config_home/qt5ct/qt5ct.conf" 'icon_theme='
     doctor_check_contains "$user_config_home/qt6ct/qt6ct.conf" 'icon_theme='
-    doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.iconTheme]'
-  fi
-  if doctor_plan_has_entry "$native_plan" "neovim" || doctor_plan_has_entry "$native_plan" "nvim"; then
-    doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.neovim]'
   fi
 
   local fatal_checks=0
@@ -258,21 +214,15 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "zsh"; then
     doctor_warn_command zsh
     doctor_warn_file "$TARGET_HOME/.zshrc"
-    doctor_check_contains "$user_config_home/noctalia/user-templates.toml" '[templates.zshSyntaxHighlighting]'
   fi
   if doctor_plan_has_entry "$native_plan" "starship"; then
     doctor_warn_command starship
     doctor_warn_file "$user_config_home/starship.toml"
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "starship"'
-  fi
-  if doctor_plan_has_entry "$native_plan" "neovim"; then
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"enableUserTheming": true'
+    doctor_check_contains "$user_config_home/noctalia/config.toml" '"starship"'
   fi
   if doctor_plan_has_entry "$native_plan" "code" || doctor_plan_has_entry "$native_plan" "codium" || doctor_plan_has_entry "$native_plan" "code-insiders" || doctor_plan_has_entry "$native_plan" "vscodium"; then
     doctor_warn_command code
     doctor_warn_file "$user_config_home/Code/User/settings.json"
-    doctor_check_contains "$user_config_home/Code/User/settings.json" '"workbench.colorTheme": "NoctaliaTheme"'
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "code"'
   fi
   if doctor_plan_has_entry "$native_plan" "zoxide"; then
     doctor_warn_command zoxide
@@ -286,7 +236,7 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "btop"; then
     doctor_warn_command btop
     doctor_warn_file "$user_config_home/btop/btop.conf"
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "btop"'
+    doctor_check_contains "$user_config_home/noctalia/config.toml" '"btop"'
   fi
   if doctor_plan_has_entry "$native_plan" "fd-find"; then
     doctor_warn_command fd
@@ -302,21 +252,6 @@ module_90_doctor() {
   fi
   if doctor_plan_has_entry "$native_plan" "yazi"; then
     doctor_warn_command yazi
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "yazi"'
-  fi
-  if grep -Fx firefox < <(effective_choice_ids "$DISTRO" "browsers") >/dev/null 2>&1; then
-    doctor_warn_command pywalfox
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "pywalfox"'
-    doctor_warn_file "$TARGET_HOME/.mozilla/native-messaging-hosts/pywalfox.json"
-    doctor_check_contains "$(firefox_distribution_dir)/policies.json" '"pywalfox@frewacom.org"'
-    if [[ -f "$TARGET_HOME/.config/mozilla/firefox/profiles.ini" ]]; then
-      doctor_warn_file "$TARGET_HOME/.mozilla/firefox/profiles.ini"
-    fi
-    doctor_check_pywalfox_firefox_extension
-  fi
-  if grep -E '^zen-copr$' < <(effective_choice_ids "$DISTRO" "browsers") >/dev/null 2>&1; then
-    doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "zenBrowser"'
-    doctor_check_zen_browser_profiles
   fi
 
   doctor_warn_enabled NetworkManager

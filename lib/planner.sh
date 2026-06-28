@@ -151,9 +151,7 @@ build_plan_from_selections() {
     append_plan_entries "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
   fi
   append_managed_file "~/Wallpapers"
-  append_managed_file "~/.cache/noctalia/wallpapers.json"
-  append_managed_file "~/.config/noctalia/settings.json"
-  append_managed_file "~/.config/noctalia/plugins.json"
+  append_managed_file "~/.config/noctalia/config.toml"
   append_managed_file "~/.config/niri/cfg/display.kdl"
   append_managed_file "~/.config/niri/noctalia.kdl"
   append_managed_file "~/.config/starship.toml"

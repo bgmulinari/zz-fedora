@@ -4,7 +4,8 @@ source	rpmfusion-nonfree	desktop-service	Fedora package manager	Required source 
 source	flathub	theme-font	Flatpak theme runtimes	Required remote for base GTK Flatpak theme runtimes and optional Flatpak apps.
 source	cisco-openh264	desktop-service	Fedora package manager	Enables Fedora OpenH264 metadata for desktop media compatibility.
 source	copr:yalter/niri	niri	Niri session	Provides the required Niri compositor package.
-source	terra	noctalia	Noctalia Shell and Ghostty	Bootstraps Terra release packages for required Noctalia Shell and Ghostty packages.
+source	copr:lionheartp/Hyprland	noctalia	Noctalia v5 shell	Provides Noctalia v5 for the required base desktop shell.
+source	terra	default-app	Ghostty	Bootstraps Terra release packages for required Ghostty packages.
 source	copr:atim/starship	theme-font	Starship prompt	Provides the Starship package used by the base shell prompt.
 source	copr:lihaohong/yazi	default-app	Yazi shell file manager	Provides the Yazi package used by the base shell tooling.
 dnf	ca-certificates	installer-bootstrap	curl/git/source setup	Allows TLS package, source, and bootstrap downloads.
@@ -14,7 +15,7 @@ dnf	git	installer-bootstrap	repo clone and shell plugins	Clones this repo and sh
 dnf	gum	installer-bootstrap	wizard and TUI	Provides the interactive wizard and installer prompts.
 dnf	stow	installer-bootstrap	dotfile deployment	Deploys managed dotfiles without copying user config.
 dnf	rsync	installer-bootstrap	file deployment	Supports robust local file synchronization when needed by setup tasks.
-dnf	jq	installer-bootstrap	JSON defaults and browser policy editing	Edits and validates JSON config in post-install actions.
+dnf	jq	installer-bootstrap	JSON metadata parsing	Parses JSON metadata for update and custom action helpers.
 dnf	tar	installer-bootstrap	archive handling	Handles downloaded archives and debug bundles.
 dnf	unzip	installer-bootstrap	archive handling	Extracts zip payloads used by installer-managed assets.
 dnf	zstd	installer-bootstrap	package tooling	Supports compressed package metadata and archives.
@@ -24,7 +25,7 @@ dnf	dnf-plugins-core	installer-bootstrap	Fedora source setup	Provides DNF plugin
 dnf	dnf5-plugins	installer-bootstrap	Fedora source setup	Provides DNF5 plugin compatibility for current Fedora releases.
 dnf	sddm	desktop-service	graphical login	Provides the display manager and Niri session chooser.
 dnf	niri	niri	Niri session	Provides the compositor and Wayland session entry.
-dnf	noctalia-shell	noctalia	Noctalia Shell	Provides the shell layer launched by Niri autostart.
+dnf	noctalia-git	noctalia	Noctalia v5 shell	Provides the native shell binary launched by Niri autostart.
 dnf	ghostty	default-app	default terminal	Provides the default terminal used by keybindings and xdg-terminal-exec.
 action	ms-fonts-fedora	theme-font	document compatibility	Installs Microsoft core fonts for common document rendering.
 action	jetbrains-mono-nerd-font-fedora	theme-font	terminal and prompt rendering	Installs the pinned Nerd Font used by Ghostty and Starship glyphs.
@@ -66,7 +67,6 @@ dnf	mpv	default-app	media player	Provides the default local media player.
 dnf	tesseract	default-app	OCR workflow	Provides OCR engine for screenshot/image workflows.
 dnf	tesseract-langpack-eng	default-app	OCR workflow	Provides English OCR data.
 dnf	simple-scan	default-app	scanner workflow	Provides a scanner UI for the printer/scanner baseline.
-dnf	satty	default-app	screenshot workflow	Provides screenshot annotation used by the Niri screenshot script.
 dnf	gnome-calculator	default-app	utility app	Provides a basic calculator.
 dnf	gnome-text-editor	default-app	text editor fallback	Provides a simple GUI text editor.
 dnf	gnome-software	default-app	app discovery	Provides a GUI software browsing/update front end.
@@ -88,8 +88,6 @@ dnf	libnotify	file-integration	notifications	Provides notification command/libra
 dnf	ffmpegthumbnailer	file-integration	file previews	Provides video thumbnails in file managers.
 dnf	wl-clipboard	niri	Wayland clipboard	Provides clipboard commands for Wayland keybindings/scripts.
 dnf	cliphist	niri	clipboard history	Provides clipboard history for Wayland workflows.
-dnf	grim	niri	screenshot workflow	Captures screenshots under Wayland.
-dnf	slurp	niri	screenshot workflow	Selects Wayland screen regions for screenshots.
 dnf	wlsunset	desktop-service	display color temperature	Provides lightweight Wayland night-light behavior.
 dnf	wev	niri	input diagnostics	Provides Wayland event diagnostics for keybinding work.
 dnf	wtype	niri	input automation	Provides Wayland text injection for helper workflows.
@@ -105,7 +103,7 @@ dnf	yaru-icon-theme	theme-font	icon theme	Provides the selected desktop icon the
 dnf	qt5ct	theme-font	Qt theming	Provides Qt5 theme configuration.
 dnf	qt6ct	theme-font	Qt theming	Provides Qt6 theme configuration.
 dnf	zsh	installer-bootstrap	base shell	Provides the default login shell and managed shell config target.
-dnf	starship	theme-font	shell prompt	Provides the prompt themed by Noctalia templates.
+dnf	starship	theme-font	shell prompt	Provides the prompt themed by Noctalia v5 templates.
 dnf	zoxide	installer-bootstrap	shell navigation	Provides directory jumping in the base shell.
 dnf	fastfetch	installer-bootstrap	shell diagnostics	Provides quick system summary command.
 dnf	gh	installer-bootstrap	GitHub workflow	Provides GitHub CLI for development and diagnostics.

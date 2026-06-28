@@ -14,6 +14,7 @@ setup() {
   assert_plan_has "$PLAN_DIR/bundles.list" "base-source-rpmfusion-nonfree"
   assert_plan_has "$PLAN_DIR/bundles.list" "base-source-flathub"
   assert_plan_has "$PLAN_DIR/bundles.list" "base-source-cisco-openh264"
+  assert_plan_has "$PLAN_DIR/sources/fedora-copr.list" "copr:lionheartp/Hyprland"
   assert_plan_has "$PLAN_DIR/sources/fedora-terra.list" "terra"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "ms-fonts-fedora"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "jetbrains-mono-nerd-font-fedora"
@@ -30,7 +31,8 @@ setup() {
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/zz"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/autostart/zz-first-run.desktop"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/ghostty/themes/noctalia"
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-noctalia'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-noctalia'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-ghostty'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbats\tbase-bootstrap\tinstaller-bootstrap'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnss-tools\tbase-bootstrap\tinstaller-bootstrap\tbrowser certificate trust'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24\tbase-nodejs'
@@ -64,7 +66,7 @@ setup() {
   assert_plan_has "$PLAN_DIR/bundles.list" "base-noctalia"
   assert_plan_has "$PLAN_DIR/bundles.list" "base-ghostty"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "niri"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "noctalia-shell"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "noctalia-git"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-terminal-exec"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/share/applications/nvim.desktop"
@@ -121,7 +123,6 @@ setup() {
 
   assert_plan_has "$PLAN_DIR/bundles.list" "browser-firefox"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "firefox"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "python3-pip"
 }
 
 @test "dotnet tools selection automatically includes SDK action" {

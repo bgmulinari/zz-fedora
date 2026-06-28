@@ -92,7 +92,7 @@ setup() {
 
   [ "$optional_index" -gt 0 ]
   [ "$found_code_retry" -eq 1 ]
-  for required_item in niri noctalia-shell sddm zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi; do
+  for required_item in niri noctalia-git sddm zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi; do
     found_before_optional=0
     for ((idx = 0; idx < optional_index; idx++)); do
       [[ " ${package_install_calls[$idx]#*:} " == *" $required_item "* ]] && found_before_optional=1

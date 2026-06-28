@@ -11,7 +11,7 @@ stow_package_required_command() {
     ghostty) printf 'ghostty\n' ;;
     nvim) printf 'nvim\n' ;;
     niri) printf 'niri\n' ;;
-    noctalia) printf 'qs\n' ;;
+    noctalia) printf 'noctalia\n' ;;
     shell-fastfetch) printf 'fastfetch\n' ;;
     shell-fzf) printf 'fzf\n' ;;
     shell-starship|starship) printf 'starship\n' ;;
@@ -84,11 +84,6 @@ stow_prepare_known_conflicts() {
   local package_name
   for package_name in "$@"; do
     case "$package_name" in
-      noctalia)
-        stow_backup_existing_target ".config/noctalia/user-templates.toml"
-        stow_backup_existing_target ".config/noctalia/templates/neovim.lua"
-        stow_backup_existing_target ".config/noctalia/templates/zsh-syntax-highlighting.zsh"
-        ;;
       shell)
         stow_prepare_known_shell_files
         ;;
@@ -151,11 +146,6 @@ stow_preview_known_conflicts() {
   local package_name
   for package_name in "$@"; do
     case "$package_name" in
-      noctalia)
-        stow_preview_record_conflict ".config/noctalia/user-templates.toml" "$package_name"
-        stow_preview_record_conflict ".config/noctalia/templates/neovim.lua" "$package_name"
-        stow_preview_record_conflict ".config/noctalia/templates/zsh-syntax-highlighting.zsh" "$package_name"
-        ;;
       shell)
         stow_preview_record_conflict ".bashrc" "$package_name"
         stow_preview_record_conflict ".bash_profile" "$package_name"

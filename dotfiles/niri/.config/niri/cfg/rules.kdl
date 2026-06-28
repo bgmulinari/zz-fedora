@@ -4,6 +4,13 @@ window-rule {
 }
 
 window-rule {
+    match app-id="dev.noctalia.Noctalia.Settings"
+    open-floating true
+    default-column-width { fixed 1080; }
+    default-window-height { fixed 920; }
+}
+
+window-rule {
     match app-id=r#"^(com\.mitchellh\.ghostty|ghostty)$"#
 
     background-effect {
@@ -49,6 +56,6 @@ window-rule {
 }
 
 layer-rule {
-    match namespace="^noctalia-wallpaper*"
+    match namespace="^noctalia-wallpaper"
     place-within-backdrop true
 }

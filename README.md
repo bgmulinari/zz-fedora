@@ -1,6 +1,6 @@
 # ZZ Linux Setup
 
-ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper for a minimal Niri + Noctalia v4 Shell desktop with GTK-oriented applications and GTK/Qt integration. Ghostty is the default terminal. `gum` provides the primary interactive wizard.
+ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper for a minimal Niri + Noctalia v5 desktop shell with GTK-oriented applications and GTK/Qt integration. Ghostty is the default terminal. `gum` provides the primary interactive wizard.
 
 ## Status
 
@@ -10,33 +10,28 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 ## Desktop Philosophy
 
 - Niri is the compositor/session target.
-- Noctalia v4 Shell is a shell layer, not a full desktop environment. Fedora installs it from Terra with the `noctalia-shell` package.
+- Noctalia v5 is a native Wayland shell layer, not a full desktop environment. Fedora installs it from the `lionheartp/Hyprland` Copr with the `noctalia-git` package.
 - The full desktop app profile installs GTK desktop defaults:
   - Nautilus for file management
   - Neovim as the default handler for plain text and source files
   - Evince for PDFs and other document viewing
   - imv for lightweight image viewing
-  - Satty-backed screenshots using the `grim` + `slurp` capture flow
-  - GTK/GNOME portals, Noctalia's `polkit-agent` plugin, Adwaita GTK defaults, Yaru icons, and qtct integration
-  - Noctalia's `gtk`, `qt`, and `kcolorscheme` templates drive GTK and Qt application color theming
+  - Noctalia v5 screenshots through `noctalia msg screenshot-region`
+  - GTK/GNOME portals, Noctalia's built-in polkit agent, Adwaita GTK defaults, Yaru icons, and qtct integration
+  - Noctalia's `gtk3`, `gtk4`, `qt`, and `kcolorscheme` templates drive GTK and Qt application color theming
 - Ghostty is the default terminal. The installer enables Ghostty's user systemd service on first login, keeps the background process running, and uses `ghostty +new-window` for Niri/Noctalia terminal launches.
 
 ## Session Model
 
 - SDDM provides the graphical login and session chooser.
 - Choose the `Niri` session at login.
-- Noctalia is launched from Niri autostart with `spawn-at-startup "qs" "-c" "noctalia-shell"`, and Niri's terminal keybinding opens Ghostty through `ghostty +new-window`.
-- Noctalia ships with the Niri template pre-enabled through managed user settings.
-- Bundled wallpapers are seeded to `~/Wallpapers`, Noctalia's wallpaper picker is pointed there, and `~/.cache/noctalia/wallpapers.json` selects `BlueTide.jpg` by default.
-- Niri config and Noctalia user templates are stowed from this repo. Hardware-specific Niri display config, Noctalia's live `settings.json`, and `plugins.json` are seeded and then left as writable user state so local changes do not dirty the repo.
-- When Visual Studio Code is selected, `~/.config/Code/User/settings.json` is also managed so the editor stays on `NoctaliaTheme`.
-- `~/.config/noctalia/plugins.json` enables Noctalia's built-in `polkit-agent` plugin from the official plugin source, so no separate session polkit binary is launched from Niri.
-- Noctalia template activation is plan-aware: GTK, Qt, and KColorScheme are always enabled; built-in templates are enabled for installed supported apps such as Niri, Ghostty, Starship, btop, Yazi, VS Code, Pywalfox, and Zen Browser; user templates are kept for repo-specific Neovim, Zsh syntax highlighting, and icon-theme integration.
-- Noctalia v4 uses the existing JSON settings flow in `~/.config/noctalia/settings.json`; TOML settings/package handling for later Noctalia releases is intentionally out of scope.
-- Firefox Noctalia theming uses Pywalfox. Fedora installs it globally with `sudo python3 -m pip install --upgrade pywalfox` and then registers the native messaging host for the target user.
+- Noctalia is launched from Niri autostart with `spawn-at-startup "noctalia"`, and Niri shell keybindings call `noctalia msg ...`.
+- Noctalia v5 reads the seeded base config from `~/.config/noctalia/config.toml`. GUI-managed overrides live in `~/.local/state/noctalia/settings.toml`, outside the repo-managed config layer.
+- Bundled wallpapers are seeded to `~/Wallpapers`; the v5 TOML config points the wallpaper picker there and sets `BlueTide.jpg` as the initial default.
+- Niri config is stowed from this repo. Hardware-specific Niri display config, `~/.config/niri/noctalia.kdl`, and Noctalia's v5 TOML config are seeded only when absent.
+- Noctalia template activation starts clean and plan-aware: Niri, Ghostty, Starship, and btop are enabled when installed; GTK3, GTK4, Qt, and KColorScheme are enabled in the full desktop profile. Community templates, plugins, browser theming, and repo-specific user templates are not enabled by default.
 - The installer never starts SDDM immediately. When no display manager is already enabled, reboot to begin using the graphical login.
 - On systems that already have a full GNOME/KDE/Plasma desktop, the installer can use the minimal desktop app profile. This keeps Niri, Noctalia, Ghostty, shell tooling, and Niri support packages, while skipping replacement desktop apps, GTK/GNOME portal fill-ins, GTK/Qt look packages, and base media/source enablement that are only needed for the complete GTK-oriented baseline.
-- Selecting Visual Studio Code also enables Noctalia's built-in `code` template automatically. Fedora uses Microsoft's RPM repo.
 
 ## Bundle Model
 
@@ -53,7 +48,7 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 
 - The base install always includes Zsh and its managed config.
 - The base install always includes Zsh, Oh My Zsh setup, Starship, zoxide, fastfetch, `gh`, btop, fd, fzf, bat, Yazi, and their managed dotfiles.
-- The Starship prompt uses a managed static config and Noctalia's built-in `starship` template injects the active theme palette.
+- The Starship prompt uses a managed static config and Noctalia v5's built-in `starship` template injects the active theme palette.
 - Zsh setup bootstraps Oh My Zsh, installs the managed `~/.zshrc`, and changes the target user's login shell to `/bin/zsh`.
 - `doctor` checks the selected shell tools and their managed config files when they are present in the saved plan.
 
@@ -173,7 +168,8 @@ Re-running should:
 - Fedora COPRs are optional or required depending on the base and selected component set. Review them before enabling.
 - RPM Fusion is part of the protected Fedora base source set so appstream metadata and RPM Fusion packages are available before optional package planning.
 - Flathub is part of the protected Fedora base source set because the base plan installs GTK Flatpak theme runtimes and optional Flatpak apps use the same remote.
-- Terra is a required base source for Noctalia Shell and Ghostty. Its generated source-trust line is marked as an explicit bootstrap exception.
+- `lionheartp/Hyprland` is a required Copr source for Noctalia v5.
+- Terra is a required base source for Ghostty. Its generated source-trust line is marked as an explicit bootstrap exception.
 - Selecting `zsh` also fetches Oh My Zsh plus the `zsh-autosuggestions` and `zsh-syntax-highlighting` plugin repositories from GitHub.
 
 ## How To Extend
