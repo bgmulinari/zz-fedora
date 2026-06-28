@@ -47,13 +47,13 @@ dnf	pipewire-pulseaudio	desktop-service	audio stack	Provides PulseAudio compatib
 dnf	pipewire-alsa	desktop-service	audio stack	Provides ALSA compatibility through PipeWire.
 dnf	wireplumber	desktop-service	audio session manager	Provides PipeWire session policy.
 dnf	alsa-utils	desktop-service	audio diagnostics	Provides low-level audio controls and diagnostics.
-dnf	pavucontrol	desktop-service	audio mixer	Provides a GUI mixer fallback.
+dnf	pavucontrol	default-app	audio mixer	Provides a GUI mixer fallback for standalone Niri sessions.
 dnf	pamixer	desktop-service	audio keybindings	Provides CLI volume control for keybindings/scripts.
 dnf	playerctl	desktop-service	media keybindings	Provides MPRIS media controls.
 dnf	upower	desktop-service	power status	Provides battery and power state data to desktop components.
 dnf	tuned-ppd	desktop-service	power profiles	Provides Fedora's PPD-compatible power profile service through TuneD.
 dnf	cups	desktop-service	print service	Provides printing support.
-dnf	system-config-printer	desktop-service	print UI	Provides printer configuration UI.
+dnf	system-config-printer	default-app	print UI	Provides printer configuration UI for standalone Niri sessions.
 dnf	ipp-usb	desktop-service	printer/scanner discovery	Supports driverless USB printer/scanner devices.
 dnf	avahi	desktop-service	network discovery	Provides mDNS discovery for printers and local services.
 dnf	nss-mdns	desktop-service	network discovery	Resolves mDNS hostnames.

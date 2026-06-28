@@ -80,6 +80,7 @@ setup() {
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/settings.json\tseed-if-missing\tpreserve'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/plugins.json\tseed-if-missing\tpreserve'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve'
 }
 
 @test "managed config conflicts and base rationale are generated in plan" {
@@ -100,6 +101,7 @@ setup() {
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/settings.json\tseed-if-missing\tpreserve\tnoctalia-settings'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/plugins.json\tseed-if-missing\tpreserve\tnoctalia-plugins'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve\tniri-display'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve\tghostty-theme'
 }
 
 @test "doctor fails when planned Niri desktop readiness is missing" {

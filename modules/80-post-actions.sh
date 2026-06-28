@@ -338,6 +338,16 @@ install_starship_config() {
   install_user_file_if_changed "$ROOT_DIR/templates/starship.toml" "$destination"
 }
 
+install_ghostty_theme_seed_if_missing() {
+  local native_plan destination
+  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  destination="$TARGET_HOME/.config/ghostty/themes/noctalia"
+
+  plan_has_any_backend_entry "$native_plan" ghostty || return 0
+  [[ -e "$destination" || -L "$destination" ]] && return 0
+  install_user_file_if_changed "$ROOT_DIR/templates/ghostty/noctalia" "$destination"
+}
+
 install_niri_noctalia_seed_if_missing() {
   local native_plan destination
   native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
@@ -1027,6 +1037,7 @@ module_80_post_actions() {
   patch_noctalia_starship_template_apply_if_needed
   install_noctalia_wallpaper_state
   install_starship_config
+  install_ghostty_theme_seed_if_missing
   install_niri_display_seed_if_missing
   install_niri_noctalia_seed_if_missing
   install_noctalia_plugins_seed_if_missing

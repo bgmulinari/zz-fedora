@@ -11,3 +11,7 @@ if [ -d "$HOME/.config/environment.d" ]; then
     done <"$env_file"
   done
 fi
+
+if [ -f "$HOME/.cargo/env" ]; then
+  . "$HOME/.cargo/env"
+fi

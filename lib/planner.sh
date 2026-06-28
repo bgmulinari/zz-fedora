@@ -157,6 +157,9 @@ build_plan_from_selections() {
   append_managed_file "~/.config/niri/cfg/display.kdl"
   append_managed_file "~/.config/niri/noctalia.kdl"
   append_managed_file "~/.config/starship.toml"
+  if plan_file_has_entry "$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")" "ghostty"; then
+    append_managed_file "~/.config/ghostty/themes/noctalia"
+  fi
   append_managed_file "~/.config/autostart/zz-first-run.desktop"
   append_managed_file "~/.local/bin/zz"
   if [[ "${SKIP_DOTFILES:-0}" -ne 1 ]] && declare -F stow_write_conflict_preview >/dev/null 2>&1; then

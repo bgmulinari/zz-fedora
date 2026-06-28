@@ -24,14 +24,19 @@ setup() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nodejs24-npm"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "starship"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "yazi"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
   assert_plan_has "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/zz"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/autostart/zz-first-run.desktop"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/ghostty/themes/noctalia"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-noctalia'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbats\tbase-bootstrap\tinstaller-bootstrap'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnss-tools\tbase-bootstrap\tinstaller-bootstrap\tbrowser certificate trust'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24\tbase-nodejs'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24-npm\tbase-nodejs'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tpavucontrol\tbase-desktop-controls\tdefault-app\taudio mixer'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tsystem-config-printer\tbase-desktop-controls\tdefault-app\tprint UI'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tjetbrains-mono-nerd-font-fedora\tbase-jetbrains-mono-nerd-font'
 }
 
@@ -67,11 +72,14 @@ setup() {
   refute_plan_has "$PLAN_DIR/bundles.list" "base-desktop-apps"
   refute_plan_has "$PLAN_DIR/bundles.list" "base-gtk-portals"
   refute_plan_has "$PLAN_DIR/bundles.list" "base-gtk-look"
+  refute_plan_has "$PLAN_DIR/bundles.list" "base-desktop-controls"
   refute_plan_has "$PLAN_DIR/bundles.list" "base-file-integration-gtk"
   refute_plan_has "$PLAN_DIR/sources/fedora-rpmfusion.list" "rpmfusion-free"
   refute_plan_has "$PLAN_DIR/sources/fedora-flatpak-remotes.list" "flathub"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-software"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-desktop-portal-gnome"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus-python"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt6ct"
@@ -91,6 +99,8 @@ setup() {
   assert_file_contains "$PLAN_DIR/summary.txt" "Desktop app profile: minimal"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "niri"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-desktop-portal-gnome"
 }
 

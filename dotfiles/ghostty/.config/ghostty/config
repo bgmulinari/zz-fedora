@@ -23,3 +23,4 @@ copy-on-select = clipboard
 bold-is-bright = true
 confirm-close-surface = false
 quit-after-last-window-closed = false
+theme = noctalia

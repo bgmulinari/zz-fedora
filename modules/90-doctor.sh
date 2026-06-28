@@ -164,6 +164,7 @@ module_90_doctor() {
   fi
   doctor_warn_file "$user_config_home/xdg-terminals.list"
   doctor_plan_has_entry "$native_plan" "ghostty" && doctor_warn_file "$user_config_home/ghostty/config"
+  doctor_plan_has_entry "$native_plan" "ghostty" && doctor_warn_file "$user_config_home/ghostty/themes/noctalia"
   if doctor_plan_has_entry "$native_plan" "noctalia-shell"; then
     doctor_warn_file "$user_config_home/noctalia/settings.json"
     doctor_warn_file "$user_config_home/noctalia/plugins.json"
@@ -210,6 +211,7 @@ module_90_doctor() {
   fi
   if doctor_plan_has_entry "$native_plan" "ghostty"; then
     doctor_check_contains "$user_config_home/ghostty/config" 'quit-after-last-window-closed = false'
+    doctor_check_contains "$user_config_home/ghostty/config" 'theme = noctalia'
     doctor_check_contains "$user_config_home/noctalia/settings.json" '"terminalCommand": "ghostty +new-window -e"'
     doctor_check_contains "$user_config_home/noctalia/settings.json" '"id": "ghostty"'
   fi

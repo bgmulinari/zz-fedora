@@ -165,6 +165,44 @@ setup() {
   assert_file_contains "$TARGET_HOME/.config/starship.toml" '[palettes.noctalia]'
 }
 
+@test "Ghostty theme seed provides valid Noctalia theme when absent" {
+  build_fedora_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/ghostty-theme-home"
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_ghostty_theme_seed_if_missing
+
+  assert_file_contains "$TARGET_HOME/.config/ghostty/themes/noctalia" 'palette = 0=#11111b'
+  assert_file_contains "$TARGET_HOME/.config/ghostty/themes/noctalia" 'background = #1e1e2e'
+  assert_file_contains "$TARGET_HOME/.config/ghostty/themes/noctalia" 'selection-foreground = #cdd6f4'
+}
+
+@test "Ghostty theme seed preserves existing Noctalia theme" {
+  build_fedora_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/ghostty-existing-theme-home"
+  mkdir -p "$TARGET_HOME/.config/ghostty/themes"
+  printf 'background = #000000\n' >"$TARGET_HOME/.config/ghostty/themes/noctalia"
+  DRY_RUN=0
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_ghostty_theme_seed_if_missing
+
+  assert_file_contains "$TARGET_HOME/.config/ghostty/themes/noctalia" 'background = #000000'
+  refute_file_contains "$TARGET_HOME/.config/ghostty/themes/noctalia" 'palette = 0=#11111b'
+}
+
 @test "Noctalia plugins seed enabled plugin state when absent" {
   build_fedora_plan
   TARGET_USER="test-user"
@@ -283,6 +321,7 @@ setup() {
   patch_noctalia_starship_template_apply_if_needed() { :; }
   install_noctalia_wallpaper_state() { :; }
   install_starship_config() { :; }
+  install_ghostty_theme_seed_if_missing() { :; }
   install_niri_noctalia_seed_if_missing() { :; }
   install_noctalia_plugins_seed_if_missing() { :; }
   install_qt_theme_config() { :; }

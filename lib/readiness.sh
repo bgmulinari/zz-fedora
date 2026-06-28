@@ -302,14 +302,37 @@ readiness_generate_managed_config_policy() {
   done <"$policy_file"
 }
 
+readiness_plan_has_entry() {
+  local plan_file="$1"
+  local entry="$2"
+  [[ -f "$plan_file" ]] || return 1
+  grep -Fx "$entry" "$plan_file" >/dev/null 2>&1
+}
+
 readiness_generate_key_commands() {
-  local command_name status severity
-  for command_name in niri niri-session qs ghostty xdg-terminal-exec nautilus satty brightnessctl ddcutil mpv pavucontrol system-config-printer simple-scan; do
+  local native_plan package_name command_name status severity
+  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  while IFS=$'\t' read -r package_name command_name; do
+    readiness_plan_has_entry "$native_plan" "$package_name" || continue
     status="$(readiness_status_for_command "$command_name")"
     severity="info"
     [[ "$status" == "missing" ]] && severity="warn"
     readiness_record "command" "$command_name" "$status" "$severity" ""
-  done
+  done <<'EOF'
+niri	niri
+niri	niri-session
+noctalia-shell	qs
+ghostty	ghostty
+xdg-terminal-exec	xdg-terminal-exec
+nautilus	nautilus
+satty	satty
+brightnessctl	brightnessctl
+ddcutil	ddcutil
+mpv	mpv
+pavucontrol	pavucontrol
+system-config-printer	system-config-printer
+simple-scan	simple-scan
+EOF
 }
 
 generate_readiness_status() {

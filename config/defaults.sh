@@ -36,6 +36,7 @@ BASE_BUNDLE_IDS_fedora=(
   base-desktop-core
   base-gtk-portals
   base-system-services
+  base-desktop-controls
   base-desktop-apps
   base-file-integration
   base-file-integration-gtk
@@ -63,6 +64,7 @@ MINIMAL_DESKTOP_SKIP_BUNDLE_IDS_fedora=(
   base-source-flathub
   base-source-cisco-openh264
   base-gtk-portals
+  base-desktop-controls
   base-desktop-apps
   base-file-integration-gtk
   base-gtk-look

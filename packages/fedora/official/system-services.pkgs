@@ -10,13 +10,11 @@ pipewire-pulseaudio
 pipewire-alsa
 wireplumber
 alsa-utils
-pavucontrol
 pamixer
 playerctl
 upower
 tuned-ppd
 cups
-system-config-printer
 ipp-usb
 avahi
 nss-mdns
