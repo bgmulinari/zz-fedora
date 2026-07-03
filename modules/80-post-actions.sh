@@ -162,7 +162,7 @@ EOF
 install_qt_theme_config() {
   local native_plan
   native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
-  plan_has_any_backend_entry "$native_plan" qt5ct qt6ct || return 0
+  plan_has_any_backend_entry "$native_plan" qt5ct qt6ct qt6ct-kde || return 0
 
   install_qtct_config 5
   install_qtct_config 6

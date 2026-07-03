@@ -42,6 +42,7 @@ BASE_BUNDLE_IDS_fedora=(
   base-file-integration-gtk
   base-wayland-tools
   base-gtk-look
+  base-qt-look
   base-nodejs
   shell-zsh
   shell-starship
@@ -68,6 +69,7 @@ MINIMAL_DESKTOP_SKIP_BUNDLE_IDS_fedora=(
   base-desktop-apps
   base-file-integration-gtk
   base-gtk-look
+  base-qt-look
 )
 
 SUPPORTED_DISTROS=(

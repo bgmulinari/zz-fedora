@@ -183,6 +183,27 @@ setup() {
   refute_file_contains "$TARGET_HOME/.config/ghostty/themes/noctalia" 'palette = 0=#11111b'
 }
 
+@test "qtct config uses Noctalia KColorScheme for Qt5 and Qt6" {
+  build_fedora_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/qtct-home"
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_qtct_config 5
+  install_qtct_config 6
+
+  assert_file_contains "$TARGET_HOME/.config/qt5ct/qt5ct.conf" "color_scheme_path=$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
+  assert_file_contains "$TARGET_HOME/.config/qt6ct/qt6ct.conf" "color_scheme_path=$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
+  refute_file_contains "$TARGET_HOME/.config/qt5ct/qt5ct.conf" ".config/qt5ct/colors/noctalia.conf"
+  refute_file_contains "$TARGET_HOME/.config/qt6ct/qt6ct.conf" ".config/qt6ct/colors/noctalia.conf"
+}
+
 @test "Niri display config is seeded only when absent" {
   build_fedora_plan
   TARGET_USER="test-user"
