@@ -9,10 +9,10 @@ polkit_agent = true
 telemetry_enabled = false
 
 [wallpaper]
-directory = "~/Wallpapers"
+directory = "~/.local/share/backgrounds"
 
 [wallpaper.default]
-path = "~/Wallpapers/BlueTide.jpg"
+path = "~/.local/share/backgrounds/BlueTide.jpg"
 
 [bar.default]
 margin_ends = 10

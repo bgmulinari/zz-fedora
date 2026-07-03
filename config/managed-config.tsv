@@ -1,5 +1,5 @@
 # path	mode	conflict	owner	description
-~/Wallpapers	seed-if-missing	preserve	wallpapers	Seeds bundled wallpaper assets for later selection.
+~/.local/share/backgrounds	seed-if-missing	preserve	wallpapers	Seeds bundled wallpaper assets and the Noctalia default wallpaper.
 ~/.config/autostart/zz-first-run.desktop	first-run	regenerate	first-run	Launches one-time user-session setup after login.
 ~/.local/bin/zz	generated	regenerate	zz-launcher	Installs the post-install zz utility.
 ~/.config/niri/cfg/display.kdl	seed-if-missing	preserve	niri-display	Seeds hardware-specific Niri display config when absent.

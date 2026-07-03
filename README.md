@@ -26,10 +26,10 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 - SDDM provides the graphical login and session chooser.
 - Choose the `Niri` session at login.
 - Noctalia is launched from Niri autostart with `spawn-at-startup "noctalia"`, and Niri shell keybindings call `noctalia msg ...`.
-- Noctalia v5 starts from upstream defaults. This repo does not seed `~/.config/noctalia/*.toml` yet; GUI-managed overrides live in `~/.local/state/noctalia/settings.toml`.
-- Bundled wallpapers are seeded to `~/Wallpapers` for later user selection, but the installer does not force a Noctalia wallpaper default.
+- Noctalia v5 uses the managed `~/.config/noctalia/config.toml` baseline; GUI-managed overrides live in `~/.local/state/noctalia/settings.toml`.
+- Bundled wallpapers are seeded to `~/.local/share/backgrounds`, and Noctalia defaults to the bundled `BlueTide.jpg`.
 - Niri config is stowed from this repo. Hardware-specific Niri display config and `~/.config/niri/noctalia.kdl` are seeded only when absent.
-- Noctalia app templates, plugins, browser theming, and repo-specific user customizations are intentionally not preconfigured while the v5 baseline is still vanilla.
+- Noctalia template selection is managed through the curated config; generated runtime state and hardware-specific widget placement stay app-managed.
 - The installer never starts SDDM immediately. When no display manager is already enabled, reboot to begin using the graphical login.
 - On systems that already have a full GNOME/KDE/Plasma desktop, the installer can use the minimal desktop app profile. This keeps Niri, Noctalia, Ghostty, shell tooling, and Niri support packages, while skipping replacement desktop apps, GTK/GNOME portal fill-ins, GTK/Qt look packages, and base media/source enablement that are only needed for the complete GTK-oriented baseline.
 

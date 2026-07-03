@@ -35,7 +35,7 @@ install_bundled_wallpapers() {
   for source_file in "$ROOT_DIR"/assets/wallpapers/*.{jpg,jpeg,png,webp,avif}; do
     [[ -f "$source_file" ]] || continue
     wallpaper_name="$(basename "$source_file")"
-    install_user_file_if_changed "$source_file" "$TARGET_HOME/Wallpapers/$wallpaper_name"
+    install_user_file_if_changed "$source_file" "$TARGET_HOME/.local/share/backgrounds/$wallpaper_name"
   done
 }
 

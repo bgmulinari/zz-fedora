@@ -156,7 +156,7 @@ module_90_doctor() {
   fi
   doctor_warn_file "$TARGET_HOME/.local/share/applications/nvim.desktop"
   doctor_plan_has_entry "$native_plan" "nautilus-python" && doctor_warn_file "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py"
-  doctor_warn_file "$TARGET_HOME/Wallpapers/BlueTide.jpg"
+  doctor_warn_file "$TARGET_HOME/.local/share/backgrounds/BlueTide.jpg"
   if doctor_noctalia_planned "$native_plan"; then
     doctor_warn_file "$user_config_home/noctalia/config.toml"
     doctor_warn_file "$user_config_home/noctalia/templates/icon-theme-accent"

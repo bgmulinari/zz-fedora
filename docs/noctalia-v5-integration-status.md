@@ -197,7 +197,7 @@ Niri:
 Noctalia config:
 
 - `~/.config/noctalia/config.toml` is stowed from `dotfiles/noctalia/.config/noctalia/config.toml`.
-- The managed config is intentionally portable: polkit agent, telemetry off, `~/Wallpapers`, the bundled `BlueTide.jpg` wallpaper, Nord built-in dark theme, Noctalia bar end margin, semi-transparent shell surface backgrounds, selected built-in templates, and selected community templates.
+- The managed config is intentionally portable: polkit agent, telemetry off, `~/.local/share/backgrounds`, the bundled `BlueTide.jpg` wallpaper, Nord built-in dark theme, Noctalia bar end margin, semi-transparent shell surface backgrounds, selected built-in templates, and selected community templates.
 - The managed config also declares `[theme.templates.user.icon_theme]` to restore the pre-v5 desktop icon accent sync without reintroducing v4 `user-templates.toml`.
 - GUI/runtime overrides remain app-managed in `~/.local/state/noctalia/settings.toml` and load after the stowed config.
 - Do not put lockscreen widgets, desktop widgets, monitor names, output names, connector lists, resolutions, coordinates, or generated setup state in the stowed config.
@@ -212,7 +212,7 @@ Templates:
 
 Related managed files:
 
-- `~/Wallpapers`
+- `~/.local/share/backgrounds`
 - `~/.config/noctalia/config.toml`
 - `~/.config/noctalia/templates/icon-theme-accent`
 - `~/.config/niri/cfg/display.kdl`
