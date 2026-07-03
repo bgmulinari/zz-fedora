@@ -157,6 +157,11 @@ module_90_doctor() {
   doctor_warn_file "$TARGET_HOME/.local/share/applications/nvim.desktop"
   doctor_plan_has_entry "$native_plan" "nautilus-python" && doctor_warn_file "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py"
   doctor_warn_file "$TARGET_HOME/Wallpapers/BlueTide.jpg"
+  if doctor_noctalia_planned "$native_plan"; then
+    doctor_warn_file "$user_config_home/noctalia/config.toml"
+    doctor_warn_file "$user_config_home/noctalia/templates/icon-theme-accent"
+    doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme"
+  fi
   if [[ "$DISTRO" == "fedora" ]]; then
     doctor_check_dir_has_files "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont" '*.ttf'
   fi
@@ -178,6 +183,11 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "ghostty"; then
     doctor_check_contains "$user_config_home/ghostty/config" 'quit-after-last-window-closed = false'
     doctor_check_contains "$user_config_home/ghostty/config" 'theme = noctalia'
+  fi
+  if doctor_noctalia_planned "$native_plan"; then
+    doctor_check_contains "$user_config_home/noctalia/config.toml" '[theme.templates.user.icon_theme]'
+    doctor_check_contains "$user_config_home/noctalia/templates/icon-theme-accent" '{{ colors.primary.default.hex }}'
+    doctor_check_contains "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme" 'QS_ICON_THEME='
   fi
   if doctor_plan_has_entry "$native_plan" "xdg-terminal-exec"; then
     doctor_check_contains "$user_config_home/xdg-terminals.list" 'Alacritty.desktop'

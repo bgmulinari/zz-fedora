@@ -34,6 +34,8 @@ setup() {
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/autostart/zz-first-run.desktop"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/ghostty/themes/noctalia"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/noctalia/config.toml"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/noctalia/templates/icon-theme-accent"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/noctalia-sync-icon-theme"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-noctalia'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-ghostty'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbats\tbase-bootstrap\tinstaller-bootstrap'

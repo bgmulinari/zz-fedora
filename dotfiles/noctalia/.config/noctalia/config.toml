@@ -43,3 +43,8 @@ community_ids = [
   "zed",
   "yazi",
 ]
+
+[theme.templates.user.icon_theme]
+input_path = "$XDG_CONFIG_HOME/noctalia/templates/icon-theme-accent"
+output_path = "$XDG_CACHE_HOME/noctalia/icon-theme-accent"
+post_hook = "$HOME/.local/bin/noctalia-sync-icon-theme"

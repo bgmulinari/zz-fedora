@@ -202,6 +202,110 @@ setup() {
   assert_file_contains "$TARGET_HOME/.config/qt6ct/qt6ct.conf" "color_scheme_path=$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
 }
 
+@test "Noctalia icon theme sync maps accent to closest installed Yaru theme" {
+  TARGET_HOME="$TEST_ROOT/icon-theme-home"
+  fake_bin="$TEST_ROOT/icon-theme-bin"
+  command_log="$TEST_ROOT/icon-theme-commands.log"
+  mkdir -p \
+    "$TARGET_HOME/.cache/noctalia" \
+    "$TARGET_HOME/.local/share/icons/Yaru-blue" \
+    "$TARGET_HOME/.local/share/icons/Yaru-red" \
+    "$fake_bin"
+  printf '#f85149\n' >"$TARGET_HOME/.cache/noctalia/icon-theme-accent"
+
+  cat >"$fake_bin/gsettings" <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf 'gsettings:%s\n' "$*" >>"$ICON_THEME_COMMAND_LOG"
+EOF
+  cat >"$fake_bin/systemctl" <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf 'systemctl:%s\n' "$*" >>"$ICON_THEME_COMMAND_LOG"
+EOF
+  cat >"$fake_bin/dbus-update-activation-environment" <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf 'dbus:%s:%s\n' "${QS_ICON_THEME:-}" "$*" >>"$ICON_THEME_COMMAND_LOG"
+EOF
+  cat >"$fake_bin/kwriteconfig6" <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+file=""
+group=""
+key=""
+value="${*: -1}"
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --file)
+      file="$2"
+      shift 2
+      ;;
+    --group)
+      group="$2"
+      shift 2
+      ;;
+    --key)
+      key="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+mkdir -p "$HOME/.config"
+{
+  printf '[%s]\n' "$group"
+  printf '%s=%s\n' "$key" "$value"
+} >"$HOME/.config/$file"
+printf 'kwriteconfig6:%s:%s:%s:%s\n' "$file" "$group" "$key" "$value" >>"$ICON_THEME_COMMAND_LOG"
+EOF
+  chmod +x "$fake_bin/gsettings" "$fake_bin/systemctl" "$fake_bin/dbus-update-activation-environment" "$fake_bin/kwriteconfig6"
+
+  HOME="$TARGET_HOME" \
+    XDG_CACHE_HOME="$TARGET_HOME/.cache" \
+    ICON_THEME_COMMAND_LOG="$command_log" \
+    PATH="$fake_bin:$PATH" \
+    "$ROOT_DIR/dotfiles/noctalia/.local/bin/noctalia-sync-icon-theme"
+
+  assert_file_contains "$command_log" 'gsettings:set org.gnome.desktop.interface icon-theme Yaru-red'
+  assert_file_contains "$command_log" 'systemctl:--user set-environment QS_ICON_THEME=Yaru-red'
+  assert_file_contains "$command_log" 'dbus:Yaru-red:--systemd QS_ICON_THEME'
+  assert_file_contains "$TARGET_HOME/.config/qt5ct/qt5ct.conf" 'icon_theme=Yaru-red'
+  assert_file_contains "$TARGET_HOME/.config/qt6ct/qt6ct.conf" 'icon_theme=Yaru-red'
+  assert_file_contains "$TARGET_HOME/.config/kdeglobals" 'Theme=Yaru-red'
+}
+
+@test "Noctalia icon theme sync leaves settings unchanged when no Yaru theme is installed" {
+  TARGET_HOME="$TEST_ROOT/icon-theme-missing-home"
+  fake_bin="$TEST_ROOT/icon-theme-missing-bin"
+  command_log="$TEST_ROOT/icon-theme-missing-commands.log"
+  mkdir -p "$TARGET_HOME/.cache/noctalia" "$fake_bin"
+  printf '#f85149\n' >"$TARGET_HOME/.cache/noctalia/icon-theme-accent"
+
+  for cmd in gsettings systemctl dbus-update-activation-environment kwriteconfig6; do
+    cat >"$fake_bin/$cmd" <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf '%s\n' "$0 $*" >>"$ICON_THEME_COMMAND_LOG"
+EOF
+    chmod +x "$fake_bin/$cmd"
+  done
+
+  HOME="$TARGET_HOME" \
+    XDG_CACHE_HOME="$TARGET_HOME/.cache" \
+    XDG_DATA_DIRS="$TEST_ROOT/icon-theme-missing-data" \
+    ICON_THEME_COMMAND_LOG="$command_log" \
+    PATH="$fake_bin:$PATH" \
+    "$ROOT_DIR/dotfiles/noctalia/.local/bin/noctalia-sync-icon-theme"
+
+  [[ ! -e "$command_log" ]]
+  [[ ! -e "$TARGET_HOME/.config/qt5ct/qt5ct.conf" ]]
+  [[ ! -e "$TARGET_HOME/.config/qt6ct/qt6ct.conf" ]]
+  [[ ! -e "$TARGET_HOME/.config/kdeglobals" ]]
+}
+
 @test "Niri display config is seeded only when absent" {
   build_fedora_plan
   TARGET_USER="test-user"
