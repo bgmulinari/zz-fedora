@@ -236,7 +236,7 @@ Last validation run:
 ```bash
 bash -n modules/35-custom-actions.sh
 bash -n distros/fedora.sh
-bats tests/sources_flatpak.bats
+bats tests/fedora_sources.bats
 ```
 
 ## Future Update Checklist

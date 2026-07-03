@@ -1,0 +1,30 @@
+#!/usr/bin/env bats
+
+load "helpers/common"
+
+setup() {
+  setup_test_env
+  source_core
+  source_modules
+  DISTRO=fedora
+  load_adapter
+}
+
+@test "Terra source excludes Noctalia package provider" {
+  DRY_RUN=0
+  distro_repo_enabled() {
+    return 0
+  }
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*"
+  }
+  rpm() {
+    [[ "$*" == "-E %fedora" ]] && printf '44\n'
+  }
+
+  run distro_enable_sources terra
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "root:dnf config-manager setopt terra.repo_gpgcheck=0"
+  assert_contains "$output" "root:dnf config-manager setopt terra.excludepkgs=noctalia-git"
+}

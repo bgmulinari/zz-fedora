@@ -190,23 +190,3 @@ setup() {
   assert_contains "$output" "root:rpm --import https://download1.rpmfusion.org/nonfree/fedora/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020"
   assert_contains "$output" "root:dnf install -y --setopt=localpkg_gpgcheck=1 https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-44.noarch.rpm"
 }
-
-@test "Fedora Terra source excludes Noctalia package provider" {
-  DISTRO=fedora
-  DRY_RUN=0
-  distro_repo_enabled() {
-    return 0
-  }
-  run_cmd_as_root() {
-    printf 'root:%s\n' "$*"
-  }
-  rpm() {
-    [[ "$*" == "-E %fedora" ]] && printf '44\n'
-  }
-
-  run distro_enable_sources terra
-
-  [ "$status" -eq 0 ]
-  assert_contains "$output" "root:dnf config-manager setopt terra.repo_gpgcheck=0"
-  assert_contains "$output" "root:dnf config-manager setopt terra.excludepkgs=noctalia-git"
-}
