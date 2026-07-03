@@ -1,7 +1,6 @@
 NetworkManager
 NetworkManager-wifi
 NetworkManager-bluetooth
-NetworkManager-tui
 firewalld
 chrony
 bluez

@@ -123,9 +123,11 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "neovim" || doctor_plan_has_entry "$native_plan" "nvim"; then
     doctor_warn_command nvim
   fi
-  doctor_plan_has_entry "$native_plan" "evince" && doctor_warn_command evince
+  doctor_plan_has_entry "$native_plan" "papers" && doctor_warn_command papers
   doctor_warn_command gum
-  doctor_plan_has_entry "$native_plan" "mpv" && doctor_warn_command mpv
+  doctor_plan_has_entry "$native_plan" "loupe" && doctor_warn_command loupe
+  doctor_plan_has_entry "$native_plan" "showtime" && doctor_warn_command showtime
+  doctor_plan_has_entry "$native_plan" "decibels" && doctor_warn_command org.gnome.Decibels
   doctor_plan_has_entry "$native_plan" "pavucontrol" && doctor_warn_command pavucontrol
   doctor_plan_has_entry "$native_plan" "system-config-printer" && doctor_warn_command system-config-printer
   doctor_plan_has_entry "$native_plan" "simple-scan" && doctor_warn_command simple-scan
@@ -154,7 +156,7 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "code" || doctor_plan_has_entry "$native_plan" "codium" || doctor_plan_has_entry "$native_plan" "code-insiders" || doctor_plan_has_entry "$native_plan" "vscodium"; then
     doctor_warn_file "$user_config_home/Code/User/settings.json"
   fi
-  doctor_warn_file "$TARGET_HOME/.local/share/applications/nvim.desktop"
+  doctor_plan_has_entry "$native_plan" "neovim" && doctor_warn_file "$TARGET_HOME/.local/share/applications/nvim.desktop"
   doctor_plan_has_entry "$native_plan" "nautilus-python" && doctor_warn_file "$TARGET_HOME/.local/share/nautilus-python/extensions/open-terminal-here.py"
   doctor_warn_file "$TARGET_HOME/.local/share/backgrounds/BlueTide.jpg"
   if doctor_noctalia_planned "$native_plan"; then
@@ -172,7 +174,6 @@ module_90_doctor() {
     doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "ghostty" "+new-window"'
     doctor_check_contains "$niri_config_home/config.kdl" 'include "./noctalia.kdl"'
     doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'TERMINAL=xdg-terminal-exec'
-    doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'EDITOR=nvim'
     if doctor_plan_has_entry "$native_plan" "nautilus"; then
       doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "nautilus"'
     fi
@@ -191,6 +192,8 @@ module_90_doctor() {
   fi
   if doctor_plan_has_entry "$native_plan" "xdg-terminal-exec"; then
     doctor_check_contains "$user_config_home/xdg-terminals.list" 'Alacritty.desktop'
+  fi
+  if doctor_plan_has_entry "$native_plan" "neovim"; then
     doctor_check_contains "$TARGET_HOME/.local/share/applications/nvim.desktop" 'Exec=xdg-terminal-exec'
   fi
   if doctor_plan_has_entry "$native_plan" "nautilus-python"; then

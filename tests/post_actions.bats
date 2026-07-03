@@ -20,9 +20,12 @@ setup() {
 
   configure_default_applications
 
-  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default mpv.desktop video/mp4"
-  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default mpv.desktop video/x-matroska"
-  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default nvim.desktop text/plain"
+  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Showtime.desktop video/mp4"
+  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Showtime.desktop video/x-matroska"
+  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Decibels.desktop audio/mpeg"
+  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.TextEditor.desktop text/plain"
+  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Nautilus.desktop application/zip"
+  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Calendar.desktop text/calendar"
   refute_file_contains "$TEST_ROOT/commands.log" "x-scheme-handler/mailto"
 }
 
@@ -35,8 +38,8 @@ setup() {
   [ "$status" -eq 0 ]
   assert_contains "$output" "xdg-terminals.list"
   refute_contains "$output" "xdg-mime default org.gnome.Nautilus.desktop"
-  refute_contains "$output" "xdg-mime default org.gnome.Evince.desktop"
-  refute_contains "$output" "xdg-mime default mpv.desktop"
+  refute_contains "$output" "xdg-mime default org.gnome.Papers.desktop"
+  refute_contains "$output" "xdg-mime default org.gnome.Showtime.desktop"
 }
 
 @test "selected browser default falls back to MIME when xdg-settings fails" {

@@ -39,7 +39,6 @@ dnf	gnome-keyring	desktop-service	secret storage	Provides keyring integration fo
 dnf	NetworkManager	desktop-service	network service	Provides the base network management service.
 dnf	NetworkManager-wifi	desktop-service	network service	Adds Wi-Fi support to NetworkManager.
 dnf	NetworkManager-bluetooth	desktop-service	network service	Adds Bluetooth networking support to NetworkManager.
-dnf	NetworkManager-tui	desktop-service	network diagnostics	Provides terminal network configuration fallback.
 dnf	firewalld	desktop-service	firewall service	Provides the default Fedora firewall service.
 dnf	chrony	desktop-service	time sync	Provides time synchronization.
 dnf	bluez	desktop-service	Bluetooth service	Provides Bluetooth daemon support.
@@ -60,19 +59,27 @@ dnf	avahi	desktop-service	network discovery	Provides mDNS discovery for printers
 dnf	nss-mdns	desktop-service	network discovery	Resolves mDNS hostnames.
 dnf	evolution-data-server	desktop-service	GTK account/calendar integration	Provides common data services consumed by GNOME/GTK applications.
 dnf	nautilus	default-app	file manager	Provides the default graphical file manager.
-dnf	evince	default-app	document viewer	Provides the default PDF/document viewer.
-dnf	imv	default-app	image viewer	Provides lightweight image viewing.
-dnf	ImageMagick	default-app	screenshot/OCR helper	Provides image conversion helpers for screenshot workflows.
-dnf	mpv	default-app	media player	Provides the default local media player.
-dnf	tesseract	default-app	OCR workflow	Provides OCR engine for screenshot/image workflows.
-dnf	tesseract-langpack-eng	default-app	OCR workflow	Provides English OCR data.
-dnf	simple-scan	default-app	scanner workflow	Provides a scanner UI for the printer/scanner baseline.
 dnf	gnome-calculator	default-app	utility app	Provides a basic calculator.
+dnf	gnome-calendar	default-app	calendar	Provides a graphical calendar application.
+dnf	gnome-characters	default-app	character picker	Provides graphical Unicode character browsing and insertion.
+dnf	gnome-clocks	default-app	clock utility	Provides clocks, alarms, timers, and stopwatch tools.
+dnf	gnome-contacts	default-app	contacts	Provides graphical contact management backed by GNOME data services.
 dnf	gnome-text-editor	default-app	text editor fallback	Provides a simple GUI text editor.
 dnf	gnome-software	default-app	app discovery	Provides a GUI software browsing/update front end.
-dnf	nm-connection-editor	desktop-service	network UI	Provides graphical NetworkManager connection editing.
-dnf	file-roller	default-app	archive manager	Provides graphical archive handling from the file manager.
+dnf	gnome-system-monitor	default-app	system monitor	Provides graphical process and resource monitoring.
 dnf	gnome-disk-utility	default-app	disk utility	Provides graphical disk inspection and formatting.
+dnf	gnome-logs	default-app	log viewer	Provides graphical systemd journal viewing.
+dnf	baobab	default-app	disk usage analyzer	Provides graphical disk usage inspection.
+dnf	gnome-font-viewer	default-app	font viewer	Provides graphical font previewing.
+dnf	loupe	default-app	image viewer	Provides the default GNOME image viewer.
+dnf	papers	default-app	document viewer	Provides the default PDF/document viewer.
+dnf	showtime	default-app	video player	Provides the default GNOME video player.
+dnf	decibels	default-app	audio player	Provides the default GNOME audio player.
+dnf	snapshot	default-app	camera	Provides a camera application for the desktop baseline.
+dnf	simple-scan	default-app	scanner workflow	Provides a scanner UI for the printer/scanner baseline.
+dnf	gnome-boxes	default-app	virtual machines	Provides graphical virtual machine management.
+dnf	gnome-connections	default-app	remote desktop	Provides graphical remote desktop connections.
+dnf	file-roller	default-app	archive manager	Provides graphical archive handling from the file manager.
 dnf	gvfs-mtp	file-integration	file manager	Enables MTP device access in Nautilus/GVFS.
 dnf	gvfs-nfs	file-integration	file manager	Enables NFS access in Nautilus/GVFS.
 dnf	gvfs-smb	file-integration	file manager	Enables SMB access in Nautilus/GVFS.

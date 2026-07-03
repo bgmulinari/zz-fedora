@@ -324,7 +324,10 @@ xdg-terminal-exec	xdg-terminal-exec
 nautilus	nautilus
 brightnessctl	brightnessctl
 ddcutil	ddcutil
-mpv	mpv
+papers	papers
+loupe	loupe
+showtime	showtime
+decibels	org.gnome.Decibels
 pavucontrol	pavucontrol
 system-config-printer	system-config-printer
 simple-scan	simple-scan

@@ -63,6 +63,30 @@ setup() {
   refute_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-tools"
 }
 
+@test "full desktop app profile installs requested GNOME apps" {
+  build_fedora_plan
+
+  local package
+  for package in \
+    gnome-calendar \
+    gnome-characters \
+    gnome-clocks \
+    gnome-contacts \
+    gnome-system-monitor \
+    gnome-logs \
+    baobab \
+    gnome-font-viewer \
+    loupe \
+    papers \
+    showtime \
+    decibels \
+    snapshot \
+    gnome-boxes \
+    gnome-connections; do
+    assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$package"
+  done
+}
+
 @test "minimal desktop app profile keeps Niri baseline but skips full desktop app fill-ins" {
   DESKTOP_APP_PROFILE=minimal
   build_fedora_plan
@@ -74,7 +98,6 @@ setup() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-v5-fedora"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-terminal-exec"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/share/applications/nvim.desktop"
 
   refute_plan_has "$PLAN_DIR/bundles.list" "base-desktop-apps"
   refute_plan_has "$PLAN_DIR/bundles.list" "base-gtk-portals"
@@ -146,6 +169,7 @@ setup() {
   assert_unique_file "$PLAN_DIR/actions/actions.list"
   assert_unique_file "$PLAN_DIR/services/system-enable-now.list"
   assert_unique_file "$PLAN_DIR/stow/packages.list"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/share/applications/nvim.desktop"
 }
 
 @test "base manifests are always represented in the generated plan" {

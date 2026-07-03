@@ -14,9 +14,11 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 - Noctalia v5 is a native Wayland shell layer, not a full desktop environment. Fedora installs a pinned known-good `noctalia-git` build from the `lionheartp/Hyprland` Copr.
 - The full desktop app profile installs GTK desktop defaults:
   - Nautilus for file management
-  - Neovim as the default handler for plain text and source files
-  - Evince for PDFs and other document viewing
-  - imv for lightweight image viewing
+  - GNOME Text Editor for desktop plain-text file handling
+  - Papers for PDFs and other document viewing
+  - Loupe for image viewing
+  - Showtime and Decibels for local video and audio playback
+  - GNOME utilities for calendar, clocks, contacts, fonts, logs, disks, scanning, camera, system monitoring, disk usage, virtual machines, and remote connections
   - Noctalia v5 screenshots through `noctalia msg screenshot-region`
   - GTK/GNOME portals, Adwaita GTK defaults, Yaru icons, and qtct integration
 - Ghostty is the default terminal. The installer enables Ghostty's user systemd service on first login, keeps the background process running, and uses `ghostty +new-window` for Niri/Noctalia terminal launches.
