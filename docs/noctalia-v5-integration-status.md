@@ -24,7 +24,7 @@ Current repo wiring:
 - The Fedora Noctalia action installs or `distro-sync`s `noctalia-git` from `copr:lionheartp/Hyprland`.
 - Terra remains enabled for Ghostty, but the Terra source setup sets `terra.excludepkgs=noctalia-git` so normal DNF updates keep Noctalia on the validated LionHeartP COPR provider.
 - Noctalia remains a custom action instead of a plain `dnf` package manifest because the package provider is part of the integration contract.
-- The base Noctalia bundle now stows `dotfiles/noctalia/.config/noctalia/config.toml` as the hardware-agnostic user config layer.
+- The base Noctalia bundle now stows `dotfiles/noctalia/.config/noctalia/config.toml` as the hardware-agnostic user config layer, including semi-transparent `0.9` bar, dock, notification, and OSD backgrounds.
 - The pre-v5 Yaru icon accent sync has been restored through a v5 user template. Noctalia renders `colors.primary.default.hex` to `~/.cache/noctalia/icon-theme-accent`, then `~/.local/bin/noctalia-sync-icon-theme` maps it to the closest installed Yaru accent and updates GTK, Qt, KDE globals, and `QS_ICON_THEME`.
 - The repo still does not manage `~/.local/state/noctalia/settings.toml`; fresh-start lockscreen widget state includes output names and coordinates, so it remains generated state.
 
@@ -197,7 +197,7 @@ Niri:
 Noctalia config:
 
 - `~/.config/noctalia/config.toml` is stowed from `dotfiles/noctalia/.config/noctalia/config.toml`.
-- The managed config is intentionally portable: polkit agent, telemetry off, `~/Wallpapers`, the bundled `BlueTide.jpg` wallpaper, Nord built-in dark theme, Noctalia bar end margin, selected built-in templates, and selected community templates.
+- The managed config is intentionally portable: polkit agent, telemetry off, `~/Wallpapers`, the bundled `BlueTide.jpg` wallpaper, Nord built-in dark theme, Noctalia bar end margin, semi-transparent shell surface backgrounds, selected built-in templates, and selected community templates.
 - The managed config also declares `[theme.templates.user.icon_theme]` to restore the pre-v5 desktop icon accent sync without reintroducing v4 `user-templates.toml`.
 - GUI/runtime overrides remain app-managed in `~/.local/state/noctalia/settings.toml` and load after the stowed config.
 - Do not put lockscreen widgets, desktop widgets, monitor names, output names, connector lists, resolutions, coordinates, or generated setup state in the stowed config.

@@ -16,6 +16,16 @@ path = "~/Wallpapers/BlueTide.jpg"
 
 [bar.default]
 margin_ends = 10
+background_opacity = 0.9
+
+[dock]
+background_opacity = 0.9
+
+[notification]
+background_opacity = 0.9
+
+[osd]
+background_opacity = 0.9
 
 [theme]
 mode = "dark"
