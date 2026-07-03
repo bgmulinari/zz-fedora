@@ -80,10 +80,10 @@ dnf	simple-scan	default-app	scanner workflow	Provides a scanner UI for the print
 dnf	gnome-boxes	default-app	virtual machines	Provides graphical virtual machine management.
 dnf	gnome-connections	default-app	remote desktop	Provides graphical remote desktop connections.
 dnf	file-roller	default-app	archive manager	Provides graphical archive handling from the file manager.
+dnf	ghostty-nautilus	default-app	file manager terminal action	Provides Ghostty integration in the Nautilus context menu.
 dnf	gvfs-mtp	file-integration	file manager	Enables MTP device access in Nautilus/GVFS.
 dnf	gvfs-nfs	file-integration	file manager	Enables NFS access in Nautilus/GVFS.
 dnf	gvfs-smb	file-integration	file manager	Enables SMB access in Nautilus/GVFS.
-dnf	nautilus-python	file-integration	Nautilus extension	Supports the repo-managed open-terminal-here extension.
 dnf	udisks2	file-integration	removable media	Provides disk management APIs for desktop storage.
 dnf	udiskie	file-integration	removable media	Provides user-session automount support.
 dnf	xdg-utils	file-integration	default apps	Provides XDG helper commands for MIME/default app setup.

@@ -85,6 +85,7 @@ setup() {
     gnome-connections; do
     assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$package"
   done
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-nautilus"
 }
 
 @test "minimal desktop app profile keeps Niri baseline but skips full desktop app fill-ins" {
@@ -111,11 +112,9 @@ setup() {
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-desktop-portal-gnome"
-  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus-python"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt6ct"
   refute_plan_has "$PLAN_DIR/flatpak/apps.flatpaks" "org.gtk.Gtk3theme.adw-gtk3"
   refute_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/xdg-desktop-portal/niri-portals.conf"
-  refute_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/share/nautilus-python/extensions/open-terminal-here.py"
 }
 
 @test "auto desktop app profile uses minimal when an existing full desktop is detected" {
