@@ -8,13 +8,21 @@ Noctalia v5 is currently beta software and this branch is experimental. Treat th
 
 Repo branch: `noctalia-v5`
 
-Local package state after manual investigation:
+Current upstream and package validation:
 
-- The local DNF versionlock for `noctalia-git` was removed manually with `dnf5 versionlock delete noctalia-git`.
-- The local machine was updated manually to COPR latest `noctalia-git-5.0.0-0.240.gitad11b4b.fc44.x86_64`.
-- `noctalia --version` now reports `noctalia v5.0.0 (ad11b4b)`.
-- `dnf5 versionlock list` was empty after the local package update.
-- No repo package/action wiring was changed yet; the installer pin logic still exists in this branch until we decide the permanent path.
+- Upstream issue `#3250` now appears fixed in source. The refreshed local reference repo `/home/user/repos/noctalia` was at `a0d8efc30ead165a6a56349fdda3c722309c0745` (`feat(tray): add drawer_item_size configuration`).
+- Current upstream `src/shell/hot_corners/hot_corners.cpp` guards `HotCorners::onConfigReload()` when `m_config` or `m_wayland` is null, which addresses the startup ordering crash identified below.
+- Fedora package metadata was refreshed. COPR latest observed: `noctalia-git-5.0.0-0.242.git6b39dc8.fc44`. Terra latest observed: `noctalia-git-5.0.0^20260703git.6e7aa3b-1.fc44`.
+- The COPR `0.242.git6b39dc8` RPM was downloaded and extracted without installing system-wide.
+- The extracted `noctalia v5.0.0 (6b39dc8)` binary was run in the active Niri session with a fresh isolated XDG config/state/cache profile and an isolated `XDG_RUNTIME_DIR` symlinked to the real Wayland socket, while the existing Noctalia process stayed running.
+- Result: the candidate created fresh `state/noctalia/settings.toml`, stayed alive until `timeout -s TERM 10s` stopped it with status `124`, and did not segfault.
+
+Current repo wiring:
+
+- The Fedora Noctalia action installs or `distro-sync`s `noctalia-git` from `copr:lionheartp/Hyprland`.
+- Noctalia remains a custom action instead of a plain `dnf` package manifest because Terra also publishes `noctalia-git`; the validated package path is still the LionHeartP COPR.
+
+Prior crash investigation:
 
 Fresh-state reboot result:
 
@@ -62,10 +70,11 @@ Upstream report:
 
 Current decision:
 
+- Use the validated COPR `noctalia-git` package.
 - Do not add a static Noctalia state seed.
 - Do not add a simple retry wrapper around Noctalia.
-- Keep repo behavior unchanged until we either confirm an upstream fix or implement a generated first-run state workaround.
-- Before removing the installer pin from this repo, re-test the current upstream/COPR build from a true missing-`settings.toml` state and verify issue `#3250` is fixed or otherwise mitigated.
+- Keep forcing the COPR provider until we deliberately handle the Terra `noctalia-git` provider conflict another way.
+- Before changing Noctalia provider or package wiring again, re-test the candidate from a true missing-`settings.toml` state.
 
 ## Checkpoint: 2026-07-02
 
@@ -183,7 +192,7 @@ Noctalia config:
 - No `~/.config/noctalia/*.toml` files are seeded.
 - The baseline intentionally starts from upstream Noctalia v5 defaults.
 - GUI/runtime overrides remain app-managed in `~/.local/state/noctalia/settings.toml`.
-- Local verification on the pinned `d2d2f9b` build showed it starts from an isolated empty XDG config/state/cache profile with `no config files found, using defaults`.
+- Local verification on the validated `6b39dc8` COPR build showed it starts from an isolated empty XDG config/state/cache profile with `no config files found, using defaults`.
 - Upstream defaults are therefore left intact for now, including the default shell font (`sans-serif`), setup wizard behavior, polkit setting, theme, wallpaper, and screenshot settings.
 
 Templates:
@@ -224,19 +233,18 @@ Tests covering this checkpoint:
 Last validation run:
 
 ```bash
-bash -n modules/35-custom-actions.sh modules/80-post-actions.sh modules/90-doctor.sh lib/planner.sh lib/readiness.sh distros/fedora.sh
-bats tests/planner.bats tests/package_modules.bats tests/post_actions.bats tests/doctor_hardening.bats tests/cli_smoke.bats
+bash -n modules/35-custom-actions.sh
+bats tests/package_modules.bats
+bats tests/post_actions.bats
 ./tests/smoke.sh
 ```
-
-Tests were not re-run for the follow-up that removed the Noctalia config seed, per request.
 
 ## Future Update Checklist
 
 When revisiting Noctalia v5:
 
 1. Check current upstream state in `~/repos/noctalia` and docs in `~/repos/noctalia-docs`.
-2. Compare changes since pinned commit `d2d2f9b` and since crashing commit `dfa00a4`.
+2. Compare changes since the validated COPR commit `6b39dc8` and the previously crashing commits `dfa00a4`/`ad11b4b`.
 3. Inspect current Fedora packages from `copr:lionheartp/Hyprland` and Terra, because both may provide `noctalia-git`.
 4. Test the candidate build in a live Niri session with a fresh isolated profile:
 
@@ -255,7 +263,7 @@ When revisiting Noctalia v5:
      noctalia
    ```
 
-5. If the new build survives fresh state, remove or update the package pin and versionlock logic.
+5. If the package provider or install path changes, update the custom action/source-forcing strategy accordingly.
 6. Re-check v5 docs for renamed config fields, template IDs, IPC commands, package names, source recommendations, and setup wizard behavior.
 7. Keep the integration clean v5-only. Do not add v4 compatibility, plugin migration, or QuickShell fallback paths.
 8. Update this file with the new checkpoint, package/build decision, VM/manual test result, and validation commands.
@@ -263,5 +271,5 @@ When revisiting Noctalia v5:
 ## Open Questions
 
 - When Noctalia v5 publishes a stable release, decide whether Fedora should use a versioned stable package instead of `noctalia-git`.
-- If Terra continues to ship `noctalia-git`, decide whether repo priority/excludes are needed after the pin is removed.
+- If this repo stops forcing COPR through the custom action, decide whether Terra needs repo priority/excludes for `noctalia-git`.
 - Treat any future Noctalia config seed, including `setup_wizard_enabled = false`, fonts, polkit, wallpapers, or templates, as an explicit customization checkpoint rather than part of the current vanilla baseline.

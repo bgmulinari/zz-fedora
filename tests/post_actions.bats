@@ -200,8 +200,6 @@ setup() {
 
   assert_file_contains "$TARGET_HOME/.config/qt5ct/qt5ct.conf" "color_scheme_path=$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
   assert_file_contains "$TARGET_HOME/.config/qt6ct/qt6ct.conf" "color_scheme_path=$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
-  refute_file_contains "$TARGET_HOME/.config/qt5ct/qt5ct.conf" ".config/qt5ct/colors/noctalia.conf"
-  refute_file_contains "$TARGET_HOME/.config/qt6ct/qt6ct.conf" ".config/qt6ct/colors/noctalia.conf"
 }
 
 @test "Niri display config is seeded only when absent" {

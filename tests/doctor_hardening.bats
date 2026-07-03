@@ -77,7 +77,7 @@ setup() {
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tgnome-software\tdefault-app\tapp discovery\tProvides a GUI software browsing/update front end.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tddcutil\tdesktop-service\texternal monitor brightness\tControls DDC/CI-capable external displays.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tcopr:lionheartp/Hyprland\tnoctalia\tNoctalia v5 shell\tProvides Noctalia v5 for the required base desktop shell.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tnoctalia-v5-fedora\tnoctalia\tNoctalia v5 shell\tInstalls the pinned native shell binary launched by Niri autostart.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tnoctalia-v5-fedora\tnoctalia\tNoctalia v5 shell\tInstalls the COPR native shell binary launched by Niri autostart.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tterra\tdefault-app\tGhostty\tBootstraps Terra release packages for required Ghostty packages.'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve'

@@ -25,7 +25,7 @@ dnf	dnf-plugins-core	installer-bootstrap	Fedora source setup	Provides DNF plugin
 dnf	dnf5-plugins	installer-bootstrap	Fedora source setup	Provides DNF5 plugin compatibility for current Fedora releases.
 dnf	sddm	desktop-service	graphical login	Provides the display manager and Niri session chooser.
 dnf	niri	niri	Niri session	Provides the compositor and Wayland session entry.
-action	noctalia-v5-fedora	noctalia	Noctalia v5 shell	Installs the pinned native shell binary launched by Niri autostart.
+action	noctalia-v5-fedora	noctalia	Noctalia v5 shell	Installs the COPR native shell binary launched by Niri autostart.
 dnf	ghostty	default-app	default terminal	Provides the default terminal used by keybindings and xdg-terminal-exec.
 action	ms-fonts-fedora	theme-font	document compatibility	Installs Microsoft core fonts for common document rendering.
 action	jetbrains-mono-nerd-font-fedora	theme-font	terminal and prompt rendering	Installs the pinned Nerd Font used by Ghostty and Starship glyphs.

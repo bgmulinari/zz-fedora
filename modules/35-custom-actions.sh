@@ -12,7 +12,6 @@ DOTNET_TOOLS=(
   powershell
   volo.abp.studio.cli
 )
-NOCTALIA_FEDORA_VERSION="5.0.0-0.222.gitd2d2f9b"
 NOCTALIA_FEDORA_COPR_REPO="copr:copr.fedorainfracloud.org:lionheartp:Hyprland"
 
 action_plan_has() {
@@ -317,39 +316,19 @@ install_fedora_build_tools() {
   run_cmd_as_root dnf group install -y development-tools
 }
 
-noctalia_fedora_package_spec() {
-  local fedora_release
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    fedora_release="<fedora-release>"
-  else
-    fedora_release="$(rpm -E %fedora)"
-  fi
-  printf 'noctalia-git-%s.fc%s\n' "$NOCTALIA_FEDORA_VERSION" "$fedora_release"
-}
-
 install_fedora_noctalia_v5() {
   [[ "$DISTRO" == "fedora" ]] || return 0
 
-  local package_spec
-  package_spec="$(noctalia_fedora_package_spec)"
-
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: install Noctalia v5 package %s from %s\n' "$package_spec" "$NOCTALIA_FEDORA_COPR_REPO"
-    printf 'DRY-RUN: dnf versionlock add %s\n' "$package_spec"
+    printf 'DRY-RUN: install or sync Noctalia v5 package noctalia-git from %s\n' "$NOCTALIA_FEDORA_COPR_REPO"
     return 0
   fi
 
-  run_cmd_as_root dnf versionlock delete 'noctalia-git*' || true
-  if ! rpm -q "$package_spec" >/dev/null 2>&1; then
-    if rpm -q noctalia-git >/dev/null 2>&1; then
-      run_cmd_as_root dnf downgrade -y --repo "$NOCTALIA_FEDORA_COPR_REPO" "$package_spec" \
-        || run_cmd_as_root dnf install -y --allowerasing --repo "$NOCTALIA_FEDORA_COPR_REPO" "$package_spec"
-    else
-      run_cmd_as_root dnf install -y --repo "$NOCTALIA_FEDORA_COPR_REPO" "$package_spec"
-    fi
+  if rpm -q noctalia-git >/dev/null 2>&1; then
+    run_cmd_as_root dnf distro-sync -y --allowerasing --from-repo "$NOCTALIA_FEDORA_COPR_REPO" noctalia-git
+  else
+    run_cmd_as_root dnf install -y --allowerasing --from-repo "$NOCTALIA_FEDORA_COPR_REPO" noctalia-git
   fi
-
-  run_cmd_as_root dnf versionlock add "$package_spec"
 }
 
 install_fedora_media_codecs() {
@@ -397,7 +376,7 @@ verify_custom_action() {
       return 0
       ;;
     noctalia-v5-fedora)
-      rpm -q "$(noctalia_fedora_package_spec)" >/dev/null 2>&1 && command -v noctalia >/dev/null 2>&1
+      rpm -q noctalia-git >/dev/null 2>&1 && command -v noctalia >/dev/null 2>&1
       ;;
     *)
       return 0

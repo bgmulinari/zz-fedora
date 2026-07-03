@@ -101,7 +101,7 @@ setup() {
   done
 }
 
-@test "Noctalia v5 Fedora action pins the known-good COPR build" {
+@test "Noctalia v5 Fedora action installs latest COPR build" {
   build_fedora_plan
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-v5-fedora"
 
@@ -109,9 +109,9 @@ setup() {
   run install_fedora_noctalia_v5
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" "noctalia-git-5.0.0-0.222.gitd2d2f9b.fc<fedora-release>"
+  assert_contains "$output" "install or sync Noctalia v5 package"
+  assert_contains "$output" "noctalia-git"
   assert_contains "$output" "copr:copr.fedorainfracloud.org:lionheartp:Hyprland"
-  assert_contains "$output" "dnf versionlock add"
 }
 
 @test "required base package failure aborts base setup before service work" {
