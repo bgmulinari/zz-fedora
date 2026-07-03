@@ -1,0 +1,4 @@
+interface:
+  display_name: "Promote Noctalia Config"
+  short_description: "Promote Noctalia UI settings safely"
+  default_prompt: "Use $promote-noctalia-config to inspect Noctalia UI overrides and promote portable settings into the managed dotfile."

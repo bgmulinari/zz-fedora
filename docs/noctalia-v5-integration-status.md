@@ -196,7 +196,7 @@ Niri:
 Noctalia config:
 
 - `~/.config/noctalia/config.toml` is stowed from `dotfiles/noctalia/.config/noctalia/config.toml`.
-- The managed config is intentionally portable: polkit agent, telemetry off, `~/Wallpapers`, the bundled `BlueTide.jpg` wallpaper, Nord built-in dark theme, and selected built-in templates.
+- The managed config is intentionally portable: polkit agent, telemetry off, `~/Wallpapers`, the bundled `BlueTide.jpg` wallpaper, Nord built-in dark theme, Noctalia bar end margin, selected built-in templates, and selected community templates.
 - GUI/runtime overrides remain app-managed in `~/.local/state/noctalia/settings.toml` and load after the stowed config.
 - Do not put lockscreen widgets, desktop widgets, monitor names, output names, connector lists, resolutions, coordinates, or generated setup state in the stowed config.
 - Local verification on the validated `6b39dc8` COPR build showed it starts from an isolated empty XDG config/state/cache profile with `no config files found, using defaults`.
@@ -205,7 +205,7 @@ Noctalia config:
 Templates:
 
 - Built-in templates enabled by the managed config: `niri`, `ghostty`, `starship`, `btop`, `gtk3`, `gtk4`, `qt`, and `kcolorscheme`.
-- Community templates remain disabled. No v4 plugins, browser theming, QuickShell config, or migration shims are present.
+- Community templates enabled by the managed config: `pywalfox`, `zen-browser`, `neovim`, `vscode`, `zed`, and `yazi`. No v4 plugins, QuickShell config, or migration shims are present.
 
 Related managed files:
 
@@ -226,6 +226,8 @@ Primary files:
 - `modules/90-doctor.sh`
 - `config/base-responsibility.tsv`
 - `config/managed-config.tsv`
+- `.agents/skills/promote-noctalia-config/SKILL.md`
+- `.agents/skills/promote-noctalia-config/scripts/noctalia_override_report.py`
 - `dotfiles/noctalia/.config/noctalia/config.toml`
 - `dotfiles/niri/.config/niri/cfg/autostart.kdl`
 - `dotfiles/niri/.config/niri/cfg/keybinds.kdl`
@@ -244,6 +246,8 @@ Last validation run:
 ```bash
 noctalia config validate dotfiles/noctalia/.config/noctalia
 ! rg -n 'Virtual-|DP-|HDMI-|output =|cx =|cy =|width =|height =' dotfiles/noctalia/.config/noctalia
+.agents/skills/promote-noctalia-config/scripts/noctalia_override_report.py
+python3 /home/user/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/promote-noctalia-config
 ./install.sh print-plan --distro fedora --dry-run --no-tui
 bash -n modules/35-custom-actions.sh
 bash -n distros/fedora.sh

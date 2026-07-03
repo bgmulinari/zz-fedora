@@ -14,6 +14,9 @@ directory = "~/Wallpapers"
 [wallpaper.default]
 path = "~/Wallpapers/BlueTide.jpg"
 
+[bar.default]
+margin_ends = 10
+
 [theme]
 mode = "dark"
 source = "builtin"
@@ -31,5 +34,12 @@ builtin_ids = [
   "qt",
   "kcolorscheme",
 ]
-enable_community_templates = false
-community_ids = []
+enable_community_templates = true
+community_ids = [
+  "pywalfox",
+  "zen-browser",
+  "neovim",
+  "vscode",
+  "zed",
+  "yazi",
+]
