@@ -11,6 +11,8 @@ Repo branch: `noctalia-v5`
 Current upstream and package validation:
 
 - Upstream issue `#3250` now appears fixed in source. The refreshed local reference repo `/home/user/repos/noctalia` was at `a0d8efc30ead165a6a56349fdda3c722309c0745` (`feat(tray): add drawer_item_size configuration`).
+- Noctalia v5 docs in `/home/user/repos/noctalia-docs` were rechecked for config layering. User-managed config belongs in `~/.config/noctalia/*.toml`; Noctalia-managed GUI/runtime overrides live in `~/.local/state/noctalia/settings.toml` and load last.
+- The docs confirm split config is supported: Noctalia reads every root `*.toml` in `~/.config/noctalia/` sorted alphabetically, and `[include]` can pull in files or directories when a subdirectory layout is wanted.
 - Current upstream `src/shell/hot_corners/hot_corners.cpp` guards `HotCorners::onConfigReload()` when `m_config` or `m_wayland` is null, which addresses the startup ordering crash identified below.
 - Fedora package metadata was refreshed. COPR latest observed: `noctalia-git-5.0.0-0.242.git6b39dc8.fc44`. Terra latest observed: `noctalia-git-5.0.0^20260703git.6e7aa3b-1.fc44`.
 - The COPR `0.242.git6b39dc8` RPM was downloaded and extracted without installing system-wide.
@@ -22,6 +24,8 @@ Current repo wiring:
 - The Fedora Noctalia action installs or `distro-sync`s `noctalia-git` from `copr:lionheartp/Hyprland`.
 - Terra remains enabled for Ghostty, but the Terra source setup sets `terra.excludepkgs=noctalia-git` so normal DNF updates keep Noctalia on the validated LionHeartP COPR provider.
 - Noctalia remains a custom action instead of a plain `dnf` package manifest because the package provider is part of the integration contract.
+- The base Noctalia bundle now stows `dotfiles/noctalia/.config/noctalia/config.toml` as the hardware-agnostic user config layer.
+- The repo still does not manage `~/.local/state/noctalia/settings.toml`; fresh-start lockscreen widget state includes output names and coordinates, so it remains generated state.
 
 Prior crash investigation:
 
@@ -72,7 +76,8 @@ Upstream report:
 Current decision:
 
 - Use the validated COPR `noctalia-git` package.
-- Do not add a static Noctalia state seed.
+- Stow a curated `~/.config/noctalia/config.toml` user config.
+- Do not add a static Noctalia state seed, and do not stow generated `settings.toml`.
 - Do not add a simple retry wrapper around Noctalia.
 - Keep forcing the COPR provider and excluding Terra's `noctalia-git` package.
 - Before changing Noctalia provider or package wiring again, re-test the candidate from a true missing-`settings.toml` state.
@@ -190,20 +195,22 @@ Niri:
 
 Noctalia config:
 
-- No `~/.config/noctalia/*.toml` files are seeded.
-- The baseline intentionally starts from upstream Noctalia v5 defaults.
-- GUI/runtime overrides remain app-managed in `~/.local/state/noctalia/settings.toml`.
+- `~/.config/noctalia/config.toml` is stowed from `dotfiles/noctalia/.config/noctalia/config.toml`.
+- The managed config is intentionally portable: polkit agent, telemetry off, `~/Wallpapers`, the bundled `BlueTide.jpg` wallpaper, Nord built-in dark theme, and selected built-in templates.
+- GUI/runtime overrides remain app-managed in `~/.local/state/noctalia/settings.toml` and load after the stowed config.
+- Do not put lockscreen widgets, desktop widgets, monitor names, output names, connector lists, resolutions, coordinates, or generated setup state in the stowed config.
 - Local verification on the validated `6b39dc8` COPR build showed it starts from an isolated empty XDG config/state/cache profile with `no config files found, using defaults`.
-- Upstream defaults are therefore left intact for now, including the default shell font (`sans-serif`), setup wizard behavior, polkit setting, theme, wallpaper, and screenshot settings.
+- If future config grows beyond one file, keep extra root files as sorted `*.toml` files or use the documented `[include]` table for subdirectories.
 
 Templates:
 
-- No Noctalia v5 built-in templates are pre-enabled by this repo yet.
-- No community templates, v4 plugins, browser theming, QuickShell config, or migration shims are present.
+- Built-in templates enabled by the managed config: `niri`, `ghostty`, `starship`, `btop`, `gtk3`, `gtk4`, `qt`, and `kcolorscheme`.
+- Community templates remain disabled. No v4 plugins, browser theming, QuickShell config, or migration shims are present.
 
 Related managed files:
 
 - `~/Wallpapers`
+- `~/.config/noctalia/config.toml`
 - `~/.config/niri/cfg/display.kdl`
 - `~/.config/niri/noctalia.kdl`
 - `~/.config/ghostty/themes/noctalia`
@@ -219,6 +226,7 @@ Primary files:
 - `modules/90-doctor.sh`
 - `config/base-responsibility.tsv`
 - `config/managed-config.tsv`
+- `dotfiles/noctalia/.config/noctalia/config.toml`
 - `dotfiles/niri/.config/niri/cfg/autostart.kdl`
 - `dotfiles/niri/.config/niri/cfg/keybinds.kdl`
 - `templates/niri/noctalia.kdl`
@@ -234,6 +242,9 @@ Tests covering this checkpoint:
 Last validation run:
 
 ```bash
+noctalia config validate dotfiles/noctalia/.config/noctalia
+! rg -n 'Virtual-|DP-|HDMI-|output =|cx =|cy =|width =|height =' dotfiles/noctalia/.config/noctalia
+./install.sh print-plan --distro fedora --dry-run --no-tui
 bash -n modules/35-custom-actions.sh
 bash -n distros/fedora.sh
 bats tests/fedora_sources.bats
@@ -272,4 +283,4 @@ When revisiting Noctalia v5:
 
 - When Noctalia v5 publishes a stable release, decide whether Fedora should use a versioned stable package instead of `noctalia-git`.
 - If this repo stops forcing COPR through the custom action, remove or revise the Terra `noctalia-git` exclude at the same time.
-- Treat any future Noctalia config seed, including `setup_wizard_enabled = false`, fonts, polkit, wallpapers, or templates, as an explicit customization checkpoint rather than part of the current vanilla baseline.
+- Treat future Noctalia config changes, including `setup_wizard_enabled = false`, lockscreen settings, widgets, weather, plugins, browser theming, or community templates, as explicit customization checkpoints.

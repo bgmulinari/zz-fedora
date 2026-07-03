@@ -1,0 +1,35 @@
+# Managed by zz-linux-setup.
+#
+# Noctalia v5 loads hand-written config from ~/.config/noctalia/*.toml.
+# Noctalia writes GUI/runtime overrides to ~/.local/state/noctalia/settings.toml,
+# so do not stow generated lockscreen or widget placement state here.
+
+[shell]
+polkit_agent = true
+telemetry_enabled = false
+
+[wallpaper]
+directory = "~/Wallpapers"
+
+[wallpaper.default]
+path = "~/Wallpapers/BlueTide.jpg"
+
+[theme]
+mode = "dark"
+source = "builtin"
+builtin = "Nord"
+
+[theme.templates]
+enable_builtin_templates = true
+builtin_ids = [
+  "niri",
+  "ghostty",
+  "starship",
+  "btop",
+  "gtk3",
+  "gtk4",
+  "qt",
+  "kcolorscheme",
+]
+enable_community_templates = false
+community_ids = []

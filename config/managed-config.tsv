@@ -6,3 +6,4 @@
 ~/.config/niri/noctalia.kdl	seed-if-missing	preserve	niri-noctalia	Seeds the Noctalia v5 Niri template include when absent.
 ~/.config/starship.toml	seed-if-missing	preserve	starship	Seeds Starship only when the user has no config.
 ~/.config/ghostty/themes/noctalia	seed-if-missing	preserve	ghostty-theme	Seeds a valid fallback Ghostty theme until Noctalia v5 regenerates it.
+~/.config/noctalia/config.toml	stow	backup-before-stow	noctalia	Stows curated, hardware-agnostic Noctalia v5 user config.

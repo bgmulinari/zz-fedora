@@ -19,6 +19,7 @@ setup() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "ms-fonts-fedora"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "jetbrains-mono-nerd-font-fedora"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-v5-fedora"
+  assert_plan_has "$PLAN_DIR/stow/packages.list" "noctalia"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "zsh"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "bats"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nss-tools"
@@ -32,6 +33,7 @@ setup() {
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/zz"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/autostart/zz-first-run.desktop"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/ghostty/themes/noctalia"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/noctalia/config.toml"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-noctalia'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-ghostty'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbats\tbase-bootstrap\tinstaller-bootstrap'

@@ -81,6 +81,7 @@ setup() {
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tterra\tdefault-app\tGhostty\tBootstraps Terra release packages for required Ghostty packages.'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/config.toml\tstow\tbackup-before-stow\tnoctalia'
 }
 
 @test "managed config conflicts and base rationale are generated in plan" {
@@ -98,6 +99,7 @@ setup() {
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.bashrc\tstow\tbackup-before-stow\tshell'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve\tniri-display'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve\tghostty-theme'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/config.toml\tstow\tbackup-before-stow\tnoctalia'
 }
 
 @test "doctor fails when planned Niri desktop readiness is missing" {
