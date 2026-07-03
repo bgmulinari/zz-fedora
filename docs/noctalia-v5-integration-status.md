@@ -20,7 +20,8 @@ Current upstream and package validation:
 Current repo wiring:
 
 - The Fedora Noctalia action installs or `distro-sync`s `noctalia-git` from `copr:lionheartp/Hyprland`.
-- Noctalia remains a custom action instead of a plain `dnf` package manifest because Terra also publishes `noctalia-git`; the validated package path is still the LionHeartP COPR.
+- Terra remains enabled for Ghostty, but the Terra source setup sets `terra.excludepkgs=noctalia-git` so normal DNF updates keep Noctalia on the validated LionHeartP COPR provider.
+- Noctalia remains a custom action instead of a plain `dnf` package manifest because the package provider is part of the integration contract.
 
 Prior crash investigation:
 
@@ -73,7 +74,7 @@ Current decision:
 - Use the validated COPR `noctalia-git` package.
 - Do not add a static Noctalia state seed.
 - Do not add a simple retry wrapper around Noctalia.
-- Keep forcing the COPR provider until we deliberately handle the Terra `noctalia-git` provider conflict another way.
+- Keep forcing the COPR provider and excluding Terra's `noctalia-git` package.
 - Before changing Noctalia provider or package wiring again, re-test the candidate from a true missing-`settings.toml` state.
 
 ## Checkpoint: 2026-07-02
@@ -234,9 +235,8 @@ Last validation run:
 
 ```bash
 bash -n modules/35-custom-actions.sh
-bats tests/package_modules.bats
-bats tests/post_actions.bats
-./tests/smoke.sh
+bash -n distros/fedora.sh
+bats tests/sources_flatpak.bats
 ```
 
 ## Future Update Checklist
@@ -271,5 +271,5 @@ When revisiting Noctalia v5:
 ## Open Questions
 
 - When Noctalia v5 publishes a stable release, decide whether Fedora should use a versioned stable package instead of `noctalia-git`.
-- If this repo stops forcing COPR through the custom action, decide whether Terra needs repo priority/excludes for `noctalia-git`.
+- If this repo stops forcing COPR through the custom action, remove or revise the Terra `noctalia-git` exclude at the same time.
 - Treat any future Noctalia config seed, including `setup_wizard_enabled = false`, fonts, polkit, wallpapers, or templates, as an explicit customization checkpoint rather than part of the current vanilla baseline.

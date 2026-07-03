@@ -33,8 +33,9 @@ distro_enable_sources() {
           terra-gpg-keys \
           terra-release
         run_cmd_as_root rpm --import "/etc/pki/rpm-gpg/RPM-GPG-KEY-terra${fedora_release}"
-        run_cmd_as_root dnf config-manager setopt terra.repo_gpgcheck=0
       fi
+      run_cmd_as_root dnf config-manager setopt terra.repo_gpgcheck=0
+      run_cmd_as_root dnf config-manager setopt terra.excludepkgs=noctalia-git
       ;;
     rpmfusion)
       case "$SOURCE_ID" in
