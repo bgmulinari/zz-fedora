@@ -63,7 +63,6 @@ dnf	gnome-calculator	default-app	utility app	Provides a basic calculator.
 dnf	gnome-calendar	default-app	calendar	Provides a graphical calendar application.
 dnf	gnome-characters	default-app	character picker	Provides graphical Unicode character browsing and insertion.
 dnf	gnome-clocks	default-app	clock utility	Provides clocks, alarms, timers, and stopwatch tools.
-dnf	gnome-contacts	default-app	contacts	Provides graphical contact management backed by GNOME data services.
 dnf	gnome-text-editor	default-app	text editor fallback	Provides a simple GUI text editor.
 dnf	gnome-software	default-app	app discovery	Provides a GUI software browsing/update front end.
 dnf	gnome-system-monitor	default-app	system monitor	Provides graphical process and resource monitoring.

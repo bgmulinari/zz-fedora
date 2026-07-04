@@ -71,7 +71,6 @@ setup() {
     gnome-calendar \
     gnome-characters \
     gnome-clocks \
-    gnome-contacts \
     gnome-system-monitor \
     gnome-logs \
     baobab \
