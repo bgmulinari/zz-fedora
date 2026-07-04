@@ -15,7 +15,11 @@ directory = "~/.local/share/backgrounds"
 path = "~/.local/share/backgrounds/BlueTide.jpg"
 
 [bar.default]
-margin_ends = 10
+margin_edge = 0
+margin_ends = 0
+radius = 0
+radius_bottom_left = -10
+radius_bottom_right = -10
 background_opacity = 0.9
 
 [dock]
