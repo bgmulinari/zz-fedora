@@ -77,7 +77,6 @@ setup() {
   module_32_optional_packages
 
   [[ "${package_install_calls[0]}" == dnf:* ]]
-  [[ " ${package_install_calls[0]#*:} " == *" sddm "* ]]
   [[ " ${package_install_calls[0]#*:} " == *" tuned-ppd "* ]]
 
   optional_index=-1
@@ -92,13 +91,27 @@ setup() {
 
   [ "$optional_index" -gt 0 ]
   [ "$found_code_retry" -eq 1 ]
-  for required_item in niri sddm zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi; do
+  for required_item in niri zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi; do
     found_before_optional=0
     for ((idx = 0; idx < optional_index; idx++)); do
       [[ " ${package_install_calls[$idx]#*:} " == *" $required_item "* ]] && found_before_optional=1
     done
     [ "$found_before_optional" -eq 1 ]
   done
+}
+
+@test "Noctalia Greeter Fedora action configures greetd fallback" {
+  build_fedora_plan
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter-fedora"
+
+  DRY_RUN=1
+  run install_fedora_noctalia_greeter
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "install greetd and Noctalia Greeter package noctalia-greeter"
+  assert_contains "$output" "/etc/greetd/config.toml"
+  assert_contains "$output" "noctalia-greeter-apply-appearance --setup-system"
+  assert_contains "$output" "systemctl enable --force greetd.service"
 }
 
 @test "Noctalia v5 Fedora action installs latest COPR build" {
@@ -147,44 +160,29 @@ setup() {
   refute_contains "$output" "unexpected-cmd"
 }
 
-@test "existing display manager removes SDDM package and service setup" {
+@test "existing display manager skips Noctalia Greeter action" {
   build_fedora_plan
   DRY_RUN=0
 
-  output="$(
-    detect_enabled_display_manager() {
-      printf 'gdm.service\n'
-    }
-    package_install_idempotent() {
-      local backend="$1"
-      shift
-      printf 'install:%s:%s\n' "$backend" "$*"
-      return 0
-    }
-    run_cmd_as_root() {
-      printf 'cmd:%s\n' "$*"
-    }
-    enable_required_system_service_now() {
-      printf 'service:%s\n' "$1"
-    }
-    configure_niri_session() {
-      printf 'niri-session-ready\n'
-    }
-    configure_base_shell() {
-      printf 'base-shell-ready\n'
-    }
-    install_base_actions_from_plan() {
-      printf 'base-actions-ready\n'
-    }
-    module_30_packages
-  )"
+  detect_enabled_display_manager() {
+    printf 'gdm.service\n'
+  }
+  package_install_idempotent() {
+    local backend="$1"
+    shift
+    printf 'install:%s:%s\n' "$backend" "$*"
+    return 0
+  }
+  run_cmd_as_root() {
+    printf 'cmd:%s\n' "$*"
+  }
 
-  first_dnf_install="$(grep -F 'install:dnf:' <<<"$output" | head -n 1)"
-  [[ -n "$first_dnf_install" ]]
-  [[ " $first_dnf_install " != *" sddm "* ]]
-  assert_tsv_row "$PLAN_DIR/system-skips.tsv" $'dnf\tsddm\texisting display manager: gdm.service'
-  refute_contains "$output" "cmd:systemctl set-default graphical.target"
-  refute_contains "$output" "cmd:systemctl enable --force sddm.service"
+  run install_fedora_noctalia_greeter
+
+  [ "$status" -eq 0 ]
+  assert_tsv_row "$PLAN_DIR/system-skips.tsv" $'action\tnoctalia-greeter-fedora\texisting display manager: gdm.service'
+  refute_contains "$output" "install:"
+  refute_contains "$output" "cmd:"
 }
 
 @test "missing required service retries owning package before failing" {

@@ -21,7 +21,7 @@ setup() {
   assert_contains "$output" "jetbrains-mono-nerd-font-fedora"
   assert_contains "$output" "sudo systemctl daemon-reload"
   assert_contains "$output" "sudo systemctl set-default graphical.target"
-  assert_contains "$output" "sudo systemctl enable --force sddm.service"
+  assert_contains "$output" "sudo systemctl enable --force greetd.service"
 }
 
 @test "logging captures command output and redacts secrets" {

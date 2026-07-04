@@ -25,20 +25,20 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 
 ## Session Model
 
-- SDDM provides the graphical login and session chooser.
+- Noctalia Greeter provides the graphical login and session chooser through greetd when no display manager is already enabled.
 - Choose the `Niri` session at login.
 - Noctalia is launched from Niri autostart with `spawn-at-startup "noctalia"`, and Niri shell keybindings call `noctalia msg ...`.
 - Noctalia v5 uses the managed `~/.config/noctalia/config.toml` baseline; GUI-managed overrides live in `~/.local/state/noctalia/settings.toml`.
 - Bundled wallpapers are seeded to `~/.local/share/backgrounds`, and Noctalia defaults to the bundled `BlueTide.jpg`.
 - Niri config is stowed from this repo. Hardware-specific Niri display config and `~/.config/niri/noctalia.kdl` are seeded only when absent.
 - Noctalia template selection is managed through the curated config; generated runtime state and hardware-specific widget placement stay app-managed.
-- The installer never starts SDDM immediately. When no display manager is already enabled, reboot to begin using the graphical login.
+- The installer never starts greetd immediately. When no display manager is already enabled, reboot to begin using Noctalia Greeter.
 - On systems that already have a full GNOME/KDE/Plasma desktop, the installer can use the minimal desktop app profile. This keeps Niri, Noctalia, Ghostty, shell tooling, and Niri support packages, while skipping replacement desktop apps, GTK/GNOME portal fill-ins, GTK/Qt look packages, and base media/source enablement that are only needed for the complete GTK-oriented baseline.
 
 ## Bundle Model
 
 - `BASE_BUNDLE_IDS_fedora` defines the non-optional base bundles.
-- Base bundles are planned and installed first after applying `--desktop-app-profile`. The full profile is the protected desktop baseline, including Niri, Noctalia, SDDM when no display manager is already enabled, Zsh, core services, portals, GTK/Qt integration, project-managed fonts, shell tooling, file integration, and managed base dotfiles.
+- Base bundles are planned and installed first after applying `--desktop-app-profile`. The full profile is the protected desktop baseline, including Niri, Noctalia, Noctalia Greeter through greetd when no display manager is already enabled, Zsh, core services, portals, GTK/Qt integration, project-managed fonts, shell tooling, file integration, and managed base dotfiles.
 - `--desktop-app-profile auto|full|minimal` controls desktop app fill-ins. `auto` uses `minimal` when an existing GNOME/KDE/Plasma desktop is detected and `full` otherwise. `minimal` still installs the Niri/Noctalia/Ghostty baseline, but skips bundles listed in `MINIMAL_DESKTOP_SKIP_BUNDLE_IDS_fedora`.
 - A base bundle failure is fatal because the result would not be a functioning desktop baseline.
 - `DEFAULT_BUNDLE_IDS_fedora` is intentionally empty while the base desktop is being hardened. AI, development, .NET, office, gaming, media, and extra browser bundles are opt-in.
@@ -141,7 +141,7 @@ Managed items:
 - Flatpak remotes and apps
 - base bundle installation before optional bundle installation
 - system services
-- SDDM enablement
+- Noctalia Greeter/greetd enablement
 - managed dotfiles through `stow --restow`
 - managed dotfile conflict previews before Stow moves or backs up existing files
 - modular Niri config under `~/.config/niri/cfg/`, with display config seeded only when absent
@@ -160,7 +160,7 @@ Re-running should:
 - user creation
 - Secure Boot setup
 - automatic reboot
-- starting SDDM immediately
+- starting greetd immediately
 - full desktop environment installation
 - immutable Fedora Atomic support
 - Debian, openSUSE, or NixOS support in v1
@@ -170,7 +170,7 @@ Re-running should:
 - Fedora COPRs are optional or required depending on the base and selected component set. Review them before enabling.
 - RPM Fusion is part of the protected Fedora base source set so appstream metadata and RPM Fusion packages are available before optional package planning.
 - Flathub is part of the protected Fedora base source set because the base plan installs GTK Flatpak theme runtimes and optional Flatpak apps use the same remote.
-- `lionheartp/Hyprland` is a required Copr source for Noctalia v5.
+- `lionheartp/Hyprland` is a required Copr source for Noctalia v5 and Noctalia Greeter.
 - Terra is a required base source for Ghostty. Its generated source-trust line is marked as an explicit bootstrap exception.
 - Selecting `zsh` also fetches Oh My Zsh plus the `zsh-autosuggestions` and `zsh-syntax-highlighting` plugin repositories from GitHub.
 

@@ -17,7 +17,6 @@ DEFAULT_SYSTEM_SERVICES=(
 
 EARLY_BASE_BUNDLE_IDS_fedora=(
   base-bootstrap
-  base-login-manager
   base-system-services
 )
 

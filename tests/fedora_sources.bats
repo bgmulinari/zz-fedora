@@ -26,5 +26,5 @@ setup() {
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "root:dnf config-manager setopt terra.repo_gpgcheck=0"
-  assert_contains "$output" "root:dnf config-manager setopt terra.excludepkgs=noctalia-git"
+  assert_contains "$output" "root:dnf config-manager setopt terra.excludepkgs=noctalia-git,noctalia-greeter"
 }

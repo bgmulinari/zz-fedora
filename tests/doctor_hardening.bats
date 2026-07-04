@@ -76,7 +76,8 @@ setup() {
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tnss-tools\tinstaller-bootstrap\tbrowser certificate trust\tProvides certutil for importing development CAs into Firefox-style browser profiles.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tgnome-software\tdefault-app\tapp discovery\tProvides a GUI software browsing/update front end.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tddcutil\tdesktop-service\texternal monitor brightness\tControls DDC/CI-capable external displays.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tcopr:lionheartp/Hyprland\tnoctalia\tNoctalia v5 shell\tProvides Noctalia v5 for the required base desktop shell.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tcopr:lionheartp/Hyprland\tnoctalia\tNoctalia v5 shell and greeter\tProvides Noctalia v5 and Noctalia Greeter for the required base desktop.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tnoctalia-greeter-fedora\tdesktop-service\tgraphical login\tInstalls Noctalia Greeter from COPR, configures greetd, and enables the fallback graphical login.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tnoctalia-v5-fedora\tnoctalia\tNoctalia v5 shell\tInstalls the COPR native shell binary launched by Niri autostart.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tterra\tdefault-app\tGhostty\tBootstraps Terra release packages for required Ghostty packages.'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve'
@@ -84,6 +85,8 @@ setup() {
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/config.toml\tstow\tbackup-before-stow\tnoctalia'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/templates/icon-theme-accent\tstow\tbackup-before-stow\tnoctalia-icon-theme'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/bin/noctalia-sync-icon-theme\tstow\tbackup-before-stow\tnoctalia-icon-theme'
+  assert_file_contains "$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml" "[shell.greeter_sync]"
+  assert_file_contains "$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml" "auto_sync = true"
 }
 
 @test "managed config conflicts and base rationale are generated in plan" {
@@ -96,7 +99,8 @@ setup() {
 
   assert_file_contains "$PLAN_DIR/files/config-conflicts.tsv" "~/.bashrc"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'flatpak\torg.gtk.Gtk3theme.adw-gtk3\tbase-source-flathub\ttheme-font'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-noctalia\tnoctalia'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-login-manager\tnoctalia'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-greeter-fedora\tbase-login-manager\tdesktop-service'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-v5-fedora\tbase-noctalia\tnoctalia'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.bashrc\tstow\tbackup-before-stow\tshell'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve\tniri-display'
@@ -128,7 +132,7 @@ setup() {
       [[ -f "$1" ]]
     }
     systemctl() {
-      [[ "$1" == "is-enabled" && "$2" != "sddm" ]]
+      [[ "$1" == "is-enabled" && "$2" != "greetd" ]]
     }
     detect_enabled_display_manager() {
       return 1
@@ -144,11 +148,11 @@ setup() {
   [ "$status" -ne 0 ]
   assert_contains "$output" "missing command niri"
   assert_contains "$output" "missing file /usr/share/wayland-sessions/niri.desktop"
-  assert_contains "$output" "service not enabled sddm"
+  assert_contains "$output" "service not enabled greetd"
   assert_contains "$output" "Fatal desktop readiness checks failed"
 }
 
-@test "doctor accepts an existing display manager when SDDM is planned" {
+@test "doctor accepts an existing display manager when Noctalia Greeter is planned" {
   build_fedora_plan
   COMMAND=doctor
   DRY_RUN=0
@@ -170,7 +174,7 @@ setup() {
       printf 'gdm.service\n'
     }
     systemctl() {
-      [[ "$1" == "is-enabled" && "$2" != "sddm" ]]
+      [[ "$1" == "is-enabled" && "$2" != "greetd" ]]
     }
     run_cmd_as_root() {
       printf 'cmd:%s\n' "$*"
@@ -179,7 +183,94 @@ setup() {
   } 2>&1)"
 
   assert_contains "$output" "[ok] existing display manager gdm.service"
-  refute_contains "$output" "service not enabled sddm"
+  refute_contains "$output" "service not enabled greetd"
   refute_contains "$output" "Fatal desktop readiness checks failed"
   assert_contains "$output" "Reboot, open your display manager, and choose the Niri session."
+}
+
+@test "doctor accepts skipped pre-existing greetd display manager" {
+  build_fedora_plan
+  COMMAND=doctor
+  DRY_RUN=0
+  record_system_skip action noctalia-greeter-fedora "existing display manager: greetd.service"
+
+  output="$({
+    doctor_check_command() {
+      if [[ "$1" == noctalia-greeter* ]]; then
+        printf '[warn] missing command %s\n' "$1"
+        return 1
+      fi
+      printf '[ok] command %s\n' "$1"
+    }
+    doctor_check_file() {
+      printf '[ok] file %s\n' "$1"
+    }
+    doctor_check_contains() {
+      printf '[ok] %s contains %s\n' "$1" "$2"
+    }
+    doctor_check_dir_has_files() {
+      printf '[ok] directory %s has %s\n' "$1" "$2"
+    }
+    detect_enabled_display_manager() {
+      printf 'greetd.service\n'
+    }
+    systemctl() {
+      [[ "$1" == "is-enabled" && "$2" == "greetd" ]]
+    }
+    run_cmd_as_root() {
+      printf 'cmd:%s\n' "$*"
+    }
+    module_90_doctor
+  } 2>&1)"
+
+  assert_contains "$output" "[ok] existing display manager greetd.service"
+  refute_contains "$output" "missing command noctalia-greeter"
+  refute_contains "$output" "Fatal desktop readiness checks failed"
+  assert_contains "$output" "Reboot, open your display manager, and choose the Niri session."
+}
+
+@test "doctor fails when managed greetd config does not use Noctalia Greeter" {
+  build_fedora_plan
+  COMMAND=doctor
+  DRY_RUN=0
+  NOCTALIA_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
+  printf '[default_session]\ncommand = "agreety --cmd niri"\n' >"$NOCTALIA_GREETD_CONFIG"
+
+  set +e
+  output="$({
+    command() {
+      if [[ "$1" == "-v" ]]; then
+        return 0
+      fi
+      builtin command "$@"
+    }
+    doctor_check_command() {
+      printf '[ok] command %s\n' "$1"
+    }
+    doctor_check_file() {
+      printf '[ok] file %s\n' "$1"
+    }
+    doctor_check_contains() {
+      printf '[ok] %s contains %s\n' "$1" "$2"
+    }
+    doctor_check_dir_has_files() {
+      printf '[ok] directory %s has %s\n' "$1" "$2"
+    }
+    detect_enabled_display_manager() {
+      printf 'greetd.service\n'
+    }
+    systemctl() {
+      [[ "$1" == "is-enabled" ]]
+    }
+    run_cmd_as_root() {
+      printf 'cmd:%s\n' "$*"
+    }
+    module_90_doctor
+  } 2>&1)"
+  status=$?
+  set -e
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "$NOCTALIA_GREETD_CONFIG missing pattern noctalia-greeter-session"
+  assert_contains "$output" "Fatal desktop readiness checks failed"
 }

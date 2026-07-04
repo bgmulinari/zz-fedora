@@ -35,7 +35,7 @@ distro_enable_sources() {
         run_cmd_as_root rpm --import "/etc/pki/rpm-gpg/RPM-GPG-KEY-terra${fedora_release}"
       fi
       run_cmd_as_root dnf config-manager setopt terra.repo_gpgcheck=0
-      run_cmd_as_root dnf config-manager setopt terra.excludepkgs=noctalia-git
+      run_cmd_as_root dnf config-manager setopt terra.excludepkgs=noctalia-git,noctalia-greeter
       ;;
     rpmfusion)
       case "$SOURCE_ID" in
@@ -241,5 +241,5 @@ distro_repoquery_provides() {
 }
 
 distro_post_install_notes() {
-  printf 'Reboot, open SDDM, and choose the Niri session.\n'
+  printf 'Reboot, open Noctalia Greeter, and choose the Niri session.\n'
 }

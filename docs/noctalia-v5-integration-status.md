@@ -8,6 +8,19 @@ Noctalia v5 is currently beta software and this branch is experimental. Treat th
 
 Repo branch: `noctalia-v5`
 
+Local Noctalia Greeter replacement:
+
+- Reference repos checked for the greeter decision:
+  - `/home/user/repos/noctalia`: `dd55eda0001c7f19296df785d6217aa8aa30efe4`
+  - `/home/user/repos/noctalia-docs`: `633aabb00a208361a0ce833ec7ee8bf0ac69817e`
+  - `/home/user/repos/noctalia-greeter`: `3dcf1e4f15be861de636bfd442da09db7db37ad2`
+- Noctalia Greeter is a separate greetd greeter, not part of the main Noctalia shell process. greetd runs `noctalia-greeter-session`, which starts the bundled `noctalia-greeter-compositor` and then the greeter UI.
+- The docs say to install `noctalia-greeter` from the distro when available, with `greetd`, D-Bus, and polkit available on the machine. The greeter stores admin-managed state in `/var/lib/noctalia-greeter/greeter.toml`.
+- Fedora package metadata showed `noctalia-greeter-1.0.0-1.gite12f8f8.fc44` available from `copr:lionheartp/Hyprland`. Terra also carries older `noctalia-greeter` builds, so the Terra exclude now covers both `noctalia-git` and `noctalia-greeter`.
+- `base-login-manager` now runs the required `noctalia-greeter-fedora` action instead of installing `sddm`. The action installs/syncs the COPR greeter package, writes `/etc/greetd/config.toml` for `/usr/bin/noctalia-greeter-session`, prepares the `greeter` account and `/var/lib/noctalia-greeter`, patches `/etc/pam.d/greetd` for `pam_systemd.so` or `pam_elogind.so` when available, initializes `greeter.toml`, and enables `greetd.service`.
+- The existing display-manager policy is preserved: if any display manager is already enabled, including SDDM, GDM, Plasma Login Manager, LightDM, Ly, or greetd, the Noctalia Greeter fallback action records a skip and does not install or enable another login manager.
+- The managed Noctalia shell config enables `[shell.greeter_sync].auto_sync`, so once the greeter is installed the shell uses its native greeter sync path to mirror wallpaper, palette, theme mode, session actions, and monitor layout changes into `/var/lib/noctalia-greeter/appearance.json`. The privilege command remains unset because Noctalia's default `pkexec` or `run0` escalation is preferred when logind or elogind provides an in-session polkit prompt.
+
 Local Settings UI override promotion:
 
 - Promoted portable Noctalia Settings UI preferences into `dotfiles/noctalia/.config/noctalia/config.toml`: the default bar module order, `location.auto_locate`, compact clock format, hidden empty media widget, hidden network label, active-workspace taskbar filtering, taskbar window titles, and hidden weather condition text.

@@ -137,11 +137,12 @@ readiness_generate_services() {
 
 readiness_generate_display_manager_conflicts() {
   local service_name
-  for service_name in gdm.service lightdm.service ly.service; do
+  while IFS= read -r service_name; do
+    [[ -n "$service_name" && "$service_name" != "display-manager.service" ]] || continue
     if [[ "$DRY_RUN" -eq 0 ]] && systemctl is-enabled "$service_name" >/dev/null 2>&1; then
-      readiness_record "display-manager" "$service_name" "enabled" "warn" "May conflict with SDDM"
+      readiness_record "display-manager" "$service_name" "enabled" "warn" "Noctalia Greeter fallback will be skipped"
     fi
-  done
+  done < <(known_display_manager_units)
 }
 
 readiness_generate_package_manager_locks() {

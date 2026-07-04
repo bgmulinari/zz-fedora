@@ -99,22 +99,6 @@ build_base_package_plan_for_backend() {
   done < <(effective_base_bundle_ids "$DISTRO")
 }
 
-apply_existing_system_policy_to_base_plan() {
-  local backend="$1"
-  local base_plan="$2"
-  [[ "$backend" == "$(native_backend_for_distro "$DISTRO")" ]] || return 0
-  [[ -f "$base_plan" ]] || return 0
-  grep -Fx sddm "$base_plan" >/dev/null 2>&1 || return 0
-
-  local existing_display_manager=""
-  existing_display_manager="$(detect_enabled_display_manager || true)"
-  [[ -n "$existing_display_manager" ]] || return 0
-
-  log_info "Existing display manager detected ($existing_display_manager); skipping SDDM package and service setup."
-  remove_plan_entries "$base_plan" sddm
-  record_system_skip "$backend" sddm "existing display manager: $existing_display_manager"
-}
-
 is_early_base_bundle() {
   local early_var="EARLY_BASE_BUNDLE_IDS_${DISTRO}"
   declare -p "$early_var" >/dev/null 2>&1 || return 1
@@ -225,24 +209,6 @@ configure_base_shell() {
   fi
 }
 
-configure_login_manager() {
-  base_plan_has_package "sddm" "$@" || return 0
-
-  run_cmd_as_root systemctl daemon-reload || return 1
-  if ! distro_service_exists sddm; then
-    log_warn "sddm.service was not detected after base package installation; retrying direct SDDM package install."
-    package_install_idempotent "$(native_backend_for_distro "$DISTRO")" sddm || return 1
-    run_cmd_as_root systemctl daemon-reload || return 1
-  fi
-  if ! distro_service_exists sddm; then
-    die "SDDM is part of the base install, but sddm.service is still not available after a direct install retry. Check the package manager output above."
-  fi
-
-  run_cmd_as_root systemctl set-default graphical.target || return 1
-  run_cmd_as_root systemctl enable --force sddm.service || return 1
-  printf 'SDDM is enabled. Reboot to start the graphical login.\n'
-}
-
 configure_niri_session() {
   base_plan_has_package "niri" "$@" || return 0
 
@@ -260,7 +226,7 @@ configure_niri_session() {
   package_install_idempotent "$(native_backend_for_distro "$DISTRO")" niri || return 1
 
   command -v niri >/dev/null 2>&1 || die "Niri is part of the base install, but the niri command is still unavailable after a direct install retry. Check the package manager output above."
-  [[ -f "$session_file" ]] || die "Niri is installed, but $session_file is missing, so SDDM will not show a Niri session."
+  [[ -f "$session_file" ]] || die "Niri is installed, but $session_file is missing, so the display manager will not show a Niri session."
 }
 
 configure_base_system_services() {
@@ -286,12 +252,10 @@ module_30_packages() {
 
   build_base_package_plan_for_backend dnf "$dnf_early_base_plan" early || return 1
   build_base_package_plan_for_backend flatpak "$flatpak_early_base_plan" early || return 1
-  apply_existing_system_policy_to_base_plan dnf "$dnf_early_base_plan" || return 1
 
   install_base_packages_for_backend dnf "$dnf_early_base_plan" || return 1
   install_base_packages_for_backend flatpak "$flatpak_early_base_plan" || return 1
 
-  configure_login_manager "$dnf_early_base_plan" "$flatpak_early_base_plan" || return 1
   configure_base_system_services || return 1
 
   build_base_package_plan_for_backend dnf "$dnf_base_plan" remaining || return 1

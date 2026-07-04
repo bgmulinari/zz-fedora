@@ -8,6 +8,9 @@
 polkit_agent = true
 telemetry_enabled = false
 
+[shell.greeter_sync]
+auto_sync = true
+
 [location]
 auto_locate = true
 

@@ -43,6 +43,23 @@ doctor_check_contains() {
   fi
 }
 
+doctor_file_contains() {
+  local file="$1"
+  local pattern="$2"
+  [[ -f "$file" ]] && grep -F "$pattern" "$file" >/dev/null 2>&1
+}
+
+doctor_check_contains_required() {
+  local file="$1"
+  local pattern="$2"
+  if doctor_file_contains "$file" "$pattern"; then
+    printf '[ok] %s contains %s\n' "$file" "$pattern"
+    return 0
+  fi
+  printf '[warn] %s missing pattern %s\n' "$file" "$pattern"
+  return 1
+}
+
 doctor_check_enabled() {
   local service_name="$1"
   if systemctl is-enabled "$service_name" >/dev/null 2>&1; then
@@ -94,6 +111,46 @@ doctor_noctalia_planned() {
   doctor_plan_has_entry "$native_plan" "noctalia-git" && return 0
   action_plan="$(package_file_for_backend action)"
   doctor_plan_has_entry "$action_plan" "noctalia-v5-fedora"
+}
+
+doctor_noctalia_greeter_planned() {
+  local action_plan
+  action_plan="$(package_file_for_backend action)"
+  doctor_plan_has_entry "$action_plan" "noctalia-greeter-fedora"
+}
+
+doctor_system_skip_recorded() {
+  local backend="$1"
+  local item="$2"
+  local skip_file="$PLAN_DIR/system-skips.tsv"
+  [[ -f "$skip_file" ]] || return 1
+  awk -F'\t' -v backend="$backend" -v item="$item" '
+    $1 == backend && $2 == item { found = 1 }
+    END { exit !found }
+  ' "$skip_file"
+}
+
+doctor_noctalia_greetd_config_path() {
+  printf '%s\n' "${NOCTALIA_GREETD_CONFIG:-/etc/greetd/config.toml}"
+}
+
+doctor_noctalia_greeter_installed() {
+  command -v noctalia-greeter >/dev/null 2>&1 && command -v noctalia-greeter-session >/dev/null 2>&1
+}
+
+doctor_greetd_config_uses_noctalia() {
+  doctor_file_contains "$(doctor_noctalia_greetd_config_path)" "noctalia-greeter-session"
+}
+
+doctor_check_noctalia_greeter_setup() {
+  local failed=0
+  local config_file
+  config_file="$(doctor_noctalia_greetd_config_path)"
+  doctor_check_command noctalia-greeter || failed=1
+  doctor_check_command noctalia-greeter-session || failed=1
+  doctor_check_file "$config_file" || failed=1
+  doctor_check_contains_required "$config_file" "noctalia-greeter-session" || failed=1
+  return "$failed"
 }
 
 module_90_doctor() {
@@ -255,17 +312,30 @@ module_90_doctor() {
   fi
 
   doctor_warn_enabled NetworkManager
-  local display_manager_hint="SDDM"
+  local display_manager_hint="Noctalia Greeter"
   local existing_display_manager=""
   existing_display_manager="$(detect_enabled_display_manager || true)"
-  if [[ "$existing_display_manager" == "sddm.service" ]] && doctor_check_enabled sddm; then
-    :
+  if [[ "$existing_display_manager" == "greetd.service" ]] && doctor_check_enabled greetd; then
+    if doctor_system_skip_recorded action noctalia-greeter-fedora; then
+      printf '[ok] existing display manager %s\n' "$existing_display_manager"
+      display_manager_hint="your display manager"
+    elif doctor_noctalia_greeter_installed || doctor_greetd_config_uses_noctalia; then
+      doctor_check_noctalia_greeter_setup || ((++fatal_checks))
+    else
+      printf '[ok] existing display manager %s\n' "$existing_display_manager"
+      display_manager_hint="your display manager"
+    fi
   elif [[ -n "$existing_display_manager" ]]; then
     printf '[ok] existing display manager %s\n' "$existing_display_manager"
     display_manager_hint="your display manager"
-  elif doctor_check_enabled sddm; then
-    :
-  elif doctor_plan_has_entry "$native_plan" "sddm"; then
+  elif doctor_check_enabled greetd; then
+    if doctor_noctalia_greeter_installed || doctor_greetd_config_uses_noctalia; then
+      doctor_check_noctalia_greeter_setup || ((++fatal_checks))
+    else
+      printf '[ok] existing display manager greetd.service\n'
+      display_manager_hint="your display manager"
+    fi
+  elif doctor_noctalia_greeter_planned; then
     ((++fatal_checks))
   fi
   doctor_warn_enabled bluetooth
