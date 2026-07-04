@@ -29,6 +29,12 @@ Local Settings UI override promotion:
 - Left generated/local state in `~/.local/state/noctalia/settings.toml`, including `lockscreen_widgets`, `wallpaper.last`, and the `wallpaper.monitors.Virtual-1` entry. These still encode runtime or output-specific state and must not be stowed.
 - Validation after the promotion: `noctalia config validate` passed, and the override report showed no remaining state keys overriding the managed dotfile.
 
+Starship prompt contrast:
+
+- The managed Starship template now keeps top-level prompt settings before the fallback `[palettes.noctalia]` table so freshly seeded configs parse with a real top-level `format`.
+- Prompt section text uses the rendered `surface0` token consistently. Section backgrounds use Noctalia Starship palette tokens (`text`, `blue`, `yellow`, `sapphire`, and `rosewater`) so the prompt follows the active Noctalia theme instead of pinning fixed colors.
+- Added `tests/starship_theme.bats` and `tests/helpers/starship_contrast.py`; the test resolves Noctalia's Starship palette aliases against the built-in dark terminal palettes fixture, enforces the theme-token section order, and checks contrast for the managed default palette plus Catppuccin. A strict all-built-in adjacent-contrast guarantee is not possible with the current built-in Starship aliases because several palettes render adjacent candidate tokens too similarly or too dark for uniform `surface0` text.
+
 ## Checkpoint: 2026-07-03
 
 Repo branch: `noctalia-v5`

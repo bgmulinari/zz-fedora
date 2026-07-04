@@ -1,6 +1,152 @@
 "$schema" = "https://starship.rs/config-schema.json"
 palette = "noctalia"
 
+format = """
+[](text)\
+$os\
+$username\
+[](bg:blue fg:text)\
+$directory\
+[](fg:blue bg:yellow)\
+$git_branch\
+$git_status\
+[](fg:yellow bg:sapphire)\
+$c\
+$rust\
+$golang\
+$nodejs\
+$php\
+$java\
+$kotlin\
+$haskell\
+$python\
+$dotnet\
+[](fg:sapphire bg:rosewater)\
+$time\
+[ ](fg:rosewater)\
+$line_break$character"""
+
+[os]
+disabled = false
+style = "bg:text fg:surface0"
+
+[os.symbols]
+Windows = "󰍲"
+Ubuntu = "󰕈"
+SUSE = ""
+Raspbian = "󰐿"
+Mint = "󰣭"
+Macos = ""
+Manjaro = ""
+Linux = "󰌽"
+Gentoo = "󰣨"
+Fedora = "󰣛"
+Alpine = ""
+Amazon = ""
+Android = ""
+Arch = "󰣇"
+Artix = "󰣇"
+CentOS = ""
+Debian = "󰣚"
+Redhat = "󱄛"
+RedHatEnterprise = "󱄛"
+
+[username]
+show_always = true
+style_user = "bg:text fg:surface0"
+style_root = "bg:text fg:surface0"
+format = '[ $user ]($style)'
+
+[directory]
+style = "fg:surface0 bg:blue"
+format = "[ $path ]($style)"
+truncation_length = 3
+truncation_symbol = ".../"
+
+[directory.substitutions]
+"Documents" = "󰈙 "
+"Downloads" = " "
+"Music" = "󰝚 "
+"Pictures" = " "
+"Developer" = "󰲋 "
+
+[git_branch]
+symbol = ""
+style = "bg:yellow"
+format = '[[ $symbol $branch ](fg:surface0 bg:yellow)]($style)'
+
+[git_status]
+style = "bg:yellow"
+format = '[[($all_status$ahead_behind )](fg:surface0 bg:yellow)]($style)'
+
+[nodejs]
+symbol = ""
+style = "bg:sapphire"
+format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+
+[c]
+symbol = " "
+style = "bg:sapphire"
+format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+
+[rust]
+symbol = ""
+style = "bg:sapphire"
+format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+
+[golang]
+symbol = ""
+style = "bg:sapphire"
+format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+
+[php]
+symbol = ""
+style = "bg:sapphire"
+format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+
+[java]
+symbol = " "
+style = "bg:sapphire"
+format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+
+[kotlin]
+symbol = ""
+style = "bg:sapphire"
+format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+
+[haskell]
+symbol = ""
+style = "bg:sapphire"
+format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+
+[python]
+symbol = ""
+style = "bg:sapphire"
+format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+
+[dotnet]
+symbol = "󰪮"
+style = "bg:sapphire"
+format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+
+[time]
+disabled = false
+time_format = "%R"
+style = "bg:rosewater"
+format = '[[  $time](fg:surface0 bg:rosewater)]($style)'
+
+[line_break]
+disabled = false
+
+[character]
+disabled = false
+success_symbol = '[](bold fg:blue)'
+error_symbol = '[](bold fg:red)'
+vimcmd_symbol = '[](bold fg:blue)'
+vimcmd_replace_one_symbol = '[](bold fg:green)'
+vimcmd_replace_symbol = '[](bold fg:green)'
+vimcmd_visual_symbol = '[](bold fg:yellow)'
+
 # >>> NOCTALIA STARSHIP PALETTE >>>
 [palettes.noctalia]
 blue = "#89b4fa"
@@ -34,149 +180,3 @@ base = "#1e1e2e"
 mantle = "#181825"
 crust = "#11111b"
 # <<< NOCTALIA STARSHIP PALETTE <<<
-
-format = """
-[](surface0)\
-$os\
-$username\
-[](bg:surface2 fg:surface0)\
-$directory\
-[](fg:surface2 bg:blue)\
-$git_branch\
-$git_status\
-[](fg:blue bg:green)\
-$c\
-$rust\
-$golang\
-$nodejs\
-$php\
-$java\
-$kotlin\
-$haskell\
-$python\
-$dotnet\
-[](fg:green bg:yellow)\
-$time\
-[ ](fg:yellow)\
-$line_break$character"""
-
-[os]
-disabled = false
-style = "bg:surface0 fg:text"
-
-[os.symbols]
-Windows = "󰍲"
-Ubuntu = "󰕈"
-SUSE = ""
-Raspbian = "󰐿"
-Mint = "󰣭"
-Macos = ""
-Manjaro = ""
-Linux = "󰌽"
-Gentoo = "󰣨"
-Fedora = "󰣛"
-Alpine = ""
-Amazon = ""
-Android = ""
-Arch = "󰣇"
-Artix = "󰣇"
-CentOS = ""
-Debian = "󰣚"
-Redhat = "󱄛"
-RedHatEnterprise = "󱄛"
-
-[username]
-show_always = true
-style_user = "bg:surface0 fg:text"
-style_root = "bg:surface0 fg:red"
-format = '[ $user ]($style)'
-
-[directory]
-style = "fg:text bg:surface2"
-format = "[ $path ]($style)"
-truncation_length = 3
-truncation_symbol = ".../"
-
-[directory.substitutions]
-"Documents" = "󰈙 "
-"Downloads" = " "
-"Music" = "󰝚 "
-"Pictures" = " "
-"Developer" = "󰲋 "
-
-[git_branch]
-symbol = ""
-style = "bg:blue"
-format = '[[ $symbol $branch ](fg:black bg:blue)]($style)'
-
-[git_status]
-style = "bg:blue"
-format = '[[($all_status$ahead_behind )](fg:black bg:blue)]($style)'
-
-[nodejs]
-symbol = ""
-style = "bg:green"
-format = '[[ $symbol( $version) ](fg:black bg:green)]($style)'
-
-[c]
-symbol = " "
-style = "bg:green"
-format = '[[ $symbol( $version) ](fg:black bg:green)]($style)'
-
-[rust]
-symbol = ""
-style = "bg:green"
-format = '[[ $symbol( $version) ](fg:black bg:green)]($style)'
-
-[golang]
-symbol = ""
-style = "bg:green"
-format = '[[ $symbol( $version) ](fg:black bg:green)]($style)'
-
-[php]
-symbol = ""
-style = "bg:green"
-format = '[[ $symbol( $version) ](fg:black bg:green)]($style)'
-
-[java]
-symbol = " "
-style = "bg:green"
-format = '[[ $symbol( $version) ](fg:black bg:green)]($style)'
-
-[kotlin]
-symbol = ""
-style = "bg:green"
-format = '[[ $symbol( $version) ](fg:black bg:green)]($style)'
-
-[haskell]
-symbol = ""
-style = "bg:green"
-format = '[[ $symbol( $version) ](fg:black bg:green)]($style)'
-
-[python]
-symbol = ""
-style = "bg:green"
-format = '[[ $symbol( $version) ](fg:black bg:green)]($style)'
-
-[dotnet]
-symbol = "󰪮"
-style = "bg:green"
-format = '[[ $symbol( $version) ](fg:black bg:green)]($style)'
-
-[time]
-disabled = false
-time_format = "%R"
-style = "bg:yellow"
-format = '[[  $time](fg:black bg:yellow)]($style)'
-
-[line_break]
-disabled = false
-
-[character]
-disabled = false
-success_symbol = '[](bold fg:blue)'
-error_symbol = '[](bold fg:red)'
-vimcmd_symbol = '[](bold fg:blue)'
-vimcmd_replace_one_symbol = '[](bold fg:green)'
-vimcmd_replace_symbol = '[](bold fg:green)'
-vimcmd_visual_symbol = '[](bold fg:yellow)'

@@ -1,0 +1,11 @@
+palette	mode	black	red	green	yellow	blue	magenta	cyan	white	bright_black	bright_red	bright_green	bright_yellow	bright_blue	bright_magenta	bright_cyan	bright_white	foreground	background	selection_fg	selection_bg	cursor_text	cursor
+Ayu	dark	#171b24	#ed8274	#87d96c	#facc6e	#6dcbfa	#dabafa	#90e1c6	#c7c7c7	#686868	#f28779	#d5ff80	#ffd173	#73d0ff	#dfbfff	#95e6cb	#ffffff	#D1D1C7	#1f2430	#1f2430	#409fff	#1f2430	#ffcc66
+Catppuccin	dark	#45475a	#f38ba8	#a6e3a1	#f9e2af	#89b4fa	#f5c2e7	#94e2d5	#a6adc8	#585b70	#f37799	#89d88b	#ebd391	#74a8fc	#f2aede	#6bd7ca	#bac2de	#cdd6f4	#1e1e2e	#cdd6f4	#585b70	#1e1e2e	#f5e0dc
+Dracula	dark	#21222c	#ff5555	#50fa7b	#f1fa8c	#bd93f9	#ff79c6	#8be9fd	#f8f8f2	#6272a4	#ff6e6e	#69ff94	#ffffa5	#d6acff	#ff92df	#a4ffff	#ffffff	#f8f8f2	#282a36	#ffffff	#44475a	#282a36	#f8f8f2
+Eldritch	dark	#21222c	#f9515d	#37f499	#e9f941	#9071f4	#f265b5	#04d1f9	#ebfafa	#7081d0	#f16c75	#69F8B3	#f1fc79	#a48cf2	#FD92CE	#66e4fd	#ffffff	#ebfafa	#212337	#ebfafa	#bf4f8e	#37f499	#f8f8f2
+Gruvbox	dark	#282828	#cc241d	#98971a	#d79921	#458588	#b16286	#689d6a	#a89984	#928374	#fb4934	#b8bb26	#fabd2f	#83a598	#d3869b	#8ec07c	#ebdbb2	#ebdbb2	#282828	#ebdbb2	#665c54	#282828	#ebdbb2
+Kanagawa	dark	#090618	#c34043	#76946a	#c0a36e	#7e9cd8	#957fb8	#6a9589	#c8c093	#727169	#e82424	#98bb6c	#e6c384	#7fb4ca	#938aa9	#7aa89f	#dcd7ba	#dcd7ba	#1f1f28	#c8c093	#2d4f67	#1f1f28	#c8c093
+Noctalia	dark	#11112d	#FD4663	#9BFECE	#fff59b	#a9aefe	#FD4663	#9BFECE	#f3edf7	#21215F	#FD4663	#9BFECE	#fff59b	#a9aefe	#FD4663	#9BFECE	#ffffff	#f3edf7	#070722	#070722	#f3edf7	#070722	#fff59b
+Nord	dark	#3b4252	#bf616a	#a3be8c	#ebcb8b	#81a1c1	#b48ead	#88c0d0	#e5e9f0	#596377	#bf616a	#a3be8c	#ebcb8b	#81a1c1	#b48ead	#8fbcbb	#eceff4	#d8dee9	#2e3440	#4c566a	#eceff4	#282828	#eceff4
+Rosé Pine	dark	#26233a	#eb6f92	#31748f	#f6c177	#9ccfd8	#c4a7e7	#ebbcba	#e0def4	#6e6a86	#eb6f92	#31748f	#f6c177	#9ccfd8	#c4a7e7	#ebbcba	#e0def4	#e0def4	#191724	#e0def4	#403d52	#191724	#e0def4
+Tokyo-Night	dark	#15161e	#f7768e	#9ece6a	#e0af68	#7aa2f7	#bb9af7	#7dcfff	#a9b1d6	#414868	#f7768e	#9ece6a	#e0af68	#7aa2f7	#bb9af7	#7dcfff	#c0caf5	#c0caf5	#1a1b26	#c0caf5	#283457	#1a1b26	#c0caf5

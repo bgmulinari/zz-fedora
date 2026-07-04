@@ -25,6 +25,7 @@ bash -n tests/helpers/*.bash
 
 bats \
   tests/manifest_catalog.bats \
+  tests/starship_theme.bats \
   tests/cli_smoke.bats
 
 if [[ "${ZZ_TEST_LINT:-0}" -eq 1 ]]; then
