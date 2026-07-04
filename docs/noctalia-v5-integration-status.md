@@ -4,6 +4,18 @@ This is the living checkpoint for the Noctalia v5 integration. Update it every t
 
 Noctalia v5 is currently beta software and this branch is experimental. Treat this file as the handoff note for future work: compare this checkpoint with the then-current Noctalia v5 repo/docs before changing the integration again.
 
+## Checkpoint: 2026-07-04
+
+Repo branch: `noctalia-v5`
+
+Local Settings UI override promotion:
+
+- Promoted portable Noctalia Settings UI preferences into `dotfiles/noctalia/.config/noctalia/config.toml`: the default bar module order, `location.auto_locate`, compact clock format, hidden empty media widget, hidden network label, active-workspace taskbar filtering, taskbar window titles, and hidden weather condition text.
+- Removed those promoted keys from `~/.local/state/noctalia/settings.toml` so the stowed config is again the source of truth.
+- Removed the absolute `wallpaper.default.path` GUI override because it was equivalent to the managed portable `~/.local/share/backgrounds/BlueTide.jpg` default.
+- Left generated/local state in `~/.local/state/noctalia/settings.toml`, including `lockscreen_widgets`, `wallpaper.last`, and the `wallpaper.monitors.Virtual-1` entry. These still encode runtime or output-specific state and must not be stowed.
+- Validation after the promotion: `noctalia config validate` passed, and the override report showed no remaining state keys overriding the managed dotfile.
+
 ## Checkpoint: 2026-07-03
 
 Repo branch: `noctalia-v5`
@@ -197,7 +209,7 @@ Niri:
 Noctalia config:
 
 - `~/.config/noctalia/config.toml` is stowed from `dotfiles/noctalia/.config/noctalia/config.toml`.
-- The managed config is intentionally portable: polkit agent, telemetry off, `~/.local/share/backgrounds`, the bundled `BlueTide.jpg` wallpaper, Nord built-in dark theme, Noctalia bar end margin, semi-transparent shell surface backgrounds, selected built-in templates, and selected community templates.
+- The managed config is intentionally portable: polkit agent, telemetry off, `~/.local/share/backgrounds`, the bundled `BlueTide.jpg` wallpaper, Nord built-in dark theme, default bar module order, selected widget display preferences, Noctalia bar end margin, semi-transparent shell surface backgrounds, selected built-in templates, and selected community templates.
 - The managed config also declares `[theme.templates.user.icon_theme]` to restore the pre-v5 desktop icon accent sync without reintroducing v4 `user-templates.toml`.
 - GUI/runtime overrides remain app-managed in `~/.local/state/noctalia/settings.toml` and load after the stowed config.
 - Do not put lockscreen widgets, desktop widgets, monitor names, output names, connector lists, resolutions, coordinates, or generated setup state in the stowed config.

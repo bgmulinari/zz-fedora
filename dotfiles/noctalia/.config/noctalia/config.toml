@@ -8,6 +8,9 @@
 polkit_agent = true
 telemetry_enabled = false
 
+[location]
+auto_locate = true
+
 [wallpaper]
 directory = "~/.local/share/backgrounds"
 
@@ -15,6 +18,8 @@ directory = "~/.local/share/backgrounds"
 path = "~/.local/share/backgrounds/BlueTide.jpg"
 
 [bar.default]
+start = [ "launcher", "settings", "wallpaper", "workspaces", "taskbar" ]
+center = [ "clock", "weather" ]
 margin_edge = 0
 margin_ends = 0
 radius = 0
@@ -30,6 +35,22 @@ background_opacity = 0.9
 
 [osd]
 background_opacity = 0.9
+
+[widget.clock]
+format = "{:%b %d %H:%M}"
+
+[widget.media]
+hide_when_no_media = true
+
+[widget.network]
+show_label = false
+
+[widget.taskbar]
+only_active_workspace = true
+show_window_title = true
+
+[widget.weather]
+show_condition = false
 
 [theme]
 mode = "dark"
