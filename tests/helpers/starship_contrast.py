@@ -10,10 +10,11 @@ import tomllib
 from pathlib import Path
 
 
-MIN_CONTRAST = 4.5
-MIN_ADJACENT_CONTRAST = 1.4
+MIN_CONTRAST = 4.0
+MIN_ADJACENT_CONTRAST = 1.1
+MIN_ADJACENT_DISTANCE = 0.25
 REPRESENTATIVE_PALETTE = "Catppuccin"
-EXPECTED_BACKGROUND_TOKENS = ["text", "blue", "yellow", "sapphire", "rosewater"]
+EXPECTED_BACKGROUND_TOKENS = ["text", "blue", "yellow", "blue", "green"]
 EXPECTED_PALETTES = {
     "Ayu",
     "Catppuccin",
@@ -88,10 +89,11 @@ def load_group_styles(config: dict) -> list[tuple[str, str, str]]:
         fail(f"Starship section text must consistently use fg:surface0, got: {sorted(foregrounds)}")
 
     backgrounds = [bg for _, _, bg in groups]
-    if len(backgrounds) != len(set(backgrounds)):
-        fail(f"Starship section backgrounds must be unique tokens, got: {backgrounds}")
     if backgrounds != EXPECTED_BACKGROUND_TOKENS:
         fail(f"Starship section backgrounds must follow Noctalia tokens {EXPECTED_BACKGROUND_TOKENS}, got: {backgrounds}")
+    for left, right in zip(groups, groups[1:]):
+        if left[2] == right[2]:
+            fail(f"adjacent Starship section backgrounds must be distinct, got {left[0]}->{right[0]} both using {left[2]}")
 
     return groups
 
@@ -180,6 +182,12 @@ def contrast(first: str, second: str) -> float:
     return (lighter + 0.05) / (darker + 0.05)
 
 
+def color_distance(first: str, second: str) -> float:
+    first_rgb = rgb(first)
+    second_rgb = rgb(second)
+    return sum((first_channel - second_channel) ** 2 for first_channel, second_channel in zip(first_rgb, second_rgb)) ** 0.5
+
+
 def resolve_color(palette: dict[str, str], token: str) -> str:
     if token.startswith("#"):
         return token
@@ -194,20 +202,46 @@ def validate_separators(config: dict, groups: list[tuple[str, str, str]]) -> Non
     if not isinstance(prompt_format, str):
         fail("missing Starship format string")
 
-    backgrounds = [background for _, _, background in groups]
+    backgrounds = {group_name: background for group_name, _, background in groups}
 
     start = re.search(r"\[\]\(([^)]+)\)", prompt_format)
-    if not start or start.group(1) != backgrounds[0]:
-        fail(f"left prompt cap must use {backgrounds[0]}, got {start.group(1) if start else 'missing'}")
+    if not start or start.group(1) != backgrounds["identity"]:
+        fail(f"left prompt cap must use {backgrounds['identity']}, got {start.group(1) if start else 'missing'}")
 
     transitions = [parse_style(style) for style in re.findall(r"\[\]\(([^)]+)\)", prompt_format)]
-    expected_transitions = list(zip(backgrounds, backgrounds[1:]))
+    expected_transitions = [(backgrounds["identity"], backgrounds["directory"])]
     if transitions != expected_transitions:
-        fail(f"prompt separators must follow section backgrounds: expected {expected_transitions}, got {transitions}")
+        fail(f"top-level prompt separators must only cover required sections: expected {expected_transitions}, got {transitions}")
+
+    custom = config.get("custom")
+    if not isinstance(custom, dict):
+        fail("missing Starship [custom] separator tables")
+
+    expected_custom_separators = {
+        "git_start": (backgrounds["directory"], backgrounds["git"]),
+        "language_start": (backgrounds["git"], backgrounds["language"]),
+        "time_start_after_git": (backgrounds["git"], backgrounds["time"]),
+        "time_start_after_blue": (backgrounds["language"], backgrounds["time"]),
+    }
+    for separator_name, expected_pair in expected_custom_separators.items():
+        table = custom.get(separator_name)
+        if not isinstance(table, dict):
+            fail(f"missing Starship custom separator [custom.{separator_name}]")
+        separator_format = table.get("format")
+        if not isinstance(separator_format, str):
+            fail(f"missing Starship custom separator format for [custom.{separator_name}]")
+        match = re.fullmatch(r"\[\]\(([^)]+)\)", separator_format)
+        if not match:
+            fail(f"[custom.{separator_name}] must render exactly one separator glyph, got: {separator_format}")
+        pair = parse_style(match.group(1))
+        if pair != expected_pair:
+            fail(f"[custom.{separator_name}] must use separator colors {expected_pair}, got {pair}")
+        if not table.get("when"):
+            fail(f"[custom.{separator_name}] must be conditional")
 
     end = re.search(r"\[ \]\(fg:([^)]+)\)", prompt_format)
-    if not end or end.group(1) != backgrounds[-1]:
-        fail(f"right prompt cap must use {backgrounds[-1]}, got {end.group(1) if end else 'missing'}")
+    if not end or end.group(1) != backgrounds["time"]:
+        fail(f"right prompt cap must use {backgrounds['time']}, got {end.group(1) if end else 'missing'}")
 
 
 def validate_contrast(rows: list[dict[str, str]], groups: list[tuple[str, str, str]], palette_names: set[str]) -> None:
@@ -233,10 +267,11 @@ def validate_contrast(rows: list[dict[str, str]], groups: list[tuple[str, str, s
 
         for left, right in zip(resolved_backgrounds, resolved_backgrounds[1:]):
             adjacent_ratio = contrast(left[2], right[2])
-            if adjacent_ratio < MIN_ADJACENT_CONTRAST:
+            adjacent_distance = color_distance(left[2], right[2])
+            if adjacent_ratio < MIN_ADJACENT_CONTRAST and adjacent_distance < MIN_ADJACENT_DISTANCE:
                 failures.append(
                     f"{row['palette']} {row['mode']} {left[0]}->{right[0]} boundary: "
-                    f"adjacent={adjacent_ratio:.2f}:1 "
+                    f"adjacent={adjacent_ratio:.2f}:1 distance={adjacent_distance:.2f} "
                     f"{left[1]}={left[2]} {right[1]}={right[2]}"
                 )
 

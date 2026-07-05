@@ -32,8 +32,9 @@ Local Settings UI override promotion:
 Starship prompt contrast:
 
 - The managed Starship template now keeps top-level prompt settings before the fallback `[palettes.noctalia]` table so freshly seeded configs parse with a real top-level `format`.
-- Prompt section text uses the rendered `surface0` token consistently. Section backgrounds use Noctalia Starship palette tokens (`text`, `blue`, `yellow`, `sapphire`, and `rosewater`) so the prompt follows the active Noctalia theme instead of pinning fixed colors.
-- Added `tests/starship_theme.bats` and `tests/helpers/starship_contrast.py`; the test resolves Noctalia's Starship palette aliases against the built-in dark terminal palettes fixture, enforces the theme-token section order, and checks contrast for the managed default palette plus Catppuccin. A strict all-built-in adjacent-contrast guarantee is not possible with the current built-in Starship aliases because several palettes render adjacent candidate tokens too similarly or too dark for uniform `surface0` text.
+- Prompt section text uses the rendered `surface0` token consistently. Section backgrounds use Noctalia Starship palette tokens (`text`, `blue`, `yellow`, `blue`, and `green`) so the prompt follows the active Noctalia theme instead of pinning fixed colors; language modules intentionally reuse the directory section color.
+- Optional git and language separators are rendered through conditional Starship custom modules so empty git/language sections do not leave colored blocks behind.
+- Added `tests/starship_theme.bats` and `tests/helpers/starship_contrast.py`; the test resolves Noctalia's Starship palette aliases against the built-in dark terminal palettes fixture, enforces the theme-token section order, verifies optional separators are conditional, rejects adjacent duplicate section colors, and checks a 4.0:1 minimum text contrast for the managed default palette plus Catppuccin. Adjacent section checks allow separation by either luminance contrast or RGB color distance because prompt block boundaries can be hue-distinct even when their luminance is close.
 
 ## Checkpoint: 2026-07-03
 

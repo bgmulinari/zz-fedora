@@ -7,10 +7,10 @@ $os\
 $username\
 [](bg:blue fg:text)\
 $directory\
-[](fg:blue bg:yellow)\
+${custom.git_start}\
 $git_branch\
 $git_status\
-[](fg:yellow bg:sapphire)\
+${custom.language_start}\
 $c\
 $rust\
 $golang\
@@ -21,9 +21,10 @@ $kotlin\
 $haskell\
 $python\
 $dotnet\
-[](fg:sapphire bg:rosewater)\
+${custom.time_start_after_git}\
+${custom.time_start_after_blue}\
 $time\
-[ ](fg:rosewater)\
+[ ](fg:green)\
 $line_break$character"""
 
 [os]
@@ -70,6 +71,81 @@ truncation_symbol = ".../"
 "Pictures" = " "
 "Developer" = "󰲋 "
 
+[custom.git_start]
+command = "true"
+when = "git rev-parse --is-inside-work-tree >/dev/null 2>&1"
+shell = ["bash", "--noprofile", "--norc"]
+format = "[](fg:blue bg:yellow)"
+
+[custom.language_start]
+command = "true"
+when = '''
+has_language_context() {
+  local path extension
+  for path in Cargo.toml go.mod go.sum go.work glide.yaml Gopkg.yml Gopkg.lock .go-version package.json .node-version .nvmrc composer.json .php-version pom.xml build.gradle.kts build.sbt .java-version deps.edn project.clj build.boot .sdkmanrc stack.yaml cabal.project requirements.txt .python-version pyproject.toml Pipfile tox.ini setup.py __init__.py global.json project.json Directory.Build.props Directory.Build.targets Packages.props; do
+    [[ -e "$path" ]] && return 0
+  done
+  for path in node_modules Godeps; do
+    [[ -d "$path" ]] && return 0
+  done
+  for extension in c h rs go js mjs cjs ts mts cts php java class jar gradle clj cljc kt kts hs cabal hs-boot py ipynb csproj fsproj xproj; do
+    compgen -G "*.${extension}" >/dev/null && return 0
+  done
+  [[ -n "${VIRTUAL_ENV:-}" ]] && return 0
+  return 1
+}
+
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 && has_language_context
+'''
+shell = ["bash", "--noprofile", "--norc"]
+format = "[](fg:yellow bg:blue)"
+
+[custom.time_start_after_git]
+command = "true"
+when = '''
+has_language_context() {
+  local path extension
+  for path in Cargo.toml go.mod go.sum go.work glide.yaml Gopkg.yml Gopkg.lock .go-version package.json .node-version .nvmrc composer.json .php-version pom.xml build.gradle.kts build.sbt .java-version deps.edn project.clj build.boot .sdkmanrc stack.yaml cabal.project requirements.txt .python-version pyproject.toml Pipfile tox.ini setup.py __init__.py global.json project.json Directory.Build.props Directory.Build.targets Packages.props; do
+    [[ -e "$path" ]] && return 0
+  done
+  for path in node_modules Godeps; do
+    [[ -d "$path" ]] && return 0
+  done
+  for extension in c h rs go js mjs cjs ts mts cts php java class jar gradle clj cljc kt kts hs cabal hs-boot py ipynb csproj fsproj xproj; do
+    compgen -G "*.${extension}" >/dev/null && return 0
+  done
+  [[ -n "${VIRTUAL_ENV:-}" ]] && return 0
+  return 1
+}
+
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 && ! has_language_context
+'''
+shell = ["bash", "--noprofile", "--norc"]
+format = "[](fg:yellow bg:green)"
+
+[custom.time_start_after_blue]
+command = "true"
+when = '''
+has_language_context() {
+  local path extension
+  for path in Cargo.toml go.mod go.sum go.work glide.yaml Gopkg.yml Gopkg.lock .go-version package.json .node-version .nvmrc composer.json .php-version pom.xml build.gradle.kts build.sbt .java-version deps.edn project.clj build.boot .sdkmanrc stack.yaml cabal.project requirements.txt .python-version pyproject.toml Pipfile tox.ini setup.py __init__.py global.json project.json Directory.Build.props Directory.Build.targets Packages.props; do
+    [[ -e "$path" ]] && return 0
+  done
+  for path in node_modules Godeps; do
+    [[ -d "$path" ]] && return 0
+  done
+  for extension in c h rs go js mjs cjs ts mts cts php java class jar gradle clj cljc kt kts hs cabal hs-boot py ipynb csproj fsproj xproj; do
+    compgen -G "*.${extension}" >/dev/null && return 0
+  done
+  [[ -n "${VIRTUAL_ENV:-}" ]] && return 0
+  return 1
+}
+
+! git rev-parse --is-inside-work-tree >/dev/null 2>&1 || has_language_context
+'''
+shell = ["bash", "--noprofile", "--norc"]
+format = "[](fg:blue bg:green)"
+
 [git_branch]
 symbol = ""
 style = "bg:yellow"
@@ -81,59 +157,59 @@ format = '[[($all_status$ahead_behind )](fg:surface0 bg:yellow)]($style)'
 
 [nodejs]
 symbol = ""
-style = "bg:sapphire"
-format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+style = "bg:blue"
+format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
 
 [c]
 symbol = " "
-style = "bg:sapphire"
-format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+style = "bg:blue"
+format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
 
 [rust]
 symbol = ""
-style = "bg:sapphire"
-format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+style = "bg:blue"
+format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
 
 [golang]
 symbol = ""
-style = "bg:sapphire"
-format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+style = "bg:blue"
+format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
 
 [php]
 symbol = ""
-style = "bg:sapphire"
-format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+style = "bg:blue"
+format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
 
 [java]
 symbol = " "
-style = "bg:sapphire"
-format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+style = "bg:blue"
+format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
 
 [kotlin]
 symbol = ""
-style = "bg:sapphire"
-format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+style = "bg:blue"
+format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
 
 [haskell]
 symbol = ""
-style = "bg:sapphire"
-format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+style = "bg:blue"
+format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
 
 [python]
 symbol = ""
-style = "bg:sapphire"
-format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+style = "bg:blue"
+format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
 
 [dotnet]
 symbol = "󰪮"
-style = "bg:sapphire"
-format = '[[ $symbol( $version) ](fg:surface0 bg:sapphire)]($style)'
+style = "bg:blue"
+format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
 
 [time]
 disabled = false
 time_format = "%R"
-style = "bg:rosewater"
-format = '[[  $time](fg:surface0 bg:rosewater)]($style)'
+style = "bg:green"
+format = '[[  $time](fg:surface0 bg:green)]($style)'
 
 [line_break]
 disabled = false
