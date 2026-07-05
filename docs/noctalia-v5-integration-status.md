@@ -29,6 +29,13 @@ Local Settings UI override promotion:
 - Left generated/local state in `~/.local/state/noctalia/settings.toml`, including `lockscreen_widgets`, `wallpaper.last`, and the `wallpaper.monitors.Virtual-1` entry. These still encode runtime or output-specific state and must not be stowed.
 - Validation after the promotion: `noctalia config validate` passed, and the override report showed no remaining state keys overriding the managed dotfile.
 
+Custom Catppuccin Mocha palette:
+
+- Added `dotfiles/noctalia/.config/noctalia/palettes/catppuccin-mocha-blue.json` as a managed Noctalia v5 custom palette.
+- The palette follows the local Catppuccin style guide's Mocha mappings for base/surface/text/terminal colors, assigns Catppuccin Blue as Noctalia's primary accent/link color, Catppuccin Green as the secondary/success role, and Catppuccin Yellow as the tertiary/warning/hover role so highlighted surfaces do not collapse into the primary accent color.
+- The managed `[theme]` now uses `source = "custom"` with `custom_palette = "catppuccin-mocha-blue"`, keeping built-in Catppuccin as the fallback palette if the custom JSON is unavailable.
+- Removed the live `[theme]` keys from `~/.local/state/noctalia/settings.toml`; otherwise the app-managed state would continue forcing `source = "builtin"` and hide the managed custom palette.
+
 Starship prompt contrast:
 
 - The managed Starship template now keeps top-level prompt settings before the fallback `[palettes.noctalia]` table so freshly seeded configs parse with a real top-level `format`.
@@ -229,7 +236,7 @@ Niri:
 Noctalia config:
 
 - `~/.config/noctalia/config.toml` is stowed from `dotfiles/noctalia/.config/noctalia/config.toml`.
-- The managed config is intentionally portable: polkit agent, telemetry off, `~/.local/share/backgrounds`, the bundled `BlueTide.jpg` wallpaper, Nord built-in dark theme, default bar module order, selected widget display preferences, Noctalia bar end margin, semi-transparent shell surface backgrounds, selected built-in templates, and selected community templates.
+- The managed config is intentionally portable: polkit agent, telemetry off, `~/.local/share/backgrounds`, the bundled `BlueTide.jpg` wallpaper, custom Catppuccin Mocha Blue dark theme, default bar module order, selected widget display preferences, Noctalia bar end margin, semi-transparent shell surface backgrounds, selected built-in templates, and selected community templates.
 - The managed config also declares `[theme.templates.user.icon_theme]` to restore the pre-v5 desktop icon accent sync without reintroducing v4 `user-templates.toml`.
 - GUI/runtime overrides remain app-managed in `~/.local/state/noctalia/settings.toml` and load after the stowed config.
 - Do not put lockscreen widgets, desktop widgets, monitor names, output names, connector lists, resolutions, coordinates, or generated setup state in the stowed config.

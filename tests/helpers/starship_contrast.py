@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Validate the managed Starship prompt against Noctalia built-in palettes."""
+"""Validate the managed Starship prompt against Noctalia terminal palettes."""
 
 from __future__ import annotations
 
 import csv
+import json
 import re
 import sys
 import tomllib
@@ -98,18 +99,73 @@ def load_group_styles(config: dict) -> list[tuple[str, str, str]]:
     return groups
 
 
-def load_managed_theme(config_path: Path) -> tuple[str, str]:
+def require_str(table: dict, key: str, context: str) -> str:
+    value = table.get(key)
+    if not isinstance(value, str) or not value:
+        fail(f"{context} must declare {key}, got {value!r}")
+    return value
+
+
+def custom_palette_row(config_path: Path, palette_name: str, mode: str) -> dict[str, str]:
+    palette_path = config_path.parent / "palettes" / f"{palette_name}.json"
+    if not palette_path.is_file():
+        fail(f"managed Noctalia custom palette does not exist: {palette_path}")
+
+    root = json.loads(palette_path.read_text())
+    if not isinstance(root, dict):
+        fail(f"custom palette must be a JSON object: {palette_path}")
+
+    mode_table = root.get(mode)
+    if mode_table is None and mode == "light":
+        mode_table = root.get("dark")
+    if not isinstance(mode_table, dict):
+        fail(f"custom palette {palette_name!r} must include a {mode!r} object")
+
+    terminal = mode_table.get("terminal")
+    if not isinstance(terminal, dict):
+        fail(f"custom palette {palette_name!r} must include terminal colors")
+
+    normal = terminal.get("normal")
+    bright = terminal.get("bright")
+    if not isinstance(normal, dict) or not isinstance(bright, dict):
+        fail(f"custom palette {palette_name!r} must include terminal normal and bright color maps")
+
+    row = {
+        "palette": palette_name,
+        "mode": mode,
+        "foreground": require_str(terminal, "foreground", f"custom palette {palette_name!r} terminal"),
+        "background": require_str(terminal, "background", f"custom palette {palette_name!r} terminal"),
+        "selection_fg": require_str(terminal, "selectionFg", f"custom palette {palette_name!r} terminal"),
+        "selection_bg": require_str(terminal, "selectionBg", f"custom palette {palette_name!r} terminal"),
+        "cursor_text": require_str(terminal, "cursorText", f"custom palette {palette_name!r} terminal"),
+        "cursor": require_str(terminal, "cursor", f"custom palette {palette_name!r} terminal"),
+    }
+
+    for color_name in ("black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"):
+        row[color_name] = require_str(normal, color_name, f"custom palette {palette_name!r} terminal.normal")
+        row[f"bright_{color_name}"] = require_str(
+            bright, color_name, f"custom palette {palette_name!r} terminal.bright"
+        )
+
+    return row
+
+
+def load_managed_theme(config_path: Path) -> tuple[str, set[str], list[dict[str, str]]]:
     config = tomllib.loads(config_path.read_text())
     theme = config.get("theme", {})
-    if theme.get("source") != "builtin":
-        fail("managed Noctalia config must use the builtin palette source for this regression")
     mode = theme.get("mode")
     if mode != "dark":
         fail(f"fixture covers the managed dark prompt only, got theme.mode={mode!r}")
-    builtin = theme.get("builtin")
-    if not isinstance(builtin, str) or not builtin:
-        fail(f"managed Noctalia config must declare theme.builtin, got {builtin!r}")
-    return mode, builtin
+
+    source = theme.get("source")
+    if source == "builtin":
+        builtin = require_str(theme, "builtin", "managed Noctalia config")
+        return mode, {builtin, REPRESENTATIVE_PALETTE}, []
+    if source == "custom":
+        custom_palette = require_str(theme, "custom_palette", "managed Noctalia config")
+        return mode, {custom_palette, REPRESENTATIVE_PALETTE}, [custom_palette_row(config_path, custom_palette, mode)]
+
+    fail(f"managed Noctalia config must use a builtin or custom palette source, got {source!r}")
 
 
 def load_fixture(fixture_path: Path, mode: str) -> list[dict[str, str]]:
@@ -287,12 +343,12 @@ def main() -> None:
     fixture_path = Path(sys.argv[2])
     noctalia_config_path = Path(sys.argv[3])
 
-    mode, managed_palette = load_managed_theme(noctalia_config_path)
+    mode, palette_names, extra_rows = load_managed_theme(noctalia_config_path)
     starship_config = tomllib.loads(starship_path.read_text())
     groups = load_group_styles(starship_config)
     validate_separators(starship_config, groups)
     rows = load_fixture(fixture_path, mode)
-    validate_contrast(rows, groups, {managed_palette, REPRESENTATIVE_PALETTE})
+    validate_contrast(rows + extra_rows, groups, palette_names)
 
 
 if __name__ == "__main__":

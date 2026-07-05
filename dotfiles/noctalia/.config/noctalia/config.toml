@@ -57,8 +57,9 @@ show_condition = false
 
 [theme]
 mode = "dark"
-source = "builtin"
-builtin = "Nord"
+source = "custom"
+builtin = "Catppuccin"
+custom_palette = "catppuccin-mocha-blue"
 
 [theme.templates]
 enable_builtin_templates = true
