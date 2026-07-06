@@ -78,6 +78,10 @@ export STATE_OWNER_USER="$target_user"
 export TARGET_USER="$target_user"
 export DESKTOP_APP_PROFILE=full
 export ZZ_INSTALLER_DEFER_START_SERVICES=1
+export ZZ_INSTALLER_POST_TIMEOUT_SECONDS="${ZZ_INSTALLER_POST_TIMEOUT_SECONDS:-14400}"
+export ZZ_COMMAND_TIMEOUT_SECONDS="${ZZ_COMMAND_TIMEOUT_SECONDS:-3600}"
+export ZZ_COMMAND_TIMEOUT_KILL_AFTER="${ZZ_COMMAND_TIMEOUT_KILL_AFTER:-60s}"
+unset DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS XDG_CURRENT_DESKTOP DESKTOP_SESSION
 if [[ -r /etc/locale.conf ]]; then
   source /etc/locale.conf
 fi
@@ -92,7 +96,17 @@ esac
 export LANG LC_ALL
 
 cd "$target_repo_dir"
-./install.sh install --yes --distro fedora --desktop-app-profile full --no-tui --target-user "$target_user"
+printf '[zz-linux-setup] Starting bootstrap for %s. Detailed log: %s\n' "$target_user" "$LOG_DIR/latest.log" | tee /dev/console || true
+set +e
+timeout --foreground --kill-after=60s "$ZZ_INSTALLER_POST_TIMEOUT_SECONDS" \
+  ./install.sh install --yes --distro fedora --desktop-app-profile full --no-tui --target-user "$target_user"
+install_status=$?
+set -e
+if [[ "$install_status" -ne 0 ]]; then
+  printf '[zz-linux-setup] Bootstrap failed with exit code %s. Check /root/zz-linux-setup-kickstart.log and %s.\n' "$install_status" "$LOG_DIR/latest.log" | tee /dev/console || true
+  exit "$install_status"
+fi
+printf '[zz-linux-setup] Bootstrap completed for %s.\n' "$target_user" | tee /dev/console || true
 
 rm -rf "$repo_dir"
 %end

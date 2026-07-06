@@ -72,6 +72,48 @@ setup() {
   assert_contains "$output" "LC_ALL=C.UTF-8"
 }
 
+@test "run_cmd honors opt-in command timeout" {
+  DRY_RUN=0
+  ZZ_COMMAND_TIMEOUT_SECONDS=7
+  ZZ_COMMAND_TIMEOUT_KILL_AFTER=2s
+  timeout() {
+    printf 'timeout called:'
+    printf ' %s' "$@"
+    printf '\n'
+    return 124
+  }
+
+  run run_cmd slow command
+
+  [ "$status" -eq 124 ]
+  assert_contains "$output" "timeout called: --foreground --kill-after=2s 7 slow command"
+  assert_contains "$output" "Command timed out after 7s: slow command"
+}
+
+@test "Fedora Microsoft fonts action bypasses RPM xset scriptlet" {
+  DRY_RUN=0
+  mkdir -p "$CACHE_DIR"
+  rpm() {
+    if [[ "${1:-}" == "-q" && "${2:-}" == "msttcore-fonts-installer" ]]; then
+      return 1
+    fi
+    command rpm "$@"
+  }
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*"
+  }
+
+  run install_fedora_ms_fonts
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "root:dnf install -y curl cabextract fontconfig mkfontscale xorg-x11-font-utils xset"
+  assert_contains "$output" "root:rpm -i --noscripts --nodigest --nosignature https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-2.6-1.noarch.rpm"
+  assert_contains "$output" "root:install -d -m 0755 /usr/share/doc/msttcore-fonts-installer"
+  assert_contains "$output" "root:env PATH="
+  assert_contains "$output" "ms-fonts-xset."
+  assert_contains "$output" "/usr/lib/msttcore-fonts-installer/refresh-msttcore-fonts.sh -F /usr/share/fonts/msttcore -L /usr/share/doc/msttcore-fonts-installer -I /usr/lib/msttcore-fonts-installer/installed-list.txt"
+}
+
 @test "required package transaction aborts without optional retry loop" {
   plan_file="$TEST_ROOT/required.pkgs"
   printf 'bad-package\ngood-package\n' >"$plan_file"

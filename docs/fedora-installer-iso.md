@@ -74,14 +74,23 @@ scripts/test-fedora-installer-vm.sh \
 ```
 
 The harness builds a VM-only Kickstart ISO, boots the generated ISO's Fedora
-kernel/initrd directly, mounts the generated ISO as the Anaconda source, and
-runs the same embedded checkout and post-install invocation used by the
-production Kickstart. `--boot-mode uefi` is available when you specifically need
-to exercise the generated ISO firmware boot path.
+bootloader by default, starts Anaconda in graphical mode over a local QEMU VNC
+display, and runs the same embedded checkout and post-install invocation used
+by the production Kickstart. Use `--installer-ui text` for serial-console
+debugging, `--boot-mode direct` for faster kernel/initrd boot debugging, and
+`--boot-mode uefi` when you specifically need to exercise the generated ISO
+UEFI firmware path.
+
+The production Kickstart wraps the post-install bootstrap with a total timeout
+and per-command timeout so Anaconda fails with logs instead of waiting forever
+on a stuck network or package command. When debugging a graphical install stuck
+at `Running post-installation scripts`, inspect `/root/zz-linux-setup-kickstart.log`
+and the target user's `~/.local/state/zz-linux-setup/logs/latest.log`.
 
 ## References
 
 - Lorax `mkksiso`: https://weldr.io/lorax/mkksiso.html
 - Lorax `livemedia-creator`: https://weldr.io/lorax/livemedia-creator.html
 - Fedora live media compose notes: https://fedoraproject.org/wiki/Livemedia-creator-_How_to_create_and_use_a_Live_CD
+- Kickstart `%post` options: https://pykickstart.readthedocs.io/en/latest/kickstart-docs.html#chapter-6-post-installation-script
 - Fedora Remix secondary trademark guidance: https://fedoraproject.org/wiki/Legal%3ASecondary_trademark_usage_guidelines

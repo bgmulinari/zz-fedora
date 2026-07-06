@@ -258,13 +258,36 @@ install_fedora_ms_fonts() {
     printf 'DRY-RUN: install Microsoft core fonts RPM\n'
     return 0
   fi
-  rpm -q msttcore-fonts-installer >/dev/null 2>&1 && return 0
+  local font_dir=/usr/share/fonts/msttcore
+  local docs_dir=/usr/share/doc/msttcore-fonts-installer
+  local installed_list=/usr/lib/msttcore-fonts-installer/installed-list.txt
+  local refresh_script=/usr/lib/msttcore-fonts-installer/refresh-msttcore-fonts.sh
+  local rpm_url=https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-2.6-1.noarch.rpm
+  if rpm -q msttcore-fonts-installer >/dev/null 2>&1 && compgen -G "$font_dir/*.ttf" >/dev/null; then
+    return 0
+  fi
   run_cmd_as_root dnf install -y curl cabextract fontconfig mkfontscale xorg-x11-font-utils xset
   local xset_wrapper_dir
   xset_wrapper_dir="$(mktemp -d "$CACHE_DIR/ms-fonts-xset.XXXXXX")"
   printf '#!/usr/bin/env sh\nexit 0\n' >"$xset_wrapper_dir/xset"
+  cat >"$xset_wrapper_dir/cabextract" <<'SH'
+#!/usr/bin/env bash
+/usr/bin/cabextract "$@" 2> >(grep -Fv 'ppviewer.cab: WARNING; possible 6912 extra bytes at end of file.' >&2)
+SH
   chmod 0755 "$xset_wrapper_dir/xset"
-  if ! run_cmd_as_root env "PATH=$xset_wrapper_dir:$PATH" rpm -i --nodigest --nosignature https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-2.6-1.noarch.rpm; then
+  chmod 0755 "$xset_wrapper_dir/cabextract"
+  if ! rpm -q msttcore-fonts-installer >/dev/null 2>&1; then
+    if ! run_cmd_as_root rpm -i --noscripts --nodigest --nosignature "$rpm_url"; then
+      rm -rf "$xset_wrapper_dir"
+      return 1
+    fi
+  fi
+  if ! run_cmd_as_root install -d -m 0755 "$docs_dir"; then
+    rm -rf "$xset_wrapper_dir"
+    return 1
+  fi
+  if ! run_cmd_as_root env "PATH=$xset_wrapper_dir:$PATH" \
+    "$refresh_script" -F "$font_dir" -L "$docs_dir" -I "$installed_list"; then
     rm -rf "$xset_wrapper_dir"
     return 1
   fi
@@ -553,7 +576,8 @@ verify_custom_action() {
   [[ "$DRY_RUN" -eq 0 ]] || return 0
   case "$action" in
     ms-fonts-fedora)
-      rpm -q msttcore-fonts-installer >/dev/null 2>&1
+      rpm -q msttcore-fonts-installer >/dev/null 2>&1 \
+        && compgen -G "/usr/share/fonts/msttcore/*.ttf" >/dev/null
       ;;
     jetbrains-mono-nerd-font-fedora)
       jetbrains_mono_nerd_font_installed

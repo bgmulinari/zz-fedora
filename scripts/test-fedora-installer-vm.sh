@@ -3,14 +3,16 @@ set -Eeuo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/test-fedora-installer-vm.sh --input ISO [--work-dir DIR] [--boot-mode direct|uefi]
+Usage: scripts/test-fedora-installer-vm.sh --input ISO [--work-dir DIR] [--boot-mode iso|direct|uefi] [--installer-ui graphical|text]
 
 Run an unattended QEMU install that exercises the Fedora ISO post-install path.
 The generated test ISO uses the same embedded checkout and installer invocation
 as iso/fedora/zz-fedora.ks, but adds VM-only storage, user, and shutdown
-Kickstart commands. The default direct boot mode boots the generated ISO's
-kernel and initrd directly while mounting the generated ISO as the install
-source. Use --boot-mode uefi to boot through the generated ISO firmware path.
+Kickstart commands. The default iso boot mode boots through the generated ISO
+bootloader. Use --boot-mode direct to boot the generated ISO's kernel and initrd
+directly, or --boot-mode uefi to exercise the generated ISO UEFI firmware path.
+The default graphical installer UI uses a local QEMU VNC display; use
+--installer-ui text for serial-console debugging.
 EOF
 }
 
@@ -24,7 +26,9 @@ memory=4096
 cpus=4
 disk_size=64G
 timeout_seconds=14400
-boot_mode=direct
+boot_mode=iso
+installer_ui=graphical
+vnc_display=127.0.0.1:99
 
 while (($# > 0)); do
   case "$1" in
@@ -88,6 +92,30 @@ while (($# > 0)); do
       boot_mode=${1#*=}
       shift
       ;;
+    --installer-ui)
+      (($# >= 2)) || {
+        err "--installer-ui requires a value."
+        exit 1
+      }
+      installer_ui=$2
+      shift 2
+      ;;
+    --installer-ui=*)
+      installer_ui=${1#*=}
+      shift
+      ;;
+    --vnc-display)
+      (($# >= 2)) || {
+        err "--vnc-display requires a value."
+        exit 1
+      }
+      vnc_display=$2
+      shift 2
+      ;;
+    --vnc-display=*)
+      vnc_display=${1#*=}
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -101,10 +129,19 @@ while (($# > 0)); do
 done
 
 case "$boot_mode" in
-  direct|uefi)
+  iso|direct|uefi)
     ;;
   *)
     err "unsupported boot mode: $boot_mode"
+    exit 1
+    ;;
+esac
+
+case "$installer_ui" in
+  graphical|text)
+    ;;
+  *)
+    err "unsupported installer UI: $installer_ui"
     exit 1
     ;;
 esac
@@ -153,9 +190,10 @@ if [[ "$boot_mode" == "uefi" && (! -f "$ovmf_code" || ! -f "$ovmf_vars_template"
   exit 1
 fi
 
-cat >"$ks_file" <<'EOF'
-# VM-only unattended test profile for zz-linux-setup.
-text
+{
+  printf '# VM-only unattended test profile for zz-linux-setup.\n'
+  printf '%s\n' "$installer_ui"
+  cat <<'EOF'
 eula --agreed
 keyboard --xlayouts='us'
 lang en_US.UTF-8
@@ -242,6 +280,10 @@ export STATE_OWNER_USER="$target_user"
 export TARGET_USER="$target_user"
 export DESKTOP_APP_PROFILE=full
 export ZZ_INSTALLER_DEFER_START_SERVICES=1
+export ZZ_INSTALLER_POST_TIMEOUT_SECONDS="${ZZ_INSTALLER_POST_TIMEOUT_SECONDS:-14400}"
+export ZZ_COMMAND_TIMEOUT_SECONDS="${ZZ_COMMAND_TIMEOUT_SECONDS:-3600}"
+export ZZ_COMMAND_TIMEOUT_KILL_AFTER="${ZZ_COMMAND_TIMEOUT_KILL_AFTER:-60s}"
+unset DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS XDG_CURRENT_DESKTOP DESKTOP_SESSION
 if [[ -r /etc/locale.conf ]]; then
   source /etc/locale.conf
 fi
@@ -256,11 +298,22 @@ esac
 export LANG LC_ALL
 
 cd "$target_repo_dir"
-./install.sh install --yes --distro fedora --desktop-app-profile full --no-tui --target-user "$target_user"
+printf '[zz-linux-setup] Starting bootstrap for %s. Detailed log: %s\n' "$target_user" "$LOG_DIR/latest.log" | tee /dev/console || true
+set +e
+timeout --foreground --kill-after=60s "$ZZ_INSTALLER_POST_TIMEOUT_SECONDS" \
+  ./install.sh install --yes --distro fedora --desktop-app-profile full --no-tui --target-user "$target_user"
+install_status=$?
+set -e
+if [[ "$install_status" -ne 0 ]]; then
+  printf '[zz-linux-setup] Bootstrap failed with exit code %s. Check /root/zz-linux-setup-kickstart.log and %s.\n' "$install_status" "$LOG_DIR/latest.log" | tee /dev/console || true
+  exit "$install_status"
+fi
+printf '[zz-linux-setup] Bootstrap completed for %s.\n' "$target_user" | tee /dev/console || true
 
 rm -rf "$repo_dir"
 %end
 EOF
+} >"$ks_file"
 
 rsync -a --delete \
   --exclude='.cache/' \
@@ -273,7 +326,6 @@ rsync -a --delete \
   "$repo_dir/" "$payload_dir/"
 
 mkksiso_args=(
-  --cmdline "console=ttyS0,115200n8 inst.cmdline"
   --replace 'set default="1"' 'set default="0"'
   --replace 'set timeout=60' 'set timeout=1'
   --add "$payload_dir"
@@ -281,6 +333,12 @@ mkksiso_args=(
   "$input_iso"
   "$test_iso"
 )
+if [[ "$installer_ui" == "text" ]]; then
+  mkksiso_args=(
+    --cmdline "console=ttyS0,115200n8 inst.cmdline"
+    "${mkksiso_args[@]}"
+  )
+fi
 if [[ "$EUID" -eq 0 ]]; then
   mkksiso "${mkksiso_args[@]}"
 else
@@ -298,6 +356,15 @@ printf 'Disk image: %s\n' "$disk_image"
 printf 'Serial log: %s\n' "$serial_log"
 printf 'QEMU log: %s\n' "$qemu_log"
 printf 'Boot mode: %s\n' "$boot_mode"
+printf 'Installer UI: %s\n' "$installer_ui"
+if [[ "$installer_ui" == "graphical" ]]; then
+  printf 'VNC display: %s\n' "$vnc_display"
+fi
+
+display_args=(-display none)
+if [[ "$installer_ui" == "graphical" ]]; then
+  display_args=(-display "vnc=$vnc_display")
+fi
 
 qemu_args=(
   -enable-kvm
@@ -309,7 +376,7 @@ qemu_args=(
   -cdrom "$test_iso" \
   -netdev user,id=n0 \
   -device virtio-net-pci,netdev=n0 \
-  -display none \
+  "${display_args[@]}" \
   -serial "file:$serial_log" \
   -no-reboot
 )
@@ -320,7 +387,7 @@ if [[ "$boot_mode" == "uefi" ]]; then
     -drive "if=pflash,format=raw,file=$ovmf_vars"
     -boot d
   )
-else
+elif [[ "$boot_mode" == "direct" ]]; then
   xorriso -osirrox on \
     -indev "$test_iso" \
     -extract /images/pxeboot/vmlinuz "$kernel_image" \
@@ -337,8 +404,14 @@ else
   qemu_args+=(
     -kernel "$kernel_image"
     -initrd "$initrd_image"
-    -append "inst.stage2=hd:LABEL=$iso_label inst.ks=hd:LABEL=$iso_label:/zz-fedora-vm.ks console=ttyS0,115200n8 inst.cmdline"
   )
+  direct_append="inst.stage2=hd:LABEL=$iso_label inst.ks=hd:LABEL=$iso_label:/zz-fedora-vm.ks"
+  if [[ "$installer_ui" == "text" ]]; then
+    direct_append+=" console=ttyS0,115200n8 inst.cmdline"
+  fi
+  qemu_args+=(-append "$direct_append")
+else
+  qemu_args+=(-boot d)
 fi
 
 timeout "$timeout_seconds" qemu-system-x86_64 "${qemu_args[@]}" >"$qemu_log" 2>&1

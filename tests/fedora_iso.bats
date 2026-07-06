@@ -138,13 +138,37 @@ SH
   assert_file_contains "$ks" "chown -R \"\$target_user:\$target_group\""
   assert_file_contains "$ks" "export STATE_DIR=\"\$target_home/.local/state/zz-linux-setup\""
   assert_file_contains "$ks" "export ZZ_INSTALLER_DEFER_START_SERVICES=1"
+  assert_file_contains "$ks" "export ZZ_INSTALLER_POST_TIMEOUT_SECONDS="
+  assert_file_contains "$ks" "export ZZ_COMMAND_TIMEOUT_SECONDS="
+  assert_file_contains "$ks" "unset DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS XDG_CURRENT_DESKTOP DESKTOP_SESSION"
   assert_file_contains "$ks" "source /etc/locale.conf"
   assert_file_contains "$ks" "LC_ALL=\"\$LANG\""
   assert_file_contains "$ks" "export LANG LC_ALL"
+  assert_file_contains "$ks" "Starting bootstrap for %s"
+  assert_file_contains "$ks" "timeout --foreground --kill-after=60s \"\$ZZ_INSTALLER_POST_TIMEOUT_SECONDS\""
+  assert_file_contains "$ks" "Bootstrap failed with exit code %s"
+  assert_file_contains "$ks" "Bootstrap completed for %s"
   assert_file_contains "$ks" "./install.sh install --yes --distro fedora --desktop-app-profile full --no-tui --target-user \"\$target_user\""
   refute_file_contains "$ks" "clearpart"
   refute_file_contains "$ks" "autopart"
   refute_file_contains "$ks" "rootpw"
+}
+
+@test "Fedora VM installer test defaults to ISO boot path" {
+  script="$ROOT_DIR/scripts/test-fedora-installer-vm.sh"
+
+  assert_file_contains "$script" "--boot-mode iso|direct|uefi"
+  assert_file_contains "$script" "--installer-ui graphical|text"
+  assert_file_contains "$script" "boot_mode=iso"
+  assert_file_contains "$script" "installer_ui=graphical"
+  assert_file_contains "$script" "iso|direct|uefi)"
+  assert_file_contains "$script" "graphical|text)"
+  assert_file_contains "$script" "qemu_args+=(-boot d)"
+  assert_file_contains "$script" "display_args=(-display \"vnc=\$vnc_display\")"
+  assert_file_contains "$script" "--cmdline \"console=ttyS0,115200n8 inst.cmdline\""
+  assert_file_contains "$script" "direct_append+=\" console=ttyS0,115200n8 inst.cmdline\""
+  assert_file_contains "$script" "timeout --foreground --kill-after=60s \"\$ZZ_INSTALLER_POST_TIMEOUT_SECONDS\""
+  assert_file_contains "$script" "Bootstrap failed with exit code %s"
 }
 
 @test "Fedora install readiness treats planned artifacts as planned during install" {

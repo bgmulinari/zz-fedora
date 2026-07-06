@@ -68,6 +68,21 @@ run_cmd() {
     fi
   fi
   log_command "$@"
+  local command_timeout_seconds="${ZZ_COMMAND_TIMEOUT_SECONDS:-0}"
+  if [[ "$command_timeout_seconds" =~ ^[0-9]+$ && "$command_timeout_seconds" -gt 0 ]]; then
+    if have_cmd timeout; then
+      local command_status
+      set +e
+      timeout --foreground --kill-after="${ZZ_COMMAND_TIMEOUT_KILL_AFTER:-30s}" "$command_timeout_seconds" "$@"
+      command_status=$?
+      set -e
+      if [[ "$command_status" -eq 124 || "$command_status" -eq 137 ]]; then
+        log_error "Command timed out after ${command_timeout_seconds}s: $LAST_COMMAND_CONTEXT"
+      fi
+      return "$command_status"
+    fi
+    log_warn "Command timeout requested but coreutils timeout is unavailable."
+  fi
   "$@"
 }
 
