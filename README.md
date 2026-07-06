@@ -90,6 +90,19 @@ cd zz-linux-setup
 ./install.sh wizard
 ```
 
+Build an online Fedora installer ISO from the current checkout:
+
+```bash
+sudo dnf install lorax rsync
+scripts/build-fedora-installer-iso.sh \
+  --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
+  --output release/zz-linux-setup-fedora.iso
+```
+
+The generated ISO keeps Anaconda in charge of disk and user setup, embeds this
+checkout, and runs the normal unattended Fedora install path for the created
+regular user. See `docs/fedora-installer-iso.md`.
+
 Non-interactive install:
 
 ```bash

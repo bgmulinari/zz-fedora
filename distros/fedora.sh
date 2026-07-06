@@ -191,6 +191,10 @@ distro_enable_service() {
 }
 
 distro_enable_service_now() {
+  if [[ "${ZZ_INSTALLER_DEFER_START_SERVICES:-0}" -eq 1 ]]; then
+    run_cmd_as_root systemctl enable "$1"
+    return 0
+  fi
   run_cmd_as_root systemctl enable --now "$1"
 }
 

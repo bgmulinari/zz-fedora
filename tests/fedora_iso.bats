@@ -1,0 +1,160 @@
+#!/usr/bin/env bats
+
+load "helpers/common"
+
+setup() {
+  setup_test_env
+}
+
+@test "Fedora ISO builder embeds Kickstart and checkout with mkksiso" {
+  fake_bin="$TEST_ROOT/bin"
+  mkdir -p "$fake_bin"
+
+  cat >"$fake_bin/rsync" <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf '%s\n' "$@" >>"$ZZ_TEST_RSYNC_LOG"
+dest=${@: -1}
+mkdir -p "$dest"
+printf 'payload\n' >"$dest/payload-marker"
+SH
+  chmod +x "$fake_bin/rsync"
+
+  cat >"$fake_bin/mkksiso" <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+ks=
+add=
+skip=0
+args=()
+while (($# > 0)); do
+  case "$1" in
+    --ks)
+      ks=$2
+      shift 2
+      ;;
+    --add)
+      add=$2
+      shift 2
+      ;;
+    --skip-mkefiboot)
+      skip=1
+      shift
+      ;;
+    *)
+      args+=("$1")
+      shift
+      ;;
+  esac
+done
+input=${args[0]:-}
+output=${args[1]:-}
+[[ -f "$ks" ]]
+[[ -d "$add" ]]
+{
+  printf 'ks=%s\n' "$ks"
+  printf 'add=%s\n' "$add"
+  if [[ -f "$add/payload-marker" ]]; then
+    printf 'payload_marker=yes\n'
+  else
+    printf 'payload_marker=no\n'
+  fi
+  printf 'input=%s\n' "$input"
+  printf 'output=%s\n' "$output"
+  printf 'skip=%s\n' "$skip"
+} >"$ZZ_TEST_MKKSISO_LOG"
+printf 'mock iso\n' >"$output"
+SH
+  chmod +x "$fake_bin/mkksiso"
+
+  input_iso="$TEST_ROOT/Fedora-Everything-netinst.iso"
+  output_iso="$TEST_ROOT/zz-linux-setup-fedora.iso"
+  touch "$input_iso"
+  export ZZ_TEST_RSYNC_LOG="$TEST_ROOT/rsync.log"
+  export ZZ_TEST_MKKSISO_LOG="$TEST_ROOT/mkksiso.log"
+
+  run env PATH="$fake_bin:$PATH" "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" \
+    --input "$input_iso" \
+    --output "$output_iso"
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Created $output_iso"
+  assert_file_contains "$output_iso" "mock iso"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "ks=$ROOT_DIR/iso/fedora/zz-fedora.ks"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "input=$input_iso"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "skip=0"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "payload_marker=yes"
+  refute_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=.git/"
+  assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=downloads/"
+  assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=release/"
+  assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=*.iso"
+}
+
+@test "Fedora ISO builder forwards development skip-mkefiboot flag" {
+  fake_bin="$TEST_ROOT/skip-bin"
+  mkdir -p "$fake_bin"
+
+  cat >"$fake_bin/rsync" <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+dest=${@: -1}
+mkdir -p "$dest"
+SH
+  chmod +x "$fake_bin/rsync"
+
+  cat >"$fake_bin/mkksiso" <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf '%s\n' "$@" >"$ZZ_TEST_MKKSISO_LOG"
+output=${@: -1}
+printf 'mock iso\n' >"$output"
+SH
+  chmod +x "$fake_bin/mkksiso"
+
+  input_iso="$TEST_ROOT/Fedora-Everything-netinst.iso"
+  output_iso="$TEST_ROOT/zz-linux-setup-fedora.iso"
+  touch "$input_iso"
+  export ZZ_TEST_MKKSISO_LOG="$TEST_ROOT/mkksiso-skip.log"
+
+  run env PATH="$fake_bin:$PATH" "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" \
+    --input "$input_iso" \
+    --output "$output_iso" \
+    --skip-mkefiboot
+
+  [ "$status" -eq 0 ]
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "--skip-mkefiboot"
+}
+
+@test "Fedora Kickstart preserves Anaconda decisions and runs normal installer path" {
+  ks="$ROOT_DIR/iso/fedora/zz-fedora.ks"
+
+  assert_file_contains "$ks" "network --bootproto=dhcp --activate"
+  assert_file_contains "$ks" "firstboot --disable"
+  assert_file_contains "$ks" "url --metalink=\"https://mirrors.fedoraproject.org/metalink?repo=fedora-\$releasever&arch=\$basearch\""
+  assert_file_contains "$ks" "cp -a /run/install/repo/zz-linux-setup /mnt/sysimage/opt/zz-linux-setup"
+  assert_file_contains "$ks" "target_repo_dir=\"\$target_home/zz-linux-setup\""
+  assert_file_contains "$ks" "export STATE_DIR=\"\$target_home/.local/state/zz-linux-setup\""
+  assert_file_contains "$ks" "export ZZ_INSTALLER_DEFER_START_SERVICES=1"
+  assert_file_contains "$ks" "./install.sh install --yes --distro fedora --desktop-app-profile full --no-tui --target-user \"\$target_user\""
+  refute_file_contains "$ks" "clearpart"
+  refute_file_contains "$ks" "autopart"
+  refute_file_contains "$ks" "rootpw"
+}
+
+@test "Fedora installer mode enables services without starting them in chroot" {
+  source_core
+  source_modules
+  DISTRO=fedora
+  load_adapter
+  DRY_RUN=0
+  ZZ_INSTALLER_DEFER_START_SERVICES=1
+  run_cmd_as_root() {
+    printf '%s\n' "$*"
+  }
+
+  run distro_enable_service_now NetworkManager
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "systemctl enable NetworkManager"
+  refute_contains "$output" "--now"
+}

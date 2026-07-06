@@ -19,6 +19,7 @@ bash -n bootstrap.sh
 bash -n install.sh
 bash -n bin/zz
 bash -n bin/zz.d/*
+bash -n scripts/*.sh
 bash -n lib/*.sh
 bash -n distros/*.sh
 bash -n modules/*.sh
@@ -43,7 +44,7 @@ else
 fi
 
 if command -v shellcheck >/dev/null 2>&1; then
-  shellcheck -S error bootstrap.sh install.sh bin/zz bin/zz.d/* lib/*.sh distros/*.sh modules/*.sh tests/*.sh tests/helpers/*.bash
+  shellcheck -S error bootstrap.sh install.sh bin/zz bin/zz.d/* scripts/*.sh lib/*.sh distros/*.sh modules/*.sh tests/*.sh tests/helpers/*.bash
 fi
 
 printf 'full ok\n'
