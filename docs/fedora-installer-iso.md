@@ -63,6 +63,22 @@ System services are enabled for first boot during ISO installs instead of being
 started inside the Anaconda chroot. First-login/session-sensitive work remains
 registered through the existing `zz first-run` path.
 
+## VM Validation
+
+Run the unattended VM harness against the same Fedora input ISO before publishing
+changes to the installer path:
+
+```bash
+scripts/test-fedora-installer-vm.sh \
+  --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso
+```
+
+The harness builds a VM-only Kickstart ISO, boots the generated ISO's Fedora
+kernel/initrd directly, mounts the generated ISO as the Anaconda source, and
+runs the same embedded checkout and post-install invocation used by the
+production Kickstart. `--boot-mode uefi` is available when you specifically need
+to exercise the generated ISO firmware boot path.
+
 ## References
 
 - Lorax `mkksiso`: https://weldr.io/lorax/mkksiso.html

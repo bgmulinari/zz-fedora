@@ -87,6 +87,7 @@ SH
   refute_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=.git/"
   assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=downloads/"
   assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=release/"
+  assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=test-artifacts/"
   assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=*.iso"
 }
 
@@ -133,12 +134,36 @@ SH
   assert_file_contains "$ks" "url --metalink=\"https://mirrors.fedoraproject.org/metalink?repo=fedora-\$releasever&arch=\$basearch\""
   assert_file_contains "$ks" "cp -a /run/install/repo/zz-linux-setup /mnt/sysimage/opt/zz-linux-setup"
   assert_file_contains "$ks" "target_repo_dir=\"\$target_home/zz-linux-setup\""
+  assert_file_contains "$ks" "\"\$target_home/.local/share\""
+  assert_file_contains "$ks" "chown -R \"\$target_user:\$target_group\""
   assert_file_contains "$ks" "export STATE_DIR=\"\$target_home/.local/state/zz-linux-setup\""
   assert_file_contains "$ks" "export ZZ_INSTALLER_DEFER_START_SERVICES=1"
+  assert_file_contains "$ks" "source /etc/locale.conf"
+  assert_file_contains "$ks" "LC_ALL=\"\$LANG\""
+  assert_file_contains "$ks" "export LANG LC_ALL"
   assert_file_contains "$ks" "./install.sh install --yes --distro fedora --desktop-app-profile full --no-tui --target-user \"\$target_user\""
   refute_file_contains "$ks" "clearpart"
   refute_file_contains "$ks" "autopart"
   refute_file_contains "$ks" "rootpw"
+}
+
+@test "Fedora install readiness treats planned artifacts as planned during install" {
+  source_core
+  source_modules
+  DISTRO=fedora
+  load_adapter
+  build_fedora_plan
+  COMMAND=install
+  DRY_RUN=0
+
+  generate_readiness_status
+
+  status_file="$(readiness_file)"
+  assert_file_contains "$status_file" $'package:dnf\tniri\tplanned\tinfo'
+  assert_file_contains "$status_file" $'niri\tcommand:niri\tplanned\tinfo'
+  assert_file_contains "$status_file" $'noctalia-v5\tcommand:noctalia\tplanned\tinfo'
+  assert_file_contains "$status_file" $'portal\tcommand:xdg-desktop-portal\tplanned\tinfo'
+  refute_file_contains "$status_file" $'niri\tcommand:niri\tmissing\tfatal'
 }
 
 @test "Fedora installer mode enables services without starting them in chroot" {

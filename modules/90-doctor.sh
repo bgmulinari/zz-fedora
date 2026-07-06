@@ -73,7 +73,8 @@ doctor_check_enabled() {
 
 doctor_check_user_enabled() {
   local service_name="$1"
-  if systemctl --user is-enabled "$service_name" >/dev/null 2>&1; then
+  if systemctl --user is-enabled "$service_name" >/dev/null 2>&1 ||
+    systemctl --global is-enabled "$service_name" >/dev/null 2>&1; then
     printf '[ok] user service enabled %s\n' "$service_name"
     return 0
   else

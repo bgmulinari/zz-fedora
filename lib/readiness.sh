@@ -19,6 +19,16 @@ readiness_record() {
   printf '%s\t%s\t%s\t%s\t%s\n' "$area" "$item" "$status" "$severity" "$detail" >>"$(readiness_file)"
 }
 
+readiness_planned_install_context() {
+  [[ "$DRY_RUN" -eq 1 ]] && return 0
+  case "${COMMAND:-}" in
+    install|wizard|apply)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 readiness_status_for_file() {
   local file="$1"
   [[ -f "$file" ]] && printf 'present' || printf 'missing'
@@ -32,7 +42,7 @@ readiness_status_for_command() {
 readiness_package_status() {
   local backend="$1"
   local package_name="$2"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
+  if readiness_planned_install_context; then
     printf 'planned'
     return 0
   fi
@@ -59,7 +69,7 @@ readiness_package_status() {
 
 readiness_source_status() {
   local source_id="$1"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
+  if readiness_planned_install_context; then
     printf 'planned'
     return 0
   fi
@@ -72,7 +82,7 @@ readiness_source_status() {
 
 readiness_service_status() {
   local service_name="$1"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
+  if readiness_planned_install_context; then
     printf 'planned'
     return 0
   fi
@@ -216,17 +226,21 @@ readiness_generate_secure_boot() {
 readiness_generate_portals() {
   local command_name status severity
   for command_name in xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-gnome; do
-    status="$(readiness_status_for_command "$command_name")"
+    if readiness_planned_install_context; then
+      status="planned"
+    else
+      status="$(readiness_status_for_command "$command_name")"
+    fi
     severity="info"
     [[ "$status" == "missing" ]] && severity="warn"
     readiness_record "portal" "command:$command_name" "$status" "$severity" ""
   done
-  if [[ "$DRY_RUN" -eq 0 ]] && systemctl --user is-active xdg-desktop-portal.service >/dev/null 2>&1; then
-    readiness_record "portal" "xdg-desktop-portal.service" "active" "info" ""
-  elif [[ "$DRY_RUN" -eq 0 ]]; then
-    readiness_record "portal" "xdg-desktop-portal.service" "inactive" "warn" ""
-  else
+  if readiness_planned_install_context; then
     readiness_record "portal" "xdg-desktop-portal.service" "planned" "info" ""
+  elif systemctl --user is-active xdg-desktop-portal.service >/dev/null 2>&1; then
+    readiness_record "portal" "xdg-desktop-portal.service" "active" "info" ""
+  else
+    readiness_record "portal" "xdg-desktop-portal.service" "inactive" "warn" ""
   fi
 }
 
@@ -242,22 +256,38 @@ readiness_generate_desktop_files() {
     "$niri_config_home/cfg/misc.kdl" \
     "$user_config_home/xdg-desktop-portal/niri-portals.conf" \
     "$user_config_home/environment.d/10-niri-gtk.conf"; do
-    status="$(readiness_status_for_file "$item")"
+    if readiness_planned_install_context; then
+      status="planned"
+    else
+      status="$(readiness_status_for_file "$item")"
+    fi
     severity="info"
     [[ "$status" == "missing" ]] && severity="warn"
     readiness_record "file" "$item" "$status" "$severity" ""
   done
 
-  status="$(readiness_status_for_command niri)"
+  if readiness_planned_install_context; then
+    status="planned"
+  else
+    status="$(readiness_status_for_command niri)"
+  fi
   severity="info"
   [[ "$status" == "missing" ]] && severity="fatal"
   readiness_record "niri" "command:niri" "$status" "$severity" ""
-  status="$(readiness_status_for_file /usr/share/wayland-sessions/niri.desktop)"
+  if readiness_planned_install_context; then
+    status="planned"
+  else
+    status="$(readiness_status_for_file /usr/share/wayland-sessions/niri.desktop)"
+  fi
   severity="info"
   [[ "$status" == "missing" ]] && severity="fatal"
   readiness_record "niri" "/usr/share/wayland-sessions/niri.desktop" "$status" "$severity" ""
 
-  status="$(readiness_status_for_command noctalia)"
+  if readiness_planned_install_context; then
+    status="planned"
+  else
+    status="$(readiness_status_for_command noctalia)"
+  fi
   severity="info"
   [[ "$status" == "missing" ]] && severity="fatal"
   readiness_record "noctalia-v5" "command:noctalia" "$status" "$severity" "Expected package: noctalia-git"
@@ -282,11 +312,17 @@ readiness_generate_target_home() {
 
 readiness_generate_config_conflicts() {
   local conflict_file="$PLAN_DIR/files/config-conflicts.tsv"
-  local path package action
+  local path package action status severity
   [[ -f "$conflict_file" ]] || return 0
   while IFS=$'\t' read -r path package action; do
     [[ -n "$path" ]] || continue
-    readiness_record "config-conflict" "$path" "conflict" "warn" "$package:$action"
+    status="conflict"
+    severity="warn"
+    if [[ "$action" == "backup-before-stow" ]]; then
+      status="planned-backup"
+      severity="info"
+    fi
+    readiness_record "config-conflict" "$path" "$status" "$severity" "$package:$action"
   done <"$conflict_file"
 }
 
@@ -312,7 +348,11 @@ readiness_generate_key_commands() {
   native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
   while IFS=$'\t' read -r package_name command_name; do
     readiness_plan_has_entry "$native_plan" "$package_name" || continue
-    status="$(readiness_status_for_command "$command_name")"
+    if readiness_planned_install_context; then
+      status="planned"
+    else
+      status="$(readiness_status_for_command "$command_name")"
+    fi
     severity="info"
     [[ "$status" == "missing" ]] && severity="warn"
     readiness_record "command" "$command_name" "$status" "$severity" ""

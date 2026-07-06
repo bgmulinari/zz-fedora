@@ -59,8 +59,14 @@ rm -rf "$target_repo_dir"
 cp -a "$repo_dir" "$target_repo_dir"
 chown -R "$target_user:$target_group" "$target_repo_dir"
 
-install -d -o "$target_user" -g "$target_group" -m 0755 \
+install -d -m 0755 \
+  "$target_home/.local" \
   "$target_home/.local/state" \
+  "$target_home/.local/share" \
+  "$target_home/.cache" \
+  "$target_home/.config"
+chown -R "$target_user:$target_group" \
+  "$target_home/.local" \
   "$target_home/.cache" \
   "$target_home/.config"
 
@@ -72,6 +78,18 @@ export STATE_OWNER_USER="$target_user"
 export TARGET_USER="$target_user"
 export DESKTOP_APP_PROFILE=full
 export ZZ_INSTALLER_DEFER_START_SERVICES=1
+if [[ -r /etc/locale.conf ]]; then
+  source /etc/locale.conf
+fi
+case "${LANG:-}" in
+  *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) ;;
+  *) LANG=C.UTF-8 ;;
+esac
+case "${LC_ALL:-}" in
+  *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) ;;
+  *) LC_ALL="$LANG" ;;
+esac
+export LANG LC_ALL
 
 cd "$target_repo_dir"
 ./install.sh install --yes --distro fedora --desktop-app-profile full --no-tui --target-user "$target_user"

@@ -105,6 +105,7 @@ rsync -a --delete \
   --exclude='.cache/' \
   --exclude='downloads/' \
   --exclude='release/' \
+  --exclude='test-artifacts/' \
   --exclude='livemedia.log' \
   --exclude='program.log' \
   --exclude='*.iso' \

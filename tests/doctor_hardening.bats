@@ -110,6 +110,32 @@ setup() {
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.local/bin/noctalia-sync-icon-theme\tstow\tbackup-before-stow\tnoctalia-icon-theme'
 }
 
+@test "readiness treats handled backup-before-stow conflicts as informational" {
+  TARGET_HOME="$TEST_ROOT/home"
+  printf 'existing shell\n' >"$TARGET_HOME/.bashrc"
+
+  ZZ_TEST_CONFLICT_PREVIEW=1
+  build_fedora_plan
+  generate_readiness_status
+
+  assert_file_contains "$(readiness_file)" $'config-conflict\t~/.bashrc\tplanned-backup\tinfo\tshell:backup-before-stow'
+  refute_file_contains "$(readiness_file)" $'config-conflict\t~/.bashrc\tconflict\twarn'
+}
+
+@test "doctor accepts globally enabled user services" {
+  systemctl() {
+    if [[ "$1" == "--user" && "$2" == "is-enabled" ]]; then
+      return 1
+    fi
+    [[ "$1" == "--global" && "$2" == "is-enabled" && "$3" == "app-com.mitchellh.ghostty.service" ]]
+  }
+
+  run doctor_check_user_enabled app-com.mitchellh.ghostty.service
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "user service enabled app-com.mitchellh.ghostty.service"
+}
+
 @test "doctor fails when planned Niri desktop readiness is missing" {
   build_fedora_plan
   COMMAND=doctor

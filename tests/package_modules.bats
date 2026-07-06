@@ -40,6 +40,38 @@ setup() {
   assert_equal "plasmalogin.service" "$output"
 }
 
+@test "run_cmd_as_user preserves UTF-8 locale variables" {
+  TARGET_USER="locale-user"
+  TARGET_HOME="$TEST_ROOT/locale-home"
+  mkdir -p "$TARGET_HOME"
+  export LANG=C.UTF-8
+  export LC_ALL=C
+
+  id() {
+    if [[ "${1:-}" == "-u" && "${2:-}" == "locale-user" ]]; then
+      printf '1234\n'
+      return 0
+    fi
+    command id "$@"
+  }
+  getent() {
+    if [[ "${1:-}" == "passwd" && "${2:-}" == "locale-user" ]]; then
+      printf 'locale-user:x:1234:1234::%s:/bin/bash\n' "$TARGET_HOME"
+      return 0
+    fi
+    command getent "$@"
+  }
+  run_cmd() {
+    printf '%s\n' "$*"
+  }
+
+  run run_cmd_as_user locale-user true
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "LANG=C.UTF-8"
+  assert_contains "$output" "LC_ALL=C.UTF-8"
+}
+
 @test "required package transaction aborts without optional retry loop" {
   plan_file="$TEST_ROOT/required.pkgs"
   printf 'bad-package\ngood-package\n' >"$plan_file"

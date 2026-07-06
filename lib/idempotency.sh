@@ -114,6 +114,17 @@ run_cmd_as_user() {
       "LOGNAME=$user"
       "XDG_RUNTIME_DIR=$runtime_dir"
     )
+    local locale_lang="${LANG:-C.UTF-8}"
+    local locale_all="${LC_ALL:-$locale_lang}"
+    case "$locale_lang" in
+      *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) ;;
+      *) locale_lang=C.UTF-8 ;;
+    esac
+    case "$locale_all" in
+      *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) ;;
+      *) locale_all="$locale_lang" ;;
+    esac
+    user_env+=("LANG=$locale_lang" "LC_ALL=$locale_all")
     if [[ "${DBUS_SESSION_BUS_ADDRESS:-}" == "$dbus_bus" ]]; then
       user_env+=("DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS")
     elif [[ -S "$runtime_dir/bus" ]]; then
