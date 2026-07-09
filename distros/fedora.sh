@@ -21,11 +21,13 @@ distro_enable_sources() {
   case "$SOURCE_KIND" in
     copr)
       if ! distro_repo_enabled "$SOURCE_ID"; then
+        log_progress "Enabling Fedora COPR source: $SOURCE_PROJECT"
         run_cmd_as_root dnf copr enable -y "$SOURCE_PROJECT"
       fi
       ;;
     terra)
       if ! distro_repo_enabled "$SOURCE_ID"; then
+        log_progress "Installing Terra repository bootstrap packages"
         run_cmd_as_root dnf install -y --nogpgcheck \
           --repofrompath 'terra-bootstrap,https://repos.fyralabs.com/terra$releasever' \
           --setopt=terra-bootstrap.gpgcheck=0 \
@@ -41,6 +43,7 @@ distro_enable_sources() {
       case "$SOURCE_ID" in
         rpmfusion-free)
           if ! distro_repo_enabled "$SOURCE_ID"; then
+            log_progress "Installing RPM Fusion free release package"
             run_cmd_as_root rpm --import https://download1.rpmfusion.org/free/fedora/RPM-GPG-KEY-rpmfusion-free-fedora-2020
             run_cmd_as_root dnf install -y --setopt=localpkg_gpgcheck=1 "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-${fedora_release}.noarch.rpm"
           fi
@@ -48,6 +51,7 @@ distro_enable_sources() {
           ;;
         rpmfusion-nonfree)
           if ! distro_repo_enabled "$SOURCE_ID"; then
+            log_progress "Installing RPM Fusion nonfree release package"
             run_cmd_as_root rpm --import https://download1.rpmfusion.org/nonfree/fedora/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020
             run_cmd_as_root dnf install -y --setopt=localpkg_gpgcheck=1 "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${fedora_release}.noarch.rpm"
           fi
@@ -59,6 +63,7 @@ distro_enable_sources() {
       if ! distro_repo_enabled "$SOURCE_ID"; then
         case "$SOURCE_ID" in
           vendor:brave)
+            log_progress "Adding Brave browser repository"
             run_cmd_as_root dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
             ;;
           vendor:google-chrome)
@@ -77,6 +82,7 @@ gpgcheck=1
 gpgkey=https://dl.google.com/linux/linux_signing_key.pub
 EOF
             run_cmd_as_root bash -c 'rpm --import https://dl.google.com/linux/linux_signing_key.pub 2>/dev/null'
+            log_progress "Adding Google Chrome repository"
             if [[ "$DRY_RUN" -eq 1 ]]; then
               printf 'DRY-RUN: install %s -> /etc/default/google-chrome\n' "$defaults_file"
               printf 'DRY-RUN: install %s -> /etc/yum.repos.d/google-chrome.repo\n' "$repo_file"
@@ -89,6 +95,7 @@ EOF
           vendor:vscode)
             local repo_file
             repo_file="$(mktemp "$CACHE_DIR/vscode.repo.XXXXXX")"
+            log_progress "Adding Visual Studio Code repository"
             cat >"$repo_file" <<'EOF'
 [code]
 name=Visual Studio Code
@@ -118,6 +125,7 @@ gpgkey=https://pkg.claude-desktop-debian.dev/KEY.gpg
 metadata_expire=1h
 EOF
             run_cmd_as_root rpm --import https://pkg.claude-desktop-debian.dev/KEY.gpg
+            log_progress "Adding Claude Desktop repository"
             if [[ "$DRY_RUN" -eq 1 ]]; then
               printf 'DRY-RUN: install %s -> /etc/yum.repos.d/claude-desktop.repo\n' "$repo_file"
             else
@@ -129,6 +137,7 @@ EOF
       fi
       ;;
     cisco-openh264)
+      log_progress "Enabling Cisco OpenH264 repository"
       run_cmd_as_root dnf config-manager setopt fedora-cisco-openh264.enabled=1
       ;;
     flatpak)
@@ -148,6 +157,7 @@ distro_install_dnf_packages() {
   local -a packages=("$@")
   local -a install_args=(-y)
   [[ "${#packages[@]}" -gt 0 ]] || return 0
+  log_progress "Running DNF install transaction for ${#packages[@]} package entries"
   if [[ "$INSTALL_WEAK_DEPS" -eq 1 ]]; then
     run_cmd_as_root dnf install "${install_args[@]}" "${packages[@]}"
   else
@@ -155,11 +165,21 @@ distro_install_dnf_packages() {
   fi
 }
 
+distro_apply_release_updates() {
+  [[ "$DISTRO" == "fedora" ]] || return 0
+  log_progress "Refreshing Fedora release metadata"
+  run_cmd_as_root dnf makecache --refresh
+  log_progress "Applying Fedora release updates"
+  run_cmd_as_root dnf upgrade -y --refresh
+}
+
 distro_install_flatpaks() {
+  log_progress "Ensuring Flathub remote is ready"
   flatpak_remote_add_if_missing flathub https://dl.flathub.org/repo/flathub.flatpakrepo || return 1
   local app_id
   for app_id in "$@"; do
     [[ -n "$app_id" ]] || continue
+    log_progress "Installing or updating Flatpak: $app_id"
     flatpak_install_or_update "$app_id" flathub
   done
 }
@@ -187,14 +207,17 @@ distro_service_exists() {
 }
 
 distro_enable_service() {
+  log_progress "Enabling system service: $1"
   run_cmd_as_root systemctl enable "$1"
 }
 
 distro_enable_service_now() {
   if [[ "${ZZ_INSTALLER_DEFER_START_SERVICES:-0}" -eq 1 ]]; then
+    log_progress "Enabling system service for first boot: $1"
     run_cmd_as_root systemctl enable "$1"
     return 0
   fi
+  log_progress "Enabling and starting system service: $1"
   run_cmd_as_root systemctl enable --now "$1"
 }
 

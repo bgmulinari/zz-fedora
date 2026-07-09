@@ -7,8 +7,8 @@ Usage: scripts/build-fedora-installer-iso.sh --input ISO --output ISO
 
 Embed this checkout and the zz-linux-setup Fedora Kickstart into a Fedora
 installer ISO. The resulting ISO exposes the checkout at
-/run/install/repo/zz-linux-setup and runs the normal installer online during
-Anaconda %post.
+/run/install/repo/zz-linux-setup and runs the normal installer online from an
+Anaconda add-on D-Bus task.
 EOF
 }
 
@@ -16,9 +16,39 @@ err() {
   printf 'build-fedora-installer-iso: %s\n' "$*" >&2
 }
 
+extract_fedora_iso_metadata() {
+  local input_iso="$1"
+  local metadata_dir discinfo
+  metadata_dir="$(mktemp -d)"
+  discinfo="$metadata_dir/.discinfo"
+  xorriso -osirrox on -indev "$input_iso" -extract /.discinfo "$discinfo" >/dev/null 2>&1 || {
+    rm -rf "$metadata_dir"
+    err "could not extract /.discinfo from input ISO"
+    return 1
+  }
+  fedora_release="$(sed -n '2p' "$discinfo")"
+  fedora_arch="$(sed -n '3p' "$discinfo")"
+  rm -rf "$metadata_dir"
+  [[ -n "$fedora_release" && -n "$fedora_arch" ]] || {
+    err "could not determine Fedora release and architecture from input ISO"
+    return 1
+  }
+}
+
+render_kickstart_template() {
+  local template="$1"
+  local destination="$2"
+  sed \
+    -e "s/@FEDORA_RELEASE@/$fedora_release/g" \
+    -e "s/@FEDORA_ARCH@/$fedora_arch/g" \
+    "$template" >"$destination"
+}
+
 input_iso=
 output_iso=
 skip_mkefiboot=0
+fedora_release=
+fedora_arch=
 
 while (($# > 0)); do
   case "$1" in
@@ -77,7 +107,7 @@ if [[ ! -f "$input_iso" ]]; then
   exit 1
 fi
 
-for command in mkksiso rsync; do
+for command in cpio gzip mkksiso rsync xorriso; do
   if ! command -v "$command" >/dev/null 2>&1; then
     err "missing required command: $command"
     exit 1
@@ -86,14 +116,28 @@ done
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ks_file="$repo_dir/iso/fedora/zz-fedora.ks"
+addon_dir="$repo_dir/iso/fedora/anaconda-addon"
+addon_data_dir="$repo_dir/iso/fedora/anaconda-addon-data"
 
 if [[ ! -f "$ks_file" ]]; then
   err "missing Kickstart file: $ks_file"
   exit 1
 fi
+if [[ ! -d "$addon_dir/org_zz_linux_setup" ]]; then
+  err "missing Anaconda add-on payload: $addon_dir/org_zz_linux_setup"
+  exit 1
+fi
+if [[ ! -d "$addon_data_dir" ]]; then
+  err "missing Anaconda add-on data: $addon_data_dir"
+  exit 1
+fi
 
 work_dir="$(mktemp -d)"
 payload_dir="$work_dir/zz-linux-setup"
+product_root="$work_dir/product"
+images_dir="$work_dir/images"
+product_img="$images_dir/product.img"
+rendered_ks_file="$work_dir/zz-fedora.ks"
 output_dir="$(dirname "$output_iso")"
 output_base="$(basename "$output_iso")"
 mkdir -p "$output_dir"
@@ -111,9 +155,50 @@ rsync -a --delete \
   --exclude='*.iso' \
   "$repo_dir/" "$payload_dir/"
 
+extract_fedora_iso_metadata "$input_iso"
+render_kickstart_template "$ks_file" "$rendered_ks_file"
+
+mkdir -p \
+  "$product_root/etc/anaconda/conf.d" \
+  "$product_root/usr/share/anaconda/dbus/confs" \
+  "$product_root/usr/share/anaconda/dbus/services" \
+  "$product_root/usr/share/anaconda/addons" \
+  "$images_dir"
+rsync -a --delete \
+  --exclude='__pycache__/' \
+  --exclude='*.pyc' \
+  "$addon_dir/" "$product_root/usr/share/anaconda/addons/"
+rsync -a --delete "$repo_dir/choices/" "$product_root/usr/share/anaconda/addons/org_zz_linux_setup/choices/"
+install -m 0644 \
+  "$addon_data_dir/org.fedoraproject.Anaconda.Addons.ZZLinuxSetup.conf" \
+  "$product_root/usr/share/anaconda/dbus/confs/"
+install -m 0644 \
+  "$addon_data_dir/org.fedoraproject.Anaconda.Addons.ZZLinuxSetup.service" \
+  "$product_root/usr/share/anaconda/dbus/services/"
+cat >"$product_root/etc/anaconda/conf.d/100-zz-linux-setup.conf" <<'EOF'
+[User Interface]
+hidden_spokes =
+    SoftwareSelectionSpoke
+EOF
+cat >"$product_root/.buildstamp" <<EOF
+[Main]
+Product=ZZ Linux Setup
+Version=$fedora_release
+BugURL=https://github.com/bgmulinari/zz-linux-setup
+IsFinal=True
+
+[Compose]
+Lorax=zz-linux-setup
+EOF
+(
+  cd "$product_root"
+  find . -print | sort | cpio --quiet -c -o | gzip -9c >"$product_img"
+)
+
 mkksiso_args=(
   --add "$payload_dir"
-  --ks "$ks_file"
+  --add "$images_dir"
+  --ks "$rendered_ks_file"
 )
 if [[ "$skip_mkefiboot" -eq 1 ]]; then
   mkksiso_args+=(--skip-mkefiboot)

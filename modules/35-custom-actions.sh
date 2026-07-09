@@ -45,6 +45,7 @@ install_homebrew_if_needed() {
     return 0
   fi
 
+  log_progress "Installing Homebrew"
   run_cmd_as_root mkdir -p "$BREW_PREFIX"
   run_cmd_as_root chown -R "$TARGET_USER:$TARGET_USER" /home/linuxbrew
   run_user_login_shell 'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
@@ -52,6 +53,7 @@ install_homebrew_if_needed() {
 
 install_brew_package() {
   local package="$1"
+  log_progress "Installing Homebrew package: $package"
   install_homebrew_if_needed
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: brew install %s\n' "$package"
@@ -63,6 +65,7 @@ install_brew_package() {
 
 install_npm_global_package() {
   local package="$1"
+  log_progress "Installing npm global package: $package"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: npm install -g %s\n' "$package"
     return 0
@@ -73,6 +76,7 @@ install_npm_global_package() {
 install_claude_code() {
   local claude_bin="$TARGET_HOME/.local/bin/claude"
   [[ -x "$claude_bin" ]] && return 0
+  log_progress "Installing Claude Code"
   run_cmd_as_user "$TARGET_USER" bash -lc 'curl -fsSL https://claude.ai/install.sh | bash'
 }
 
@@ -87,6 +91,7 @@ install_jetbrains_toolbox() {
     return 0
   fi
 
+  log_progress "Installing JetBrains Toolbox"
   local toolbox_dir_q toolbox_bin_q symlink_q
   printf -v toolbox_dir_q '%q' "$toolbox_dir"
   printf -v toolbox_bin_q '%q' "$toolbox_bin"
@@ -126,6 +131,7 @@ install_jetbrains_toolbox() {
 install_devtunnel() {
   local devtunnel_bin="$TARGET_HOME/.local/bin/devtunnel"
   [[ -x "$devtunnel_bin" ]] && return 0
+  log_progress "Installing Microsoft devtunnel CLI"
   run_cmd_as_user "$TARGET_USER" mkdir -p "$TARGET_HOME/.local/bin"
   run_cmd_as_user "$TARGET_USER" curl -fsSL https://aka.ms/TunnelsCliDownload/linux-x64 -o "$devtunnel_bin"
   run_cmd_as_user "$TARGET_USER" chmod +x "$devtunnel_bin"
@@ -133,15 +139,19 @@ install_devtunnel() {
 
 install_fedora_docker() {
   [[ "$DISTRO" == "fedora" ]] || return 0
+  log_progress "Removing conflicting Docker packages"
   run_cmd_as_root dnf remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-selinux docker-engine-selinux docker-engine || true
   if ! distro_repo_enabled docker-ce; then
+    log_progress "Adding Docker CE repository"
     run_cmd_as_root dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
   fi
+  log_progress "Installing Docker Engine packages"
   run_cmd_as_root dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   configure_docker_post_install
 }
 
 configure_docker_post_install() {
+  log_progress "Configuring Docker service and user group"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     run_cmd_as_root systemctl enable --now docker
     run_cmd_as_root usermod -aG docker "$TARGET_USER"
@@ -179,6 +189,7 @@ install_dotnet_sdks() {
   fi
 
   local metadata install_script floor channel_lines channel release_type failed=0
+  log_progress "Downloading .NET release metadata and installer"
   metadata="$(mktemp "$CACHE_DIR/dotnet-releases.XXXXXX")"
   install_script="$(mktemp "$CACHE_DIR/dotnet-install.XXXXXX")"
   run_cmd curl -fsSL https://dotnetcli.azureedge.net/dotnet/release-metadata/releases-index.json -o "$metadata"
@@ -211,6 +222,7 @@ install_dotnet_sdks() {
 
   log_info "Installing .NET SDK channels: $(join_by ', ' "${channels[@]}")"
   for channel in "${channels[@]}"; do
+    log_progress "Installing .NET SDK channel: $channel"
     if ! run_cmd_as_user "$TARGET_USER" bash "$install_script" --channel "$channel" --install-dir "$install_dir"; then
       failed=1
       log_warn "Failed to install .NET SDK channel: $channel"
@@ -243,6 +255,7 @@ install_dotnet_tools() {
 
   local tool failed=0
   for tool in "${DOTNET_TOOLS[@]}"; do
+    log_progress "Installing .NET global tool: $tool"
     if run_cmd_as_user "$TARGET_USER" "$dotnet_bin" tool update -g "$tool" || run_cmd_as_user "$TARGET_USER" "$dotnet_bin" tool install -g "$tool"; then
       continue
     fi
@@ -266,6 +279,7 @@ install_fedora_ms_fonts() {
   if rpm -q msttcore-fonts-installer >/dev/null 2>&1 && compgen -G "$font_dir/*.ttf" >/dev/null; then
     return 0
   fi
+  log_progress "Installing Microsoft core fonts dependencies"
   run_cmd_as_root dnf install -y curl cabextract fontconfig mkfontscale xorg-x11-font-utils xset
   local xset_wrapper_dir
   xset_wrapper_dir="$(mktemp -d "$CACHE_DIR/ms-fonts-xset.XXXXXX")"
@@ -277,6 +291,7 @@ SH
   chmod 0755 "$xset_wrapper_dir/xset"
   chmod 0755 "$xset_wrapper_dir/cabextract"
   if ! rpm -q msttcore-fonts-installer >/dev/null 2>&1; then
+    log_progress "Installing Microsoft core fonts RPM"
     if ! run_cmd_as_root rpm -i --noscripts --nodigest --nosignature "$rpm_url"; then
       rm -rf "$xset_wrapper_dir"
       return 1
@@ -286,6 +301,7 @@ SH
     rm -rf "$xset_wrapper_dir"
     return 1
   fi
+  log_progress "Refreshing Microsoft core fonts"
   if ! run_cmd_as_root env "PATH=$xset_wrapper_dir:$PATH" \
     "$refresh_script" -F "$font_dir" -L "$docs_dir" -I "$installed_list"; then
     rm -rf "$xset_wrapper_dir"
@@ -325,6 +341,7 @@ install_fedora_jetbrains_mono_nerd_font() {
     return 0
   fi
 
+  log_progress "Installing JetBrains Mono Nerd Font"
   run_cmd_as_user "$TARGET_USER" mkdir -p "$font_dir"
   run_cmd_as_user "$TARGET_USER" bash -c "
     set -Eeuo pipefail
@@ -341,6 +358,7 @@ install_fedora_jetbrains_mono_nerd_font() {
 
 install_fedora_build_tools() {
   [[ "$DISTRO" == "fedora" ]] || return 0
+  log_progress "Installing Fedora development tools group"
   run_cmd_as_root dnf group install -y development-tools
 }
 
@@ -352,6 +370,7 @@ install_fedora_noctalia_v5() {
     return 0
   fi
 
+  log_progress "Installing or syncing Noctalia v5"
   if rpm -q noctalia-git >/dev/null 2>&1; then
     run_cmd_as_root dnf distro-sync -y --allowerasing --from-repo "$NOCTALIA_FEDORA_COPR_REPO" noctalia-git
   else
@@ -366,8 +385,10 @@ noctalia_greeter_action_skipped() {
 }
 
 install_fedora_noctalia_greeter_package() {
+  log_progress "Installing greetd for Noctalia Greeter"
   package_install_idempotent "$(native_backend_for_distro "$DISTRO")" greetd || return 1
 
+  log_progress "Installing or syncing Noctalia Greeter"
   if rpm -q "$NOCTALIA_GREETER_PACKAGE" >/dev/null 2>&1; then
     run_cmd_as_root dnf distro-sync -y --allowerasing --from-repo "$NOCTALIA_FEDORA_COPR_REPO" "$NOCTALIA_GREETER_PACKAGE"
   else
@@ -392,6 +413,7 @@ install_noctalia_greetd_config() {
     return 0
   fi
 
+  log_progress "Writing Noctalia Greeter greetd configuration"
   local config_tmp backup_path
   config_tmp="$(mktemp "$CACHE_DIR/greetd-config.XXXXXX")"
   noctalia_greetd_config_content >"$config_tmp"
@@ -432,6 +454,7 @@ configure_noctalia_greetd_pam() {
     return 0
   fi
 
+  log_progress "Configuring greetd PAM session support"
   [[ -f "$pam_file" ]] || {
     log_warn "$pam_file was not found after installing greetd; skipping Noctalia Greeter PAM session patch."
     return 0
@@ -462,6 +485,7 @@ configure_noctalia_greetd_pam() {
 }
 
 ensure_noctalia_greeter_user() {
+  log_progress "Ensuring Noctalia Greeter system user exists"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     run_cmd_as_root useradd -r -s /usr/bin/nologin -d "$NOCTALIA_GREETER_STATE_DIR" "$NOCTALIA_GREETER_USER"
     return 0
@@ -472,6 +496,7 @@ ensure_noctalia_greeter_user() {
 }
 
 prepare_noctalia_greeter_paths() {
+  log_progress "Preparing Noctalia Greeter state and log paths"
   run_cmd_as_root mkdir -p "$NOCTALIA_GREETER_STATE_DIR"
   run_cmd_as_root chmod 0755 "$NOCTALIA_GREETER_STATE_DIR"
   run_cmd_as_root chown "$NOCTALIA_GREETER_USER:" "$NOCTALIA_GREETER_STATE_DIR"
@@ -513,6 +538,7 @@ install_fedora_noctalia_greeter() {
     return 0
   fi
 
+  log_progress "Installing Noctalia Greeter"
   install_fedora_noctalia_greeter_package || return 1
 
   command -v noctalia-greeter >/dev/null 2>&1 || die "Noctalia Greeter package installed, but noctalia-greeter is not on PATH."
@@ -532,8 +558,10 @@ install_fedora_noctalia_greeter() {
   install_noctalia_greetd_config
   configure_noctalia_greetd_pam
   prepare_noctalia_greeter_paths
+  log_progress "Initializing Noctalia Greeter appearance"
   run_cmd_as_root env "GREETER_USER=$NOCTALIA_GREETER_USER" noctalia-greeter-apply-appearance --setup-system || return 1
 
+  log_progress "Enabling graphical login through greetd"
   run_cmd_as_root systemctl set-default graphical.target || return 1
   run_cmd_as_root systemctl enable --force greetd.service || return 1
   printf 'Noctalia Greeter is enabled through greetd. Reboot to start the graphical login.\n'
@@ -541,16 +569,21 @@ install_fedora_noctalia_greeter() {
 
 install_fedora_media_codecs() {
   [[ "$DISTRO" == "fedora" ]] || return 0
+  log_progress "Replacing Fedora ffmpeg-free with RPM Fusion ffmpeg"
   run_cmd_as_root dnf swap -y ffmpeg-free ffmpeg --allowerasing
+  log_progress "Installing GStreamer codec packages"
   run_cmd_as_root dnf install -y 'gstreamer1-plugins-bad-*' 'gstreamer1-plugins-good-*' gstreamer1-plugins-base gstreamer1-plugin-openh264 gstreamer1-libav 'lame*' --exclude=gstreamer1-plugins-bad-free-devel --exclude=gstreamer1-plugins-good-qt6
+  log_progress "Installing Fedora multimedia groups"
   run_cmd_as_root dnf group install -y multimedia
   run_cmd_as_root dnf group install -y sound-and-video
+  log_progress "Installing hardware codec support packages"
   run_cmd_as_root dnf install -y ffmpeg-libs libva libva-utils openh264 gstreamer1-plugin-openh264 mozilla-openh264
   run_cmd_as_root dnf config-manager setopt fedora-cisco-openh264.enabled=1
 }
 
 run_custom_action() {
   local action="$1"
+  log_progress "Running custom action: $action"
   case "$action" in
     brew:*) install_brew_package "${action#brew:}" ;;
     npm-global:*) install_npm_global_package "${action#npm-global:}" ;;
@@ -612,7 +645,9 @@ run_actions_from_plan_file() {
   while IFS= read -r action; do
     [[ -n "$action" ]] || continue
     printf 'action: %s\n' "$action"
+    log_progress "Starting $label action: $action"
     if run_custom_action "$action" && verify_custom_action "$action"; then
+      log_progress "Completed $label action: $action"
       continue
     fi
     if [[ "$mode" == "required" ]]; then
@@ -627,6 +662,7 @@ run_actions_from_plan_file() {
 module_35_custom_actions() {
   [[ -f "$PLAN_DIR/actions/actions.list" ]] || return 0
 
+  log_progress "Building optional custom action list"
   local base_action_plan optional_action_plan action
   base_action_plan="$(mktemp "$CACHE_DIR/base-actions.XXXXXX")"
   optional_action_plan="$(mktemp "$CACHE_DIR/optional-actions.XXXXXX")"

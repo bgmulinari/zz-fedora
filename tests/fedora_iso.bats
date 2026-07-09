@@ -6,7 +6,7 @@ setup() {
   setup_test_env
 }
 
-@test "Fedora ISO builder embeds Kickstart and checkout with mkksiso" {
+@test "Fedora ISO builder embeds Kickstart, checkout, and Anaconda add-on with mkksiso" {
   fake_bin="$TEST_ROOT/bin"
   mkdir -p "$fake_bin"
 
@@ -14,19 +14,39 @@ setup() {
 #!/usr/bin/env bash
 set -Eeuo pipefail
 printf '%s\n' "$@" >>"$ZZ_TEST_RSYNC_LOG"
+src=${@: -2:1}
 dest=${@: -1}
 mkdir -p "$dest"
-printf 'payload\n' >"$dest/payload-marker"
+if [[ "$src" == */anaconda-addon/ ]]; then
+  mkdir -p "$dest/org_zz_linux_setup"
+  printf 'addon\n' >"$dest/org_zz_linux_setup/__init__.py"
+  mkdir -p "$dest/org_zz_linux_setup/service"
+  printf 'service\n' >"$dest/org_zz_linux_setup/service/installation.py"
+elif [[ "$src" == */choices/ ]]; then
+  mkdir -p "$dest/fedora"
+  printf 'firefox\tFirefox\t0\tbrowser-firefox\tFedora official Firefox\n' >"$dest/fedora/browsers.conf"
+else
+  printf 'payload\n' >"$dest/payload-marker"
+fi
 SH
   chmod +x "$fake_bin/rsync"
+
+  cat >"$fake_bin/xorriso" <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+dest=${@: -1}
+mkdir -p "$(dirname "$dest")"
+printf '0\n44\nx86_64\n' >"$dest"
+SH
+  chmod +x "$fake_bin/xorriso"
 
   cat >"$fake_bin/mkksiso" <<'SH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
-ks=
-add=
-skip=0
-args=()
+  ks=
+  adds=()
+  skip=0
+  args=()
 while (($# > 0)); do
   case "$1" in
     --ks)
@@ -34,7 +54,7 @@ while (($# > 0)); do
       shift 2
       ;;
     --add)
-      add=$2
+      adds+=("$2")
       shift 2
       ;;
     --skip-mkefiboot)
@@ -50,15 +70,65 @@ done
 input=${args[0]:-}
 output=${args[1]:-}
 [[ -f "$ks" ]]
-[[ -d "$add" ]]
+ks_has_release=no
+if grep -F 'repo=fedora-44&arch=x86_64' "$ks" >/dev/null &&
+  grep -F 'repo=updates-released-f44&arch=x86_64' "$ks" >/dev/null; then
+  ks_has_release=yes
+fi
+payload_marker=no
+product_img=no
+addon_in_product=no
+choices_in_product=no
+config_in_product=no
+service_task_in_product=no
+dbus_conf_in_product=no
+dbus_service_in_product=no
+buildstamp_version_in_product=no
+for add in "${adds[@]}"; do
+  [[ -d "$add" ]]
+  if [[ -f "$add/payload-marker" ]]; then
+    payload_marker=yes
+  fi
+  if [[ -f "$add/product.img" ]]; then
+    product_img=yes
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_linux_setup/__init__\.py$' >/dev/null; then
+      addon_in_product=yes
+    fi
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_linux_setup/choices/fedora/browsers\.conf$' >/dev/null; then
+      choices_in_product=yes
+    fi
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?etc/anaconda/conf\.d/100-zz-linux-setup\.conf$' >/dev/null; then
+      config_in_product=yes
+    fi
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_linux_setup/service/installation\.py$' >/dev/null; then
+      service_task_in_product=yes
+    fi
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/dbus/confs/org\.fedoraproject\.Anaconda\.Addons\.ZZLinuxSetup\.conf$' >/dev/null; then
+      dbus_conf_in_product=yes
+    fi
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/dbus/services/org\.fedoraproject\.Anaconda\.Addons\.ZZLinuxSetup\.service$' >/dev/null; then
+      dbus_service_in_product=yes
+    fi
+    buildstamp="$(gzip -dc "$add/product.img" | cpio -i --to-stdout --quiet '*buildstamp' 2>/dev/null || true)"
+    if grep -Fx 'Product=ZZ Linux Setup' <<<"$buildstamp" >/dev/null &&
+      grep -Fx 'Version=44' <<<"$buildstamp" >/dev/null; then
+      buildstamp_version_in_product=yes
+    fi
+  fi
+done
 {
   printf 'ks=%s\n' "$ks"
-  printf 'add=%s\n' "$add"
-  if [[ -f "$add/payload-marker" ]]; then
-    printf 'payload_marker=yes\n'
-  else
-    printf 'payload_marker=no\n'
-  fi
+  printf 'ks_has_release=%s\n' "$ks_has_release"
+  printf 'add_count=%s\n' "${#adds[@]}"
+  printf 'payload_marker=%s\n' "$payload_marker"
+  printf 'product_img=%s\n' "$product_img"
+  printf 'addon_in_product=%s\n' "$addon_in_product"
+  printf 'choices_in_product=%s\n' "$choices_in_product"
+  printf 'config_in_product=%s\n' "$config_in_product"
+  printf 'service_task_in_product=%s\n' "$service_task_in_product"
+  printf 'dbus_conf_in_product=%s\n' "$dbus_conf_in_product"
+  printf 'dbus_service_in_product=%s\n' "$dbus_service_in_product"
+  printf 'buildstamp_version_in_product=%s\n' "$buildstamp_version_in_product"
   printf 'input=%s\n' "$input"
   printf 'output=%s\n' "$output"
   printf 'skip=%s\n' "$skip"
@@ -80,10 +150,19 @@ SH
   [ "$status" -eq 0 ]
   assert_contains "$output" "Created $output_iso"
   assert_file_contains "$output_iso" "mock iso"
-  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "ks=$ROOT_DIR/iso/fedora/zz-fedora.ks"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "ks_has_release=yes"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "add_count=2"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "input=$input_iso"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "skip=0"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "payload_marker=yes"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "product_img=yes"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "addon_in_product=yes"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "choices_in_product=yes"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "config_in_product=yes"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "service_task_in_product=yes"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "dbus_conf_in_product=yes"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "dbus_service_in_product=yes"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "buildstamp_version_in_product=yes"
   refute_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=.git/"
   assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=downloads/"
   assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=release/"
@@ -102,6 +181,15 @@ dest=${@: -1}
 mkdir -p "$dest"
 SH
   chmod +x "$fake_bin/rsync"
+
+  cat >"$fake_bin/xorriso" <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+dest=${@: -1}
+mkdir -p "$(dirname "$dest")"
+printf '0\n44\nx86_64\n' >"$dest"
+SH
+  chmod +x "$fake_bin/xorriso"
 
   cat >"$fake_bin/mkksiso" <<'SH'
 #!/usr/bin/env bash
@@ -126,32 +214,70 @@ SH
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "--skip-mkefiboot"
 }
 
-@test "Fedora Kickstart preserves Anaconda decisions and runs normal installer path" {
+@test "Fedora Kickstart preserves Anaconda decisions and delegates setup to add-on service" {
   ks="$ROOT_DIR/iso/fedora/zz-fedora.ks"
 
   assert_file_contains "$ks" "network --bootproto=dhcp --activate"
   assert_file_contains "$ks" "firstboot --disable"
-  assert_file_contains "$ks" "url --metalink=\"https://mirrors.fedoraproject.org/metalink?repo=fedora-\$releasever&arch=\$basearch\""
-  assert_file_contains "$ks" "cp -a /run/install/repo/zz-linux-setup /mnt/sysimage/opt/zz-linux-setup"
-  assert_file_contains "$ks" "target_repo_dir=\"\$target_home/zz-linux-setup\""
-  assert_file_contains "$ks" "\"\$target_home/.local/share\""
-  assert_file_contains "$ks" "chown -R \"\$target_user:\$target_group\""
-  assert_file_contains "$ks" "export STATE_DIR=\"\$target_home/.local/state/zz-linux-setup\""
-  assert_file_contains "$ks" "export ZZ_INSTALLER_DEFER_START_SERVICES=1"
-  assert_file_contains "$ks" "export ZZ_INSTALLER_POST_TIMEOUT_SECONDS="
-  assert_file_contains "$ks" "export ZZ_COMMAND_TIMEOUT_SECONDS="
-  assert_file_contains "$ks" "unset DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS XDG_CURRENT_DESKTOP DESKTOP_SESSION"
-  assert_file_contains "$ks" "source /etc/locale.conf"
-  assert_file_contains "$ks" "LC_ALL=\"\$LANG\""
-  assert_file_contains "$ks" "export LANG LC_ALL"
-  assert_file_contains "$ks" "Starting bootstrap for %s"
-  assert_file_contains "$ks" "timeout --foreground --kill-after=60s \"\$ZZ_INSTALLER_POST_TIMEOUT_SECONDS\""
-  assert_file_contains "$ks" "Bootstrap failed with exit code %s"
-  assert_file_contains "$ks" "Bootstrap completed for %s"
-  assert_file_contains "$ks" "./install.sh install --yes --distro fedora --desktop-app-profile full --no-tui --target-user \"\$target_user\""
+  assert_file_contains "$ks" "url --metalink=\"https://mirrors.fedoraproject.org/metalink?repo=fedora-@FEDORA_RELEASE@&arch=@FEDORA_ARCH@\""
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "extract_fedora_iso_metadata"
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "render_kickstart_template"
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "addon_data_dir="
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "usr/share/anaconda/dbus/confs"
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "org.fedoraproject.Anaconda.Addons.ZZLinuxSetup.service"
+  refute_file_contains "$ks" "%post"
+  refute_file_contains "$ks" "zz-linux-setup-kickstart.log"
+  refute_file_contains "$ks" "./install.sh install"
   refute_file_contains "$ks" "clearpart"
   refute_file_contains "$ks" "autopart"
   refute_file_contains "$ks" "rootpw"
+}
+
+@test "Fedora Anaconda add-on exposes always-enabled GUI and TUI selection spokes" {
+  addon="$ROOT_DIR/iso/fedora/anaconda-addon/org_zz_linux_setup"
+
+  assert_file_contains "$addon/constants.py" "ZZ_LINUX_SETUP_NAMESPACE"
+  assert_file_contains "$addon/constants.py" '(*ADDONS_NAMESPACE, "ZZLinuxSetup")'
+  assert_file_contains "$addon/constants.py" 'SELECTION_FILE = "/tmp/zz-linux-setup-install-selected"'
+  assert_file_contains "$addon/constants.py" '"browsers"'
+  assert_file_contains "$addon/service/__main__.py" "org_zz_linux_setup.service.zz_linux_setup"
+  assert_file_contains "$addon/service/zz_linux_setup.py" "def install_with_tasks"
+  assert_file_contains "$addon/service/zz_linux_setup.py" "ZZLinuxSetupInstallationTask"
+  assert_file_contains "$addon/service/installation.py" "self.report_progress(message)"
+  assert_file_contains "$addon/service/installation.py" "_report_process_line"
+  assert_file_contains "$addon/service/installation.py" "DNF_TRANSACTION_RE"
+  assert_file_contains "$addon/service/installation.py" "chroot"
+  assert_file_contains "$addon/service/installation.py" "ZZ_INSTALL_PROGRESS_FILE"
+  assert_file_contains "$addon/service/installation.py" "ZZ_INSTALLER_APPLY_RELEASE_UPDATES=1"
+  assert_file_contains "$ROOT_DIR/iso/fedora/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZLinuxSetup.service" "start-module org_zz_linux_setup.service"
+  assert_file_contains "$ROOT_DIR/iso/fedora/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZLinuxSetup.conf" "org.fedoraproject.Anaconda.Addons.ZZLinuxSetup"
+  assert_file_contains "$addon/selection.py" "def read_categories"
+  assert_file_contains "$addon/selection.py" "def default_selections"
+  assert_file_contains "$addon/selection.py" "select.%s=%s"
+  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "class ZZLinuxSetupSpoke"
+  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "NormalSpoke"
+  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "from pyanaconda.ui.categories.software import SoftwareCategory"
+  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "category = SoftwareCategory"
+  refute_file_contains "$addon/gui/spokes/zz_linux_setup.py" "ZZLinuxSetupCategory"
+  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "_build_category_rows"
+  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "_render_choices"
+  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "_update_preferred_browser_combo"
+  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "write_state(True"
+  assert_file_contains "$addon/gui/spokes/zz_linux_setup.glade" "Optional categories"
+  assert_file_contains "$addon/gui/spokes/zz_linux_setup.glade" "categoryListBox"
+  assert_file_contains "$addon/gui/spokes/zz_linux_setup.glade" "choiceListBox"
+  refute_file_contains "$addon/gui/spokes/zz_linux_setup.glade" "Install ZZ Linux Setup managed desktop"
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "org_zz_linux_setup/choices"
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "hidden_spokes ="
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "SoftwareSelectionSpoke"
+  assert_file_contains "$addon/tui/spokes/zz_linux_setup.py" "NormalTUISpoke"
+  assert_file_contains "$addon/tui/spokes/zz_linux_setup.py" "from pyanaconda.ui.categories.software import SoftwareCategory"
+  assert_file_contains "$addon/tui/spokes/zz_linux_setup.py" "category = SoftwareCategory"
+  refute_file_contains "$addon/tui/spokes/zz_linux_setup.py" "ZZLinuxSetupCategory"
+  assert_file_contains "$addon/tui/spokes/zz_linux_setup.py" "CheckboxWidget"
+  assert_file_contains "$addon/tui/spokes/zz_linux_setup.py" "_toggle_choice"
+  assert_file_contains "$addon/tui/spokes/zz_linux_setup.py" "write_state(True"
+  refute_file_contains "$addon/tui/spokes/zz_linux_setup.py" "_toggle_selection"
 }
 
 @test "Fedora VM installer test defaults to ISO boot path" {
@@ -159,16 +285,27 @@ SH
 
   assert_file_contains "$script" "--boot-mode iso|direct|uefi"
   assert_file_contains "$script" "--installer-ui graphical|text"
+  assert_file_contains "$script" "--graphics vnc|none|egl-headless"
   assert_file_contains "$script" "boot_mode=iso"
   assert_file_contains "$script" "installer_ui=graphical"
+  assert_file_contains "$script" "graphics_mode=vnc"
   assert_file_contains "$script" "iso|direct|uefi)"
   assert_file_contains "$script" "graphical|text)"
+  assert_file_contains "$script" "vnc|none|egl-headless)"
   assert_file_contains "$script" "qemu_args+=(-boot d)"
   assert_file_contains "$script" "display_args=(-display \"vnc=\$vnc_display\")"
+  assert_file_contains "$script" "display_args=(-display egl-headless,gl=on -vga none -device virtio-vga-gl)"
+  assert_file_contains "$script" "extract_fedora_iso_metadata \"\$input_iso\""
+  assert_file_contains "$script" "repo=fedora-%s&arch=%s"
   assert_file_contains "$script" "--cmdline \"console=ttyS0,115200n8 inst.cmdline\""
   assert_file_contains "$script" "direct_append+=\" console=ttyS0,115200n8 inst.cmdline\""
-  assert_file_contains "$script" "timeout --foreground --kill-after=60s \"\$ZZ_INSTALLER_POST_TIMEOUT_SECONDS\""
-  assert_file_contains "$script" "Bootstrap failed with exit code %s"
+  assert_file_contains "$script" "printf 'selected=1\\n' >/tmp/zz-linux-setup-install-selected"
+  assert_file_contains "$script" "addon_data_dir="
+  assert_file_contains "$script" "usr/share/anaconda/dbus/services"
+  assert_file_contains "$script" "SoftwareSelectionSpoke"
+  assert_file_contains "$script" "--add \"\$images_dir\""
+  refute_file_contains "$script" "Bootstrap failed with exit code %s"
+  refute_file_contains "$script" "cp -a /run/install/repo/zz-linux-setup /mnt/sysimage/opt/zz-linux-setup"
 }
 
 @test "Fedora install readiness treats planned artifacts as planned during install" {
@@ -206,4 +343,23 @@ SH
   [ "$status" -eq 0 ]
   assert_contains "$output" "systemctl enable NetworkManager"
   refute_contains "$output" "--now"
+}
+
+@test "Fedora installer release update flag refreshes and upgrades Fedora repos" {
+  source_core
+  source_modules
+  DISTRO=fedora
+  load_adapter
+  DRY_RUN=0
+  ZZ_INSTALLER_APPLY_RELEASE_UPDATES=1
+  COMMAND=install
+  run_cmd_as_root() {
+    printf '%s\n' "$*"
+  }
+
+  run module_05_bootstrap_tools
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "dnf makecache --refresh"
+  assert_contains "$output" "dnf upgrade -y --refresh"
 }

@@ -10,8 +10,10 @@ install_from_plan_file() {
   mapfile -t packages < <(read_plan_file "$plan_file")
   [[ "${#packages[@]}" -gt 0 ]] || return 0
   printf '%s %s: %s\n' "$backend" "$label" "${#packages[@]}"
+  log_progress "Installing ${#packages[@]} $backend $label"
   if package_install_idempotent "$backend" "${packages[@]}"; then
     if [[ "$mode" == "required" ]]; then
+      log_progress "Verifying required $backend $label"
       verify_required_plan_entries "$backend" "$plan_file" "$label" || return 1
     fi
     return 0
@@ -26,6 +28,7 @@ install_from_plan_file() {
   local package_name
   local failed=0
   for package_name in "${packages[@]}"; do
+    log_progress "Installing optional $backend package: $package_name"
     if package_install_idempotent "$backend" "$package_name"; then
       continue
     fi
@@ -109,11 +112,13 @@ is_early_base_bundle() {
 install_base_packages_for_backend() {
   local backend="$1"
   local base_plan="$2"
+  log_progress "Preparing $backend base package transaction"
   install_from_plan_file "$backend" "$base_plan" required "base packages"
 }
 
 install_base_actions_from_plan() {
   local action_plan="$1"
+  log_progress "Running required base actions"
   if declare -F run_actions_from_plan_file >/dev/null 2>&1; then
     run_actions_from_plan_file "$action_plan" required "base actions"
   elif [[ -s "$action_plan" ]]; then
@@ -137,6 +142,7 @@ install_optional_packages_for_backend() {
     append_plan_entries "$optional_plan" "$package_name"
   done < <(read_plan_file "$plan_file")
 
+  log_progress "Preparing optional $backend package transaction"
   install_from_plan_file "$backend" "$optional_plan" optional "optional packages"
   rm -f "$optional_plan"
 }
@@ -157,6 +163,7 @@ base_plan_has_package() {
 configure_base_shell() {
   base_plan_has_package "zsh" "$@" || return 0
 
+  log_progress "Configuring the target user's shell"
   local shell_path="/bin/zsh"
   local oh_my_zsh_dir="$TARGET_HOME/.oh-my-zsh"
   local custom_plugins_dir="$oh_my_zsh_dir/custom/plugins"
@@ -169,6 +176,7 @@ configure_base_shell() {
   fi
 
   if [[ ! -d "$oh_my_zsh_dir" ]]; then
+    log_progress "Installing Oh My Zsh for $TARGET_USER"
     run_cmd_as_user "$TARGET_USER" bash -lc 'RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
   fi
 
@@ -176,10 +184,12 @@ configure_base_shell() {
   run_cmd_as_user "$TARGET_USER" mkdir -p "$TARGET_HOME/.zsh" "$TARGET_HOME/.zshrc.d"
 
   if [[ ! -d "$custom_plugins_dir/zsh-autosuggestions" ]]; then
+    log_progress "Installing zsh autosuggestions"
     run_cmd_as_user "$TARGET_USER" git clone https://github.com/zsh-users/zsh-autosuggestions "$custom_plugins_dir/zsh-autosuggestions"
   fi
 
   if [[ ! -d "$custom_plugins_dir/zsh-syntax-highlighting" ]]; then
+    log_progress "Installing zsh syntax highlighting"
     run_cmd_as_user "$TARGET_USER" git clone https://github.com/zsh-users/zsh-syntax-highlighting "$custom_plugins_dir/zsh-syntax-highlighting"
   fi
 
@@ -205,6 +215,7 @@ configure_base_shell() {
     die "Could not resolve current login shell for target user '$TARGET_USER'."
   fi
   if [[ "$current_shell" != "$shell_path" ]]; then
+    log_progress "Setting $TARGET_USER login shell to zsh"
     run_cmd_as_root chsh -s "$shell_path" "$TARGET_USER"
   fi
 }
@@ -212,6 +223,7 @@ configure_base_shell() {
 configure_niri_session() {
   base_plan_has_package "niri" "$@" || return 0
 
+  log_progress "Verifying Niri session availability"
   local session_file="/usr/share/wayland-sessions/niri.desktop"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: verify niri command and %s\n' "$session_file"
@@ -233,6 +245,7 @@ configure_base_system_services() {
   local service_name
   while IFS= read -r service_name; do
     [[ -n "$service_name" ]] || continue
+    log_progress "Enabling system service: $service_name"
     if [[ "$DRY_RUN" -eq 1 ]]; then
       distro_enable_service_now "$service_name" || return 1
     else
@@ -250,21 +263,27 @@ module_30_packages() {
   flatpak_base_plan="$(mktemp "$CACHE_DIR/base-flatpak.XXXXXX")"
   action_base_plan="$(mktemp "$CACHE_DIR/base-actions.XXXXXX")"
 
+  log_progress "Building early base package plan"
   build_base_package_plan_for_backend dnf "$dnf_early_base_plan" early || return 1
   build_base_package_plan_for_backend flatpak "$flatpak_early_base_plan" early || return 1
 
+  log_progress "Installing early base packages"
   install_base_packages_for_backend dnf "$dnf_early_base_plan" || return 1
   install_base_packages_for_backend flatpak "$flatpak_early_base_plan" || return 1
 
+  log_progress "Enabling base system services"
   configure_base_system_services || return 1
 
+  log_progress "Building remaining base package plan"
   build_base_package_plan_for_backend dnf "$dnf_base_plan" remaining || return 1
   build_base_package_plan_for_backend flatpak "$flatpak_base_plan" remaining || return 1
   build_base_package_plan_for_backend action "$action_base_plan" remaining || return 1
 
+  log_progress "Installing remaining base packages"
   install_base_packages_for_backend dnf "$dnf_base_plan" || return 1
   install_base_packages_for_backend flatpak "$flatpak_base_plan" || return 1
 
+  log_progress "Configuring base desktop session"
   configure_niri_session "$dnf_base_plan" "$flatpak_base_plan" || return 1
   configure_base_shell "$dnf_base_plan" "$flatpak_base_plan" || return 1
   install_base_actions_from_plan "$action_base_plan" || return 1
@@ -282,10 +301,13 @@ module_32_optional_packages() {
   dnf_base_plan="$(mktemp "$CACHE_DIR/base-dnf.XXXXXX")"
   flatpak_base_plan="$(mktemp "$CACHE_DIR/base-flatpak.XXXXXX")"
 
+  log_progress "Building base package exclusion list"
   build_base_package_plan_for_backend dnf "$dnf_base_plan"
   build_base_package_plan_for_backend flatpak "$flatpak_base_plan"
 
+  log_progress "Installing optional Flatpaks"
   install_optional_packages_for_backend flatpak "$PLAN_DIR/flatpak/apps.flatpaks" "$flatpak_base_plan"
+  log_progress "Installing optional native packages"
   install_optional_packages_for_backend dnf "$PLAN_DIR/packages/dnf.pkgs" "$dnf_base_plan"
 
   rm -f "$dnf_base_plan" "$flatpak_base_plan"

@@ -188,6 +188,7 @@ stow_apply_plan() {
       packages+=("$package_name")
       continue
     fi
+    log_progress "Skipping dotfile package: $package_name"
     log_info "Skipping stow package '$package_name' because its payload or required command is unavailable"
   done < <(stow_packages_from_plan)
   [[ "${#packages[@]}" -gt 0 ]] || return 0
@@ -213,21 +214,26 @@ stow_apply_plan() {
   simulate_cmd+=("${packages[@]}")
   apply_cmd+=("${packages[@]}")
 
+  log_progress "Preparing dotfile conflict backups"
   stow_prepare_conflicts "${packages[@]}"
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_progress "Simulating dotfile stow for ${#packages[@]} packages"
     run_cmd_as_user "$TARGET_USER" "${simulate_cmd[@]}"
+    log_progress "Applying dotfile stow for ${#packages[@]} packages"
     run_cmd_as_user "$TARGET_USER" "${apply_cmd[@]}"
     return 0
   fi
 
   local output_file
   output_file="$(mktemp "$CACHE_DIR/stow-simulate.XXXXXX")"
+  log_progress "Checking dotfile stow conflicts for ${#packages[@]} packages"
   if ! run_cmd_as_user "$TARGET_USER" "${simulate_cmd[@]}" >"$output_file" 2>&1; then
     cat "$output_file" >&2
     rm -f "$output_file"
     die "Stow reported conflicts. Re-run with --stow-adopt only if you intentionally want to adopt existing files."
   fi
   rm -f "$output_file"
+  log_progress "Restowing ${#packages[@]} managed dotfile packages"
   run_cmd_as_user "$TARGET_USER" "${apply_cmd[@]}"
 }

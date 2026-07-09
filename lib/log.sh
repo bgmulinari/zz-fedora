@@ -102,6 +102,50 @@ log_error() {
   log_emit error "ERROR" "$*"
 }
 
+progress_field() {
+  local value="${1:-}"
+  value="${value//$'\t'/ }"
+  value="${value//$'\r'/ }"
+  value="${value//$'\n'/ }"
+  printf '%s' "$value"
+}
+
+write_install_progress() {
+  [[ -n "${ZZ_INSTALL_PROGRESS_FILE:-}" ]] || return 0
+
+  local status="$1"
+  local current="$2"
+  local total="$3"
+  local label="$4"
+  local message="${5:-}"
+  local progress_dir
+
+  progress_dir="$(dirname "$ZZ_INSTALL_PROGRESS_FILE")"
+  mkdir -p "$progress_dir"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$(date +%s)" \
+    "$(progress_field "$status")" \
+    "$(progress_field "$current")" \
+    "$(progress_field "$total")" \
+    "$(progress_field "$label")" \
+    "$(progress_field "$message")" >>"$ZZ_INSTALL_PROGRESS_FILE"
+}
+
+log_progress() {
+  local message="$*"
+  [[ -n "$message" ]] || return 0
+
+  if [[ -n "${ACTIVE_STEP_LABEL:-}" ]]; then
+    write_install_progress \
+      running \
+      "${ACTIVE_STEP_CURRENT:-0}" \
+      "${ACTIVE_STEP_TOTAL:-0}" \
+      "$ACTIVE_STEP_LABEL" \
+      "$message"
+  fi
+  log_info "$message"
+}
+
 print_readiness_warnings_for_failure() {
   local readiness_status_file="$PLAN_DIR/readiness/status.tsv"
   [[ -f "$readiness_status_file" ]] || return 0

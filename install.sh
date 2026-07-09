@@ -149,6 +149,7 @@ run_install_step() {
   if ! "$predicate"; then
     tui_step_start "$current" "$total" "$label" "$description"
     log_info "Skipped step: $label"
+    write_install_progress skipped "$current" "$total" "$label" "$description"
     tui_step_skipped "$label"
     return 0
   fi
@@ -156,8 +157,11 @@ run_install_step() {
   while true; do
     tui_step_start "$current" "$total" "$label" "$description"
     log_info "Running step $current/$total: $label"
+    write_install_progress running "$current" "$total" "$label" "$description"
     ACTIVE_STEP_ID="${STEP_IDS[$((current - 1))]:-}"
     ACTIVE_STEP_LABEL="$label"
+    ACTIVE_STEP_CURRENT="$current"
+    ACTIVE_STEP_TOTAL="$total"
     ACTIVE_STEP_STARTED_AT="$(date +%s)"
     if [[ "$DRY_RUN" -eq 0 && -n "${LOG_FILE:-}" ]]; then
       if tui_run_with_log_capture "$function_name"; then
@@ -179,18 +183,24 @@ run_install_step() {
       elapsed=$((completed_at - ACTIVE_STEP_STARTED_AT))
       ACTIVE_STEP_LABEL=""
       ACTIVE_STEP_ID=""
+      ACTIVE_STEP_CURRENT=0
+      ACTIVE_STEP_TOTAL=0
       ACTIVE_STEP_STARTED_AT=""
       log_info "Completed step $current/$total: $label (${elapsed}s)"
+      write_install_progress done "$current" "$total" "$label" "Completed in ${elapsed}s"
       tui_step_done "$label"
       return 0
     fi
 
     log_error "Failed step $current/$total: $label"
+    write_install_progress failed "$current" "$total" "$label" "Exit code $step_status"
     tui_step_failed "$label"
     if [[ "$failure_policy" == "continue" ]]; then
       append_warning "Step failed and setup continued: $label"
       ACTIVE_STEP_LABEL=""
       ACTIVE_STEP_ID=""
+      ACTIVE_STEP_CURRENT=0
+      ACTIVE_STEP_TOTAL=0
       ACTIVE_STEP_STARTED_AT=""
       return 0
     fi
@@ -211,6 +221,7 @@ run_registered_steps() {
 
   tui_register_steps "${STEP_LABELS[@]}"
   tui_progress_begin
+  write_install_progress running 0 "$total" "ZZ Linux Setup" "Starting installation"
 
   for idx in "${!STEP_FUNCTIONS[@]}"; do
     if ! run_install_step \
@@ -226,6 +237,11 @@ run_registered_steps() {
     fi
   done
   tui_progress_end
+  if [[ "$failed" -eq 0 ]]; then
+    write_install_progress done "$total" "$total" "ZZ Linux Setup" "Installation complete"
+  else
+    write_install_progress failed "$total" "$total" "ZZ Linux Setup" "Installation failed"
+  fi
   return "$failed"
 }
 

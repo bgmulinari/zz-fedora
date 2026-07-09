@@ -3,21 +3,42 @@ set -Eeuo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/test-fedora-installer-vm.sh --input ISO [--work-dir DIR] [--boot-mode iso|direct|uefi] [--installer-ui graphical|text]
+Usage: scripts/test-fedora-installer-vm.sh --input ISO [--work-dir DIR] [--boot-mode iso|direct|uefi] [--installer-ui graphical|text] [--graphics vnc|none|egl-headless]
 
-Run an unattended QEMU install that exercises the Fedora ISO post-install path.
+Run an unattended QEMU install that exercises the Fedora ISO add-on task path.
 The generated test ISO uses the same embedded checkout and installer invocation
-as iso/fedora/zz-fedora.ks, but adds VM-only storage, user, and shutdown
+as the production add-on task, but adds VM-only storage, user, and shutdown
 Kickstart commands. The default iso boot mode boots through the generated ISO
 bootloader. Use --boot-mode direct to boot the generated ISO's kernel and initrd
 directly, or --boot-mode uefi to exercise the generated ISO UEFI firmware path.
 The default graphical installer UI uses a local QEMU VNC display; use
 --installer-ui text for serial-console debugging.
+Use --graphics egl-headless for a headless virtio GL device suitable for
+post-install Niri/Wayland validation.
 EOF
 }
 
 err() {
   printf 'test-fedora-installer-vm: %s\n' "$*" >&2
+}
+
+extract_fedora_iso_metadata() {
+  local input_iso="$1"
+  local metadata_dir discinfo
+  metadata_dir="$(mktemp -d)"
+  discinfo="$metadata_dir/.discinfo"
+  xorriso -osirrox on -indev "$input_iso" -extract /.discinfo "$discinfo" >/dev/null 2>&1 || {
+    rm -rf "$metadata_dir"
+    err "could not extract /.discinfo from input ISO"
+    return 1
+  }
+  fedora_release="$(sed -n '2p' "$discinfo")"
+  fedora_arch="$(sed -n '3p' "$discinfo")"
+  rm -rf "$metadata_dir"
+  [[ -n "$fedora_release" && -n "$fedora_arch" ]] || {
+    err "could not determine Fedora release and architecture from input ISO"
+    return 1
+  }
 }
 
 input_iso=
@@ -28,7 +49,10 @@ disk_size=64G
 timeout_seconds=14400
 boot_mode=iso
 installer_ui=graphical
+graphics_mode=vnc
 vnc_display=127.0.0.1:99
+fedora_release=
+fedora_arch=
 
 while (($# > 0)); do
   case "$1" in
@@ -104,6 +128,18 @@ while (($# > 0)); do
       installer_ui=${1#*=}
       shift
       ;;
+    --graphics)
+      (($# >= 2)) || {
+        err "--graphics requires a value."
+        exit 1
+      }
+      graphics_mode=$2
+      shift 2
+      ;;
+    --graphics=*)
+      graphics_mode=${1#*=}
+      shift
+      ;;
     --vnc-display)
       (($# >= 2)) || {
         err "--vnc-display requires a value."
@@ -146,6 +182,15 @@ case "$installer_ui" in
     ;;
 esac
 
+case "$graphics_mode" in
+  vnc|none|egl-headless)
+    ;;
+  *)
+    err "unsupported graphics mode: $graphics_mode"
+    exit 1
+    ;;
+esac
+
 if [[ -z "$input_iso" ]]; then
   usage >&2
   exit 1
@@ -156,7 +201,7 @@ if [[ ! -f "$input_iso" ]]; then
   exit 1
 fi
 
-for command in mkksiso qemu-img qemu-system-x86_64 rsync timeout xorriso; do
+for command in cpio gzip mkksiso qemu-img qemu-system-x86_64 rsync timeout xorriso; do
   if ! command -v "$command" >/dev/null 2>&1; then
     err "missing required command: $command"
     exit 1
@@ -164,6 +209,17 @@ for command in mkksiso qemu-img qemu-system-x86_64 rsync timeout xorriso; do
 done
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+extract_fedora_iso_metadata "$input_iso"
+addon_dir="$repo_dir/iso/fedora/anaconda-addon"
+addon_data_dir="$repo_dir/iso/fedora/anaconda-addon-data"
+if [[ ! -d "$addon_dir/org_zz_linux_setup" ]]; then
+  err "missing Anaconda add-on payload: $addon_dir/org_zz_linux_setup"
+  exit 1
+fi
+if [[ ! -d "$addon_data_dir" ]]; then
+  err "missing Anaconda add-on data: $addon_data_dir"
+  exit 1
+fi
 if [[ -z "$work_dir" ]]; then
   work_dir="$repo_dir/test-artifacts/fedora-installer-vm"
 fi
@@ -173,6 +229,9 @@ mkdir -p "$work_dir"
 
 ks_file="$work_dir/zz-fedora-vm.ks"
 payload_dir="$work_dir/payload/zz-linux-setup"
+product_root="$work_dir/product"
+images_dir="$work_dir/images"
+product_img="$images_dir/product.img"
 test_iso="$work_dir/zz-fedora-vm.iso"
 disk_image="$work_dir/fedora-vm.qcow2"
 serial_log="$work_dir/serial.log"
@@ -213,8 +272,10 @@ clearpart --all --initlabel --drives=vda
 autopart --type=lvm
 bootloader --location=mbr --append="console=ttyS0,115200n8"
 
-url --metalink="https://mirrors.fedoraproject.org/metalink?repo=fedora-$releasever&arch=$basearch"
-repo --name="updates" --metalink="https://mirrors.fedoraproject.org/metalink?repo=updates-released-f$releasever&arch=$basearch" --install
+EOF
+  printf 'url --metalink="https://mirrors.fedoraproject.org/metalink?repo=fedora-%s&arch=%s"\n' "$fedora_release" "$fedora_arch"
+  printf 'repo --name="updates" --metalink="https://mirrors.fedoraproject.org/metalink?repo=updates-released-f%s&arch=%s" --install\n' "$fedora_release" "$fedora_arch"
+  cat <<'EOF'
 
 services --enabled=NetworkManager
 
@@ -231,86 +292,9 @@ dnf5-plugins
 rsync
 %end
 
-%post --nochroot --interpreter=/usr/bin/bash --erroronfail --log=/mnt/sysimage/root/zz-linux-setup-copy.log
+%pre --interpreter=/usr/bin/bash
 set -Eeuo pipefail
-
-install -d -m 0755 /mnt/sysimage/opt
-rm -rf /mnt/sysimage/opt/zz-linux-setup
-cp -a /run/install/repo/zz-linux-setup /mnt/sysimage/opt/zz-linux-setup
-%end
-
-%post --interpreter=/usr/bin/bash --erroronfail --log=/root/zz-linux-setup-kickstart.log
-set -Eeuo pipefail
-
-repo_dir=/opt/zz-linux-setup
-target_user=$(
-  awk -F: '$3 >= 1000 && $3 < 60000 && $6 ~ "^/home/" && $7 !~ /(nologin|false)$/ { print $1; exit }' /etc/passwd
-)
-
-if [[ -z "$target_user" ]]; then
-  echo "No installer-created regular user was found. Create a regular user in Anaconda before starting installation." >&2
-  exit 1
-fi
-
-target_home=$(getent passwd "$target_user" | cut -d: -f6)
-target_group=$(id -gn "$target_user")
-target_repo_dir="$target_home/zz-linux-setup"
-
-install -d -m 0755 "$target_home"
-rm -rf "$target_repo_dir"
-cp -a "$repo_dir" "$target_repo_dir"
-chown -R "$target_user:$target_group" "$target_repo_dir"
-
-install -d -m 0755 \
-  "$target_home/.local" \
-  "$target_home/.local/state" \
-  "$target_home/.local/share" \
-  "$target_home/.cache" \
-  "$target_home/.config"
-chown -R "$target_user:$target_group" \
-  "$target_home/.local" \
-  "$target_home/.cache" \
-  "$target_home/.config"
-
-export STATE_DIR="$target_home/.local/state/zz-linux-setup"
-export CACHE_DIR="$target_home/.cache/zz-linux-setup"
-export CONFIG_DIR="$target_home/.config/zz-linux-setup"
-export LOG_DIR="$STATE_DIR/logs"
-export STATE_OWNER_USER="$target_user"
-export TARGET_USER="$target_user"
-export DESKTOP_APP_PROFILE=full
-export ZZ_INSTALLER_DEFER_START_SERVICES=1
-export ZZ_INSTALLER_POST_TIMEOUT_SECONDS="${ZZ_INSTALLER_POST_TIMEOUT_SECONDS:-14400}"
-export ZZ_COMMAND_TIMEOUT_SECONDS="${ZZ_COMMAND_TIMEOUT_SECONDS:-3600}"
-export ZZ_COMMAND_TIMEOUT_KILL_AFTER="${ZZ_COMMAND_TIMEOUT_KILL_AFTER:-60s}"
-unset DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS XDG_CURRENT_DESKTOP DESKTOP_SESSION
-if [[ -r /etc/locale.conf ]]; then
-  source /etc/locale.conf
-fi
-case "${LANG:-}" in
-  *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) ;;
-  *) LANG=C.UTF-8 ;;
-esac
-case "${LC_ALL:-}" in
-  *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) ;;
-  *) LC_ALL="$LANG" ;;
-esac
-export LANG LC_ALL
-
-cd "$target_repo_dir"
-printf '[zz-linux-setup] Starting bootstrap for %s. Detailed log: %s\n' "$target_user" "$LOG_DIR/latest.log" | tee /dev/console || true
-set +e
-timeout --foreground --kill-after=60s "$ZZ_INSTALLER_POST_TIMEOUT_SECONDS" \
-  ./install.sh install --yes --distro fedora --desktop-app-profile full --no-tui --target-user "$target_user"
-install_status=$?
-set -e
-if [[ "$install_status" -ne 0 ]]; then
-  printf '[zz-linux-setup] Bootstrap failed with exit code %s. Check /root/zz-linux-setup-kickstart.log and %s.\n' "$install_status" "$LOG_DIR/latest.log" | tee /dev/console || true
-  exit "$install_status"
-fi
-printf '[zz-linux-setup] Bootstrap completed for %s.\n' "$target_user" | tee /dev/console || true
-
-rm -rf "$repo_dir"
+printf 'selected=1\n' >/tmp/zz-linux-setup-install-selected
 %end
 EOF
 } >"$ks_file"
@@ -325,10 +309,48 @@ rsync -a --delete \
   --exclude='*.iso' \
   "$repo_dir/" "$payload_dir/"
 
+mkdir -p \
+  "$product_root/etc/anaconda/conf.d" \
+  "$product_root/usr/share/anaconda/dbus/confs" \
+  "$product_root/usr/share/anaconda/dbus/services" \
+  "$product_root/usr/share/anaconda/addons" \
+  "$images_dir"
+rsync -a --delete \
+  --exclude='__pycache__/' \
+  --exclude='*.pyc' \
+  "$addon_dir/" "$product_root/usr/share/anaconda/addons/"
+rsync -a --delete "$repo_dir/choices/" "$product_root/usr/share/anaconda/addons/org_zz_linux_setup/choices/"
+install -m 0644 \
+  "$addon_data_dir/org.fedoraproject.Anaconda.Addons.ZZLinuxSetup.conf" \
+  "$product_root/usr/share/anaconda/dbus/confs/"
+install -m 0644 \
+  "$addon_data_dir/org.fedoraproject.Anaconda.Addons.ZZLinuxSetup.service" \
+  "$product_root/usr/share/anaconda/dbus/services/"
+cat >"$product_root/etc/anaconda/conf.d/100-zz-linux-setup.conf" <<'EOF'
+[User Interface]
+hidden_spokes =
+    SoftwareSelectionSpoke
+EOF
+cat >"$product_root/.buildstamp" <<EOF
+[Main]
+Product=ZZ Linux Setup
+Version=$fedora_release
+BugURL=https://github.com/bgmulinari/zz-linux-setup
+IsFinal=True
+
+[Compose]
+Lorax=zz-linux-setup
+EOF
+(
+  cd "$product_root"
+  find . -print | sort | cpio --quiet -c -o | gzip -9c >"$product_img"
+)
+
 mkksiso_args=(
   --replace 'set default="1"' 'set default="0"'
   --replace 'set timeout=60' 'set timeout=1'
   --add "$payload_dir"
+  --add "$images_dir"
   --ks "$ks_file"
   "$input_iso"
   "$test_iso"
@@ -357,14 +379,23 @@ printf 'Serial log: %s\n' "$serial_log"
 printf 'QEMU log: %s\n' "$qemu_log"
 printf 'Boot mode: %s\n' "$boot_mode"
 printf 'Installer UI: %s\n' "$installer_ui"
-if [[ "$installer_ui" == "graphical" ]]; then
+printf 'Graphics: %s\n' "$graphics_mode"
+if [[ "$graphics_mode" == "vnc" ]]; then
   printf 'VNC display: %s\n' "$vnc_display"
 fi
 
-display_args=(-display none)
-if [[ "$installer_ui" == "graphical" ]]; then
-  display_args=(-display "vnc=$vnc_display")
-fi
+display_args=()
+case "$graphics_mode" in
+  vnc)
+    display_args=(-display "vnc=$vnc_display")
+    ;;
+  none)
+    display_args=(-display none)
+    ;;
+  egl-headless)
+    display_args=(-display egl-headless,gl=on -vga none -device virtio-vga-gl)
+    ;;
+esac
 
 qemu_args=(
   -enable-kvm

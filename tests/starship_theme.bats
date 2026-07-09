@@ -30,16 +30,16 @@ setup() {
   local blue_to_green=$'\033[48;2;166;227;161;38;2;137;180;250'
   local prompt
 
-  prompt="$(cd "$empty_dir" && STARSHIP_CONFIG="$ROOT_DIR/templates/starship.toml" STARSHIP_SHELL=bash starship prompt)"
+  prompt="$(cd "$empty_dir" && TERM=xterm-256color STARSHIP_CONFIG="$ROOT_DIR/templates/starship.toml" STARSHIP_SHELL=bash starship prompt)"
   refute_contains "$prompt" "$yellow_bg"
   assert_contains "$prompt" "$blue_to_green"
 
-  prompt="$(cd "$git_dir" && STARSHIP_CONFIG="$ROOT_DIR/templates/starship.toml" STARSHIP_SHELL=bash starship prompt)"
+  prompt="$(cd "$git_dir" && TERM=xterm-256color STARSHIP_CONFIG="$ROOT_DIR/templates/starship.toml" STARSHIP_SHELL=bash starship prompt)"
   assert_contains "$prompt" "$yellow_bg"
   assert_contains "$prompt" "$yellow_to_green"
   refute_contains "$prompt" "$yellow_to_blue"
 
-  prompt="$(cd "$git_language_dir" && STARSHIP_CONFIG="$ROOT_DIR/templates/starship.toml" STARSHIP_SHELL=bash starship prompt)"
+  prompt="$(cd "$git_language_dir" && TERM=xterm-256color STARSHIP_CONFIG="$ROOT_DIR/templates/starship.toml" STARSHIP_SHELL=bash starship prompt)"
   assert_contains "$prompt" "$yellow_to_blue"
   assert_contains "$prompt" "$blue_to_green"
 }

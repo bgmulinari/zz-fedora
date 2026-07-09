@@ -32,6 +32,7 @@ install_user_file_if_changed() {
 install_bundled_wallpapers() {
   local source_file wallpaper_name
 
+  log_progress "Installing bundled wallpapers"
   for source_file in "$ROOT_DIR"/assets/wallpapers/*.{jpg,jpeg,png,webp,avif}; do
     [[ -f "$source_file" ]] || continue
     wallpaper_name="$(basename "$source_file")"
@@ -102,6 +103,7 @@ install_starship_config() {
   destination="$TARGET_HOME/.config/starship.toml"
 
   starship_theming_available_for_plan "$native_plan" || return 0
+  log_progress "Installing Starship shell prompt config"
   if [[ -e "$destination" || -L "$destination" ]]; then
     install_starship_fallback_palette_if_needed "$destination"
     return 0
@@ -116,6 +118,7 @@ install_ghostty_theme_seed_if_missing() {
 
   plan_has_any_backend_entry "$native_plan" ghostty || return 0
   [[ -e "$destination" || -L "$destination" ]] && return 0
+  log_progress "Installing Ghostty Noctalia theme seed"
   install_user_file_if_changed "$ROOT_DIR/templates/ghostty/noctalia" "$destination"
 }
 
@@ -126,6 +129,7 @@ install_niri_noctalia_seed_if_missing() {
 
   destination="$TARGET_HOME/.config/niri/noctalia.kdl"
   [[ -e "$destination" || -L "$destination" ]] && return 0
+  log_progress "Installing Niri Noctalia config seed"
   install_user_file_if_changed "$ROOT_DIR/templates/niri/noctalia.kdl" "$destination"
 }
 
@@ -136,6 +140,7 @@ install_niri_display_seed_if_missing() {
 
   destination="$TARGET_HOME/.config/niri/cfg/display.kdl"
   [[ -e "$destination" || -L "$destination" ]] && return 0
+  log_progress "Installing Niri display config seed"
   install_user_file_if_changed "$ROOT_DIR/templates/niri/display.kdl" "$destination"
 }
 
@@ -164,6 +169,7 @@ install_qt_theme_config() {
   native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
   plan_has_any_backend_entry "$native_plan" qt5ct qt6ct qt6ct-kde || return 0
 
+  log_progress "Configuring Qt theme integration"
   install_qtct_config 5
   install_qtct_config 6
   install_kde_qt_theme_config
@@ -255,6 +261,7 @@ configure_flatpak_theme_access() {
 
   have_cmd flatpak || return 0
 
+  log_progress "Configuring Flatpak theme filesystem access"
   run_cmd_as_user "$TARGET_USER" flatpak override --user \
     --filesystem=xdg-config/gtk-3.0:ro \
     --filesystem=xdg-config/gtk-4.0:ro \
@@ -267,6 +274,7 @@ configure_flatpak_theme_access() {
 configure_xdg_terminal_defaults() {
   local terminals_file="$TARGET_HOME/.config/xdg-terminals.list"
 
+  log_progress "Configuring default terminal preference"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: write Ghostty terminal defaults to %s\n' "$terminals_file"
     return 0
@@ -339,6 +347,7 @@ configure_default_applications_from_tsv() {
   local desktop_file condition mime_type extra
   [[ -f "$defaults_file" ]] || die "Missing default applications config: $defaults_file"
 
+  log_progress "Configuring default applications"
   while IFS=$'\t' read -r desktop_file condition mime_type extra || [[ -n "$desktop_file" ]]; do
     [[ -n "$desktop_file" ]] || continue
     [[ "$desktop_file" == \#* ]] && continue
@@ -353,6 +362,7 @@ install_zz_launcher() {
   local target="$ROOT_DIR/bin/zz"
   [[ -x "$target" ]] || return 0
 
+  log_progress "Installing zz launcher"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: install zz launcher %s -> %s\n' "$target" "$launcher"
     return 0
@@ -399,6 +409,7 @@ enable_user_services() {
   local service_name
   while IFS= read -r service_name; do
     [[ -n "$service_name" ]] || continue
+    log_progress "Enabling user service: $service_name"
     enable_user_service "$service_name" || log_warn "Could not enable user service: $service_name"
   done < <(user_services_from_plan)
 }
@@ -413,6 +424,7 @@ set_default_browser() {
   )
   local mime_type failed=0
 
+  log_progress "Setting default browser: $desktop_file"
   for mime_type in "${browser_mime_types[@]}"; do
     run_cmd_as_user "$TARGET_USER" xdg-mime default "$desktop_file" "$mime_type" || failed=1
   done
@@ -459,6 +471,7 @@ register_first_run_hook() {
   desktop_file="$(first_run_desktop_file)"
   launcher="$TARGET_HOME/.local/bin/zz"
 
+  log_progress "Registering first-run hook"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: register first-run hook -> %s\n' "$desktop_file"
     return 0
@@ -524,8 +537,10 @@ module_80_first_run() {
 }
 
 module_80_post_actions() {
+  log_progress "Installing post-install launcher and desktop defaults"
   install_zz_launcher
   configure_default_applications
+  log_progress "Installing desktop assets and theme seeds"
   install_bundled_wallpapers
   install_starship_config
   install_ghostty_theme_seed_if_missing
@@ -533,6 +548,7 @@ module_80_post_actions() {
   install_niri_noctalia_seed_if_missing
   install_qt_theme_config
   configure_flatpak_theme_access
+  log_progress "Enabling user services and first-run tasks"
   enable_user_services
   register_first_run_hook
   write_managed_files_report

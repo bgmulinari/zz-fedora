@@ -2,11 +2,14 @@
 set -Eeuo pipefail
 
 module_00_preflight() {
+  log_progress "Checking shell, repository, and operating system"
   [[ "${BASH_VERSINFO[0]}" -ge 4 ]] || die "Bash 4+ is required"
   [[ -f /etc/os-release ]] || [[ "$COMMAND" == "print-plan" || "$COMMAND" == "check" || "$COMMAND" == "list-choices" || "$COMMAND" == "list-sources" ]] || die "/etc/os-release not found"
   [[ -d "$ROOT_DIR/.git" ]] || die "Repository root is not a Git repository: $ROOT_DIR"
+  log_progress "Checking target user and home directory"
   id "$TARGET_USER" >/dev/null 2>&1 || die "Target user does not exist: $TARGET_USER"
   [[ -d "$TARGET_HOME" ]] || die "Target home does not exist: $TARGET_HOME"
+  log_progress "Checking privilege helper availability"
   if [[ "$EUID" -ne 0 ]] && ! command -v sudo >/dev/null 2>&1; then
     die "sudo is required unless running as root"
   fi
@@ -18,8 +21,10 @@ module_00_preflight() {
       fedora) have_cmd dnf || die "dnf is required for Fedora installs" ;;
     esac
   fi
+  log_progress "Acquiring installer lock"
   acquire_lock
   if [[ "$DRY_RUN" -ne 1 && "$COMMAND" != "print-plan" && "$COMMAND" != "check" && "$COMMAND" != "list-choices" && "$COMMAND" != "list-sources" ]]; then
+    log_progress "Refreshing elevated command credentials"
     start_sudo_keepalive
   fi
   printf 'Distro: %s\n' "$DISTRO"

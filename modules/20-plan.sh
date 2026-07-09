@@ -7,10 +7,13 @@ module_20_should_render_readiness_report() {
 }
 
 module_20_plan() {
+  log_progress "Generating readiness status"
   generate_readiness_status
+  log_progress "Rendering install plan"
   tui_show_install_plan
   if module_20_should_render_readiness_report; then
     printf '\n'
+    log_progress "Rendering readiness report"
     render_readiness_report
   fi
   if [[ "$COMMAND" == "wizard" && "$ASSUME_YES" -ne 1 ]]; then

@@ -165,6 +165,7 @@ module_90_doctor() {
   native_backend="$(native_backend_for_distro "$DISTRO")"
   native_plan="$(package_file_for_backend "$native_backend")"
 
+  log_progress "Checking installed desktop commands"
   if doctor_plan_has_entry "$native_plan" "niri"; then
     doctor_warn_command niri
     doctor_warn_command niri-session
@@ -193,6 +194,7 @@ module_90_doctor() {
   doctor_plan_has_entry "$native_plan" "system-config-printer" && doctor_warn_command system-config-printer
   doctor_plan_has_entry "$native_plan" "simple-scan" && doctor_warn_command simple-scan
 
+  log_progress "Checking managed user configuration files"
   local user_config_home="$TARGET_HOME/.config"
   local niri_config_home="$user_config_home/niri"
   if doctor_plan_has_entry "$native_plan" "niri"; then
@@ -228,6 +230,7 @@ module_90_doctor() {
     doctor_check_dir_has_files "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont" '*.ttf'
   fi
 
+  log_progress "Checking managed configuration contents"
   if doctor_plan_has_entry "$native_plan" "niri"; then
     doctor_check_contains "$niri_config_home/cfg/autostart.kdl" 'spawn-at-startup "noctalia"'
     doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'noctalia msg panel-toggle launcher'
@@ -265,6 +268,7 @@ module_90_doctor() {
 
   local fatal_checks=0
 
+  log_progress "Running fatal desktop readiness checks"
   if doctor_plan_has_entry "$native_plan" "niri"; then
     doctor_check_command niri || ((++fatal_checks))
     doctor_check_file /usr/share/wayland-sessions/niri.desktop || ((++fatal_checks))
@@ -274,6 +278,7 @@ module_90_doctor() {
     doctor_check_file "$niri_config_home/cfg/misc.kdl" || ((++fatal_checks))
   fi
 
+  log_progress "Checking shell and developer tools"
   if doctor_plan_has_entry "$native_plan" "zsh"; then
     doctor_warn_command zsh
     doctor_warn_file "$TARGET_HOME/.zshrc"
@@ -315,6 +320,7 @@ module_90_doctor() {
     doctor_warn_command yazi
   fi
 
+  log_progress "Checking enabled services"
   doctor_warn_enabled NetworkManager
   local display_manager_hint="Noctalia Greeter"
   local existing_display_manager=""
@@ -351,6 +357,7 @@ module_90_doctor() {
 
   case "$DISTRO" in
     fedora)
+      log_progress "Collecting Fedora repository diagnostics"
       run_cmd_as_root dnf copr list || true
       run_cmd_as_root dnf repolist || true
       run_cmd_as_root dnf repoquery --whatprovides desktop-notification-daemon || true

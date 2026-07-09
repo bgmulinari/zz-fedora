@@ -93,15 +93,19 @@ cd zz-linux-setup
 Build an online Fedora installer ISO from the current checkout:
 
 ```bash
-sudo dnf install lorax rsync
+sudo dnf install lorax rsync xorriso
 scripts/build-fedora-installer-iso.sh \
   --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
   --output release/zz-linux-setup-fedora.iso
 ```
 
-The generated ISO keeps Anaconda in charge of disk and user setup, embeds this
-checkout, and runs the normal unattended Fedora install path for the created
-regular user. See `docs/fedora-installer-iso.md`.
+The generated ISO keeps Anaconda in charge of disk and user setup, hides the
+built-in Software Selection spoke, and always installs the managed desktop
+baseline. Its `ZZ Linux Setup` add-on lets you select the same optional package
+catalogs exposed by the normal setup wizard, then runs the unattended Fedora
+install path as an Anaconda progress-reporting task for the created regular
+user. See
+`docs/fedora-installer-iso.md`.
 
 Non-interactive install:
 

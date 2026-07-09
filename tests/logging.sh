@@ -51,6 +51,18 @@ run_cmd true --password=hunter2 api-token >/dev/null 2>&1
 grep -F 'CMD: true --password=REDACTED REDACTED' "$LOG_FILE" >/dev/null
 ! grep -F 'hunter2' "$LOG_FILE" >/dev/null
 
+export ZZ_INSTALL_PROGRESS_FILE="$TEST_ROOT/install-progress.tsv"
+write_install_progress running 2 9 "Base Setup" $'Install\tbase\rpackages'
+grep -F $'running\t2\t9\tBase Setup\tInstall base packages' "$ZZ_INSTALL_PROGRESS_FILE" >/dev/null
+ACTIVE_STEP_LABEL="Base Setup"
+ACTIVE_STEP_CURRENT=4
+ACTIVE_STEP_TOTAL=9
+log_progress "Resolving package dependencies" >/dev/null 2>&1
+grep -F $'running\t4\t9\tBase Setup\tResolving package dependencies' "$ZZ_INSTALL_PROGRESS_FILE" >/dev/null
+ACTIVE_STEP_LABEL=""
+ACTIVE_STEP_CURRENT=0
+ACTIVE_STEP_TOTAL=0
+
 ACTIVE_STEP_LABEL="Exploding Step"
 failure_output="$(print_failure_summary 7 2>&1)"
 grep -F 'Setup failed.' <<<"$failure_output" >/dev/null

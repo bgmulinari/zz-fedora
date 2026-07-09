@@ -23,6 +23,7 @@ source_required_for_install() {
 
 enable_source_best_effort() {
   local source_id="$1"
+  log_progress "Enabling optional software source: $source_id"
   if distro_enable_sources "$source_id"; then
     return 0
   fi
@@ -35,6 +36,7 @@ module_10_sources() {
   local -a source_ids=()
   local source_file source_id
 
+  log_progress "Collecting planned software sources"
   while IFS= read -r source_file; do
     [[ -f "$source_file" ]] || continue
     while IFS= read -r source_id; do
@@ -45,6 +47,7 @@ module_10_sources() {
 
   for source_id in "${source_ids[@]:-}"; do
     source_required_for_install "$source_id" || continue
+    log_progress "Enabling required software source: $source_id"
     distro_enable_sources "$source_id" || return 1
   done
 
