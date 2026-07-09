@@ -176,6 +176,9 @@ module_90_doctor() {
     doctor_warn_command ghostty
     doctor_warn_user_enabled app-com.mitchellh.ghostty.service
   fi
+  if doctor_plan_has_entry "$native_plan" "ghostty-shell-integration"; then
+    doctor_check_dir_has_files "/usr/share/ghostty/shell-integration/zsh" "ghostty-integration"
+  fi
   doctor_plan_has_entry "$native_plan" "xdg-terminal-exec" && doctor_warn_command xdg-terminal-exec
   doctor_plan_has_entry "$native_plan" "nautilus" && doctor_warn_command nautilus
   if doctor_plan_has_entry "$native_plan" "neovim" || doctor_plan_has_entry "$native_plan" "nvim"; then

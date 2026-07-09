@@ -28,6 +28,7 @@ setup() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nodejs24-npm"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "starship"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "yazi"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
   assert_plan_has "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
@@ -40,6 +41,7 @@ setup() {
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-login-manager'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-greeter-fedora\tbase-login-manager\tdesktop-service\tgraphical login'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-ghostty'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tghostty-shell-integration\tbase-ghostty\tdefault-app\tterminal shell integration'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbats\tbase-bootstrap\tinstaller-bootstrap'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnss-tools\tbase-bootstrap\tinstaller-bootstrap\tbrowser certificate trust'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24\tbase-nodejs'
@@ -100,6 +102,7 @@ setup() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter-fedora"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-v5-fedora"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-terminal-exec"
 
   refute_plan_has "$PLAN_DIR/bundles.list" "base-desktop-apps"
