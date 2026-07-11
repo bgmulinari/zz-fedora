@@ -3,6 +3,9 @@ set -Eeuo pipefail
 
 plan_reset() {
   rm -rf "$PLAN_DIR"
+  if declare -p MANAGED_CONFIG_STOW_OWNER_CACHE >/dev/null 2>&1; then
+    MANAGED_CONFIG_STOW_OWNER_CACHE=()
+  fi
   mkdir -p \
     "$PLAN_DIR/actions" \
     "$PLAN_DIR/sources" \
@@ -14,6 +17,17 @@ plan_reset() {
     "$PLAN_DIR/stow"
   : >"$PLAN_DIR/bundles.list"
   : >"$PLAN_DIR/summary.txt"
+}
+
+normalize_plan_files() {
+  local plan_file
+  while IFS= read -r -d '' plan_file; do
+    sort -u "$plan_file" -o "$plan_file"
+  done < <(
+    find "$PLAN_DIR" -type f \
+      \( -name '*.list' -o -name '*.pkgs' -o -name '*.flatpaks' \) \
+      -print0
+  )
 }
 
 append_warning() {
@@ -84,6 +98,7 @@ append_dotfiles_prereqs() {
 }
 
 build_plan_from_selections() {
+  local DEFER_PLAN_SORT=1
   ensure_state_dirs
   plan_reset
   validate_source_catalog "$DISTRO"
@@ -159,6 +174,7 @@ build_plan_from_selections() {
   fi
   append_managed_file "~/.config/autostart/zz-first-run.desktop"
   append_managed_file "~/.local/bin/zz"
+  normalize_plan_files
   if [[ "${SKIP_DOTFILES:-0}" -ne 1 ]] && declare -F stow_write_conflict_preview >/dev/null 2>&1; then
     stow_write_conflict_preview
   fi
@@ -227,11 +243,12 @@ write_base_rationale_row() {
   local item="$3"
   local owner_bundle="$4"
   local fallback_reason="$5"
-  local metadata classification consumer reason
-  metadata="$(base_responsibility_fields "$backend" "$item")"
-  classification="$(awk -F'\t' '{print $1}' <<<"$metadata")"
-  consumer="$(awk -F'\t' '{print $2}' <<<"$metadata")"
-  reason="$(awk -F'\t' '{print $3}' <<<"$metadata")"
+  local key metadata classification consumer reason
+  load_base_responsibility_cache
+  key="$backend"$'\t'"$item"
+  metadata="${BASE_RESPONSIBILITY_CACHE[$key]:-}"
+  [[ -n "$metadata" ]] || die "Missing base responsibility metadata for $backend item: $item"
+  IFS=$'\t' read -r classification consumer reason <<<"$metadata"
   [[ -n "$reason" ]] || reason="$fallback_reason"
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$backend" "$item" "$owner_bundle" "$classification" "$consumer" "$reason" >>"$report"
 }
@@ -239,6 +256,7 @@ write_base_rationale_row() {
 write_base_rationale_report() {
   local report="$PLAN_DIR/base-rationale.tsv"
   printf 'backend\titem\towner_bundle\tclassification\tconsumer\treason\n' >"$report"
+  load_base_responsibility_cache
 
   local bundle_id item
   local -A seen_base_sources=()

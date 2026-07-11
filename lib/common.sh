@@ -29,6 +29,8 @@ declare -Ag CATEGORY_ADDITIONS=()
 declare -Ag CATEGORY_OVERRIDE_PRESENT=()
 declare -Ag SOURCE_FILE_CACHE=()
 declare -Ag BUNDLE_FILE_CACHE=()
+declare -Ag SOURCE_FILE_CACHE_LOADED=()
+declare -Ag BUNDLE_FILE_CACHE_LOADED=()
 
 COMMAND="${COMMAND:-$DEFAULT_COMMAND}"
 DISTRO="${DISTRO:-$DEFAULT_DISTRO}"
@@ -273,7 +275,14 @@ read_clean_lines() {
 
 manifest_entries() {
   local file="$1"
-  read_clean_lines "$file" | sort -u
+  awk '
+    {
+      sub(/[[:space:]]*#.*/, "")
+      sub(/^[[:space:]]+/, "")
+      sub(/[[:space:]]+$/, "")
+      if (length($0) > 0) print
+    }
+  ' "$file" | sort -u
 }
 
 list_source_files() {
@@ -281,25 +290,49 @@ list_source_files() {
   find "$ROOT_DIR/sources/$distro" -type f -name '*.source' | sort
 }
 
+descriptor_value_from_file() {
+  local file="$1"
+  local key="$2"
+  local result_name="$3"
+  local -n result_ref="$result_name"
+  local line value
+
+  result_ref=""
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" == "$key="* ]] || continue
+    value="${line#*=}"
+    if [[ "$value" == \"*\" ]]; then
+      value="${value#\"}"
+      value="${value%\"}"
+    fi
+    result_ref="$value"
+    return 0
+  done <"$file"
+  return 1
+}
+
+load_source_file_cache() {
+  local distro="$1"
+  [[ -n "${SOURCE_FILE_CACHE_LOADED[$distro]:-}" ]] && return 0
+
+  local source_file source_id
+  while IFS= read -r source_file; do
+    descriptor_value_from_file "$source_file" SOURCE_ID source_id || continue
+    [[ -n "$source_id" ]] || continue
+    SOURCE_FILE_CACHE["$distro:$source_id"]="$source_file"
+  done < <(list_source_files "$distro")
+  SOURCE_FILE_CACHE_LOADED["$distro"]=1
+}
+
 source_file_for_id() {
   local distro="$1"
   local source_id="$2"
   local cache_key="$distro:$source_id"
+  load_source_file_cache "$distro"
   if [[ -n "${SOURCE_FILE_CACHE[$cache_key]:-}" ]]; then
     printf '%s\n' "${SOURCE_FILE_CACHE[$cache_key]}"
     return 0
   fi
-
-  local source_file
-  for source_file in $(list_source_files "$distro"); do
-    local current_id=""
-    current_id="$(awk -F= '$1=="SOURCE_ID"{gsub(/"/, "", $2); print $2}' "$source_file")"
-    [[ "$current_id" == "$source_id" ]] && {
-      SOURCE_FILE_CACHE["$cache_key"]="$source_file"
-      printf '%s\n' "$source_file"
-      return 0
-    }
-  done
   return 1
 }
 
@@ -325,9 +358,10 @@ load_source_descriptor() {
 
 list_source_ids() {
   local distro="$1"
-  local source_file
+  local source_file source_id
   while IFS= read -r source_file; do
-    awk -F= '$1=="SOURCE_ID"{gsub(/"/, "", $2); print $2}' "$source_file"
+    descriptor_value_from_file "$source_file" SOURCE_ID source_id || continue
+    [[ -n "$source_id" ]] && printf '%s\n' "$source_id"
   done < <(list_source_files "$distro")
 }
 
@@ -379,6 +413,7 @@ validate_source_descriptor() {
 validate_source_catalog() {
   local distro="$1"
   local source_file
+  load_source_file_cache "$distro"
   while IFS= read -r source_file; do
     validate_source_descriptor "$distro" "$source_file"
   done < <(list_source_files "$distro")
@@ -389,25 +424,28 @@ list_bundle_files() {
   find "$ROOT_DIR/bundles/$distro" -type f -name '*.bundle' | sort
 }
 
+load_bundle_file_cache() {
+  local distro="$1"
+  [[ -n "${BUNDLE_FILE_CACHE_LOADED[$distro]:-}" ]] && return 0
+
+  local bundle_file bundle_id
+  while IFS= read -r bundle_file; do
+    descriptor_value_from_file "$bundle_file" BUNDLE_ID bundle_id || continue
+    [[ -n "$bundle_id" ]] || continue
+    BUNDLE_FILE_CACHE["$distro:$bundle_id"]="$bundle_file"
+  done < <(list_bundle_files "$distro")
+  BUNDLE_FILE_CACHE_LOADED["$distro"]=1
+}
+
 bundle_file_for_id() {
   local distro="$1"
   local bundle_id="$2"
   local cache_key="$distro:$bundle_id"
+  load_bundle_file_cache "$distro"
   if [[ -n "${BUNDLE_FILE_CACHE[$cache_key]:-}" ]]; then
     printf '%s\n' "${BUNDLE_FILE_CACHE[$cache_key]}"
     return 0
   fi
-
-  local bundle_file
-  for bundle_file in $(list_bundle_files "$distro"); do
-    local current_id=""
-    current_id="$(awk -F= '$1=="BUNDLE_ID"{gsub(/"/, "", $2); print $2}' "$bundle_file")"
-    [[ "$current_id" == "$bundle_id" ]] && {
-      BUNDLE_FILE_CACHE["$cache_key"]="$bundle_file"
-      printf '%s\n' "$bundle_file"
-      return 0
-    }
-  done
   return 1
 }
 
@@ -470,6 +508,7 @@ validate_bundle_descriptor() {
 validate_bundle_catalog() {
   local distro="$1"
   local bundle_file
+  load_bundle_file_cache "$distro"
   while IFS= read -r bundle_file; do
     validate_bundle_descriptor "$distro" "$bundle_file"
   done < <(list_bundle_files "$distro")
@@ -499,15 +538,13 @@ validate_choice_catalog() {
   while IFS= read -r line || [[ -n "$line" ]]; do
     line_no=$((line_no + 1))
     [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
-    local field_count
-    field_count="$(awk -F'\t' '{print NF}' <<<"$line")"
+    local without_tabs field_count
+    without_tabs="${line//$'\t'/}"
+    field_count=$(( ${#line} - ${#without_tabs} + 1 ))
     [[ "$field_count" -eq 5 ]] || die "Invalid catalog row at $catalog:$line_no"
-    local id label default_flag bundle_ids description
-    id="$(choice_field "$line" 1)"
-    label="$(choice_field "$line" 2)"
-    default_flag="$(choice_field "$line" 3)"
-    bundle_ids="$(choice_field "$line" 4)"
-    description="$(choice_field "$line" 5)"
+    local field_line id label default_flag bundle_ids description
+    field_line="${line//$'\t'/$'\x1f'}"
+    IFS=$'\x1f' read -r id label default_flag bundle_ids description <<<"$field_line"
     [[ -n "$id" && -n "$label" && -n "$default_flag" && -n "$description" ]] || die "Invalid empty field in $catalog:$line_no"
     local bundle_id
     while IFS= read -r bundle_id; do
@@ -563,7 +600,10 @@ choice_record() {
 choice_field() {
   local line="$1"
   local field_index="$2"
-  awk -F'\t' -v field_index="$field_index" '{print $field_index}' <<<"$line"
+  local -a fields=()
+  line="${line//$'\t'/$'\x1f'}"
+  IFS=$'\x1f' read -r -a fields <<<"$line"
+  printf '%s\n' "${fields[$((field_index - 1))]:-}"
 }
 
 category_names() {

@@ -147,8 +147,8 @@ setup() {
     return 1
   }
 
-  module_30_packages
-  module_32_optional_packages
+  run_without_bats_debug_trap module_30_packages
+  run_without_bats_debug_trap module_32_optional_packages
 
   [[ "${package_install_calls[0]}" == dnf:* ]]
   [[ " ${package_install_calls[0]#*:} " == *" tuned-ppd "* ]]
@@ -257,28 +257,24 @@ setup() {
   build_fedora_plan
   DRY_RUN=0
 
-  set +e
-  output="$(
-    package_install_idempotent() {
-      local backend="$1"
-      shift
-      printf 'install:%s:%s\n' "$backend" "$*"
-      return 1
-    }
-    distro_service_exists() {
-      printf 'unexpected-service-check:%s\n' "$1"
-      return 0
-    }
-    detect_enabled_display_manager() {
-      return 1
-    }
-    run_cmd_as_root() {
-      printf 'unexpected-cmd:%s\n' "$*"
-    }
-    module_30_packages
-  )"
-  status=$?
-  set -e
+  package_install_idempotent() {
+    local backend="$1"
+    shift
+    printf 'install:%s:%s\n' "$backend" "$*"
+    return 1
+  }
+  distro_service_exists() {
+    printf 'unexpected-service-check:%s\n' "$1"
+    return 0
+  }
+  detect_enabled_display_manager() {
+    return 1
+  }
+  run_cmd_as_root() {
+    printf 'unexpected-cmd:%s\n' "$*"
+  }
+
+  capture_without_bats_debug_trap output status module_30_packages
 
   [ "$status" -ne 0 ]
   assert_contains "$output" "install:dnf:"
@@ -344,34 +340,30 @@ setup() {
   build_fedora_plan
   DRY_RUN=0
 
-  set +e
-  output="$(
-    package_install_idempotent() {
-      local backend="$1"
-      shift
-      printf 'install:%s:%s\n' "$backend" "$*"
-      return 0
-    }
-    command() {
-      [[ "$1" == "-v" && "${2:-}" == "niri" ]] && return 1
-      builtin command "$@"
-    }
-    distro_service_exists() {
-      return 0
-    }
-    detect_enabled_display_manager() {
-      return 1
-    }
-    run_cmd_as_root() {
-      printf 'cmd:%s\n' "$*"
-    }
-    enable_required_system_service_now() {
-      printf 'service:%s\n' "$1"
-    }
-    module_30_packages
-  )"
-  status=$?
-  set -e
+  package_install_idempotent() {
+    local backend="$1"
+    shift
+    printf 'install:%s:%s\n' "$backend" "$*"
+    return 0
+  }
+  command() {
+    [[ "$1" == "-v" && "${2:-}" == "niri" ]] && return 1
+    builtin command "$@"
+  }
+  distro_service_exists() {
+    return 0
+  }
+  detect_enabled_display_manager() {
+    return 1
+  }
+  run_cmd_as_root() {
+    printf 'cmd:%s\n' "$*"
+  }
+  enable_required_system_service_now() {
+    printf 'service:%s\n' "$1"
+  }
+
+  capture_without_bats_debug_trap output status module_30_packages
 
   [ "$status" -ne 0 ]
   grep -F 'install:dnf:' <<<"$output" | grep -F ' niri ' >/dev/null

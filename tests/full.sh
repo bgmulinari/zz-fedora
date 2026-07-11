@@ -4,6 +4,9 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# shellcheck source=helpers/runner.bash
+source "$ROOT_DIR/tests/helpers/runner.bash"
+
 if ! command -v bats >/dev/null 2>&1; then
   printf 'bats is required to run tests. On Fedora: sudo dnf install bats\n' >&2
   exit 127
@@ -40,7 +43,7 @@ if [[ "$show_timings" -eq 1 ]]; then
   printf '\nSuite timings (slowest first):\n'
   sort -nr "$timings_file"
 else
-  bats "${suites[@]}"
+  run_bats_suites "${suites[@]}"
 fi
 
 if command -v shellcheck >/dev/null 2>&1; then

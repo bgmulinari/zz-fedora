@@ -18,7 +18,7 @@ setup() {
     printf '%s:%s\n' "$user" "$(printf '%q ' "$@")" >>"$TEST_ROOT/commands.log"
   }
 
-  configure_default_applications
+  run_without_bats_debug_trap configure_default_applications
 
   assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Showtime.desktop video/mp4"
   assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Showtime.desktop video/x-matroska"
@@ -62,7 +62,7 @@ setup() {
 }
 
 @test "selected browser default is skipped when no browser was selected" {
-  build_fedora_plan
+  set_category_override browsers ""
   PREFERRED_BROWSER=""
   run_cmd_as_user() {
     local user="$1"
@@ -76,7 +76,7 @@ setup() {
 }
 
 @test "single selected browser becomes the default browser" {
-  build_fedora_plan "browser=firefox"
+  set_category_override browsers "firefox"
   PREFERRED_BROWSER=""
   TARGET_USER=test-user
   run_cmd_as_user() {
@@ -92,7 +92,7 @@ setup() {
 }
 
 @test "preferred browser controls default when multiple browsers are selected" {
-  build_fedora_plan "browser=firefox,brave"
+  set_category_override browsers "firefox,brave"
   PREFERRED_BROWSER="brave"
   TARGET_USER=test-user
   run_cmd_as_user() {
@@ -367,14 +367,14 @@ EOF
   register_first_run_hook
   assert_file_contains "$TARGET_HOME/.config/autostart/zz-first-run.desktop" "Exec=$TARGET_HOME/.local/bin/zz first-run"
 
-  module_80_first_run
+  run_without_bats_debug_trap module_80_first_run
   [[ -f "$(first_run_marker)" ]]
   [[ ! -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user daemon-reload"
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user enable --now app-com.mitchellh.ghostty.service"
 
   : >"$TEST_ROOT/first-run-commands.log"
-  module_80_first_run
+  run_without_bats_debug_trap module_80_first_run
   [[ ! -s "$TEST_ROOT/first-run-commands.log" ]]
 }
 

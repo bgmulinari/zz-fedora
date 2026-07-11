@@ -70,6 +70,44 @@ reset_test_selections() {
   done
 }
 
+run_without_bats_debug_trap() {
+  local saved_debug_trap
+  saved_debug_trap="$(trap -p DEBUG)"
+  trap - DEBUG
+  "$@"
+  local command_status=$?
+  if [[ -n "$saved_debug_trap" ]]; then
+    eval "$saved_debug_trap"
+  fi
+  return "$command_status"
+}
+
+capture_without_bats_debug_trap() {
+  local output_name="$1"
+  local status_name="$2"
+  shift 2
+  local -n output_ref="$output_name"
+  local -n status_ref="$status_name"
+  local saved_debug_trap captured command_status had_errexit=0
+
+  saved_debug_trap="$(trap -p DEBUG)"
+  [[ "$-" == *e* ]] && had_errexit=1
+  trap - DEBUG
+  set +e
+  captured="$("$@" 2>&1)"
+  command_status=$?
+  if [[ "$had_errexit" -eq 1 ]]; then
+    set -e
+  else
+    set +e
+  fi
+  if [[ -n "$saved_debug_trap" ]]; then
+    eval "$saved_debug_trap"
+  fi
+  output_ref="$captured"
+  status_ref="$command_status"
+}
+
 build_fedora_plan() {
   DISTRO=fedora
   COMMAND="${COMMAND:-install}"
@@ -87,7 +125,10 @@ build_fedora_plan() {
   for selection in "$@"; do
     cache_key+="__${selection//[^A-Za-z0-9_.=-]/_}"
   done
-  cache_root="${BATS_RUN_TMPDIR:-${BATS_TMPDIR:-/tmp}/zz-linux-setup-plan-cache-${BATS_ROOT_PID:-$PPID}}"
+  local cache_namespace="${BATS_TEST_FILENAME:-standalone}"
+  cache_namespace="${cache_namespace##*/}"
+  cache_namespace="${cache_namespace//[^A-Za-z0-9_.-]/_}"
+  cache_root="${BATS_RUN_TMPDIR:-${BATS_TMPDIR:-/tmp}/zz-linux-setup-plan-cache-${BATS_ROOT_PID:-$PPID}}/$cache_namespace"
   if [[ "${ZZ_TEST_CONFLICT_PREVIEW:-0}" -ne 1 && -n "$cache_root" ]]; then
     cache_dir="$cache_root/$cache_key"
     if [[ -f "$cache_dir/.complete" ]]; then
@@ -107,7 +148,7 @@ build_fedora_plan() {
   for selection in "$@"; do
     parse_select_arg "$selection"
   done
-  build_plan_from_selections
+  run_without_bats_debug_trap build_plan_from_selections
 
   if [[ "${ZZ_TEST_CONFLICT_PREVIEW:-0}" -ne 1 && -n "${cache_root:-}" ]]; then
     cache_dir="$cache_root/$cache_key"
@@ -205,4 +246,21 @@ assert_equal() {
 assert_unique_file() {
   local file="$1"
   assert_equal "$(sort -u "$file" | wc -l | tr -d ' ')" "$(wc -l <"$file" | tr -d ' ')"
+}
+
+assert_base_manifests_in_plan() {
+  local distro="$1"
+  local base_var="BASE_BUNDLE_IDS_${distro}"
+  local -n base_bundle_ids_ref="$base_var"
+  local bundle_id plan_file base_item
+
+  for bundle_id in "${base_bundle_ids_ref[@]}"; do
+    assert_plan_has "$PLAN_DIR/bundles.list" "$bundle_id"
+    load_bundle_descriptor "$distro" "$bundle_id"
+    plan_file="$(package_file_for_backend "$BUNDLE_INSTALLER")"
+    while IFS= read -r base_item; do
+      [[ -n "$base_item" ]] || continue
+      assert_plan_has "$plan_file" "$base_item"
+    done < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
+  done
 }

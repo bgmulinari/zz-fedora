@@ -49,8 +49,10 @@ backend_prerequisite_items() {
 append_plan_entries() {
   local destination="$1"
   shift
-  mkdir -p "$(dirname "$destination")"
-  touch "$destination"
+  local destination_dir="."
+  [[ "$destination" == */* ]] && destination_dir="${destination%/*}"
+  [[ -d "$destination_dir" ]] || mkdir -p "$destination_dir"
+  [[ -e "$destination" ]] || : >"$destination"
 
   local -A seen=()
   local existing
@@ -68,7 +70,9 @@ append_plan_entries() {
     seen["$item"]=1
     changed=1
   done
-  [[ "$changed" -eq 0 ]] || sort -u "$destination" -o "$destination"
+  if [[ "$changed" -ne 0 && "${DEFER_PLAN_SORT:-0}" -ne 1 ]]; then
+    sort -u "$destination" -o "$destination"
+  fi
 }
 
 read_plan_file() {

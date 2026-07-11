@@ -117,7 +117,7 @@ setup() {
 
   ZZ_TEST_CONFLICT_PREVIEW=1
   build_fedora_plan
-  generate_readiness_status
+  run_without_bats_debug_trap generate_readiness_status
 
   assert_file_contains "$(readiness_file)" $'config-conflict\t~/.bashrc\tplanned-backup\tinfo\tshell:backup-before-stow'
   refute_file_contains "$(readiness_file)" $'config-conflict\t~/.bashrc\tconflict\twarn'
@@ -142,35 +142,31 @@ setup() {
   COMMAND=doctor
   DRY_RUN=0
 
-  set +e
-  output="$({
-    doctor_check_command() {
-      if [[ "$1" == "niri" ]]; then
-        printf '[warn] missing command %s\n' "$1"
-        return 1
-      fi
-      command -v "$1" >/dev/null 2>&1
-    }
-    doctor_check_file() {
-      if [[ "$1" == "/usr/share/wayland-sessions/niri.desktop" ]]; then
-        printf '[warn] missing file %s\n' "$1"
-        return 1
-      fi
-      [[ -f "$1" ]]
-    }
-    systemctl() {
-      [[ "$1" == "is-enabled" && "$2" != "greetd" ]]
-    }
-    detect_enabled_display_manager() {
+  doctor_check_command() {
+    if [[ "$1" == "niri" ]]; then
+      printf '[warn] missing command %s\n' "$1"
       return 1
-    }
-    run_cmd_as_root() {
-      return 0
-    }
-    module_90_doctor
-  } 2>&1)"
-  status=$?
-  set -e
+    fi
+    command -v "$1" >/dev/null 2>&1
+  }
+  doctor_check_file() {
+    if [[ "$1" == "/usr/share/wayland-sessions/niri.desktop" ]]; then
+      printf '[warn] missing file %s\n' "$1"
+      return 1
+    fi
+    [[ -f "$1" ]]
+  }
+  systemctl() {
+    [[ "$1" == "is-enabled" && "$2" != "greetd" ]]
+  }
+  detect_enabled_display_manager() {
+    return 1
+  }
+  run_cmd_as_root() {
+    return 0
+  }
+
+  capture_without_bats_debug_trap output status module_90_doctor
 
   [ "$status" -ne 0 ]
   assert_contains "$output" "missing command niri"

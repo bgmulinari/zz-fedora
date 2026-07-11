@@ -7,6 +7,27 @@ setup() {
   source_core
 }
 
+@test "planner fixture restores Bats debug tracing" {
+  local debug_trap_before debug_trap_after shell_flags_before
+  debug_trap_before="$(trap -p DEBUG)"
+  shell_flags_before="$-"
+
+  run_without_bats_debug_trap true
+
+  fixture_failure() {
+    printf 'fixture output\n'
+    return 7
+  }
+  local captured_output captured_status
+  capture_without_bats_debug_trap captured_output captured_status fixture_failure
+
+  debug_trap_after="$(trap -p DEBUG)"
+  assert_equal "$debug_trap_before" "$debug_trap_after"
+  assert_equal "$shell_flags_before" "$-"
+  assert_equal "fixture output" "$captured_output"
+  assert_equal "7" "$captured_status"
+}
+
 @test "Fedora base plan includes protected base desktop bundles and rationale" {
   build_fedora_plan
 
@@ -139,29 +160,17 @@ setup() {
 }
 
 @test "browser and development selections add their sources and packages" {
-  build_fedora_plan "browser=brave" "dev=vscode,lazygit" "ai=codex"
+  build_fedora_plan "browser=brave,firefox" "dev=vscode,lazygit" "ai=codex"
 
+  assert_plan_has "$PLAN_DIR/bundles.list" "browser-firefox"
   assert_plan_has "$PLAN_DIR/sources/fedora-vendor.list" "vendor:brave"
   assert_plan_has "$PLAN_DIR/sources/fedora-vendor.list" "vendor:vscode"
   assert_plan_has "$PLAN_DIR/sources/fedora-copr.list" "copr:dejan/lazygit"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "brave-browser"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "firefox"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "code"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "lazygit"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "npm-global:@openai/codex"
-}
-
-@test "Firefox browser selection adds Firefox package bundle" {
-  build_fedora_plan "browser=firefox"
-
-  assert_plan_has "$PLAN_DIR/bundles.list" "browser-firefox"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "firefox"
-}
-
-@test "dotnet tools selection automatically includes SDK action" {
-  build_fedora_plan "dotnet=tools"
-
-  assert_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-sdk"
-  assert_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-tools"
 }
 
 @test "plan files stay unique after repeated overlapping selections" {
@@ -174,19 +183,11 @@ setup() {
   assert_unique_file "$PLAN_DIR/services/system-enable-now.list"
   assert_unique_file "$PLAN_DIR/stow/packages.list"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/share/applications/nvim.desktop"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-sdk"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-tools"
 }
 
 @test "base manifests are always represented in the generated plan" {
   build_fedora_plan
-
-  local bundle_id plan_file base_item
-  for bundle_id in "${BASE_BUNDLE_IDS_fedora[@]}"; do
-    assert_plan_has "$PLAN_DIR/bundles.list" "$bundle_id"
-    load_bundle_descriptor fedora "$bundle_id"
-    plan_file="$(package_file_for_backend "$BUNDLE_INSTALLER")"
-    while IFS= read -r base_item; do
-      [[ -n "$base_item" ]] || continue
-      assert_plan_has "$plan_file" "$base_item"
-    done < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
-  done
+  run_without_bats_debug_trap assert_base_manifests_in_plan fedora
 }

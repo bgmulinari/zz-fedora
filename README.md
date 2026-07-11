@@ -248,4 +248,4 @@ Run the full regression suite with:
 ./tests/profile.sh
 ```
 
-`tests/full.sh` runs all Bats suites and `shellcheck` when available. `tests/profile.sh` prints suite timings and fails when a Bats file exceeds `ZZ_TEST_PROFILE_THRESHOLD`, defaulting to 15 seconds.
+`tests/full.sh` runs all Bats suites and `shellcheck` when available. When GNU Parallel or `rush` is installed, smoke and full run independent test files concurrently while preserving serial order within each file; set `ZZ_TEST_JOBS=1` to force a sequential run or another positive integer to control concurrency. `tests/profile.sh` stays sequential, prints suite timings, and fails when a Bats file exceeds `ZZ_TEST_PROFILE_THRESHOLD`, defaulting to 15 seconds.
