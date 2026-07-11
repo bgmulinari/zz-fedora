@@ -212,11 +212,15 @@ SH
   cat >"$fake_bin/rsync" <<'SH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
-[[ " $* " == *" --files-from=- "* ]] && cat >/dev/null
+staging_payload=0
+if [[ " $* " == *" --files-from=- "* ]]; then
+  staging_payload=1
+  cat >/dev/null
+fi
 src=${@: -2:1}
 dest=${@: -1}
 mkdir -p "$dest"
-if [[ "$src" == */zz-fedora/ ]]; then
+if [[ "$staging_payload" -eq 1 ]]; then
   printf '#!/usr/bin/env bash\n' >"$dest/install.sh"
   chmod +x "$dest/install.sh"
 fi
@@ -251,6 +255,9 @@ SH
     --output "$output_iso" \
     --skip-mkefiboot
 
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
   [ "$status" -eq 0 ]
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "--skip-mkefiboot"
 }

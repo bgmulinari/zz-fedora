@@ -10,6 +10,9 @@ setup() {
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
     bash "$ROOT_DIR/install.sh" install --dry-run --no-tui
 
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
   [ "$status" -eq 0 ]
   assert_contains "$output" "==> [1/9] Preflight"
   assert_contains "$output" "==> [4/9] Base Setup"
