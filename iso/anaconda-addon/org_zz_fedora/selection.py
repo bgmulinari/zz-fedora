@@ -1,6 +1,7 @@
 """Choice catalog and selection-file helpers for the Anaconda add-on."""
 
 import os
+import tempfile
 from pathlib import Path
 
 from org_zz_fedora.constants import CATEGORY_ORDER, SELECTION_FILE
@@ -149,7 +150,11 @@ def read_state(categories=None):
             elif key == "preferred_browser":
                 preferred_browser = value
 
-    selected_browsers = selections.get("browsers", [])
+    selected_browsers = [
+        item
+        for item in selections.get("browsers", [])
+        if item in valid_ids.get("browsers", set())
+    ]
     if preferred_browser not in selected_browsers:
         preferred_browser = ""
 
@@ -168,23 +173,42 @@ def write_state(enabled, selections, preferred_browser=""):
 
     categories = read_categories()
     valid_ids = _valid_choice_ids(categories)
-    selected_browsers = selections.get("browsers", [])
+    selected_browsers = [
+        item
+        for item in selections.get("browsers", [])
+        if item in valid_ids.get("browsers", set())
+    ]
     if preferred_browser not in selected_browsers:
         preferred_browser = ""
 
-    os.makedirs(os.path.dirname(SELECTION_FILE), exist_ok=True)
-    with open(SELECTION_FILE, "w", encoding="utf-8") as state_file:
-        state_file.write("selected=1\n")
-        for category in categories:
-            selected_ids = [
-                item
-                for item in selections.get(category.id, [])
-                if item in valid_ids[category.id]
-            ]
-            state_file.write(
-                "select.%s=%s\n" % (category.id, ",".join(selected_ids))
-            )
-        state_file.write("preferred_browser=%s\n" % preferred_browser)
+    state_dir = os.path.dirname(SELECTION_FILE)
+    os.makedirs(state_dir, mode=0o700, exist_ok=True)
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=state_dir,
+            prefix=".install-selected.",
+            delete=False,
+        ) as state_file:
+            temporary_path = state_file.name
+            state_file.write("selected=1\n")
+            for category in categories:
+                selected_ids = [
+                    item
+                    for item in selections.get(category.id, [])
+                    if item in valid_ids[category.id]
+                ]
+                state_file.write(
+                    "select.%s=%s\n" % (category.id, ",".join(selected_ids))
+                )
+            state_file.write("preferred_browser=%s\n" % preferred_browser)
+        os.chmod(temporary_path, 0o600)
+        os.replace(temporary_path, SELECTION_FILE)
+    finally:
+        if temporary_path and os.path.exists(temporary_path):
+            os.unlink(temporary_path)
 
 
 def selected_choice_count(selections):

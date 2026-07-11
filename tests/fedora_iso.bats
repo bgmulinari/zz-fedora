@@ -14,6 +14,7 @@ setup() {
 #!/usr/bin/env bash
 set -Eeuo pipefail
 printf '%s\n' "$@" >>"$ZZ_TEST_RSYNC_LOG"
+[[ " $* " == *" --files-from=- "* ]] && cat >/dev/null
 src=${@: -2:1}
 dest=${@: -1}
 mkdir -p "$dest"
@@ -26,6 +27,8 @@ elif [[ "$src" == */choices/ ]]; then
   printf 'firefox\tFirefox\t0\tbrowser-firefox\tFedora official Firefox\n' >"$dest/browsers.conf"
 else
   printf 'payload\n' >"$dest/payload-marker"
+  printf '#!/usr/bin/env bash\n' >"$dest/install.sh"
+  chmod +x "$dest/install.sh"
 fi
 SH
   chmod +x "$fake_bin/rsync"
@@ -139,15 +142,21 @@ SH
   input_iso="$TEST_ROOT/Fedora-Everything-netinst.iso"
   output_iso="$TEST_ROOT/zz-fedora.iso"
   touch "$input_iso"
+  input_sha256="$(sha256sum "$input_iso" | awk '{print $1}')"
   export ZZ_TEST_RSYNC_LOG="$TEST_ROOT/rsync.log"
   export ZZ_TEST_MKKSISO_LOG="$TEST_ROOT/mkksiso.log"
 
   run env PATH="$fake_bin:$PATH" "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" \
     --input "$input_iso" \
+    --input-sha256 "$input_sha256" \
     --output "$output_iso"
 
-  [ "$status" -eq 0 ]
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+    return "$status"
+  fi
   assert_contains "$output" "Created $output_iso"
+  assert_contains "$output" "Verified input SHA-256: $input_sha256"
   assert_file_contains "$output_iso" "mock iso"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "ks_has_release=yes"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "add_count=2"
@@ -162,11 +171,38 @@ SH
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "dbus_conf_in_product=yes"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "dbus_service_in_product=yes"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "buildstamp_version_in_product=yes"
-  refute_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=.git/"
-  assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=downloads/"
-  assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=release/"
-  assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=test-artifacts/"
-  assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--exclude=*.iso"
+  assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--from0"
+  assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--files-from=-"
+}
+
+@test "ISO runtime payload contains only tracked allowlisted files" {
+  command -v git >/dev/null 2>&1 || skip "git is not installed"
+  command -v rsync >/dev/null 2>&1 || skip "rsync is not installed"
+
+  fixture="$TEST_ROOT/payload-repo"
+  destination="$TEST_ROOT/payload"
+  mkdir -p "$fixture/lib" "$fixture/tests" "$fixture/logs"
+  printf '#!/usr/bin/env bash\n' >"$fixture/install.sh"
+  chmod +x "$fixture/install.sh"
+  printf 'runtime\n' >"$fixture/lib/runtime.sh"
+  printf 'test\n' >"$fixture/tests/not-runtime.bats"
+  printf 'secret\n' >"$fixture/.env"
+  printf 'log\n' >"$fixture/logs/local.log"
+  git -C "$fixture" init -q
+  git -C "$fixture" add install.sh lib/runtime.sh tests/not-runtime.bats
+
+  # shellcheck source=../scripts/lib/iso-common.sh
+  source "$ROOT_DIR/scripts/lib/iso-common.sh"
+  ISO_TOOL_NAME="payload-test"
+  iso_stage_tracked_runtime_payload "$fixture" "$destination"
+
+  [[ -x "$destination/install.sh" ]]
+  [[ -f "$destination/lib/runtime.sh" ]]
+  [[ ! -e "$destination/.git" ]]
+  [[ ! -e "$destination/.env" ]]
+  [[ ! -e "$destination/logs" ]]
+  [[ ! -e "$destination/tests" ]]
+  assert_file_contains "$destination/config/iso-payload.conf" "format=1"
 }
 
 @test "Fedora ISO builder forwards development skip-mkefiboot flag" {
@@ -176,8 +212,14 @@ SH
   cat >"$fake_bin/rsync" <<'SH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
+[[ " $* " == *" --files-from=- "* ]] && cat >/dev/null
+src=${@: -2:1}
 dest=${@: -1}
 mkdir -p "$dest"
+if [[ "$src" == */zz-fedora/ ]]; then
+  printf '#!/usr/bin/env bash\n' >"$dest/install.sh"
+  chmod +x "$dest/install.sh"
+fi
 SH
   chmod +x "$fake_bin/rsync"
 
@@ -219,7 +261,7 @@ SH
   assert_file_contains "$ks" "network --bootproto=dhcp --activate"
   assert_file_contains "$ks" "firstboot --disable"
   assert_file_contains "$ks" "url --metalink=\"https://mirrors.fedoraproject.org/metalink?repo=fedora-@FEDORA_RELEASE@&arch=@FEDORA_ARCH@\""
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "extract_fedora_iso_metadata"
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "iso_extract_fedora_metadata"
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "render_kickstart_template"
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "addon_data_dir="
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "usr/share/anaconda/dbus/confs"
@@ -237,7 +279,7 @@ SH
 
   assert_file_contains "$addon/constants.py" "ZZ_FEDORA_NAMESPACE"
   assert_file_contains "$addon/constants.py" '(*ADDONS_NAMESPACE, "ZZFedora")'
-  assert_file_contains "$addon/constants.py" 'SELECTION_FILE = "/tmp/zz-fedora-install-selected"'
+  assert_file_contains "$addon/constants.py" 'SELECTION_FILE = "/run/zz-fedora/install-selected"'
   assert_file_contains "$addon/constants.py" '"browsers"'
   assert_file_contains "$addon/service/__main__.py" "org_zz_fedora.service.zz_fedora"
   assert_file_contains "$addon/service/zz_fedora.py" "def install_with_tasks"
@@ -330,11 +372,14 @@ PY
   assert_file_contains "$script" "qemu_args+=(-boot d)"
   assert_file_contains "$script" "display_args=(-display \"vnc=\$vnc_display\")"
   assert_file_contains "$script" "display_args=(-display egl-headless,gl=on -vga none -device virtio-vga-gl)"
-  assert_file_contains "$script" "extract_fedora_iso_metadata \"\$input_iso\""
+  assert_file_contains "$script" "iso_extract_fedora_metadata \"\$input_iso\""
+  assert_file_contains "$script" 'work_dir="$(cd "$work_dir" && pwd)"'
+  assert_file_contains "$script" "ZZ Fedora (9/9): Completed Doctor"
+  assert_file_contains "$script" "ZZ Fedora complete"
   assert_file_contains "$script" "repo=fedora-%s&arch=%s"
   assert_file_contains "$script" "--cmdline \"console=ttyS0,115200n8 inst.cmdline\""
   assert_file_contains "$script" "direct_append+=\" console=ttyS0,115200n8 inst.cmdline\""
-  assert_file_contains "$script" "printf 'selected=1\\n' >/tmp/zz-fedora-install-selected"
+  assert_file_contains "$script" "printf 'selected=1\\n' >/run/zz-fedora/install-selected"
   assert_file_contains "$script" "addon_data_dir="
   assert_file_contains "$script" "usr/share/anaconda/dbus/services"
   assert_file_contains "$script" "SoftwareSelectionSpoke"

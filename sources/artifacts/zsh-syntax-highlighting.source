@@ -1,0 +1,9 @@
+SOURCE_ID="artifact:zsh-syntax-highlighting"
+SOURCE_KIND="artifact"
+SOURCE_LABEL="zsh-syntax-highlighting pinned Git checkout"
+SOURCE_PROJECT="https://github.com/zsh-users/zsh-syntax-highlighting.git@1d85c692615a25fe2293bdd44b34c217d5d2bf04"
+SOURCE_REQUIRED=1
+SOURCE_DESCRIPTION="Pinned zsh-syntax-highlighting plugin checkout"
+SOURCE_GPG_POLICY="pinned-commit"
+SOURCE_BOOTSTRAP_EXCEPTION=0
+SOURCE_REASON="Provides required shell syntax highlighting at an immutable commit"

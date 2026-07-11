@@ -14,9 +14,11 @@ elif [[ "$EUID" -eq 0 && -n "${SUDO_USER:-}" && "${SUDO_USER:-}" != "root" ]]; t
 fi
 RUN_HOME="${RUN_HOME:-$HOME}"
 DOTNET_INSTALL_DIR="${DOTNET_INSTALL_DIR:-$RUN_HOME/.dotnet}"
+DOTNET_INSTALL_COMMIT="4a37a9f9d1a061fc389d6515100336db4e51710e"
+DOTNET_INSTALL_SHA256="082f7685e156738a1b2e2ed8381a621870d4ce8e8c59278034556f05c186eb2e"
 
 DRY_RUN=0
-CLEANUP_AFTER_ALL=1
+CLEANUP_AFTER_ALL=0
 DNF_STAGED=0
 DNF_OFFLINE_SCHEDULED=0
 SUMMARY_PRINTED=0
@@ -30,7 +32,7 @@ Usage:
   zz update <target> [options]
 
 Targets:
-  all           Run dnf, flatpak, brew, npm, dotnet, claude, and cleanup.
+  all           Run dnf, flatpak, brew, npm, dotnet, and claude.
   dnf           Stage Fedora package updates for an offline upgrade.
   flatpak       Update Flatpak apps and runtimes.
   brew          Update Homebrew formulae.
@@ -43,7 +45,8 @@ Targets:
 
 Options:
   --dry-run     Print commands without running them.
-  --no-cleanup  Skip cleanup when target is all.
+  --cleanup     Include removal of unused packages when target is all.
+  --no-cleanup  Deprecated compatibility alias; cleanup is skipped by default.
   -h, --help    Show this help.
 EOF
 }
@@ -277,7 +280,7 @@ update_dnf() {
   output_file="$(mktemp)"
   [[ $- == *e* ]] && errexit_was_set=1
   set +e
-  run_root_cmd "$dnf_bin" upgrade -y --refresh --offline 2>&1 | tee "$output_file"
+  run_root_cmd env LC_ALL=C "$dnf_bin" upgrade -y --refresh --offline 2>&1 | tee "$output_file"
   status="${PIPESTATUS[0]}"
   if [[ "$errexit_was_set" -eq 1 ]]; then
     set -e
@@ -318,7 +321,7 @@ update_flatpak() {
   output_file="$(mktemp)"
   [[ $- == *e* ]] && errexit_was_set=1
   set +e
-  run_root_cmd "$flatpak_bin" update -y 2>&1 | tee "$output_file"
+  run_root_cmd env LC_ALL=C "$flatpak_bin" update -y 2>&1 | tee "$output_file"
   status="${PIPESTATUS[0]}"
   if [[ "$errexit_was_set" -eq 1 ]]; then
     set -e
@@ -480,9 +483,14 @@ update_dotnet_sdk() {
     set_update_summary dotnet-sdk failed "release metadata download failed"
     return 1
   fi
-  if ! curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$install_script"; then
+  if ! curl -fsSL "https://raw.githubusercontent.com/dotnet/install-scripts/$DOTNET_INSTALL_COMMIT/src/dotnet-install.sh" -o "$install_script"; then
     rm -f "$metadata" "$install_script"
     set_update_summary dotnet-sdk failed "installer download failed"
+    return 1
+  fi
+  if ! printf '%s  %s\n' "$DOTNET_INSTALL_SHA256" "$install_script" | sha256sum -c -; then
+    rm -f "$metadata" "$install_script"
+    set_update_summary dotnet-sdk failed "installer checksum verification failed"
     return 1
   fi
   if ! chmod 0755 "$install_script"; then
@@ -691,6 +699,9 @@ main() {
         ;;
       --no-cleanup)
         CLEANUP_AFTER_ALL=0
+        ;;
+      --cleanup)
+        CLEANUP_AFTER_ALL=1
         ;;
       -h|--help)
         usage

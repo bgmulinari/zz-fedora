@@ -10,6 +10,7 @@ source_plan_file_for_kind() {
     cisco-openh264) printf '%s/sources/cisco-openh264.list\n' "$PLAN_DIR" ;;
     vendor) printf '%s/sources/vendor.list\n' "$PLAN_DIR" ;;
     flatpak) printf '%s/sources/flatpak-remotes.list\n' "$PLAN_DIR" ;;
+    artifact) printf '%s/sources/artifacts.list\n' "$PLAN_DIR" ;;
     *) die "Unsupported Fedora source kind: $1" ;;
   esac
 }

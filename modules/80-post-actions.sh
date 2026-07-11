@@ -30,14 +30,25 @@ install_user_file_if_changed() {
 }
 
 install_bundled_wallpapers() {
-  local source_file wallpaper_name
+  local source_file wallpaper_name destination
 
   log_progress "Installing bundled wallpapers"
   for source_file in "$ROOT_DIR"/assets/wallpapers/*.{jpg,jpeg,png,webp,avif}; do
     [[ -f "$source_file" ]] || continue
     wallpaper_name="$(basename "$source_file")"
-    install_user_file_if_changed "$source_file" "$TARGET_HOME/.local/share/backgrounds/$wallpaper_name"
+    destination="$TARGET_HOME/.local/share/backgrounds/$wallpaper_name"
+    if [[ -e "$destination" || -L "$destination" ]]; then
+      log_info "Preserving existing wallpaper: $destination"
+      continue
+    fi
+    install_user_file_if_changed "$source_file" "$destination"
   done
+
+  source_file="$ROOT_DIR/assets/wallpapers/PROVENANCE.md"
+  destination="$TARGET_HOME/.local/share/backgrounds/PROVENANCE.md"
+  if [[ -f "$source_file" && ! -e "$destination" && ! -L "$destination" ]]; then
+    install_user_file_if_changed "$source_file" "$destination"
+  fi
 }
 
 plan_has_any_backend_entry() {

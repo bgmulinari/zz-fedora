@@ -119,6 +119,38 @@ EOF
   [ "$status" -ne 0 ]
 }
 
+@test "choice validation rejects duplicate IDs and invalid default flags" {
+  local fixture_catalog="$TEST_ROOT/choices.conf"
+  choice_catalog_path() {
+    printf '%s\n' "$fixture_catalog"
+  }
+
+  printf 'one\tOne\t2\t\tInvalid default\n' >"$fixture_catalog"
+  run validate_choice_catalog browsers
+  [ "$status" -ne 0 ]
+
+  printf '%s\n' \
+    $'one\tOne\t0\t\tFirst' \
+    $'one\tOne again\t0\t\tDuplicate' \
+    >"$fixture_catalog"
+  run validate_choice_catalog browsers
+  [ "$status" -ne 0 ]
+}
+
+@test "base shell artifacts use pinned commit trust policies" {
+  local source_id
+  for source_id in \
+    artifact:oh-my-zsh \
+    artifact:zsh-autosuggestions \
+    artifact:zsh-syntax-highlighting; do
+    load_source_descriptor "$source_id"
+    assert_equal "artifact" "$SOURCE_KIND"
+    assert_equal "pinned-commit" "$SOURCE_GPG_POLICY"
+    assert_equal "1" "$SOURCE_REQUIRED"
+    [[ "$SOURCE_PROJECT" == *@???????????????????????????????????????? ]]
+  done
+}
+
 @test "base bundle ids are not exposed as optional choice ids" {
   local base_id choice_file
   for base_id in "${BASE_BUNDLE_IDS[@]}"; do

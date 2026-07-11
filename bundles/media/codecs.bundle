@@ -1,6 +1,7 @@
 BUNDLE_ID="media-codecs"
 BUNDLE_INSTALLER="action"
 BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS="rpmfusion-free,rpmfusion-nonfree,cisco-openh264"
 BUNDLE_ITEMS_FILE="packages/actions/media-codecs.actions"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Fedora multimedia codec setup"

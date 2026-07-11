@@ -1,0 +1,9 @@
+SOURCE_ID="artifact:npm"
+SOURCE_KIND="artifact"
+SOURCE_LABEL="npm public registry"
+SOURCE_PROJECT="https://registry.npmjs.org"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="Optional globally installed npm packages"
+SOURCE_GPG_POLICY="tls-only"
+SOURCE_BOOTSTRAP_EXCEPTION=0
+SOURCE_REASON="Selected npm tools resolve their current release from the public registry"

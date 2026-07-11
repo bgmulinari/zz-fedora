@@ -175,4 +175,21 @@ setup() {
   set -e
   [ "$status" -ne 0 ]
   assert_contains "$output" "has uncommitted changes"
+
+  git -C "$TEST_ROOT/install" reset --hard -q
+  git -C "$TEST_ROOT/install" remote set-url origin "$TEST_ROOT/other-origin.git"
+  set +e
+  output="$(clone_or_update_repo 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "expected $REPO_URL"
+
+  INSTALL_DIR="$TEST_ROOT/iso-snapshot-install"
+  mkdir -p "$INSTALL_DIR/config"
+  printf 'format=1\n' >"$INSTALL_DIR/config/iso-payload.conf"
+  REF="main"
+  clone_or_update_repo
+  [[ -d "$INSTALL_DIR/.git" ]]
+  compgen -G "$TEST_ROOT/iso-snapshot-install.iso-snapshot.*" >/dev/null
 }

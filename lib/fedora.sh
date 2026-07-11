@@ -11,6 +11,11 @@ fedora_release_file_is_supported() {
 
 require_fedora() {
   fedora_release_file_is_supported /etc/os-release || die "ZZ Fedora requires Fedora Linux"
+  local release architecture
+  release="$(awk -F= '$1=="VERSION_ID"{gsub(/"/, "", $2); print $2}' /etc/os-release)"
+  architecture="$(uname -m)"
+  array_contains "$release" "${SUPPORTED_FEDORA_RELEASES[@]}" || die "Unsupported Fedora release: ${release:-unknown}. Supported: $(join_by ', ' "${SUPPORTED_FEDORA_RELEASES[@]}")"
+  array_contains "$architecture" "${SUPPORTED_ARCHITECTURES[@]}" || die "Unsupported architecture: ${architecture:-unknown}. Supported: $(join_by ', ' "${SUPPORTED_ARCHITECTURES[@]}")"
 }
 
 fedora_enable_sources() {
@@ -150,6 +155,9 @@ EOF
       fi
       ;;
     official)
+      ;;
+    artifact)
+      log_info "External artifact trust policy recorded: $SOURCE_ID ($SOURCE_GPG_POLICY)"
       ;;
     *)
       die "Unsupported Fedora source kind: $SOURCE_KIND"

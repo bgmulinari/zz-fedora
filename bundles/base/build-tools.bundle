@@ -1,6 +1,0 @@
-BUNDLE_ID="base-build-tools"
-BUNDLE_INSTALLER="action"
-BUNDLE_SOURCE_ID=""
-BUNDLE_ITEMS_FILE="packages/actions/base-build-tools.actions"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Fedora development-tools package group"

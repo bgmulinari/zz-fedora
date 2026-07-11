@@ -220,7 +220,7 @@ module_90_doctor() {
     doctor_warn_file "$user_config_home/Code/User/settings.json"
   fi
   doctor_plan_has_entry "$native_plan" "neovim" && doctor_warn_file "$TARGET_HOME/.local/share/applications/nvim.desktop"
-  doctor_warn_file "$TARGET_HOME/.local/share/backgrounds/BlueTide.jpg"
+  doctor_warn_file "$TARGET_HOME/.local/share/backgrounds/Alpenglow.jpg"
   if doctor_noctalia_planned "$native_plan"; then
     doctor_warn_file "$user_config_home/noctalia/config.toml"
     doctor_warn_file "$user_config_home/noctalia/templates/icon-theme-accent"

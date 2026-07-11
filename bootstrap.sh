@@ -86,14 +86,26 @@ parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --repo)
+        (($# >= 2)) || {
+          printf '%s\n' '--repo requires a value' >&2
+          exit 1
+        }
         REPO_URL="$2"
         shift 2
         ;;
       --ref)
+        (($# >= 2)) || {
+          printf '%s\n' '--ref requires a value' >&2
+          exit 1
+        }
         REF="$2"
         shift 2
         ;;
       --dir)
+        (($# >= 2)) || {
+          printf '%s\n' '--dir requires a value' >&2
+          exit 1
+        }
         INSTALL_DIR="$2"
         shift 2
         ;;
@@ -129,8 +141,34 @@ bootstrap_fedora() {
 }
 
 clone_or_update_repo() {
+  if [[ -d "$INSTALL_DIR" && ! -d "$INSTALL_DIR/.git" ]]; then
+    if [[ -f "$INSTALL_DIR/config/iso-payload.conf" ]]; then
+      local snapshot_backup
+      snapshot_backup="${INSTALL_DIR}.iso-snapshot.$(date +%Y%m%d%H%M%S)"
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        printf 'DRY-RUN: move ISO snapshot %s -> %s\n' "$INSTALL_DIR" "$snapshot_backup"
+      else
+        mv "$INSTALL_DIR" "$snapshot_backup"
+        printf 'Moved prior ISO snapshot to %s before cloning the Git repository.\n' "$snapshot_backup"
+      fi
+    else
+      printf 'Refusing to clone into existing non-Git directory: %s\n' "$INSTALL_DIR" >&2
+      exit 1
+    fi
+  fi
   if [[ ! -d "$INSTALL_DIR/.git" ]]; then
     run git clone --filter=blob:none "$REPO_URL" "$INSTALL_DIR"
+  else
+    local existing_origin
+    existing_origin="$(git -C "$INSTALL_DIR" remote get-url origin 2>/dev/null || true)"
+    [[ -n "$existing_origin" ]] || {
+      printf 'Refusing to use %s because it has no origin remote.\n' "$INSTALL_DIR" >&2
+      exit 1
+    }
+    [[ "$existing_origin" == "$REPO_URL" ]] || {
+      printf 'Refusing to use %s because origin is %s, expected %s.\n' "$INSTALL_DIR" "$existing_origin" "$REPO_URL" >&2
+      exit 1
+    }
   fi
   if [[ "$DRY_RUN" -eq 0 && -n "$(git -C "$INSTALL_DIR" status --porcelain)" ]]; then
     printf 'Refusing to update %s because it has uncommitted changes. Commit, stash, or move them before bootstrapping again.\n' "$INSTALL_DIR" >&2

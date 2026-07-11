@@ -4,6 +4,12 @@ set -Eeuo pipefail
 DEFAULT_COMMAND="wizard"
 DEFAULT_TARGET_USER="${SUDO_USER:-$USER}"
 DEFAULT_DESKTOP_APP_PROFILE="auto"
+SUPPORTED_FEDORA_RELEASES=(
+  44
+)
+SUPPORTED_ARCHITECTURES=(
+  x86_64
+)
 DEFAULT_SYSTEM_SERVICES=(
   NetworkManager
   firewalld
@@ -29,7 +35,6 @@ BASE_BUNDLE_IDS=(
   base-desktop-niri
   base-noctalia
   base-ghostty
-  base-ms-fonts
   base-jetbrains-mono-nerd-font
   base-desktop-core
   base-gtk-portals

@@ -1,0 +1,9 @@
+SOURCE_ID="artifact:claude-code"
+SOURCE_KIND="artifact"
+SOURCE_LABEL="Claude Code upstream installer"
+SOURCE_PROJECT="https://claude.ai/install.sh"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="Optional Claude Code vendor installer"
+SOURCE_GPG_POLICY="tls-only"
+SOURCE_BOOTSTRAP_EXCEPTION=0
+SOURCE_REASON="Claude Code is installed through the vendor-maintained rolling installer"

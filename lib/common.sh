@@ -15,7 +15,7 @@ CONFIG_DIR="${CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zz-fedora}"
 LOG_DIR="${LOG_DIR:-$STATE_DIR/logs}"
 PLAN_DIR="$STATE_DIR/plan"
 SAVED_SELECTIONS="$CONFIG_DIR/selections.conf"
-LOCK_DIR="$STATE_DIR/lock"
+LOCK_FILE="$STATE_DIR/install.lock"
 LOG_FILE="${LOG_FILE:-}"
 STATE_OWNER_USER="${STATE_OWNER_USER:-}"
 
@@ -49,6 +49,7 @@ COMMAND_PREVIEW="${COMMAND_PREVIEW:-0}"
 DESKTOP_APP_PROFILE="${DESKTOP_APP_PROFILE:-$DEFAULT_DESKTOP_APP_PROFILE}"
 PREFERRED_BROWSER="${PREFERRED_BROWSER:-}"
 LOCK_ACQUIRED="${LOCK_ACQUIRED:-0}"
+LOCK_FD="${LOCK_FD:-}"
 FAILURE_SUMMARY_PRINTED="${FAILURE_SUMMARY_PRINTED:-0}"
 IN_FATAL_HANDLER="${IN_FATAL_HANDLER:-0}"
 ACTIVE_STEP_LABEL="${ACTIVE_STEP_LABEL:-}"
@@ -287,6 +288,7 @@ load_source_file_cache() {
   while IFS= read -r source_file; do
     descriptor_value_from_file "$source_file" SOURCE_ID source_id || continue
     [[ -n "$source_id" ]] || continue
+    [[ -z "${SOURCE_FILE_CACHE[$source_id]:-}" ]] || die "Duplicate source ID '$source_id': ${SOURCE_FILE_CACHE[$source_id]} and $source_file"
     SOURCE_FILE_CACHE["$source_id"]="$source_file"
   done < <(list_source_files)
   SOURCE_FILE_CACHE_LOADED[catalog]=1
@@ -345,6 +347,7 @@ validate_source_descriptor() {
   source "$source_file"
 
   [[ -n "${SOURCE_ID:-}" ]] || die "Missing SOURCE_ID in $source_file"
+  [[ "$SOURCE_ID" =~ ^[A-Za-z0-9_.:/-]+$ ]] || die "Invalid SOURCE_ID '$SOURCE_ID' in $source_file"
   [[ -n "${SOURCE_KIND:-}" ]] || die "Missing SOURCE_KIND in $source_file"
   [[ -n "${SOURCE_LABEL:-}" ]] || die "Missing SOURCE_LABEL in $source_file"
   [[ -n "${SOURCE_REQUIRED:-}" ]] || die "Missing SOURCE_REQUIRED in $source_file"
@@ -355,7 +358,7 @@ validate_source_descriptor() {
   [[ "$SOURCE_REQUIRED" == "0" || "$SOURCE_REQUIRED" == "1" ]] || die "Invalid SOURCE_REQUIRED in $source_file"
   [[ "$SOURCE_BOOTSTRAP_EXCEPTION" == "0" || "$SOURCE_BOOTSTRAP_EXCEPTION" == "1" ]] || die "Invalid SOURCE_BOOTSTRAP_EXCEPTION in $source_file"
   case "$SOURCE_GPG_POLICY" in
-    distro-managed|copr-plugin|rpm-gpg-import|repo-gpg-key|flatpak-gpg|unsigned-bootstrap)
+    distro-managed|copr-plugin|rpm-gpg-import|repo-gpg-key|flatpak-gpg|unsigned-bootstrap|pinned-commit|sha256|tls-only)
       ;;
     *)
       die "Invalid SOURCE_GPG_POLICY '$SOURCE_GPG_POLICY' in $source_file"
@@ -365,10 +368,15 @@ validate_source_descriptor() {
     die "Unsigned bootstrap source must set SOURCE_BOOTSTRAP_EXCEPTION=1 in $source_file"
   fi
   case "$SOURCE_KIND" in
-    official|copr|terra|rpmfusion|cisco-openh264|vendor|flatpak)
+    official|copr|terra|rpmfusion|cisco-openh264|vendor|flatpak|artifact)
       ;;
     *)
       die "Unsupported source kind '$SOURCE_KIND' in $source_file"
+      ;;
+  esac
+  case "$SOURCE_KIND" in
+    artifact|copr)
+      [[ -n "${SOURCE_PROJECT:-}" ]] || die "Missing SOURCE_PROJECT for $SOURCE_KIND source in $source_file"
       ;;
   esac
 }
@@ -392,6 +400,7 @@ load_bundle_file_cache() {
   while IFS= read -r bundle_file; do
     descriptor_value_from_file "$bundle_file" BUNDLE_ID bundle_id || continue
     [[ -n "$bundle_id" ]] || continue
+    [[ -z "${BUNDLE_FILE_CACHE[$bundle_id]:-}" ]] || die "Duplicate bundle ID '$bundle_id': ${BUNDLE_FILE_CACHE[$bundle_id]} and $bundle_file"
     BUNDLE_FILE_CACHE["$bundle_id"]="$bundle_file"
   done < <(list_bundle_files)
   BUNDLE_FILE_CACHE_LOADED[catalog]=1
@@ -415,6 +424,8 @@ load_bundle_descriptor() {
     BUNDLE_ID \
     BUNDLE_INSTALLER \
     BUNDLE_SOURCE_ID \
+    BUNDLE_SOURCE_IDS \
+    BUNDLE_DEPENDENCIES \
     BUNDLE_ITEMS_FILE \
     BUNDLE_STOW_PACKAGES \
     BUNDLE_DESCRIPTION
@@ -441,6 +452,8 @@ validate_bundle_descriptor() {
     BUNDLE_ID \
     BUNDLE_INSTALLER \
     BUNDLE_SOURCE_ID \
+    BUNDLE_SOURCE_IDS \
+    BUNDLE_DEPENDENCIES \
     BUNDLE_ITEMS_FILE \
     BUNDLE_STOW_PACKAGES \
     BUNDLE_DESCRIPTION
@@ -448,6 +461,7 @@ validate_bundle_descriptor() {
   source "$bundle_file"
 
   [[ -n "${BUNDLE_ID:-}" ]] || die "Missing BUNDLE_ID in $bundle_file"
+  [[ "$BUNDLE_ID" =~ ^[A-Za-z0-9_.:-]+$ ]] || die "Invalid BUNDLE_ID '$BUNDLE_ID' in $bundle_file"
   [[ -n "${BUNDLE_INSTALLER:-}" ]] || die "Missing BUNDLE_INSTALLER in $bundle_file"
   [[ -n "${BUNDLE_ITEMS_FILE:-}" ]] || die "Missing BUNDLE_ITEMS_FILE in $bundle_file"
   [[ -n "${BUNDLE_DESCRIPTION:-}" ]] || die "Missing BUNDLE_DESCRIPTION in $bundle_file"
@@ -457,6 +471,17 @@ validate_bundle_descriptor() {
   if [[ -n "${BUNDLE_SOURCE_ID:-}" ]]; then
     source_file_for_id "$BUNDLE_SOURCE_ID" >/dev/null || die "Unknown source ID '$BUNDLE_SOURCE_ID' in $bundle_file"
   fi
+  local source_id
+  while IFS= read -r source_id; do
+    [[ -n "$source_id" ]] || continue
+    source_file_for_id "$source_id" >/dev/null || die "Unknown source ID '$source_id' in $bundle_file"
+  done < <(split_csv "${BUNDLE_SOURCE_IDS:-}")
+  local dependency_id
+  while IFS= read -r dependency_id; do
+    [[ -n "$dependency_id" ]] || continue
+    [[ "$dependency_id" != "$BUNDLE_ID" ]] || die "Bundle '$BUNDLE_ID' cannot depend on itself in $bundle_file"
+    bundle_file_for_id "$dependency_id" >/dev/null || die "Unknown bundle dependency '$dependency_id' in $bundle_file"
+  done < <(split_csv "${BUNDLE_DEPENDENCIES:-}")
 }
 
 validate_bundle_catalog() {
@@ -479,6 +504,7 @@ validate_choice_catalog() {
   catalog="$(choice_catalog_path "$category")"
   [[ -f "$catalog" ]] || return 0
   local line
+  local -A seen_ids=()
   local line_no=0
   while IFS= read -r line || [[ -n "$line" ]]; do
     line_no=$((line_no + 1))
@@ -491,6 +517,10 @@ validate_choice_catalog() {
     field_line="${line//$'\t'/$'\x1f'}"
     IFS=$'\x1f' read -r id label default_flag bundle_ids description <<<"$field_line"
     [[ -n "$id" && -n "$label" && -n "$default_flag" && -n "$description" ]] || die "Invalid empty field in $catalog:$line_no"
+    [[ "$id" =~ ^[A-Za-z0-9_.-]+$ ]] || die "Invalid choice ID '$id' in $catalog:$line_no"
+    [[ "$default_flag" == "0" || "$default_flag" == "1" ]] || die "Invalid default flag '$default_flag' in $catalog:$line_no"
+    [[ -z "${seen_ids[$id]:-}" ]] || die "Duplicate choice ID '$id' in $catalog:$line_no"
+    seen_ids["$id"]=1
     local bundle_id
     while IFS= read -r bundle_id; do
       [[ -z "$bundle_id" ]] && continue

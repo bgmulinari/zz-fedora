@@ -28,7 +28,6 @@ action	noctalia-greeter	desktop-service	graphical login	Installs Noctalia Greete
 action	noctalia-v5	noctalia	Noctalia v5 shell	Installs the official Fedora shell package launched by Niri autostart, allowing the beta2 update while it is in testing.
 dnf	ghostty	default-app	default terminal	Provides the default terminal used by keybindings and xdg-terminal-exec.
 dnf	ghostty-shell-integration	default-app	terminal shell integration	Provides Ghostty shell integration scripts for working-directory reporting, prompt marking, and shell-aware terminal behavior.
-action	ms-fonts	theme-font	document compatibility	Installs Microsoft core fonts for common document rendering.
 action	jetbrains-mono-nerd-font	theme-font	terminal and prompt rendering	Installs the pinned Nerd Font used by Ghostty and Starship glyphs.
 flatpak	org.gtk.Gtk3theme.adw-gtk3	theme-font	Flatpak GTK apps	Matches Flatpak GTK3 apps to the base GTK theme.
 flatpak	org.gtk.Gtk3theme.adw-gtk3-dark	theme-font	Flatpak GTK apps	Matches Flatpak GTK3 apps to the base dark GTK theme.

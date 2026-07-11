@@ -73,6 +73,11 @@ readiness_source_status() {
     printf 'planned'
     return 0
   fi
+  load_source_descriptor "$source_id" || true
+  if [[ "${SOURCE_KIND:-}" == "artifact" ]]; then
+    printf 'declared'
+    return 0
+  fi
   if declare -F fedora_repo_enabled >/dev/null 2>&1 && fedora_repo_enabled "$source_id"; then
     printf 'enabled'
   else

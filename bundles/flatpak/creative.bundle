@@ -1,6 +1,0 @@
-BUNDLE_ID="flatpak-creative"
-BUNDLE_INSTALLER="flatpak"
-BUNDLE_SOURCE_ID="flathub"
-BUNDLE_ITEMS_FILE="packages/flatpak/creative.flatpaks"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Creative Flatpaks for Fedora"
