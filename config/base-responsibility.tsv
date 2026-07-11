@@ -24,12 +24,12 @@ dnf	bats	installer-bootstrap	test-runner	Provides the Bats test runner used by t
 dnf	dnf-plugins-core	installer-bootstrap	Fedora source setup	Provides DNF plugins used by COPR and repo configuration.
 dnf	dnf5-plugins	installer-bootstrap	Fedora source setup	Provides DNF5 plugin compatibility for current Fedora releases.
 dnf	niri	niri	Niri session	Provides the compositor and Wayland session entry.
-action	noctalia-greeter-fedora	desktop-service	graphical login	Installs Noctalia Greeter from COPR, configures greetd, and enables the fallback graphical login.
-action	noctalia-v5-fedora	noctalia	Noctalia v5 shell	Installs the official Fedora shell package launched by Niri autostart, allowing the beta2 update while it is in testing.
+action	noctalia-greeter	desktop-service	graphical login	Installs Noctalia Greeter from COPR, configures greetd, and enables the fallback graphical login.
+action	noctalia-v5	noctalia	Noctalia v5 shell	Installs the official Fedora shell package launched by Niri autostart, allowing the beta2 update while it is in testing.
 dnf	ghostty	default-app	default terminal	Provides the default terminal used by keybindings and xdg-terminal-exec.
 dnf	ghostty-shell-integration	default-app	terminal shell integration	Provides Ghostty shell integration scripts for working-directory reporting, prompt marking, and shell-aware terminal behavior.
-action	ms-fonts-fedora	theme-font	document compatibility	Installs Microsoft core fonts for common document rendering.
-action	jetbrains-mono-nerd-font-fedora	theme-font	terminal and prompt rendering	Installs the pinned Nerd Font used by Ghostty and Starship glyphs.
+action	ms-fonts	theme-font	document compatibility	Installs Microsoft core fonts for common document rendering.
+action	jetbrains-mono-nerd-font	theme-font	terminal and prompt rendering	Installs the pinned Nerd Font used by Ghostty and Starship glyphs.
 flatpak	org.gtk.Gtk3theme.adw-gtk3	theme-font	Flatpak GTK apps	Matches Flatpak GTK3 apps to the base GTK theme.
 flatpak	org.gtk.Gtk3theme.adw-gtk3-dark	theme-font	Flatpak GTK apps	Matches Flatpak GTK3 apps to the base dark GTK theme.
 dnf	xwayland-satellite	niri	Xwayland apps under Niri	Provides Xwayland compatibility for the Niri session.

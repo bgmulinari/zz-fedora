@@ -4,7 +4,7 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 violations="$(grep -RInE '(^|[[:space:]])(run_cmd[[:space:]]+sudo|sudo[[:space:]]+)(dnf|systemctl|chsh|rpm|usermod|python3|install|cp|tee|awk)\b' \
-  "$ROOT_DIR/distros" "$ROOT_DIR/modules" "$ROOT_DIR/lib" \
+  "$ROOT_DIR/modules" "$ROOT_DIR/lib" \
   | grep -v 'lib/idempotency.sh' \
   | grep -v 'DRY-RUN:' \
   || true)"
@@ -14,7 +14,7 @@ if [[ -n "$violations" ]]; then
   exit 1
 fi
 
-test_root="$(mktemp -d /tmp/zz-linux-setup-scope.XXXXXX)"
+test_root="$(mktemp -d /tmp/zz-fedora-scope.XXXXXX)"
 trap 'rm -rf "$test_root"' EXIT
 if XDG_STATE_HOME="$test_root/state" XDG_CACHE_HOME="$test_root/cache" XDG_CONFIG_HOME="$test_root/config" \
   LOG_DIR="$test_root/logs" \

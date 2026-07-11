@@ -1,6 +1,6 @@
 ---
 name: promote-noctalia-config
-description: Inspect Noctalia v5 Settings UI overrides and promote portable changes into this repo's managed dotfile. Use when working in zz-linux-setup on Noctalia config, when the user asks what changed in the Noctalia UI, wants UI settings made default, wants overrides reset, or wants to avoid committing generated hardware-specific Noctalia state.
+description: Inspect Noctalia v5 Settings UI overrides and promote portable changes into this repo's managed dotfile. Use when working in zz-fedora on Noctalia config, when the user asks what changed in the Noctalia UI, wants UI settings made default, wants overrides reset, or wants to avoid committing generated hardware-specific Noctalia state.
 ---
 
 # Promote Noctalia Config

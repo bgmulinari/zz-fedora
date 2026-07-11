@@ -1,4 +1,4 @@
-# Managed by zz-linux-setup.
+# Managed by zz-fedora.
 
 if command -v fzf >/dev/null 2>&1; then
   if [[ -n "${ZSH_VERSION:-}" ]]; then

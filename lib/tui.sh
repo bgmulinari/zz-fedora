@@ -51,7 +51,7 @@ tui_ansi() {
 
 tui_banner() {
   local title subtitle warning banner
-  title="$(gum style --bold --foreground 4 "ZZ Linux Setup")"
+  title="$(gum style --bold --foreground 4 "ZZ Fedora")"
   subtitle="Niri + Noctalia desktop bootstrapper"
   warning="$(gum style --foreground 11 "This will install packages and manage selected user config.")"
   banner="$(printf '%s\n%s\n\n%s' "$title" "$subtitle" "$warning")"
@@ -359,11 +359,11 @@ tui_choice_labels_for_category() {
 
   while IFS= read -r choice_id; do
     [[ -n "$choice_id" ]] || continue
-    record="$(choice_record "$DISTRO" "$category" "$choice_id")"
+    record="$(choice_record "$category" "$choice_id")"
     [[ -n "$record" ]] || continue
     label="$(choice_field "$record" 2)"
     [[ -n "$label" ]] && labels+=("$label")
-  done < <(effective_choice_ids "$DISTRO" "$category")
+  done < <(effective_choice_ids "$category")
 
   join_by ", " "${labels[@]}"
 }
@@ -375,7 +375,7 @@ tui_show_install_plan() {
   fi
 
   local native_backend native_packages flatpaks actions sources services dotfiles native_base flatpak_base action_base source_base conflicts first_run
-  native_backend="$(native_backend_for_distro "$DISTRO")"
+  native_backend="$(native_backend)"
   native_packages="$(count_plan_entries "$(package_file_for_backend "$native_backend")")"
   flatpaks="$(count_plan_entries "$PLAN_DIR/flatpak/apps.flatpaks")"
   actions="$(count_plan_entries "$PLAN_DIR/actions/actions.list")"
@@ -394,13 +394,13 @@ tui_show_install_plan() {
   gum style --faint "Detailed plan: $PLAN_DIR/summary.txt"
   printf '\n'
   gum style --bold "Context"
-  printf '  %s %s\n' "$(gum style --foreground 12 '→')" "Distro: ${DISTRO^}"
+  printf '  %s %s\n' "$(gum style --foreground 12 '→')" "Platform: Fedora Linux"
   printf '  %s %s\n' "$(gum style --foreground 12 '→')" "Target user: $TARGET_USER"
 
   printf '\n'
   gum style --bold "Selected Choices"
   local category labels
-  for category in $(category_names "$DISTRO"); do
+  for category in $(category_names); do
     category_always_installed "$category" && continue
     labels="$(tui_choice_labels_for_category "$category")"
     [[ -n "$labels" ]] || continue
@@ -422,7 +422,7 @@ tui_show_install_plan() {
     local trust_exceptions
     trust_exceptions="$(awk -F'\t' '$1=="source" {print $2}' "$PLAN_DIR/base-rationale.tsv" | while IFS= read -r source_id; do
       [[ -n "$source_id" ]] || continue
-      load_source_descriptor "$DISTRO" "$source_id" || continue
+      load_source_descriptor "$source_id" || continue
       [[ "${SOURCE_BOOTSTRAP_EXCEPTION:-0}" -eq 1 ]] && printf '%s (%s)\n' "$SOURCE_ID" "$SOURCE_GPG_POLICY"
     done)"
     if [[ -n "$trust_exceptions" ]]; then
@@ -502,7 +502,7 @@ tui_pick_catalog_choices() {
   local category="$1"
   local header="$2"
   local catalog
-  catalog="$(choice_catalog_path "$DISTRO" "$category")"
+  catalog="$(choice_catalog_path "$category")"
   [[ -f "$catalog" ]] || return 0
 
   local -a options=()
@@ -554,8 +554,7 @@ tui_run_wizard() {
   is_tty || die "Wizard mode requires an interactive TTY. Use install --yes or print-plan instead."
   tui_require_gum
   tui_intro
-  normalize_distro
-  gum style --bold "Detected distro: ${DISTRO^}"
+  gum style --bold "Platform: Fedora Linux"
   gum style --faint "Install target user: $TARGET_USER"
 
   local -a browser_choices=()
@@ -589,7 +588,7 @@ tui_run_wizard() {
     local -a preferred_browser_options=()
     local browser_id record label description
     for browser_id in "${browser_choices[@]}"; do
-      record="$(choice_record "$DISTRO" "browsers" "$browser_id")"
+      record="$(choice_record "browsers" "$browser_id")"
       label="$(choice_field "$record" 2)"
       description="$(choice_field "$record" 5)"
       preferred_browser_options+=("$(tui_choice_option_label "$label" "$description")")

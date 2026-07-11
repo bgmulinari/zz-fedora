@@ -6,12 +6,10 @@ setup() {
   setup_test_env
   source_core
   source_modules
-  DISTRO=fedora
-  load_adapter
 }
 
 @test "KDE Qt theme config uses Noctalia colors and default Yaru icon theme" {
-  build_fedora_plan
+  build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/kde-theme-home"
   mkdir -p "$TARGET_HOME"
@@ -35,7 +33,7 @@ setup() {
 }
 
 @test "installer mode globally enables user services without starting them" {
-  build_fedora_plan
+  build_test_plan
   TARGET_USER="test-user"
   DRY_RUN=0
   ZZ_INSTALLER_DEFER_START_SERVICES=1

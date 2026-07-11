@@ -6,12 +6,10 @@ setup() {
   setup_test_env
   source_core
   source_modules
-  DISTRO=fedora
-  load_adapter
 }
 
 @test "default application setup applies MIME defaults and omits guarded handlers" {
-  build_fedora_plan
+  build_test_plan
   run_cmd_as_user() {
     local user="$1"
     shift
@@ -31,7 +29,7 @@ setup() {
 
 @test "minimal desktop app profile skips full desktop MIME defaults but keeps terminal defaults" {
   DESKTOP_APP_PROFILE=minimal
-  build_fedora_plan
+  build_test_plan
 
   run configure_default_applications
 
@@ -108,7 +106,7 @@ setup() {
 }
 
 @test "Starship seed includes fallback Noctalia palette" {
-  build_fedora_plan
+  build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/starship-home"
   mkdir -p "$TARGET_HOME"
@@ -129,7 +127,7 @@ setup() {
 }
 
 @test "Starship rerun repairs existing Noctalia palette reference" {
-  build_fedora_plan
+  build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/starship-existing-home"
   mkdir -p "$TARGET_HOME/.config"
@@ -149,7 +147,7 @@ setup() {
 }
 
 @test "Ghostty theme seed provides valid Noctalia theme when absent" {
-  build_fedora_plan
+  build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/ghostty-theme-home"
   mkdir -p "$TARGET_HOME"
@@ -168,7 +166,7 @@ setup() {
 }
 
 @test "Ghostty theme seed preserves existing Noctalia theme" {
-  build_fedora_plan
+  build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/ghostty-existing-theme-home"
   mkdir -p "$TARGET_HOME/.config/ghostty/themes"
@@ -187,7 +185,7 @@ setup() {
 }
 
 @test "qtct config uses Noctalia KColorScheme for Qt5 and Qt6" {
-  build_fedora_plan
+  build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/qtct-home"
   mkdir -p "$TARGET_HOME"
@@ -310,7 +308,7 @@ EOF
 }
 
 @test "Niri display config is seeded only when absent" {
-  build_fedora_plan
+  build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/niri-display-home"
   mkdir -p "$TARGET_HOME/.config/niri/cfg"
@@ -345,7 +343,7 @@ EOF
 }
 
 @test "first-run creates marker, removes autostart hook, and stays idempotent" {
-  build_fedora_plan
+  build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/first-run-home"
   mkdir -p "$TARGET_HOME"
@@ -379,7 +377,7 @@ EOF
 }
 
 @test "Flatpak theme access override is applied as user override" {
-  build_fedora_plan
+  build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/flatpak-theme-home"
   DRY_RUN=0

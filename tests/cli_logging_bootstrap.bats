@@ -8,7 +8,7 @@ setup() {
 
 @test "install dry-run keeps base setup before optional work" {
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
-    bash "$ROOT_DIR/install.sh" install --distro fedora --dry-run --no-tui
+    bash "$ROOT_DIR/install.sh" install --dry-run --no-tui
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "==> [1/9] Preflight"
@@ -18,7 +18,7 @@ setup() {
   assert_contains "$output" "==> [9/9] Doctor"
   refute_contains "$output" "DRY-RUN: brew install codex"
   refute_contains "$output" "DRY-RUN: install active .NET SDK channels"
-  assert_contains "$output" "jetbrains-mono-nerd-font-fedora"
+  assert_contains "$output" "jetbrains-mono-nerd-font"
   assert_contains "$output" "sudo systemctl daemon-reload"
   assert_contains "$output" "sudo systemctl set-default graphical.target"
   assert_contains "$output" "sudo systemctl enable --force greetd.service"
@@ -107,7 +107,7 @@ setup() {
     return 1
   }
 
-  output="$(bootstrap_notice fedora)"
+  output="$(bootstrap_notice)"
   assert_contains "$output" "Packages: ca-certificates curl git gum bats dnf-plugins-core dnf5-plugins"
 
   output="$(bootstrap_fedora)"

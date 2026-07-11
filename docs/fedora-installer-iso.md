@@ -1,7 +1,7 @@
 # Fedora Installer ISO
 
 This project can build an online Fedora installer ISO that embeds the current
-checkout and exposes an Anaconda add-on named `ZZ Linux Setup`. This custom ISO
+checkout and exposes an Anaconda add-on named `ZZ Fedora`. This custom ISO
 always installs the managed desktop baseline; the add-on shows the same
 optional package catalogs as the normal setup wizard. An Anaconda D-Bus task
 from the add-on runs the normal `./install.sh install --yes --use-saved` path
@@ -21,18 +21,18 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
   `choices/` so the spoke can render optional package catalogs inside Anaconda.
   It also installs an Anaconda configuration snippet that hides the built-in
   `SoftwareSelectionSpoke`; all optional setup choices are made in the
-  `ZZ Linux Setup` spoke under Anaconda's existing Software section.
+  `ZZ Fedora` spoke under Anaconda's existing Software section.
 - The product image installs D-Bus policy and service activation files for
-  `org.fedoraproject.Anaconda.Addons.ZZLinuxSetup`. Anaconda starts that module
+  `org.fedoraproject.Anaconda.Addons.ZZFedora`. Anaconda starts that module
   with its other add-ons, collects its `install_with_tasks()` task, and displays
   the task's `report_progress()` messages in the normal installer progress UI.
 - The Kickstart leaves disk partitioning, locale, timezone, hostname, root
-  password, user creation, and ZZ Linux Setup execution to Anaconda.
-- The embedded checkout is copied to `~/zz-linux-setup` for the
+  password, user creation, and ZZ Fedora execution to Anaconda.
+- The embedded checkout is copied to `~/zz-fedora` for the
   first regular user created in Anaconda by the add-on task.
 - The add-on writes the chosen optional packages to the normal saved selection
   format. The installer is invoked with `--use-saved`,
-  `--distro fedora --desktop-app-profile full`, and user-scoped state paths so
+  `--desktop-app-profile full`, and user-scoped state paths so
   the result matches the unattended bootstrap baseline plus the Anaconda
   choices.
 - The ISO path sets `ZZ_INSTALLER_APPLY_RELEASE_UPDATES=1`. Before enabling
@@ -54,7 +54,7 @@ Build from a Fedora netinst or DVD ISO:
 ```bash
 scripts/build-fedora-installer-iso.sh \
   --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
-  --output release/zz-linux-setup-fedora.iso
+  --output release/zz-fedora.iso
 ```
 
 For a fully bootable UEFI USB image, run the builder with privileges when your
@@ -63,7 +63,7 @@ Fedora/Lorax version requires it:
 ```bash
 sudo scripts/build-fedora-installer-iso.sh \
   --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
-  --output release/zz-linux-setup-fedora.iso
+  --output release/zz-fedora.iso
 ```
 
 `--skip-mkefiboot` is available for development-only builds where you do not
@@ -74,14 +74,14 @@ need `mkksiso` to update the embedded EFI boot image.
 1. Write the generated ISO to USB.
 2. Boot the Fedora install entry.
 3. Complete the Anaconda screens, including creating a regular user.
-4. Open the `ZZ Linux Setup` Anaconda spoke and select any optional browsers,
+4. Open the `ZZ Fedora` Anaconda spoke and select any optional browsers,
    AI tools, development tools, .NET components, office apps, gaming apps, or
    multimedia packages you want.
 5. Start installation.
 6. The add-on task copies this checkout to the installed system and runs:
 
 ```bash
-./install.sh install --yes --use-saved --distro fedora --desktop-app-profile full --no-tui --target-user "$target_user"
+./install.sh install --yes --use-saved --desktop-app-profile full --no-tui --target-user "$target_user"
 ```
 
 System services are enabled for first boot during ISO installs instead of being
@@ -114,14 +114,14 @@ session; this selects QEMU's headless OpenGL display with `virtio-vga-gl`.
 
 The add-on task wraps the bootstrap with a total timeout and the normal
 per-command timeout so Anaconda fails with logs instead of waiting forever on a
-stuck network or package command. During the ZZ Linux Setup phase, the GTK
+stuck network or package command. During the ZZ Fedora phase, the GTK
 progress label changes as installer steps and substeps start. While a long DNF
 or Flatpak transaction is running, the task also reflects selected package
 manager output, such as dependency resolution, downloads, transaction tests, and
 numbered package operations. When debugging, inspect
-`/root/zz-linux-setup-kickstart.log`, the target user's
-`~/.local/state/zz-linux-setup/logs/latest.log`, and
-`~/.local/state/zz-linux-setup/logs/install-progress.tsv`.
+`/root/zz-fedora-kickstart.log`, the target user's
+`~/.local/state/zz-fedora/logs/latest.log`, and
+`~/.local/state/zz-fedora/logs/install-progress.tsv`.
 
 ## References
 

@@ -1,0 +1,6 @@
+BUNDLE_ID="dev-lazygit"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID="copr:dejan/lazygit"
+BUNDLE_ITEMS_FILE="packages/copr/dejan-lazygit/lazygit.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="lazygit bundle for Fedora"

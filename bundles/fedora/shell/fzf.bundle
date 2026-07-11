@@ -1,6 +1,0 @@
-BUNDLE_ID="shell-fzf"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
-BUNDLE_ITEMS_FILE="packages/fedora/official/shell/fzf.pkgs"
-BUNDLE_STOW_PACKAGES="shell-fzf"
-BUNDLE_DESCRIPTION="fzf bundle for Fedora"

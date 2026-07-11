@@ -17,9 +17,7 @@ module_00_preflight() {
     have_cmd gum || die "gum is required for wizard mode"
   fi
   if [[ "$DRY_RUN" -ne 1 && "$COMMAND" != "print-plan" && "$COMMAND" != "check" && "$COMMAND" != "list-choices" && "$COMMAND" != "list-sources" ]]; then
-    case "$DISTRO" in
-      fedora) have_cmd dnf || die "dnf is required for Fedora installs" ;;
-    esac
+    have_cmd dnf || die "dnf is required for Fedora installs"
   fi
   log_progress "Acquiring installer lock"
   acquire_lock
@@ -27,7 +25,7 @@ module_00_preflight() {
     log_progress "Refreshing elevated command credentials"
     start_sudo_keepalive
   fi
-  printf 'Distro: %s\n' "$DISTRO"
+  printf 'Platform: Fedora Linux\n'
   printf 'Target user: %s\n' "$TARGET_USER"
   printf 'Target home: %s\n' "$TARGET_HOME"
   printf 'Mode: %s\n' "$COMMAND"
@@ -36,7 +34,7 @@ module_00_preflight() {
   printf 'Selected profiles: base\n'
   printf 'Selected choices:\n'
   local category
-  for category in $(category_names "$DISTRO"); do
-    printf '  %s=%s\n' "$category" "$(join_by , $(effective_choice_ids "$DISTRO" "$category"))"
+  for category in $(category_names); do
+    printf '  %s=%s\n' "$category" "$(join_by , $(effective_choice_ids "$category"))"
   done
 }

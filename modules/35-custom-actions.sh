@@ -141,16 +141,14 @@ install_devtunnel() {
 }
 
 install_fedora_docker() {
-  [[ "$DISTRO" == "fedora" ]] || return 0
   log_progress "Removing conflicting Docker packages"
   run_cmd_as_root dnf remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-selinux docker-engine-selinux docker-engine || true
-  if ! distro_repo_enabled docker-ce; then
+  if ! fedora_repo_enabled docker-ce; then
     log_progress "Adding Docker CE repository"
     run_cmd_as_root dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
   fi
   log_progress "Installing Docker Engine packages"
   run_cmd_as_root dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-  configure_docker_post_install
 }
 
 configure_docker_post_install() {
@@ -269,7 +267,6 @@ install_dotnet_tools() {
 }
 
 install_fedora_ms_fonts() {
-  [[ "$DISTRO" == "fedora" ]] || return 0
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: install Microsoft core fonts RPM\n'
     return 0
@@ -325,7 +322,6 @@ jetbrains_mono_nerd_font_installed() {
 }
 
 install_fedora_jetbrains_mono_nerd_font() {
-  [[ "$DISTRO" == "fedora" ]] || return 0
 
   local version="3.4.0"
   local checksum="76f05ff3ace48a464a6ca57977998784ff7bdbb65a6d915d7e401cd3927c493c"
@@ -360,13 +356,11 @@ install_fedora_jetbrains_mono_nerd_font() {
 }
 
 install_fedora_build_tools() {
-  [[ "$DISTRO" == "fedora" ]] || return 0
   log_progress "Installing Fedora development tools group"
   run_cmd_as_root dnf group install -y development-tools
 }
 
 install_fedora_noctalia_v5() {
-  [[ "$DISTRO" == "fedora" ]] || return 0
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: install Noctalia v5 package %s from official Fedora repositories, allowing %s while beta2 is in testing\n' \
@@ -400,12 +394,12 @@ noctalia_fedora_package_is_compatible() {
 noctalia_greeter_action_skipped() {
   local skip_file="$PLAN_DIR/system-skips.tsv"
   [[ -f "$skip_file" ]] || return 1
-  awk -F'\t' '$1 == "action" && $2 == "noctalia-greeter-fedora" { found = 1 } END { exit !found }' "$skip_file"
+  awk -F'\t' '$1 == "action" && $2 == "noctalia-greeter" { found = 1 } END { exit !found }' "$skip_file"
 }
 
 install_fedora_noctalia_greeter_package() {
   log_progress "Installing greetd for Noctalia Greeter"
-  package_install_idempotent "$(native_backend_for_distro "$DISTRO")" greetd || return 1
+  package_install_idempotent "$(native_backend)" greetd || return 1
 
   log_progress "Installing or syncing Noctalia Greeter"
   if rpm -q "$NOCTALIA_GREETER_PACKAGE" >/dev/null 2>&1; then
@@ -534,13 +528,12 @@ prepare_noctalia_greeter_paths() {
 }
 
 install_fedora_noctalia_greeter() {
-  [[ "$DISTRO" == "fedora" ]] || return 0
 
   local existing_display_manager=""
   existing_display_manager="$(detect_enabled_display_manager || true)"
   if [[ -n "$existing_display_manager" ]]; then
     log_info "Existing display manager detected ($existing_display_manager); skipping Noctalia Greeter package and service setup."
-    record_system_skip action noctalia-greeter-fedora "existing display manager: $existing_display_manager"
+    record_system_skip action noctalia-greeter "existing display manager: $existing_display_manager"
     return 0
   fi
 
@@ -566,12 +559,12 @@ install_fedora_noctalia_greeter() {
   command -v noctalia-greeter-apply-appearance >/dev/null 2>&1 || die "Noctalia Greeter package installed, but noctalia-greeter-apply-appearance is not on PATH."
 
   run_cmd_as_root systemctl daemon-reload || return 1
-  if ! distro_service_exists greetd; then
+  if ! fedora_service_exists greetd; then
     log_warn "greetd.service was not detected after Noctalia Greeter install; retrying direct greetd package install."
-    package_install_idempotent "$(native_backend_for_distro "$DISTRO")" greetd || return 1
+    package_install_idempotent "$(native_backend)" greetd || return 1
     run_cmd_as_root systemctl daemon-reload || return 1
   fi
-  distro_service_exists greetd || die "Noctalia Greeter requires greetd.service, but it is still unavailable after package installation."
+  fedora_service_exists greetd || die "Noctalia Greeter requires greetd.service, but it is still unavailable after package installation."
 
   ensure_noctalia_greeter_user
   install_noctalia_greetd_config
@@ -587,7 +580,6 @@ install_fedora_noctalia_greeter() {
 }
 
 install_fedora_media_codecs() {
-  [[ "$DISTRO" == "fedora" ]] || return 0
   log_progress "Replacing Fedora ffmpeg-free with RPM Fusion ffmpeg"
   run_cmd_as_root dnf swap -y ffmpeg-free ffmpeg --allowerasing
   log_progress "Installing GStreamer codec packages"
@@ -609,16 +601,16 @@ run_custom_action() {
     claude-code) install_claude_code ;;
     jetbrains-toolbox) install_jetbrains_toolbox ;;
     devtunnel) install_devtunnel ;;
-    docker-fedora) install_fedora_docker ;;
+    docker) install_fedora_docker ;;
     docker-post-install) configure_docker_post_install ;;
     dotnet-sdk) install_dotnet_sdks ;;
     dotnet-tools) install_dotnet_tools ;;
-    build-tools-fedora) install_fedora_build_tools ;;
-    ms-fonts-fedora) install_fedora_ms_fonts ;;
-    jetbrains-mono-nerd-font-fedora) install_fedora_jetbrains_mono_nerd_font ;;
-    noctalia-greeter-fedora) install_fedora_noctalia_greeter ;;
-    noctalia-v5-fedora) install_fedora_noctalia_v5 ;;
-    media-codecs-fedora) install_fedora_media_codecs ;;
+    build-tools) install_fedora_build_tools ;;
+    ms-fonts) install_fedora_ms_fonts ;;
+    jetbrains-mono-nerd-font) install_fedora_jetbrains_mono_nerd_font ;;
+    noctalia-greeter) install_fedora_noctalia_greeter ;;
+    noctalia-v5) install_fedora_noctalia_v5 ;;
+    media-codecs) install_fedora_media_codecs ;;
     *) die "Unknown custom action: $action" ;;
   esac
 }
@@ -627,17 +619,17 @@ verify_custom_action() {
   local action="$1"
   [[ "$DRY_RUN" -eq 0 ]] || return 0
   case "$action" in
-    ms-fonts-fedora)
+    ms-fonts)
       rpm -q msttcore-fonts-installer >/dev/null 2>&1 \
         && compgen -G "/usr/share/fonts/msttcore/*.ttf" >/dev/null
       ;;
-    jetbrains-mono-nerd-font-fedora)
+    jetbrains-mono-nerd-font)
       jetbrains_mono_nerd_font_installed
       ;;
-    build-tools-fedora)
+    build-tools)
       return 0
       ;;
-    noctalia-greeter-fedora)
+    noctalia-greeter)
       noctalia_greeter_action_skipped && return 0
       rpm -q "$NOCTALIA_GREETER_PACKAGE" >/dev/null 2>&1 \
         && command -v noctalia-greeter >/dev/null 2>&1 \
@@ -645,7 +637,7 @@ verify_custom_action() {
         && systemctl is-enabled greetd >/dev/null 2>&1 \
         && grep -F "noctalia-greeter-session" "$NOCTALIA_GREETD_CONFIG" >/dev/null 2>&1
       ;;
-    noctalia-v5-fedora)
+    noctalia-v5)
       noctalia_fedora_package_is_compatible && command -v noctalia >/dev/null 2>&1
       ;;
     *)

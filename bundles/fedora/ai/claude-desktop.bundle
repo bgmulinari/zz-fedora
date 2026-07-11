@@ -1,6 +1,0 @@
-BUNDLE_ID="ai-claude-desktop"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID="vendor:claude-desktop"
-BUNDLE_ITEMS_FILE="packages/fedora/vendor/claude-desktop/claude-desktop.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Claude Desktop bundle for Fedora"

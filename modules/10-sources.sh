@@ -1,30 +1,26 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-source_plan_files_for_distro() {
-  case "$DISTRO" in
-    fedora)
-      printf '%s\n' \
-        "$PLAN_DIR/sources/fedora-copr.list" \
-        "$PLAN_DIR/sources/fedora-terra.list" \
-        "$PLAN_DIR/sources/fedora-rpmfusion.list" \
-        "$PLAN_DIR/sources/fedora-cisco-openh264.list" \
-        "$PLAN_DIR/sources/fedora-vendor.list" \
-        "$PLAN_DIR/sources/fedora-flatpak-remotes.list"
-      ;;
-  esac
+source_plan_files() {
+  printf '%s\n' \
+    "$PLAN_DIR/sources/copr.list" \
+    "$PLAN_DIR/sources/terra.list" \
+    "$PLAN_DIR/sources/rpmfusion.list" \
+    "$PLAN_DIR/sources/cisco-openh264.list" \
+    "$PLAN_DIR/sources/vendor.list" \
+    "$PLAN_DIR/sources/flatpak-remotes.list"
 }
 
 source_required_for_install() {
   local source_id="$1"
-  load_source_descriptor "$DISTRO" "$source_id" || die "Unknown source: $source_id"
+  load_source_descriptor "$source_id" || die "Unknown source: $source_id"
   [[ "${SOURCE_REQUIRED:-0}" -eq 1 ]]
 }
 
 enable_source_best_effort() {
   local source_id="$1"
   log_progress "Enabling optional software source: $source_id"
-  if distro_enable_sources "$source_id"; then
+  if fedora_enable_sources "$source_id"; then
     return 0
   fi
   log_warn "Optional source failed and will be skipped for now: $source_id"
@@ -43,12 +39,12 @@ module_10_sources() {
       [[ -n "$source_id" ]] || continue
       append_unique source_ids "$source_id"
     done < <(read_plan_file "$source_file")
-  done < <(source_plan_files_for_distro)
+  done < <(source_plan_files)
 
   for source_id in "${source_ids[@]:-}"; do
     source_required_for_install "$source_id" || continue
     log_progress "Enabling required software source: $source_id"
-    distro_enable_sources "$source_id" || return 1
+    fedora_enable_sources "$source_id" || return 1
   done
 
   for source_id in "${source_ids[@]:-}"; do

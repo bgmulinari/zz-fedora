@@ -24,7 +24,6 @@ bash -n bin/zz
 bash -n bin/zz.d/*
 bash -n scripts/*.sh
 bash -n lib/*.sh
-bash -n distros/*.sh
 bash -n modules/*.sh
 bash -n tests/*.sh
 bash -n tests/helpers/*.bash
@@ -32,7 +31,7 @@ bash -n tests/helpers/*.bash
 mapfile -t suites < <(find tests -maxdepth 1 -type f -name '*.bats' | sort)
 
 if [[ "$show_timings" -eq 1 ]]; then
-  timings_file="$(mktemp /tmp/zz-linux-setup-full-timings.XXXXXX)"
+  timings_file="$(mktemp /tmp/zz-fedora-full-timings.XXXXXX)"
   trap 'rm -f "$timings_file"' EXIT
   for suite in "${suites[@]}"; do
     start_ns="$(date +%s%N)"
@@ -47,7 +46,7 @@ else
 fi
 
 if command -v shellcheck >/dev/null 2>&1; then
-  shellcheck -S error bootstrap.sh install.sh bin/zz bin/zz.d/* scripts/*.sh lib/*.sh distros/*.sh modules/*.sh tests/*.sh tests/helpers/*.bash
+  shellcheck -S error bootstrap.sh install.sh bin/zz bin/zz.d/* scripts/*.sh lib/*.sh modules/*.sh tests/*.sh tests/helpers/*.bash
 fi
 
 printf 'full ok\n'

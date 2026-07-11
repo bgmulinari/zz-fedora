@@ -68,7 +68,7 @@ append_bundle_to_plan() {
   local -n plan_sources_ref="$plan_sources_name"
   local -n plan_backends_ref="$plan_backends_name"
 
-  load_bundle_descriptor "$DISTRO" "$bundle_id" || die "Unknown bundle: $bundle_id"
+  load_bundle_descriptor "$bundle_id" || die "Unknown bundle: $bundle_id"
   append_plan_entries "$PLAN_DIR/bundles.list" "$bundle_id"
   append_unique plan_backends_ref "$BUNDLE_INSTALLER"
   if [[ -n "${BUNDLE_SOURCE_ID:-}" ]]; then
@@ -94,48 +94,49 @@ append_dotfiles_prereqs() {
   local stow_plan_file="$PLAN_DIR/stow/packages.list"
   [[ -f "$stow_plan_file" ]] || return 0
   [[ "$(count_plan_entries "$stow_plan_file")" -gt 0 ]] || return 0
-  append_plan_entries "$(prereq_file_for_backend "$(native_backend_for_distro "$DISTRO")")" "stow"
+  append_plan_entries "$(prereq_file_for_backend "$(native_backend)")" "stow"
 }
 
 build_plan_from_selections() {
   local DEFER_PLAN_SORT=1
   ensure_state_dirs
   plan_reset
-  validate_source_catalog "$DISTRO"
-  validate_bundle_catalog "$DISTRO"
+  validate_source_catalog
+  validate_bundle_catalog
 
   local -a selected_bundle_ids=()
   local -a plan_sources=()
   local -a plan_backends=()
-  local default_var="DEFAULT_BUNDLE_IDS_${DISTRO}"
-  local -n default_bundle_ids_ref="$default_var"
   local bundle_id
 
   while IFS= read -r bundle_id; do
     [[ -n "$bundle_id" ]] || continue
     append_unique selected_bundle_ids "$bundle_id"
-  done < <(effective_base_bundle_ids "$DISTRO")
+  done < <(effective_base_bundle_ids)
 
-  for bundle_id in "${default_bundle_ids_ref[@]}"; do
+  for bundle_id in "${DEFAULT_BUNDLE_IDS[@]}"; do
     append_unique selected_bundle_ids "$bundle_id"
   done
 
   local category choice_id record choice_bundles
-  for category in $(category_names "$DISTRO"); do
-    validate_choice_catalog "$DISTRO" "$category"
+  for category in $(category_names); do
+    validate_choice_catalog "$category"
     while IFS= read -r choice_id; do
       [[ -n "$choice_id" ]] || continue
-      record="$(choice_record "$DISTRO" "$category" "$choice_id")"
+      record="$(choice_record "$category" "$choice_id")"
       [[ -n "$record" ]] || die "Unknown choice '$choice_id' in category '$category'"
       choice_bundles="$(choice_field "$record" 4)"
       while IFS= read -r bundle_id; do
         [[ -n "$bundle_id" ]] && append_unique selected_bundle_ids "$bundle_id"
       done < <(split_csv "$choice_bundles")
-    done < <(effective_choice_ids "$DISTRO" "$category")
+    done < <(effective_choice_ids "$category")
   done
 
   if array_contains "dotnet-tools" "${selected_bundle_ids[@]:-}"; then
     append_unique selected_bundle_ids "dotnet-sdk"
+  fi
+  if array_contains "dev-docker" "${selected_bundle_ids[@]:-}"; then
+    append_unique selected_bundle_ids "dev-docker-post"
   fi
 
   for bundle_id in "${selected_bundle_ids[@]:-}"; do
@@ -162,14 +163,14 @@ build_plan_from_selections() {
 
   append_plan_entries "$PLAN_DIR/services/system-enable-now.list" "${DEFAULT_SYSTEM_SERVICES[@]}"
   : >"$PLAN_DIR/services/user-enable.list"
-  if plan_file_has_entry "$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")" "ghostty"; then
+  if plan_file_has_entry "$(package_file_for_backend "$(native_backend)")" "ghostty"; then
     append_plan_entries "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
   fi
   append_managed_file "~/.local/share/backgrounds"
   append_managed_file "~/.config/niri/cfg/display.kdl"
   append_managed_file "~/.config/niri/noctalia.kdl"
   append_managed_file "~/.config/starship.toml"
-  if plan_file_has_entry "$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")" "ghostty"; then
+  if plan_file_has_entry "$(package_file_for_backend "$(native_backend)")" "ghostty"; then
     append_managed_file "~/.config/ghostty/themes/noctalia"
   fi
   append_managed_file "~/.config/autostart/zz-first-run.desktop"
@@ -262,7 +263,7 @@ write_base_rationale_report() {
   local -A seen_base_sources=()
   while IFS= read -r bundle_id; do
     [[ -n "$bundle_id" ]] || continue
-    load_bundle_descriptor "$DISTRO" "$bundle_id" || die "Unknown base bundle: $bundle_id"
+    load_bundle_descriptor "$bundle_id" || die "Unknown base bundle: $bundle_id"
     if [[ -n "${BUNDLE_SOURCE_ID:-}" && -z "${seen_base_sources[$BUNDLE_SOURCE_ID]:-}" ]]; then
       write_base_rationale_row "$report" source "$BUNDLE_SOURCE_ID" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
       seen_base_sources["$BUNDLE_SOURCE_ID"]=1
@@ -271,7 +272,7 @@ write_base_rationale_report() {
       [[ -n "$item" ]] || continue
       write_base_rationale_row "$report" "$BUNDLE_INSTALLER" "$item" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
     done < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
-  done < <(effective_base_bundle_ids "$DISTRO")
+  done < <(effective_base_bundle_ids)
 
   if [[ "$(resolved_desktop_app_profile)" == "full" ]] && grep -Fx 'base-source-flathub' "$PLAN_DIR/bundles.list" >/dev/null 2>&1; then
     write_base_rationale_row "$report" flatpak "org.gtk.Gtk3theme.adw-gtk3" "base-source-flathub" "GTK Flatpak theme runtime for the base desktop"
@@ -307,12 +308,12 @@ plan_source_count() {
 
 write_plan_summary() {
   {
-    printf 'Distro: %s\n' "$DISTRO"
+    printf 'Platform: Fedora Linux\n'
     printf 'Target user: %s\n' "$TARGET_USER"
     printf 'Desktop app profile: %s\n' "$(resolved_desktop_app_profile)"
 
     local native_backend native_total native_base flatpak_total flatpak_base action_total action_base source_total source_base
-    native_backend="$(native_backend_for_distro "$DISTRO")"
+    native_backend="$(native_backend)"
     native_total="$(count_plan_entries "$(package_file_for_backend "$native_backend")")"
     native_base="$(base_rationale_count "$native_backend")"
     flatpak_total="$(count_plan_entries "$PLAN_DIR/flatpak/apps.flatpaks")"
@@ -348,7 +349,7 @@ write_plan_summary() {
       printf '  %s (%s)\n' "$(basename "$source_list")" "$(count_plan_entries "$source_list")"
       while IFS= read -r source_id; do
         [[ -n "$source_id" ]] || continue
-        load_source_descriptor "$DISTRO" "$source_id" || continue
+        load_source_descriptor "$source_id" || continue
         required_label="optional"
         [[ "${SOURCE_REQUIRED:-0}" -eq 1 ]] && required_label="required"
         exception_label=""
@@ -507,7 +508,7 @@ json_source_details_array() {
     [[ -f "$source_file" ]] || continue
     while IFS= read -r source_id; do
       [[ -n "$source_id" ]] || continue
-      load_source_descriptor "$DISTRO" "$source_id" || continue
+      load_source_descriptor "$source_id" || continue
       [[ "$first" -eq 1 ]] || printf ','
       required=false
       bootstrap_exception=false
@@ -570,9 +571,10 @@ json_managed_config_policy_array() {
 
 print_plan_json() {
   local native_backend
-  native_backend="$(native_backend_for_distro "$DISTRO")"
+  native_backend="$(native_backend)"
   printf '{'
-  printf '"distro":"%s",' "$(json_escape "$DISTRO")"
+  printf '"project":"ZZ Fedora",'
+  printf '"platform":"fedora",'
   printf '"target_user":"%s",' "$(json_escape "$TARGET_USER")"
   printf '"desktop_app_profile":"%s",' "$(json_escape "$(resolved_desktop_app_profile)")"
   printf '"selected_bundles":'

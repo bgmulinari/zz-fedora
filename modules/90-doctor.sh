@@ -111,13 +111,13 @@ doctor_noctalia_planned() {
   local action_plan
   doctor_plan_has_entry "$native_plan" "noctalia" && return 0
   action_plan="$(package_file_for_backend action)"
-  doctor_plan_has_entry "$action_plan" "noctalia-v5-fedora"
+  doctor_plan_has_entry "$action_plan" "noctalia-v5"
 }
 
 doctor_noctalia_greeter_planned() {
   local action_plan
   action_plan="$(package_file_for_backend action)"
-  doctor_plan_has_entry "$action_plan" "noctalia-greeter-fedora"
+  doctor_plan_has_entry "$action_plan" "noctalia-greeter"
 }
 
 doctor_system_skip_recorded() {
@@ -162,7 +162,7 @@ module_90_doctor() {
 
   local native_plan
   local native_backend
-  native_backend="$(native_backend_for_distro "$DISTRO")"
+  native_backend="$(native_backend)"
   native_plan="$(package_file_for_backend "$native_backend")"
 
   log_progress "Checking installed desktop commands"
@@ -226,9 +226,7 @@ module_90_doctor() {
     doctor_warn_file "$user_config_home/noctalia/templates/icon-theme-accent"
     doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme"
   fi
-  if [[ "$DISTRO" == "fedora" ]]; then
-    doctor_check_dir_has_files "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont" '*.ttf'
-  fi
+  doctor_check_dir_has_files "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont" '*.ttf'
 
   log_progress "Checking managed configuration contents"
   if doctor_plan_has_entry "$native_plan" "niri"; then
@@ -326,7 +324,7 @@ module_90_doctor() {
   local existing_display_manager=""
   existing_display_manager="$(detect_enabled_display_manager || true)"
   if [[ "$existing_display_manager" == "greetd.service" ]] && doctor_check_enabled greetd; then
-    if doctor_system_skip_recorded action noctalia-greeter-fedora; then
+    if doctor_system_skip_recorded action noctalia-greeter; then
       printf '[ok] existing display manager %s\n' "$existing_display_manager"
       display_manager_hint="your display manager"
     elif doctor_noctalia_greeter_installed || doctor_greetd_config_uses_noctalia; then
@@ -355,14 +353,10 @@ module_90_doctor() {
   doctor_warn_enabled cups
   doctor_warn_enabled avahi-daemon
 
-  case "$DISTRO" in
-    fedora)
-      log_progress "Collecting Fedora repository diagnostics"
-      run_cmd_as_root dnf copr list || true
-      run_cmd_as_root dnf repolist || true
-      run_cmd_as_root dnf repoquery --whatprovides desktop-notification-daemon || true
-      ;;
-  esac
+  log_progress "Collecting Fedora repository diagnostics"
+  run_cmd_as_root dnf copr list || true
+  run_cmd_as_root dnf repolist || true
+  run_cmd_as_root dnf repoquery --whatprovides desktop-notification-daemon || true
 
   printf 'Doctor completed.\n'
   if [[ "$fatal_checks" -gt 0 ]]; then

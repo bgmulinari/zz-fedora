@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST_ROOT="$(mktemp -d /tmp/zz-linux-setup-zz-cli.XXXXXX)"
+TEST_ROOT="$(mktemp -d /tmp/zz-fedora-zz-cli.XXXXXX)"
 DIRTY_SENTINEL="$ROOT_DIR/.zz-cli-dirty-test"
 trap 'rm -rf "$TEST_ROOT"; rm -f "$DIRTY_SENTINEL"' EXIT
 

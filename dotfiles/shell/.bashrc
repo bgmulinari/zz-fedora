@@ -1,4 +1,4 @@
-# Managed by zz-linux-setup.
+# Managed by zz-fedora.
 
 if [ -f /etc/bashrc ]; then
   . /etc/bashrc

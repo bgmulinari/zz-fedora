@@ -53,7 +53,7 @@ verify_required_plan_entries() {
     [[ -n "$entry" ]] || continue
     case "$backend" in
       dnf)
-        distro_package_installed "$entry" || {
+        fedora_package_installed "$entry" || {
           log_error "Required $label missing after install: $entry"
           missing=1
         }
@@ -95,18 +95,15 @@ build_base_package_plan_for_backend() {
         die "Unsupported base bundle filter: $filter"
         ;;
     esac
-    load_bundle_descriptor "$DISTRO" "$bundle_id" || die "Unknown base bundle: $bundle_id"
+    load_bundle_descriptor "$bundle_id" || die "Unknown base bundle: $bundle_id"
     [[ "$BUNDLE_INSTALLER" == "$backend" ]] || continue
     mapfile -t bundle_items < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
     append_plan_entries "$base_plan" "${bundle_items[@]:-}"
-  done < <(effective_base_bundle_ids "$DISTRO")
+  done < <(effective_base_bundle_ids)
 }
 
 is_early_base_bundle() {
-  local early_var="EARLY_BASE_BUNDLE_IDS_${DISTRO}"
-  declare -p "$early_var" >/dev/null 2>&1 || return 1
-  local -n early_base_bundle_ids_ref="$early_var"
-  array_contains "$1" "${early_base_bundle_ids_ref[@]:-}"
+  array_contains "$1" "${EARLY_BASE_BUNDLE_IDS[@]:-}"
 }
 
 install_base_packages_for_backend() {
@@ -235,7 +232,7 @@ configure_niri_session() {
   fi
 
   log_warn "Niri or its Wayland session file was not detected after base package installation; retrying direct Niri package install."
-  package_install_idempotent "$(native_backend_for_distro "$DISTRO")" niri || return 1
+  package_install_idempotent "$(native_backend)" niri || return 1
 
   command -v niri >/dev/null 2>&1 || die "Niri is part of the base install, but the niri command is still unavailable after a direct install retry. Check the package manager output above."
   [[ -f "$session_file" ]] || die "Niri is installed, but $session_file is missing, so the display manager will not show a Niri session."
@@ -247,7 +244,7 @@ configure_base_system_services() {
     [[ -n "$service_name" ]] || continue
     log_progress "Enabling system service: $service_name"
     if [[ "$DRY_RUN" -eq 1 ]]; then
-      distro_enable_service_now "$service_name" || return 1
+      fedora_enable_service_now "$service_name" || return 1
     else
       enable_required_system_service_now "$service_name" || return 1
     fi

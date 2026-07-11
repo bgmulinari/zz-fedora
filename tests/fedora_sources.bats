@@ -6,13 +6,11 @@ setup() {
   setup_test_env
   source_core
   source_modules
-  DISTRO=fedora
-  load_adapter
 }
 
 @test "Terra source excludes the Noctalia Greeter package provider" {
   DRY_RUN=0
-  distro_repo_enabled() {
+  fedora_repo_enabled() {
     return 0
   }
   run_cmd_as_root() {
@@ -22,7 +20,7 @@ setup() {
     [[ "$*" == "-E %fedora" ]] && printf '44\n'
   }
 
-  run distro_enable_sources terra
+  run fedora_enable_sources terra
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "root:dnf config-manager setopt terra.repo_gpgcheck=0"

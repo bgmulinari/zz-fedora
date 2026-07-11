@@ -210,10 +210,10 @@ done
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 extract_fedora_iso_metadata "$input_iso"
-addon_dir="$repo_dir/iso/fedora/anaconda-addon"
-addon_data_dir="$repo_dir/iso/fedora/anaconda-addon-data"
-if [[ ! -d "$addon_dir/org_zz_linux_setup" ]]; then
-  err "missing Anaconda add-on payload: $addon_dir/org_zz_linux_setup"
+addon_dir="$repo_dir/iso/anaconda-addon"
+addon_data_dir="$repo_dir/iso/anaconda-addon-data"
+if [[ ! -d "$addon_dir/org_zz_fedora" ]]; then
+  err "missing Anaconda add-on payload: $addon_dir/org_zz_fedora"
   exit 1
 fi
 if [[ ! -d "$addon_data_dir" ]]; then
@@ -228,7 +228,7 @@ rm -rf "$work_dir"
 mkdir -p "$work_dir"
 
 ks_file="$work_dir/zz-fedora-vm.ks"
-payload_dir="$work_dir/payload/zz-linux-setup"
+payload_dir="$work_dir/payload/zz-fedora"
 product_root="$work_dir/product"
 images_dir="$work_dir/images"
 product_img="$images_dir/product.img"
@@ -250,7 +250,7 @@ if [[ "$boot_mode" == "uefi" && (! -f "$ovmf_code" || ! -f "$ovmf_vars_template"
 fi
 
 {
-  printf '# VM-only unattended test profile for zz-linux-setup.\n'
+  printf '# VM-only unattended test profile for zz-fedora.\n'
   printf '%s\n' "$installer_ui"
   cat <<'EOF'
 eula --agreed
@@ -294,7 +294,7 @@ rsync
 
 %pre --interpreter=/usr/bin/bash
 set -Eeuo pipefail
-printf 'selected=1\n' >/tmp/zz-linux-setup-install-selected
+printf 'selected=1\n' >/tmp/zz-fedora-install-selected
 %end
 EOF
 } >"$ks_file"
@@ -319,27 +319,27 @@ rsync -a --delete \
   --exclude='__pycache__/' \
   --exclude='*.pyc' \
   "$addon_dir/" "$product_root/usr/share/anaconda/addons/"
-rsync -a --delete "$repo_dir/choices/" "$product_root/usr/share/anaconda/addons/org_zz_linux_setup/choices/"
+rsync -a --delete "$repo_dir/choices/" "$product_root/usr/share/anaconda/addons/org_zz_fedora/choices/"
 install -m 0644 \
-  "$addon_data_dir/org.fedoraproject.Anaconda.Addons.ZZLinuxSetup.conf" \
+  "$addon_data_dir/org.fedoraproject.Anaconda.Addons.ZZFedora.conf" \
   "$product_root/usr/share/anaconda/dbus/confs/"
 install -m 0644 \
-  "$addon_data_dir/org.fedoraproject.Anaconda.Addons.ZZLinuxSetup.service" \
+  "$addon_data_dir/org.fedoraproject.Anaconda.Addons.ZZFedora.service" \
   "$product_root/usr/share/anaconda/dbus/services/"
-cat >"$product_root/etc/anaconda/conf.d/100-zz-linux-setup.conf" <<'EOF'
+cat >"$product_root/etc/anaconda/conf.d/100-zz-fedora.conf" <<'EOF'
 [User Interface]
 hidden_spokes =
     SoftwareSelectionSpoke
 EOF
 cat >"$product_root/.buildstamp" <<EOF
 [Main]
-Product=ZZ Linux Setup
+Product=ZZ Fedora
 Version=$fedora_release
-BugURL=https://github.com/bgmulinari/zz-linux-setup
+BugURL=https://github.com/bgmulinari/zz-fedora
 IsFinal=True
 
 [Compose]
-Lorax=zz-linux-setup
+Lorax=zz-fedora
 EOF
 (
   cd "$product_root"

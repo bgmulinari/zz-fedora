@@ -10,7 +10,7 @@ if ! command -v bats >/dev/null 2>&1; then
 fi
 
 threshold_seconds="${ZZ_TEST_PROFILE_THRESHOLD:-15}"
-timings_file="$(mktemp /tmp/zz-linux-setup-profile.XXXXXX)"
+timings_file="$(mktemp /tmp/zz-fedora-profile.XXXXXX)"
 trap 'rm -f "$timings_file"' EXIT
 
 status=0

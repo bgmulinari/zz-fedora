@@ -1,5 +1,0 @@
-BUNDLE_ID="base-noctalia"
-BUNDLE_INSTALLER="action"
-BUNDLE_ITEMS_FILE="packages/actions/base-noctalia-fedora.actions"
-BUNDLE_STOW_PACKAGES="noctalia"
-BUNDLE_DESCRIPTION="Noctalia v5 shell bundle for Fedora"

@@ -1,4 +1,4 @@
-# Managed by zz-linux-setup.
+# Managed by zz-fedora.
 
 export TERMINAL=kitty
 

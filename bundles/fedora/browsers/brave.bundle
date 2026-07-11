@@ -1,6 +1,0 @@
-BUNDLE_ID="browser-brave"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID="vendor:brave"
-BUNDLE_ITEMS_FILE="packages/fedora/vendor/brave/browsers-brave.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Brave browser bundle for Fedora"

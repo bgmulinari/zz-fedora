@@ -1,6 +1,0 @@
-BUNDLE_ID="base-gtk-look"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
-BUNDLE_ITEMS_FILE="packages/fedora/official/gtk-look.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="GTK and Qt font, icon, and theme baseline for Fedora"

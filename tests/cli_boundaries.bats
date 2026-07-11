@@ -42,7 +42,7 @@ setup() {
 
 @test "install list-profiles exposes desktop app profiles" {
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" \
-    bash "$ROOT_DIR/install.sh" list-profiles --distro fedora --dry-run --no-tui
+    bash "$ROOT_DIR/install.sh" list-profiles --dry-run --no-tui
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "base"

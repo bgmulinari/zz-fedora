@@ -8,9 +8,9 @@ source "$ROOT_DIR/config/defaults.sh"
 # shellcheck source=./log.sh
 source "$ROOT_DIR/lib/log.sh"
 
-STATE_DIR="${STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/zz-linux-setup}"
-CACHE_DIR="${CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/zz-linux-setup}"
-CONFIG_DIR="${CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zz-linux-setup}"
+STATE_DIR="${STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/zz-fedora}"
+CACHE_DIR="${CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/zz-fedora}"
+CONFIG_DIR="${CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zz-fedora}"
 
 LOG_DIR="${LOG_DIR:-$STATE_DIR/logs}"
 PLAN_DIR="$STATE_DIR/plan"
@@ -33,7 +33,6 @@ declare -Ag SOURCE_FILE_CACHE_LOADED=()
 declare -Ag BUNDLE_FILE_CACHE_LOADED=()
 
 COMMAND="${COMMAND:-$DEFAULT_COMMAND}"
-DISTRO="${DISTRO:-$DEFAULT_DISTRO}"
 TARGET_USER="${TARGET_USER:-$DEFAULT_TARGET_USER}"
 TARGET_HOME="${TARGET_HOME:-}"
 MODE="${MODE:-$DEFAULT_COMMAND}"
@@ -49,7 +48,6 @@ PLAN_FORMAT="${PLAN_FORMAT:-text}"
 COMMAND_PREVIEW="${COMMAND_PREVIEW:-0}"
 DESKTOP_APP_PROFILE="${DESKTOP_APP_PROFILE:-$DEFAULT_DESKTOP_APP_PROFILE}"
 PREFERRED_BROWSER="${PREFERRED_BROWSER:-}"
-CURRENT_ADAPTER="${CURRENT_ADAPTER:-}"
 LOCK_ACQUIRED="${LOCK_ACQUIRED:-0}"
 FAILURE_SUMMARY_PRINTED="${FAILURE_SUMMARY_PRINTED:-0}"
 IN_FATAL_HANDLER="${IN_FATAL_HANDLER:-0}"
@@ -179,24 +177,15 @@ resolved_desktop_app_profile() {
 }
 
 minimal_desktop_skips_bundle() {
-  local distro="$1"
-  local bundle_id="$2"
-  local skip_var="MINIMAL_DESKTOP_SKIP_BUNDLE_IDS_${distro}"
-  declare -p "$skip_var" >/dev/null 2>&1 || return 1
-  local -n skip_bundle_ids_ref="$skip_var"
-  array_contains "$bundle_id" "${skip_bundle_ids_ref[@]:-}"
+  array_contains "$1" "${MINIMAL_DESKTOP_SKIP_BUNDLE_IDS[@]:-}"
 }
 
 effective_base_bundle_ids() {
-  local distro="$1"
-  local base_var="BASE_BUNDLE_IDS_${distro}"
-  declare -p "$base_var" >/dev/null 2>&1 || return 0
-  local -n base_bundle_ids_ref="$base_var"
   local profile bundle_id
   profile="$(resolved_desktop_app_profile)"
 
-  for bundle_id in "${base_bundle_ids_ref[@]:-}"; do
-    if [[ "$profile" == "minimal" ]] && minimal_desktop_skips_bundle "$distro" "$bundle_id"; then
+  for bundle_id in "${BASE_BUNDLE_IDS[@]:-}"; do
+    if [[ "$profile" == "minimal" ]] && minimal_desktop_skips_bundle "$bundle_id"; then
       continue
     fi
     printf '%s\n' "$bundle_id"
@@ -223,25 +212,6 @@ append_csv_unique() {
   while IFS= read -r entry; do
     append_unique "$array_name" "$entry"
   done < <(split_csv "$raw")
-}
-
-detect_distro_from_file() {
-  local os_release_file="$1"
-  [[ -f "$os_release_file" ]] || return 1
-  local id
-  id="$(awk -F= '$1=="ID"{gsub(/"/, "", $2); print tolower($2)}' "$os_release_file")"
-  case "$id" in
-    fedora)
-      printf '%s\n' "$id"
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
-detect_distro() {
-  detect_distro_from_file "/etc/os-release"
 }
 
 resolve_target_home() {
@@ -286,8 +256,7 @@ manifest_entries() {
 }
 
 list_source_files() {
-  local distro="$1"
-  find "$ROOT_DIR/sources/$distro" -type f -name '*.source' | sort
+  find "$ROOT_DIR/sources" -type f -name '*.source' | sort
 }
 
 descriptor_value_from_file() {
@@ -312,35 +281,31 @@ descriptor_value_from_file() {
 }
 
 load_source_file_cache() {
-  local distro="$1"
-  [[ -n "${SOURCE_FILE_CACHE_LOADED[$distro]:-}" ]] && return 0
+  [[ -n "${SOURCE_FILE_CACHE_LOADED[catalog]:-}" ]] && return 0
 
   local source_file source_id
   while IFS= read -r source_file; do
     descriptor_value_from_file "$source_file" SOURCE_ID source_id || continue
     [[ -n "$source_id" ]] || continue
-    SOURCE_FILE_CACHE["$distro:$source_id"]="$source_file"
-  done < <(list_source_files "$distro")
-  SOURCE_FILE_CACHE_LOADED["$distro"]=1
+    SOURCE_FILE_CACHE["$source_id"]="$source_file"
+  done < <(list_source_files)
+  SOURCE_FILE_CACHE_LOADED[catalog]=1
 }
 
 source_file_for_id() {
-  local distro="$1"
-  local source_id="$2"
-  local cache_key="$distro:$source_id"
-  load_source_file_cache "$distro"
-  if [[ -n "${SOURCE_FILE_CACHE[$cache_key]:-}" ]]; then
-    printf '%s\n' "${SOURCE_FILE_CACHE[$cache_key]}"
+  local source_id="$1"
+  load_source_file_cache
+  if [[ -n "${SOURCE_FILE_CACHE[$source_id]:-}" ]]; then
+    printf '%s\n' "${SOURCE_FILE_CACHE[$source_id]}"
     return 0
   fi
   return 1
 }
 
 load_source_descriptor() {
-  local distro="$1"
-  local source_id="$2"
+  local source_id="$1"
   local source_file
-  source_file="$(source_file_for_id "$distro" "$source_id")" || return 1
+  source_file="$(source_file_for_id "$source_id")" || return 1
   unset \
     SOURCE_ID \
     SOURCE_KIND \
@@ -357,17 +322,15 @@ load_source_descriptor() {
 }
 
 list_source_ids() {
-  local distro="$1"
   local source_file source_id
   while IFS= read -r source_file; do
     descriptor_value_from_file "$source_file" SOURCE_ID source_id || continue
     [[ -n "$source_id" ]] && printf '%s\n' "$source_id"
-  done < <(list_source_files "$distro")
+  done < <(list_source_files)
 }
 
 validate_source_descriptor() {
-  local distro="$1"
-  local source_file="$2"
+  local source_file="$1"
   unset \
     SOURCE_ID \
     SOURCE_KIND \
@@ -401,8 +364,8 @@ validate_source_descriptor() {
   if [[ "$SOURCE_GPG_POLICY" == "unsigned-bootstrap" && "$SOURCE_BOOTSTRAP_EXCEPTION" != "1" ]]; then
     die "Unsigned bootstrap source must set SOURCE_BOOTSTRAP_EXCEPTION=1 in $source_file"
   fi
-  case "$distro:$SOURCE_KIND" in
-    fedora:official|fedora:copr|fedora:terra|fedora:rpmfusion|fedora:cisco-openh264|fedora:vendor|fedora:flatpak)
+  case "$SOURCE_KIND" in
+    official|copr|terra|rpmfusion|cisco-openh264|vendor|flatpak)
       ;;
     *)
       die "Unsupported source kind '$SOURCE_KIND' in $source_file"
@@ -411,49 +374,43 @@ validate_source_descriptor() {
 }
 
 validate_source_catalog() {
-  local distro="$1"
   local source_file
-  load_source_file_cache "$distro"
+  load_source_file_cache
   while IFS= read -r source_file; do
-    validate_source_descriptor "$distro" "$source_file"
-  done < <(list_source_files "$distro")
+    validate_source_descriptor "$source_file"
+  done < <(list_source_files)
 }
 
 list_bundle_files() {
-  local distro="$1"
-  find "$ROOT_DIR/bundles/$distro" -type f -name '*.bundle' | sort
+  find "$ROOT_DIR/bundles" -type f -name '*.bundle' | sort
 }
 
 load_bundle_file_cache() {
-  local distro="$1"
-  [[ -n "${BUNDLE_FILE_CACHE_LOADED[$distro]:-}" ]] && return 0
+  [[ -n "${BUNDLE_FILE_CACHE_LOADED[catalog]:-}" ]] && return 0
 
   local bundle_file bundle_id
   while IFS= read -r bundle_file; do
     descriptor_value_from_file "$bundle_file" BUNDLE_ID bundle_id || continue
     [[ -n "$bundle_id" ]] || continue
-    BUNDLE_FILE_CACHE["$distro:$bundle_id"]="$bundle_file"
-  done < <(list_bundle_files "$distro")
-  BUNDLE_FILE_CACHE_LOADED["$distro"]=1
+    BUNDLE_FILE_CACHE["$bundle_id"]="$bundle_file"
+  done < <(list_bundle_files)
+  BUNDLE_FILE_CACHE_LOADED[catalog]=1
 }
 
 bundle_file_for_id() {
-  local distro="$1"
-  local bundle_id="$2"
-  local cache_key="$distro:$bundle_id"
-  load_bundle_file_cache "$distro"
-  if [[ -n "${BUNDLE_FILE_CACHE[$cache_key]:-}" ]]; then
-    printf '%s\n' "${BUNDLE_FILE_CACHE[$cache_key]}"
+  local bundle_id="$1"
+  load_bundle_file_cache
+  if [[ -n "${BUNDLE_FILE_CACHE[$bundle_id]:-}" ]]; then
+    printf '%s\n' "${BUNDLE_FILE_CACHE[$bundle_id]}"
     return 0
   fi
   return 1
 }
 
 load_bundle_descriptor() {
-  local distro="$1"
-  local bundle_id="$2"
+  local bundle_id="$1"
   local bundle_file
-  bundle_file="$(bundle_file_for_id "$distro" "$bundle_id")" || return 1
+  bundle_file="$(bundle_file_for_id "$bundle_id")" || return 1
   unset \
     BUNDLE_ID \
     BUNDLE_INSTALLER \
@@ -466,11 +423,9 @@ load_bundle_descriptor() {
   BUNDLE_FILE="$bundle_file"
 }
 
-bundle_supported_for_distro() {
-  local distro="$1"
-  local installer="$2"
-  case "$distro:$installer" in
-    fedora:dnf|fedora:flatpak|fedora:action)
+bundle_installer_supported() {
+  case "$1" in
+    dnf|flatpak|action)
       return 0
       ;;
     *)
@@ -480,8 +435,7 @@ bundle_supported_for_distro() {
 }
 
 validate_bundle_descriptor() {
-  local distro="$1"
-  local bundle_file="$2"
+  local bundle_file="$1"
 
   unset \
     BUNDLE_ID \
@@ -497,42 +451,33 @@ validate_bundle_descriptor() {
   [[ -n "${BUNDLE_INSTALLER:-}" ]] || die "Missing BUNDLE_INSTALLER in $bundle_file"
   [[ -n "${BUNDLE_ITEMS_FILE:-}" ]] || die "Missing BUNDLE_ITEMS_FILE in $bundle_file"
   [[ -n "${BUNDLE_DESCRIPTION:-}" ]] || die "Missing BUNDLE_DESCRIPTION in $bundle_file"
-  bundle_supported_for_distro "$distro" "$BUNDLE_INSTALLER" || die "Unsupported installer '$BUNDLE_INSTALLER' in $bundle_file"
+  bundle_installer_supported "$BUNDLE_INSTALLER" || die "Unsupported installer '$BUNDLE_INSTALLER' in $bundle_file"
   [[ -f "$ROOT_DIR/$BUNDLE_ITEMS_FILE" ]] || die "Missing bundle payload file '$BUNDLE_ITEMS_FILE' in $bundle_file"
 
   if [[ -n "${BUNDLE_SOURCE_ID:-}" ]]; then
-    source_file_for_id "$distro" "$BUNDLE_SOURCE_ID" >/dev/null || die "Unknown source ID '$BUNDLE_SOURCE_ID' in $bundle_file"
+    source_file_for_id "$BUNDLE_SOURCE_ID" >/dev/null || die "Unknown source ID '$BUNDLE_SOURCE_ID' in $bundle_file"
   fi
 }
 
 validate_bundle_catalog() {
-  local distro="$1"
   local bundle_file
-  load_bundle_file_cache "$distro"
+  load_bundle_file_cache
   while IFS= read -r bundle_file; do
-    validate_bundle_descriptor "$distro" "$bundle_file"
-  done < <(list_bundle_files "$distro")
+    validate_bundle_descriptor "$bundle_file"
+  done < <(list_bundle_files)
 }
 
 choice_catalog_path() {
-  local distro="$1"
   local category
-  category="$(normalize_category_name "$2")"
-  printf '%s\n' "$ROOT_DIR/choices/$distro/$category.conf"
-}
-
-common_choice_catalog_path() {
-  local category="$1"
-  printf '%s\n' "$ROOT_DIR/choices/common/$category.conf"
+  category="$(normalize_category_name "$1")"
+  printf '%s\n' "$ROOT_DIR/choices/$category.conf"
 }
 
 validate_choice_catalog() {
-  local distro="$1"
-  local category="$2"
+  local category="$1"
   local catalog
-  catalog="$(choice_catalog_path "$distro" "$category")"
+  catalog="$(choice_catalog_path "$category")"
   [[ -f "$catalog" ]] || return 0
-  local base_var="BASE_BUNDLE_IDS_${distro}"
   local line
   local line_no=0
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -549,36 +494,30 @@ validate_choice_catalog() {
     local bundle_id
     while IFS= read -r bundle_id; do
       [[ -z "$bundle_id" ]] && continue
-      bundle_file_for_id "$distro" "$bundle_id" >/dev/null || die "Unknown bundle ID '$bundle_id' in $catalog:$line_no"
-      if declare -p "$base_var" >/dev/null 2>&1; then
-        local -n base_bundle_ids_ref="$base_var"
-        if array_contains "$bundle_id" "${base_bundle_ids_ref[@]:-}"; then
-          die "Base bundle '$bundle_id' must not be exposed as an optional choice in $catalog:$line_no"
-        fi
+      bundle_file_for_id "$bundle_id" >/dev/null || die "Unknown bundle ID '$bundle_id' in $catalog:$line_no"
+      if array_contains "$bundle_id" "${BASE_BUNDLE_IDS[@]:-}"; then
+        die "Base bundle '$bundle_id' must not be exposed as an optional choice in $catalog:$line_no"
       fi
     done < <(split_csv "$bundle_ids")
   done <"$catalog"
 }
 
 list_choice_catalogs() {
-  local distro="$1"
-  find "$ROOT_DIR/choices/$distro" -maxdepth 1 -type f -name '*.conf' | sort
+  find "$ROOT_DIR/choices" -maxdepth 1 -type f -name '*.conf' | sort
 }
 
 default_choice_ids() {
-  local distro="$1"
-  local category="$2"
+  local category="$1"
   local catalog
-  catalog="$(choice_catalog_path "$distro" "$category")"
+  catalog="$(choice_catalog_path "$category")"
   [[ -f "$catalog" ]] || return 0
   awk -F'\t' 'NF==5 && $1 !~ /^#/ && $3 == 1 {print $1}' "$catalog"
 }
 
 all_choice_ids() {
-  local distro="$1"
-  local category="$2"
+  local category="$1"
   local catalog
-  catalog="$(choice_catalog_path "$distro" "$category")"
+  catalog="$(choice_catalog_path "$category")"
   [[ -f "$catalog" ]] || return 0
   awk -F'\t' 'NF==5 && $1 !~ /^#/ {print $1}' "$catalog"
 }
@@ -588,11 +527,10 @@ category_always_installed() {
 }
 
 choice_record() {
-  local distro="$1"
-  local category="$2"
-  local choice_id="$3"
+  local category="$1"
+  local choice_id="$2"
   local catalog
-  catalog="$(choice_catalog_path "$distro" "$category")"
+  catalog="$(choice_catalog_path "$category")"
   [[ -f "$catalog" ]] || return 1
   awk -F'\t' -v choice_id="$choice_id" 'NF==5 && $1 !~ /^#/ && $1 == choice_id {print $0}' "$catalog"
 }
@@ -607,7 +545,7 @@ choice_field() {
 }
 
 category_names() {
-  find "$ROOT_DIR/choices/$1" -maxdepth 1 -type f -name '*.conf' -printf '%f\n' | sed 's/\.conf$//' | sort
+  find "$ROOT_DIR/choices" -maxdepth 1 -type f -name '*.conf' -printf '%f\n' | sed 's/\.conf$//' | sort
 }
 
 set_category_override() {
@@ -633,15 +571,14 @@ add_category_selection() {
 }
 
 effective_choice_ids() {
-  local distro="$1"
   local category
-  category="$(normalize_category_name "$2")"
+  category="$(normalize_category_name "$1")"
   local -a chosen=()
   local entry
   if category_always_installed "$category"; then
     while IFS= read -r entry; do
       append_unique chosen "$entry"
-    done < <(all_choice_ids "$distro" "$category")
+    done < <(all_choice_ids "$category")
   elif [[ -n "${CATEGORY_OVERRIDE_PRESENT[$category]:-}" ]]; then
     while IFS= read -r entry; do
       append_unique chosen "$entry"
@@ -649,7 +586,7 @@ effective_choice_ids() {
   else
     while IFS= read -r entry; do
       append_unique chosen "$entry"
-    done < <(default_choice_ids "$distro" "$category")
+    done < <(default_choice_ids "$category")
   fi
   while IFS= read -r entry; do
     append_unique chosen "$entry"
@@ -660,16 +597,15 @@ effective_choice_ids() {
 save_selections() {
   ensure_state_dirs
   {
-    printf 'distro=%s\n' "$DISTRO"
     printf 'target_user=%s\n' "$TARGET_USER"
     printf 'desktop_app_profile=%s\n' "$DESKTOP_APP_PROFILE"
     printf 'preferred_browser=%s\n' "$PREFERRED_BROWSER"
     local category
-    for category in $(category_names "$DISTRO"); do
+    for category in $(category_names); do
       local values=()
       while IFS= read -r item; do
         [[ -n "$item" ]] && values+=("$item")
-      done < <(effective_choice_ids "$DISTRO" "$category")
+      done < <(effective_choice_ids "$category")
       printf 'select.%s=%s\n' "$category" "$(join_by , "${values[@]:-}")"
     done
   } >"$SAVED_SELECTIONS"
@@ -681,7 +617,6 @@ load_saved_selections() {
   while IFS='=' read -r key value || [[ -n "$key" ]]; do
     [[ -z "$key" ]] && continue
     case "$key" in
-      distro) DISTRO="$value" ;;
       target_user) TARGET_USER="$value" ;;
       desktop_app_profile) DESKTOP_APP_PROFILE="$value" ;;
       preferred_browser) PREFERRED_BROWSER="$value" ;;
@@ -702,13 +637,6 @@ browser_desktop_file() {
     helium|helium-copr) printf 'helium.desktop\n' ;;
     *) return 1 ;;
   esac
-}
-
-load_adapter() {
-  CURRENT_ADAPTER="$ROOT_DIR/distros/$DISTRO.sh"
-  [[ -f "$CURRENT_ADAPTER" ]] || die "Unsupported distro adapter: $DISTRO"
-  # shellcheck disable=SC1090
-  source "$CURRENT_ADAPTER"
 }
 
 normalize_category_name() {

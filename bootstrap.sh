@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-REPO_URL="https://github.com/bgmulinari/zz-linux-setup.git"
+REPO_URL="https://github.com/bgmulinari/zz-fedora.git"
 REF=""
-INSTALL_DIR="${HOME}/zz-linux-setup"
+INSTALL_DIR="${HOME}/zz-fedora"
 FORWARD_ARGS=()
 DRY_RUN=0
 ASSUME_YES=0
@@ -19,17 +19,17 @@ run() {
   "$@"
 }
 
-detect_distro() {
+require_fedora_host() {
   [[ -f /etc/os-release ]] || {
     printf 'Unsupported system: /etc/os-release not found\n' >&2
     exit 1
   }
-  local distro
-  distro="$(awk -F= '$1=="ID"{gsub(/"/, "", $2); print tolower($2)}' /etc/os-release)"
-  case "$distro" in
-    fedora) printf '%s\n' "$distro" ;;
-    *) printf 'Unsupported distro: %s\n' "$distro" >&2; exit 1 ;;
-  esac
+  local platform_id
+  platform_id="$(awk -F= '$1=="ID"{gsub(/"/, "", $2); print tolower($2)}' /etc/os-release)"
+  [[ "$platform_id" == "fedora" ]] || {
+    printf 'ZZ Fedora requires Fedora Linux; detected: %s\n' "${platform_id:-unknown}" >&2
+    exit 1
+  }
 }
 
 need_sudo() {
@@ -42,15 +42,9 @@ need_sudo() {
 }
 
 bootstrap_notice() {
-  local distro="$1"
-  local packages
-  case "$distro" in
-    fedora) packages="ca-certificates curl git gum bats dnf-plugins-core dnf5-plugins" ;;
-    *) packages="system prerequisites" ;;
-  esac
-
-  printf 'ZZ Linux Setup bootstrap\n'
-  printf 'This will install bootstrap packages for %s, clone or update %s, and then launch the installer.\n' "$distro" "$INSTALL_DIR"
+  local packages="ca-certificates curl git gum bats dnf-plugins-core dnf5-plugins"
+  printf 'ZZ Fedora bootstrap\n'
+  printf 'This will install Fedora bootstrap packages, clone or update %s, and then launch the installer.\n' "$INSTALL_DIR"
   if [[ -n "$REF" ]]; then
     printf 'Ref: %s\n' "$REF"
   else
@@ -212,16 +206,13 @@ exec_installer() {
 
 main() {
   parse_args "$@"
-  local distro
-  distro="$(detect_distro)"
-  bootstrap_notice "$distro"
+  require_fedora_host
+  bootstrap_notice
   if ! bootstrap_confirm; then
     printf 'Bootstrap cancelled.\n'
     exit 0
   fi
-  case "$distro" in
-    fedora) bootstrap_fedora ;;
-  esac
+  bootstrap_fedora
   clone_or_update_repo
   if [[ "$ASSUME_YES" -eq 1 ]]; then
     exec_installer install --yes "${FORWARD_ARGS[@]}"

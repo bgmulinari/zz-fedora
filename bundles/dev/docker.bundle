@@ -1,0 +1,6 @@
+BUNDLE_ID="dev-docker"
+BUNDLE_INSTALLER="action"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/actions/dev-docker-install.actions"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Docker CE setup for Fedora"

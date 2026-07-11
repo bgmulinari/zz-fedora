@@ -1,6 +1,0 @@
-BUNDLE_ID="browser-helium-copr"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID="copr:imput/helium"
-BUNDLE_ITEMS_FILE="packages/fedora/copr/imput-helium/browsers-helium.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Helium browser bundle from COPR for Fedora"

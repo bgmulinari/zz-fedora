@@ -1,0 +1,6 @@
+BUNDLE_ID="dev-neovim"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/official/dev/neovim.pkgs"
+BUNDLE_STOW_PACKAGES="nvim"
+BUNDLE_DESCRIPTION="Neovim bundle for Fedora"

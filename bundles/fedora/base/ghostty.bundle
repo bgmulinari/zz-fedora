@@ -1,6 +1,0 @@
-BUNDLE_ID="base-ghostty"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID="terra"
-BUNDLE_ITEMS_FILE="packages/fedora/terra/ghostty.pkgs"
-BUNDLE_STOW_PACKAGES="ghostty"
-BUNDLE_DESCRIPTION="Ghostty terminal bundle for Fedora"

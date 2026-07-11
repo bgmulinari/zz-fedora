@@ -6,8 +6,6 @@ setup() {
   setup_test_env
   source_core
   source_modules
-  DISTRO=fedora
-  load_adapter
 }
 
 @test "optional package transaction retries individually and continues" {
@@ -132,7 +130,7 @@ setup() {
 }
 
 @test "base packages are installed before optional packages" {
-  build_fedora_plan "dev=vscode"
+  build_test_plan "dev=vscode"
   package_install_calls=()
   package_install_idempotent() {
     local backend="$1"
@@ -140,7 +138,7 @@ setup() {
     package_install_calls+=("$backend:$*")
     [[ " $* " != *" code "* ]]
   }
-  distro_service_exists() {
+  fedora_service_exists() {
     return 0
   }
   detect_enabled_display_manager() {
@@ -175,8 +173,8 @@ setup() {
 }
 
 @test "Noctalia Greeter Fedora action configures greetd fallback" {
-  build_fedora_plan
-  assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter-fedora"
+  build_test_plan
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
 
   DRY_RUN=1
   run install_fedora_noctalia_greeter
@@ -189,8 +187,8 @@ setup() {
 }
 
 @test "Noctalia v5 Fedora action installs official beta2 update" {
-  build_fedora_plan
-  assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-v5-fedora"
+  build_test_plan
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-v5"
 
   DRY_RUN=1
   run install_fedora_noctalia_v5
@@ -254,7 +252,7 @@ setup() {
 }
 
 @test "required base package failure aborts base setup before service work" {
-  build_fedora_plan
+  build_test_plan
   DRY_RUN=0
 
   package_install_idempotent() {
@@ -263,7 +261,7 @@ setup() {
     printf 'install:%s:%s\n' "$backend" "$*"
     return 1
   }
-  distro_service_exists() {
+  fedora_service_exists() {
     printf 'unexpected-service-check:%s\n' "$1"
     return 0
   }
@@ -283,7 +281,7 @@ setup() {
 }
 
 @test "existing display manager skips Noctalia Greeter action" {
-  build_fedora_plan
+  build_test_plan
   DRY_RUN=0
 
   detect_enabled_display_manager() {
@@ -302,18 +300,18 @@ setup() {
   run install_fedora_noctalia_greeter
 
   [ "$status" -eq 0 ]
-  assert_tsv_row "$PLAN_DIR/system-skips.tsv" $'action\tnoctalia-greeter-fedora\texisting display manager: gdm.service'
+  assert_tsv_row "$PLAN_DIR/system-skips.tsv" $'action\tnoctalia-greeter\texisting display manager: gdm.service'
   refute_contains "$output" "install:"
   refute_contains "$output" "cmd:"
 }
 
 @test "missing required service retries owning package before failing" {
-  build_fedora_plan
+  build_test_plan
   DRY_RUN=0
 
   set +e
   output="$(
-    distro_service_exists() {
+    fedora_service_exists() {
       [[ "$1" != "tuned-ppd" ]]
     }
     package_install_idempotent() {
@@ -322,7 +320,7 @@ setup() {
     run_cmd_as_root() {
       printf 'cmd:%s\n' "$*"
     }
-    distro_enable_service_now() {
+    fedora_enable_service_now() {
       printf 'enable:%s\n' "$1"
     }
     configure_base_system_services
@@ -337,7 +335,7 @@ setup() {
 }
 
 @test "Niri readiness failure aborts base setup" {
-  build_fedora_plan
+  build_test_plan
   DRY_RUN=0
 
   package_install_idempotent() {
@@ -350,7 +348,7 @@ setup() {
     [[ "$1" == "-v" && "${2:-}" == "niri" ]] && return 1
     builtin command "$@"
   }
-  distro_service_exists() {
+  fedora_service_exists() {
     return 0
   }
   detect_enabled_display_manager() {
@@ -374,7 +372,7 @@ setup() {
   printf 'missing-native-package\n' >"$plan_file"
   VERIFY_INSTALLS=1
   DRY_RUN=0
-  distro_package_installed() {
+  fedora_package_installed() {
     return 1
   }
 
@@ -400,7 +398,7 @@ EOF
   chmod +x "$TEST_ROOT/bin/rpm"
   PATH="$TEST_ROOT/bin:$PATH"
 
-  run distro_package_installed nodejs
+  run fedora_package_installed nodejs
 
   [ "$status" -eq 0 ]
 }

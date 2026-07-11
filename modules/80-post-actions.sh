@@ -99,7 +99,7 @@ install_starship_fallback_palette_if_needed() {
 
 install_starship_config() {
   local native_plan destination
-  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  native_plan="$(package_file_for_backend "$(native_backend)")"
   destination="$TARGET_HOME/.config/starship.toml"
 
   starship_theming_available_for_plan "$native_plan" || return 0
@@ -113,7 +113,7 @@ install_starship_config() {
 
 install_ghostty_theme_seed_if_missing() {
   local native_plan destination
-  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  native_plan="$(package_file_for_backend "$(native_backend)")"
   destination="$TARGET_HOME/.config/ghostty/themes/noctalia"
 
   plan_has_any_backend_entry "$native_plan" ghostty || return 0
@@ -124,7 +124,7 @@ install_ghostty_theme_seed_if_missing() {
 
 install_niri_noctalia_seed_if_missing() {
   local native_plan destination
-  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  native_plan="$(package_file_for_backend "$(native_backend)")"
   plan_has_any_backend_entry "$native_plan" niri || return 0
 
   destination="$TARGET_HOME/.config/niri/noctalia.kdl"
@@ -135,7 +135,7 @@ install_niri_noctalia_seed_if_missing() {
 
 install_niri_display_seed_if_missing() {
   local native_plan destination
-  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  native_plan="$(package_file_for_backend "$(native_backend)")"
   plan_has_any_backend_entry "$native_plan" niri || return 0
 
   destination="$TARGET_HOME/.config/niri/cfg/display.kdl"
@@ -166,7 +166,7 @@ EOF
 
 install_qt_theme_config() {
   local native_plan
-  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  native_plan="$(package_file_for_backend "$(native_backend)")"
   plan_has_any_backend_entry "$native_plan" qt5ct qt6ct qt6ct-kde || return 0
 
   log_progress "Configuring Qt theme integration"
@@ -252,7 +252,7 @@ install_kde_qt_theme_config() {
 
 configure_flatpak_theme_access() {
   local native_plan flatpak_plan
-  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  native_plan="$(package_file_for_backend "$(native_backend)")"
   flatpak_plan="$(package_file_for_backend flatpak)"
   if ! plan_has_any_backend_entry "$native_plan" flatpak &&
     ! plan_has_any_backend_entry "$flatpak_plan" org.gtk.Gtk3theme.adw-gtk3 org.gtk.Gtk3theme.adw-gtk3-dark; then
@@ -306,14 +306,14 @@ desktop_file_installed_for_user() {
 package_available_for_default_app() {
   local package_name="$1"
   local native_plan flatpak_plan
-  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  native_plan="$(package_file_for_backend "$(native_backend)")"
   flatpak_plan="$(package_file_for_backend flatpak)"
 
   plan_has_any_backend_entry "$native_plan" "$package_name" && return 0
   plan_has_any_backend_entry "$flatpak_plan" "$package_name" && return 0
   [[ "$DRY_RUN" -eq 1 ]] && return 1
 
-  if declare -F distro_package_installed >/dev/null 2>&1 && distro_package_installed "$package_name"; then
+  if declare -F fedora_package_installed >/dev/null 2>&1 && fedora_package_installed "$package_name"; then
     return 0
   fi
   if have_cmd flatpak && flatpak info "$package_name" >/dev/null 2>&1; then
@@ -441,7 +441,7 @@ configure_selected_browser_default() {
   local -a browsers=()
   while IFS= read -r browser; do
     [[ -n "$browser" ]] && browsers+=("$browser")
-  done < <(effective_choice_ids "$DISTRO" "browsers")
+  done < <(effective_choice_ids "browsers")
 
   local browser_choice=""
   if [[ -n "$PREFERRED_BROWSER" ]]; then

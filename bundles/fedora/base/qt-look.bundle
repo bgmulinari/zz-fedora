@@ -1,6 +1,0 @@
-BUNDLE_ID="base-qt-look"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID="copr:lionheartp/Hyprland"
-BUNDLE_ITEMS_FILE="packages/fedora/copr/lionheartp-hyprland/qt-look.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Qt theme integration baseline for Fedora"

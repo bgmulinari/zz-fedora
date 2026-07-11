@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST_ROOT="$(mktemp -d /tmp/zz-linux-setup-bootstrap.XXXXXX)"
+TEST_ROOT="$(mktemp -d /tmp/zz-fedora-bootstrap.XXXXXX)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
 
 bootstrap_source="$(mktemp "$TEST_ROOT/bootstrap-source.XXXXXX")"

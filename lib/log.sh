@@ -196,7 +196,7 @@ print_failure_summary() {
   printf '\nNext commands:\n' >&2
   printf '  zz logs --tail\n' >&2
   printf '  zz debug\n' >&2
-  printf '  ./install.sh check --distro %s --dry-run\n' "${DISTRO:-auto}" >&2
+  printf '  ./install.sh check --dry-run\n' >&2
 }
 
 fatal_error_handler() {

@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST_ROOT="$(mktemp -d /tmp/zz-linux-setup-logging.XXXXXX)"
+TEST_ROOT="$(mktemp -d /tmp/zz-fedora-logging.XXXXXX)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
 
 export XDG_STATE_HOME="$TEST_ROOT/state"
@@ -95,6 +95,6 @@ default_log_output="$(
   XDG_CONFIG_HOME="$TEST_ROOT/default-config" \
   bash -c 'source "'"$ROOT_DIR"'/lib/common.sh"; COMMAND=default-log-test; init_log_file; printf "%s\n" "$LOG_FILE"'
 )"
-grep -F "$TEST_ROOT/default-state/zz-linux-setup/logs/default-log-test-" <<<"$default_log_output" >/dev/null
+grep -F "$TEST_ROOT/default-state/zz-fedora/logs/default-log-test-" <<<"$default_log_output" >/dev/null
 
 printf 'logging ok\n'

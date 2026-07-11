@@ -48,7 +48,7 @@ readiness_package_status() {
   fi
   case "$backend" in
     dnf)
-      if declare -F distro_package_installed >/dev/null 2>&1 && distro_package_installed "$package_name"; then
+      if declare -F fedora_package_installed >/dev/null 2>&1 && fedora_package_installed "$package_name"; then
         printf 'installed'
       else
         printf 'missing'
@@ -73,7 +73,7 @@ readiness_source_status() {
     printf 'planned'
     return 0
   fi
-  if declare -F distro_repo_enabled >/dev/null 2>&1 && distro_repo_enabled "$source_id"; then
+  if declare -F fedora_repo_enabled >/dev/null 2>&1 && fedora_repo_enabled "$source_id"; then
     printf 'enabled'
   else
     printf 'missing'
@@ -120,7 +120,7 @@ readiness_generate_sources() {
       [[ -n "$source_id" ]] || continue
       status="$(readiness_source_status "$source_id")"
       severity="info"
-      load_source_descriptor "$DISTRO" "$source_id" || true
+      load_source_descriptor "$source_id" || true
       if [[ "${SOURCE_REQUIRED:-0}" -eq 1 && "$status" == "missing" ]]; then
         severity="fatal"
       elif [[ "$status" == "missing" ]]; then
@@ -345,7 +345,7 @@ readiness_plan_has_entry() {
 
 readiness_generate_key_commands() {
   local native_plan package_name command_name status severity
-  native_plan="$(package_file_for_backend "$(native_backend_for_distro "$DISTRO")")"
+  native_plan="$(package_file_for_backend "$(native_backend)")"
   while IFS=$'\t' read -r package_name command_name; do
     readiness_plan_has_entry "$native_plan" "$package_name" || continue
     if readiness_planned_install_context; then

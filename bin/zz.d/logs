@@ -4,7 +4,7 @@
 # zz-usage: zz logs [--tail] [--follow] [--lines N]
 set -Eeuo pipefail
 
-STATE_DIR="${STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/zz-linux-setup}"
+STATE_DIR="${STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/zz-fedora}"
 LOG_DIR="${LOG_DIR:-$STATE_DIR/logs}"
 
 latest_log() {

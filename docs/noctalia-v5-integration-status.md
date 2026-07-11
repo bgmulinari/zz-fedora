@@ -8,11 +8,17 @@ Noctalia v5 is currently beta software and this branch is experimental. Treat th
 
 Repo branch: `noctalia-v5`
 
+Fedora-only project restructure:
+
+- The project is now named ZZ Fedora and only supports Fedora Linux. Catalogs were flattened from distro-qualified paths, so the Noctalia bundle now lives at `bundles/base/noctalia.bundle` and its action manifest at `packages/actions/base-noctalia.actions`.
+- The Noctalia action IDs are now `noctalia-v5` and `noctalia-greeter`; the redundant Fedora suffixes were removed with the multi-distro abstraction.
+- Fedora package/source operations now live directly in `lib/fedora.sh`; there is no runtime distro adapter selection.
+
 Official Fedora package transition:
 
 - Fedora 44 Updates now carries the official `noctalia` package. Stable currently has `noctalia-5.0.0~beta1-1.fc44`; `noctalia-5.0.0~beta2-1.fc44` entered Updates Testing on 2026-07-10 as Bodhi update `FEDORA-2026-e863a3e051`.
 - Do not fall back to the stable beta1 build. It is the `v5.0.0-beta1` code previously reproduced as crashing on a true fresh state, and it does not understand `concave_edge_corners`.
-- The `noctalia-v5-fedora` base action now installs the official Fedora `noctalia` package with `updates-testing` allowed while beta2 is there. Once beta2 is promoted, the same transaction naturally resolves it from stable Updates. If `noctalia-git` is installed, the action explicitly swaps it for `noctalia`; this avoids DNF retaining an older non-conflicting COPR build alongside the official package. Action verification requires `5.0.0~beta2` or newer so an installed beta1 cannot incorrectly skip the upgrade.
+- The `noctalia-v5` base action now installs the official Fedora `noctalia` package with `updates-testing` allowed while beta2 is there. Once beta2 is promoted, the same transaction naturally resolves it from stable Updates. If `noctalia-git` is installed, the action explicitly swaps it for `noctalia`; this avoids DNF retaining an older non-conflicting COPR build alongside the official package. Action verification requires `5.0.0~beta2` or newer so an installed beta1 cannot incorrectly skip the upgrade.
 - The base Noctalia bundle no longer claims the LionHeartP COPR as its source. The COPR remains required for two separate packages that Fedora does not currently provide: `noctalia-greeter` and `qt6ct-kde`.
 - The LionHeartP source descriptor and base rationale now describe only Noctalia Greeter and patched Qt integration. Terra's provider exclusion is narrowed to `noctalia-greeter`; the obsolete `noctalia-git` exclusion was removed.
 - Fedora beta2 does not currently provide the `desktop-notification-daemon` virtual capability that the COPR package advertised. On this system, the swap transaction therefore adds `mako` to satisfy `system-config-printer`'s dependency. No repo autostart wiring was added for Mako, but Fedora packaging should be rechecked because D-Bus activation before Noctalia starts could claim the notification service first.
@@ -44,7 +50,7 @@ Local Noctalia Greeter replacement:
 - Noctalia Greeter is a separate greetd greeter, not part of the main Noctalia shell process. greetd runs `noctalia-greeter-session`, which starts the bundled `noctalia-greeter-compositor` and then the greeter UI.
 - The docs say to install `noctalia-greeter` from the distro when available, with `greetd`, D-Bus, and polkit available on the machine. The greeter stores admin-managed state in `/var/lib/noctalia-greeter/greeter.toml`.
 - Fedora package metadata showed `noctalia-greeter-1.0.0-1.gite12f8f8.fc44` available from `copr:lionheartp/Hyprland`. Terra also carries older `noctalia-greeter` builds, so the Terra exclude now covers both `noctalia-git` and `noctalia-greeter`.
-- `base-login-manager` now runs the required `noctalia-greeter-fedora` action instead of installing `sddm`. The action installs/syncs the COPR greeter package, writes `/etc/greetd/config.toml` for `/usr/bin/noctalia-greeter-session`, prepares the `greeter` account and `/var/lib/noctalia-greeter`, patches `/etc/pam.d/greetd` for `pam_systemd.so` or `pam_elogind.so` when available, initializes `greeter.toml`, and enables `greetd.service`.
+- `base-login-manager` now runs the required `noctalia-greeter` action instead of installing `sddm`. The action installs/syncs the COPR greeter package, writes `/etc/greetd/config.toml` for `/usr/bin/noctalia-greeter-session`, prepares the `greeter` account and `/var/lib/noctalia-greeter`, patches `/etc/pam.d/greetd` for `pam_systemd.so` or `pam_elogind.so` when available, initializes `greeter.toml`, and enables `greetd.service`.
 - The existing display-manager policy is preserved: if any display manager is already enabled, including SDDM, GDM, Plasma Login Manager, LightDM, Ly, or greetd, the Noctalia Greeter fallback action records a skip and does not install or enable another login manager.
 - The managed Noctalia shell config enables `[shell.greeter_sync].auto_sync`, so once the greeter is installed the shell uses its native greeter sync path to mirror wallpaper, palette, theme mode, session actions, and monitor layout changes into `/var/lib/noctalia-greeter/appearance.json`. The privilege command remains unset because Noctalia's default `pkexec` or `run0` escalation is preferred when logind or elogind provides an in-session polkit prompt.
 
@@ -224,8 +230,8 @@ Reference repos:
 
 Fedora package state at this checkpoint:
 
-- Installed through `packages/actions/base-noctalia-fedora.actions`.
-- Action id: `noctalia-v5-fedora`.
+- Installed through `packages/actions/base-noctalia.actions`.
+- Action id: `noctalia-v5`.
 - Package source: `copr:lionheartp/Hyprland`.
 - Known-good build: `noctalia-git-5.0.0-0.222.gitd2d2f9b.fc<fedora-release>`.
 - The action applies `dnf versionlock add` for the pinned package.
@@ -290,8 +296,8 @@ Related managed files:
 
 Primary files:
 
-- `bundles/fedora/base/noctalia.bundle`
-- `packages/actions/base-noctalia-fedora.actions`
+- `bundles/base/noctalia.bundle`
+- `packages/actions/base-noctalia.actions`
 - `modules/35-custom-actions.sh`
 - `modules/80-post-actions.sh`
 - `modules/90-doctor.sh`
@@ -320,7 +326,7 @@ Last validation run:
 noctalia config validate
 ! rg -n 'Virtual-|DP-|HDMI-|output =|cx =|cy =|width =|height =' dotfiles/noctalia/.config/noctalia
 python3 .agents/skills/promote-noctalia-config/scripts/noctalia_override_report.py
-bash -n modules/35-custom-actions.sh modules/90-doctor.sh distros/fedora.sh
+bash -n modules/35-custom-actions.sh modules/90-doctor.sh lib/fedora.sh
 bats tests/fedora_sources.bats
 bats --filter 'Noctalia v5 Fedora action' tests/package_modules.bats
 bats --filter 'Fedora base plan includes protected base desktop bundles and rationale|minimal desktop app profile keeps Niri baseline' tests/planner.bats

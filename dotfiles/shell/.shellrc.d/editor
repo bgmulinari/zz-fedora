@@ -1,4 +1,4 @@
-# Managed by zz-linux-setup.
+# Managed by zz-fedora.
 
 if command -v nvim >/dev/null 2>&1; then
   export EDITOR="nvim"

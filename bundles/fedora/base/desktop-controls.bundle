@@ -1,6 +1,0 @@
-BUNDLE_ID="base-desktop-controls"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
-BUNDLE_ITEMS_FILE="packages/fedora/official/desktop-controls.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Desktop control panel helpers for standalone Niri sessions"

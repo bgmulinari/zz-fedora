@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-native_backend_for_distro() {
-  case "$1" in
-    fedora) printf 'dnf\n' ;;
-    *) die "Unsupported distro for native backend: $1" ;;
-  esac
+native_backend() {
+  printf 'dnf\n'
 }
 
 package_file_for_backend() {
@@ -29,7 +26,7 @@ prereq_file_for_backend() {
 backend_prerequisite_backend() {
   case "$1" in
     dnf|action) return 1 ;;
-    flatpak) native_backend_for_distro "$DISTRO" ;;
+    flatpak) native_backend ;;
     *) die "Unsupported backend: $1" ;;
   esac
 }
@@ -38,7 +35,7 @@ backend_prerequisite_items() {
   case "$1" in
     dnf|action) return 0 ;;
     flatpak)
-      manifest_entries "$ROOT_DIR/packages/$DISTRO/official/flatpak.pkgs"
+      manifest_entries "$ROOT_DIR/packages/official/flatpak.pkgs"
       ;;
     *)
       die "Unsupported backend: $1"

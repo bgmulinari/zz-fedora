@@ -1,17 +1,17 @@
-# ZZ Linux Setup
+# ZZ Fedora
 
-ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper for a minimal Niri + Noctalia v5 desktop shell with GTK-oriented applications and GTK/Qt integration. Ghostty is the default terminal. `gum` provides the primary interactive wizard.
+ZZ Fedora is a modular, idempotent Fedora post-install desktop bootstrapper for a minimal Niri + Noctalia v5 desktop shell with GTK-oriented applications and GTK/Qt integration. Ghostty is the default terminal. `gum` provides the primary interactive wizard.
 
 ## Status
 
-- Fedora is the supported target for v1.
-- The design keeps Fedora-specific package-manager logic isolated so additional distros can be added later without rewriting common modules.
-- Noctalia v5 support is experimental while v5 is in alpha; track checkpoints in `docs/noctalia-v5-integration-status.md`.
+- Fedora Linux is the only supported platform. The installer validates that invariant before planning or applying changes.
+- Catalog paths and installer internals intentionally avoid multi-distro indirection; Fedora package and source behavior lives in `lib/fedora.sh`.
+- Noctalia v5 support is experimental while v5 is in beta; track checkpoints in `docs/noctalia-v5-integration-status.md`.
 
 ## Desktop Philosophy
 
 - Niri is the compositor/session target.
-- Noctalia v5 is a native Wayland shell layer, not a full desktop environment. Fedora installs a pinned known-good `noctalia-git` build from the `lionheartp/Hyprland` Copr.
+- Noctalia v5 is a native Wayland shell layer, not a full desktop environment. Fedora installs the official `noctalia` package, allowing the current beta from Updates Testing when needed.
 - The full desktop app profile installs GTK desktop defaults:
   - Nautilus for file management
   - GNOME Text Editor for desktop plain-text file handling
@@ -37,11 +37,11 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 
 ## Bundle Model
 
-- `BASE_BUNDLE_IDS_fedora` defines the non-optional base bundles.
+- `BASE_BUNDLE_IDS` defines the non-optional base bundles.
 - Base bundles are planned and installed first after applying `--desktop-app-profile`. The full profile is the protected desktop baseline, including Niri, Noctalia, Noctalia Greeter through greetd when no display manager is already enabled, Zsh, core services, portals, GTK/Qt integration, project-managed fonts, shell tooling, file integration, and managed base dotfiles.
-- `--desktop-app-profile auto|full|minimal` controls desktop app fill-ins. `auto` uses `minimal` when an existing GNOME/KDE/Plasma desktop is detected and `full` otherwise. `minimal` still installs the Niri/Noctalia/Ghostty baseline, but skips bundles listed in `MINIMAL_DESKTOP_SKIP_BUNDLE_IDS_fedora`.
+- `--desktop-app-profile auto|full|minimal` controls desktop app fill-ins. `auto` uses `minimal` when an existing GNOME/KDE/Plasma desktop is detected and `full` otherwise. `minimal` still installs the Niri/Noctalia/Ghostty baseline, but skips bundles listed in `MINIMAL_DESKTOP_SKIP_BUNDLE_IDS`.
 - A base bundle failure is fatal because the result would not be a functioning desktop baseline.
-- `DEFAULT_BUNDLE_IDS_fedora` is intentionally empty while the base desktop is being hardened. AI, development, .NET, office, gaming, media, and extra browser bundles are opt-in.
+- `DEFAULT_BUNDLE_IDS` is intentionally empty while the base desktop is being hardened. AI, development, .NET, office, gaming, media, and extra browser bundles are opt-in.
 - Wizard and `--select` choices add optional categories. Optional package/source/action failures warn and continue where possible so one broken optional component does not prevent the base desktop setup from completing.
 - Each generated plan writes `base-rationale.tsv` under the plan directory so required base package, action, Flatpak runtime, and source ownership is explicit. The report includes a responsibility class, consumer, and reason for each base item.
 - Each generated plan writes `files/managed-config-policy.tsv` so planned config paths are visible as `stow`, `seed-if-missing`, `first-run`, or `generated`, with the conflict behavior shown before install.
@@ -59,34 +59,34 @@ ZZ Linux Setup is a modular, idempotent Linux post-install desktop bootstrapper 
 Remote install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-linux-setup/main/bootstrap.sh | bash -s -- --ref main
+curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-fedora/main/bootstrap.sh | bash -s -- --ref main
 ```
 
-This prints the bootstrap packages it will install, asks for confirmation, clones the repo to `~/zz-linux-setup` by default, and then launches the installer.
+This prints the bootstrap packages it will install, asks for confirmation, clones the repo to `~/zz-fedora` by default, and then launches the installer.
 
 Pinned install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-linux-setup/main/bootstrap.sh | bash -s -- --ref v0.1.0
+curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-fedora/main/bootstrap.sh | bash -s -- --ref v0.1.0
 ```
 
 Unattended dry-run bootstrap:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-linux-setup/main/bootstrap.sh | bash -s -- --yes --dry-run --ref main
+curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-fedora/main/bootstrap.sh | bash -s -- --yes --dry-run --ref main
 ```
 
 Clone to a custom directory:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-linux-setup/main/bootstrap.sh | bash -s -- --dir "$HOME/src/zz-linux-setup" --ref main
+curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-fedora/main/bootstrap.sh | bash -s -- --dir "$HOME/src/zz-fedora" --ref main
 ```
 
 Local install:
 
 ```bash
-git clone https://github.com/bgmulinari/zz-linux-setup.git
-cd zz-linux-setup
+git clone https://github.com/bgmulinari/zz-fedora.git
+cd zz-fedora
 ./install.sh wizard
 ```
 
@@ -96,12 +96,12 @@ Build an online Fedora installer ISO from the current checkout:
 sudo dnf install lorax rsync xorriso
 scripts/build-fedora-installer-iso.sh \
   --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
-  --output release/zz-linux-setup-fedora.iso
+  --output release/zz-fedora.iso
 ```
 
 The generated ISO keeps Anaconda in charge of disk and user setup, hides the
 built-in Software Selection spoke, and always installs the managed desktop
-baseline. Its `ZZ Linux Setup` add-on lets you select the same optional package
+baseline. Its `ZZ Fedora` add-on lets you select the same optional package
 catalogs exposed by the normal setup wizard, then runs the unattended Fedora
 install path as an Anaconda progress-reporting task for the created regular
 user. See
@@ -180,7 +180,7 @@ Re-running should:
 - starting greetd immediately
 - full desktop environment installation
 - immutable Fedora Atomic support
-- Debian, openSUSE, or NixOS support in v1
+- non-Fedora operating systems
 
 ## Third-Party Source Warnings
 
@@ -195,36 +195,26 @@ Re-running should:
 
 Add a package:
 
-1. Put the package name in the appropriate Fedora/source manifest under `packages/fedora/`.
+1. Put the package name in the appropriate Fedora/source manifest under `packages/`.
 2. Reference that manifest from a bundle descriptor.
-3. Add the bundle to `BASE_BUNDLE_IDS_fedora` only if it is required for the non-optional functioning desktop baseline. Otherwise expose it through `DEFAULT_BUNDLE_IDS_fedora` or a choice file.
+3. Add the bundle to `BASE_BUNDLE_IDS` only if it is required for the non-optional functioning desktop baseline. Otherwise expose it through `DEFAULT_BUNDLE_IDS` or a choice file.
 
 Add a source:
 
-1. Add a `.source` descriptor under `sources/fedora/`.
-2. Teach the Fedora adapter how to enable it if it is a new source kind.
+1. Add a `.source` descriptor under `sources/`.
+2. Teach `lib/fedora.sh` how to enable it if it is a new source kind.
 3. Reference the source ID from a bundle descriptor.
 4. Mark sources required only when a base bundle depends on them.
 
 Add a wizard choice:
 
-1. Add or update the relevant `choices/fedora/*.conf` TSV.
+1. Add or update the relevant `choices/*.conf` TSV.
 2. Ensure referenced sources and manifests exist.
 3. The planner will include it in `list-choices`, validation, and plan generation.
 
-Add another distro:
-
-1. Add `distros/newdistro.sh`.
-2. Add `sources/newdistro/`.
-3. Add `packages/newdistro/`.
-4. Add `choices/newdistro/`.
-5. Define `BASE_BUNDLE_IDS_newdistro` for the non-optional desktop baseline and `DEFAULT_BUNDLE_IDS_newdistro` for broader default selections.
-
-The common modules should not need changes for a straightforward new adapter.
-
 ## Tests
 
-Logs default to `$XDG_STATE_HOME/zz-linux-setup/logs` or `~/.local/state/zz-linux-setup/logs`. Set `LOG_DIR` to override the location.
+Logs default to `$XDG_STATE_HOME/zz-fedora/logs` or `~/.local/state/zz-fedora/logs`. Set `LOG_DIR` to override the location.
 
 The test suite uses Bats. On Fedora, install the runner with:
 
@@ -238,7 +228,7 @@ Run:
 ./tests/smoke.sh
 ```
 
-That is the required fast PR gate. It covers shell syntax, manifest parsing, catalog validation, distro detection, fast planner behavior, and CLI smoke checks. It does not run `shellcheck` unless `ZZ_TEST_LINT=1` is set.
+That is the required fast PR gate. It covers shell syntax, manifest parsing, catalog validation, Fedora platform validation, fast planner behavior, and CLI smoke checks. It does not run `shellcheck` unless `ZZ_TEST_LINT=1` is set.
 
 Run the full regression suite with:
 

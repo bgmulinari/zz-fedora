@@ -1,6 +1,0 @@
-BUNDLE_ID="gaming-steam-free"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID="rpmfusion-free"
-BUNDLE_ITEMS_FILE="packages/fedora/rpmfusion/steam-free.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="RPM Fusion Free enablement bundle for Steam on Fedora"

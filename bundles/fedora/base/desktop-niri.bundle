@@ -1,6 +1,0 @@
-BUNDLE_ID="base-desktop-niri"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID="copr:yalter/niri"
-BUNDLE_ITEMS_FILE="packages/fedora/copr/yalter-niri/desktop-core.pkgs"
-BUNDLE_STOW_PACKAGES="environment,niri"
-BUNDLE_DESCRIPTION="Niri compositor base bundle for Fedora"

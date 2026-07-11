@@ -1,4 +1,4 @@
-# Managed by zz-linux-setup.
+# Managed by zz-fedora.
 
 if [ -d "$HOME/.local/bin" ] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
   export PATH="$HOME/.local/bin:$PATH"

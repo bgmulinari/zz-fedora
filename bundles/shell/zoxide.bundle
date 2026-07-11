@@ -1,0 +1,6 @@
+BUNDLE_ID="shell-zoxide"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/official/shell/zoxide.pkgs"
+BUNDLE_STOW_PACKAGES="shell-zoxide"
+BUNDLE_DESCRIPTION="Zoxide bundle for Fedora"

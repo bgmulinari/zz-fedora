@@ -6,13 +6,11 @@ setup() {
   setup_test_env
   source_core
   source_modules
-  DISTRO=fedora
-  load_adapter
 }
 
 @test "check command reports readiness without saving selections" {
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" \
-    bash "$ROOT_DIR/install.sh" check --distro fedora --dry-run --no-tui
+    bash "$ROOT_DIR/install.sh" check --dry-run --no-tui
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "Readiness:"
@@ -20,7 +18,7 @@ setup() {
   assert_contains "$output" "managed-config ~/.config/autostart/zz-first-run.desktop: first-run"
   assert_contains "$output" "Fatal readiness issues:"
   assert_contains "$output" "package-manager locks"
-  [[ ! -e "$XDG_CONFIG_HOME/zz-linux-setup/selections.conf" ]]
+  [[ ! -e "$XDG_CONFIG_HOME/zz-fedora/selections.conf" ]]
 }
 
 @test "wizard confirmation omits full readiness report before proceed prompt" {
@@ -77,8 +75,8 @@ setup() {
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tgnome-software\tdefault-app\tapp discovery\tProvides a GUI software browsing/update front end.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tddcutil\tdesktop-service\texternal monitor brightness\tControls DDC/CI-capable external displays.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tcopr:lionheartp/Hyprland\tdesktop-service\tNoctalia Greeter and Qt theme\tProvides Noctalia Greeter and qt6ct-kde for the required base desktop.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tnoctalia-greeter-fedora\tdesktop-service\tgraphical login\tInstalls Noctalia Greeter from COPR, configures greetd, and enables the fallback graphical login.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tnoctalia-v5-fedora\tnoctalia\tNoctalia v5 shell\tInstalls the official Fedora shell package launched by Niri autostart, allowing the beta2 update while it is in testing.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tnoctalia-greeter\tdesktop-service\tgraphical login\tInstalls Noctalia Greeter from COPR, configures greetd, and enables the fallback graphical login.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tnoctalia-v5\tnoctalia\tNoctalia v5 shell\tInstalls the official Fedora shell package launched by Niri autostart, allowing the beta2 update while it is in testing.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tterra\tdefault-app\tGhostty\tBootstraps Terra release packages for required Ghostty packages.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tghostty-shell-integration\tdefault-app\tterminal shell integration\tProvides Ghostty shell integration scripts for working-directory reporting, prompt marking, and shell-aware terminal behavior.'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve'
@@ -96,13 +94,13 @@ setup() {
   printf 'existing shell\n' >"$TARGET_HOME/.bashrc"
 
   ZZ_TEST_CONFLICT_PREVIEW=1
-  build_fedora_plan
+  build_test_plan
 
   assert_file_contains "$PLAN_DIR/files/config-conflicts.tsv" "~/.bashrc"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'flatpak\torg.gtk.Gtk3theme.adw-gtk3\tbase-source-flathub\ttheme-font'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-login-manager\tdesktop-service'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-greeter-fedora\tbase-login-manager\tdesktop-service'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-v5-fedora\tbase-noctalia\tnoctalia'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-greeter\tbase-login-manager\tdesktop-service'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-v5\tbase-noctalia\tnoctalia'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.bashrc\tstow\tbackup-before-stow\tshell'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve\tniri-display'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve\tghostty-theme'
@@ -116,7 +114,7 @@ setup() {
   printf 'existing shell\n' >"$TARGET_HOME/.bashrc"
 
   ZZ_TEST_CONFLICT_PREVIEW=1
-  build_fedora_plan
+  build_test_plan
   run_without_bats_debug_trap generate_readiness_status
 
   assert_file_contains "$(readiness_file)" $'config-conflict\t~/.bashrc\tplanned-backup\tinfo\tshell:backup-before-stow'
@@ -138,7 +136,7 @@ setup() {
 }
 
 @test "doctor fails when planned Niri desktop readiness is missing" {
-  build_fedora_plan
+  build_test_plan
   COMMAND=doctor
   DRY_RUN=0
 
@@ -176,7 +174,7 @@ setup() {
 }
 
 @test "doctor accepts an existing display manager when Noctalia Greeter is planned" {
-  build_fedora_plan
+  build_test_plan
   COMMAND=doctor
   DRY_RUN=0
 
@@ -212,10 +210,10 @@ setup() {
 }
 
 @test "doctor accepts skipped pre-existing greetd display manager" {
-  build_fedora_plan
+  build_test_plan
   COMMAND=doctor
   DRY_RUN=0
-  record_system_skip action noctalia-greeter-fedora "existing display manager: greetd.service"
+  record_system_skip action noctalia-greeter "existing display manager: greetd.service"
 
   output="$({
     doctor_check_command() {
@@ -253,7 +251,7 @@ setup() {
 }
 
 @test "doctor fails when managed greetd config does not use Noctalia Greeter" {
-  build_fedora_plan
+  build_test_plan
   COMMAND=doctor
   DRY_RUN=0
   NOCTALIA_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"

@@ -2,7 +2,6 @@
 set -Eeuo pipefail
 
 DEFAULT_COMMAND="wizard"
-DEFAULT_DISTRO="auto"
 DEFAULT_TARGET_USER="${SUDO_USER:-$USER}"
 DEFAULT_DESKTOP_APP_PROFILE="auto"
 DEFAULT_SYSTEM_SERVICES=(
@@ -15,12 +14,12 @@ DEFAULT_SYSTEM_SERVICES=(
   avahi-daemon
 )
 
-EARLY_BASE_BUNDLE_IDS_fedora=(
+EARLY_BASE_BUNDLE_IDS=(
   base-bootstrap
   base-system-services
 )
 
-BASE_BUNDLE_IDS_fedora=(
+BASE_BUNDLE_IDS=(
   base-bootstrap
   base-source-rpmfusion-free
   base-source-rpmfusion-nonfree
@@ -55,10 +54,10 @@ BASE_BUNDLE_IDS_fedora=(
   shell-yazi
 )
 
-DEFAULT_BUNDLE_IDS_fedora=(
+DEFAULT_BUNDLE_IDS=(
 )
 
-MINIMAL_DESKTOP_SKIP_BUNDLE_IDS_fedora=(
+MINIMAL_DESKTOP_SKIP_BUNDLE_IDS=(
   base-source-rpmfusion-free
   base-source-rpmfusion-nonfree
   base-source-flathub
@@ -69,8 +68,4 @@ MINIMAL_DESKTOP_SKIP_BUNDLE_IDS_fedora=(
   base-file-integration-gtk
   base-gtk-look
   base-qt-look
-)
-
-SUPPORTED_DISTROS=(
-  fedora
 )

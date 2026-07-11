@@ -1,0 +1,6 @@
+BUNDLE_ID="base-wayland-tools"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/official/wayland-tools.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Wayland utility packages for Fedora"

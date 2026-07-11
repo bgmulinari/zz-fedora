@@ -19,14 +19,14 @@ source "$ROOT_DIR/lib/systemd.sh"
 source "$ROOT_DIR/lib/stow.sh"
 # shellcheck source=./lib/files.sh
 source "$ROOT_DIR/lib/files.sh"
-# shellcheck source=./lib/os.sh
-source "$ROOT_DIR/lib/os.sh"
 # shellcheck source=./lib/tui.sh
 source "$ROOT_DIR/lib/tui.sh"
 # shellcheck source=./lib/planner.sh
 source "$ROOT_DIR/lib/planner.sh"
 # shellcheck source=./lib/readiness.sh
 source "$ROOT_DIR/lib/readiness.sh"
+# shellcheck source=./lib/fedora.sh
+source "$ROOT_DIR/lib/fedora.sh"
 
 for module_file in "$ROOT_DIR"/modules/*.sh; do
   # shellcheck disable=SC1090
@@ -43,9 +43,8 @@ prepare_context() {
   if [[ "$USE_SAVED_SELECTIONS" -eq 1 ]]; then
     load_saved_selections
   fi
-  normalize_distro
+  require_fedora
   TARGET_HOME="$(resolve_target_home "$TARGET_USER")" || die "Could not resolve home directory for target user '$TARGET_USER'"
-  load_adapter
 }
 
 step_should_run_always() {
@@ -92,7 +91,7 @@ build_step_registry() {
   if [[ "$include_planning" -eq 1 ]]; then
     register_step planning "Planning" "Build and review the final install plan from defaults and selected bundles." module_20_plan step_should_run_always fatal
   fi
-  register_step bootstrap-tools "Bootstrap Tools" "Install the package-manager helpers needed for the selected distro." module_05_bootstrap_tools step_should_run_always fatal
+  register_step bootstrap-tools "Bootstrap Tools" "Install the Fedora package-manager helpers needed by the plan." module_05_bootstrap_tools step_should_run_always fatal
   register_step sources "Software Sources" "Enable repositories and remotes required by the current plan." module_10_sources step_should_run_always fatal
   register_step base-setup "Base Setup" "Install non-optional base packages and configure the base shell before optional selections." module_30_packages step_should_run_always fatal
   register_step optional-packages "Optional Packages" "Install optional Fedora and Flatpak packages from the generated plan." module_32_optional_packages step_should_run_always continue
@@ -221,7 +220,7 @@ run_registered_steps() {
 
   tui_register_steps "${STEP_LABELS[@]}"
   tui_progress_begin
-  write_install_progress running 0 "$total" "ZZ Linux Setup" "Starting installation"
+  write_install_progress running 0 "$total" "ZZ Fedora" "Starting installation"
 
   for idx in "${!STEP_FUNCTIONS[@]}"; do
     if ! run_install_step \
@@ -238,9 +237,9 @@ run_registered_steps() {
   done
   tui_progress_end
   if [[ "$failed" -eq 0 ]]; then
-    write_install_progress done "$total" "$total" "ZZ Linux Setup" "Installation complete"
+    write_install_progress done "$total" "$total" "ZZ Fedora" "Installation complete"
   else
-    write_install_progress failed "$total" "$total" "ZZ Linux Setup" "Installation failed"
+    write_install_progress failed "$total" "$total" "ZZ Fedora" "Installation failed"
   fi
   return "$failed"
 }
@@ -340,7 +339,7 @@ main() {
       ;;
     list-choices)
       local category file
-      for file in $(list_choice_catalogs "$DISTRO"); do
+      for file in $(list_choice_catalogs); do
         category="$(basename "$file" .conf)"
         printf '[%s]\n' "$category"
         awk -F'\t' 'NF==5 && $1 !~ /^#/ {printf "%s\t%s\tdefault=%s\n", $1, $2, $3}' "$file"
@@ -348,7 +347,7 @@ main() {
       done
       ;;
     list-sources)
-      list_sources_pretty "$DISTRO"
+      list_sources_pretty
       ;;
     *)
       usage

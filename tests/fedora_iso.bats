@@ -18,13 +18,12 @@ src=${@: -2:1}
 dest=${@: -1}
 mkdir -p "$dest"
 if [[ "$src" == */anaconda-addon/ ]]; then
-  mkdir -p "$dest/org_zz_linux_setup"
-  printf 'addon\n' >"$dest/org_zz_linux_setup/__init__.py"
-  mkdir -p "$dest/org_zz_linux_setup/service"
-  printf 'service\n' >"$dest/org_zz_linux_setup/service/installation.py"
+  mkdir -p "$dest/org_zz_fedora"
+  printf 'addon\n' >"$dest/org_zz_fedora/__init__.py"
+  mkdir -p "$dest/org_zz_fedora/service"
+  printf 'service\n' >"$dest/org_zz_fedora/service/installation.py"
 elif [[ "$src" == */choices/ ]]; then
-  mkdir -p "$dest/fedora"
-  printf 'firefox\tFirefox\t0\tbrowser-firefox\tFedora official Firefox\n' >"$dest/fedora/browsers.conf"
+  printf 'firefox\tFirefox\t0\tbrowser-firefox\tFedora official Firefox\n' >"$dest/browsers.conf"
 else
   printf 'payload\n' >"$dest/payload-marker"
 fi
@@ -91,26 +90,26 @@ for add in "${adds[@]}"; do
   fi
   if [[ -f "$add/product.img" ]]; then
     product_img=yes
-    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_linux_setup/__init__\.py$' >/dev/null; then
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_fedora/__init__\.py$' >/dev/null; then
       addon_in_product=yes
     fi
-    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_linux_setup/choices/fedora/browsers\.conf$' >/dev/null; then
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_fedora/choices/browsers\.conf$' >/dev/null; then
       choices_in_product=yes
     fi
-    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?etc/anaconda/conf\.d/100-zz-linux-setup\.conf$' >/dev/null; then
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?etc/anaconda/conf\.d/100-zz-fedora\.conf$' >/dev/null; then
       config_in_product=yes
     fi
-    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_linux_setup/service/installation\.py$' >/dev/null; then
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_fedora/service/installation\.py$' >/dev/null; then
       service_task_in_product=yes
     fi
-    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/dbus/confs/org\.fedoraproject\.Anaconda\.Addons\.ZZLinuxSetup\.conf$' >/dev/null; then
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/dbus/confs/org\.fedoraproject\.Anaconda\.Addons\.ZZFedora\.conf$' >/dev/null; then
       dbus_conf_in_product=yes
     fi
-    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/dbus/services/org\.fedoraproject\.Anaconda\.Addons\.ZZLinuxSetup\.service$' >/dev/null; then
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/dbus/services/org\.fedoraproject\.Anaconda\.Addons\.ZZFedora\.service$' >/dev/null; then
       dbus_service_in_product=yes
     fi
     buildstamp="$(gzip -dc "$add/product.img" | cpio -i --to-stdout --quiet '*buildstamp' 2>/dev/null || true)"
-    if grep -Fx 'Product=ZZ Linux Setup' <<<"$buildstamp" >/dev/null &&
+    if grep -Fx 'Product=ZZ Fedora' <<<"$buildstamp" >/dev/null &&
       grep -Fx 'Version=44' <<<"$buildstamp" >/dev/null; then
       buildstamp_version_in_product=yes
     fi
@@ -138,7 +137,7 @@ SH
   chmod +x "$fake_bin/mkksiso"
 
   input_iso="$TEST_ROOT/Fedora-Everything-netinst.iso"
-  output_iso="$TEST_ROOT/zz-linux-setup-fedora.iso"
+  output_iso="$TEST_ROOT/zz-fedora.iso"
   touch "$input_iso"
   export ZZ_TEST_RSYNC_LOG="$TEST_ROOT/rsync.log"
   export ZZ_TEST_MKKSISO_LOG="$TEST_ROOT/mkksiso.log"
@@ -201,7 +200,7 @@ SH
   chmod +x "$fake_bin/mkksiso"
 
   input_iso="$TEST_ROOT/Fedora-Everything-netinst.iso"
-  output_iso="$TEST_ROOT/zz-linux-setup-fedora.iso"
+  output_iso="$TEST_ROOT/zz-fedora.iso"
   touch "$input_iso"
   export ZZ_TEST_MKKSISO_LOG="$TEST_ROOT/mkksiso-skip.log"
 
@@ -215,7 +214,7 @@ SH
 }
 
 @test "Fedora Kickstart preserves Anaconda decisions and delegates setup to add-on service" {
-  ks="$ROOT_DIR/iso/fedora/zz-fedora.ks"
+  ks="$ROOT_DIR/iso/zz-fedora.ks"
 
   assert_file_contains "$ks" "network --bootproto=dhcp --activate"
   assert_file_contains "$ks" "firstboot --disable"
@@ -224,9 +223,9 @@ SH
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "render_kickstart_template"
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "addon_data_dir="
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "usr/share/anaconda/dbus/confs"
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "org.fedoraproject.Anaconda.Addons.ZZLinuxSetup.service"
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "org.fedoraproject.Anaconda.Addons.ZZFedora.service"
   refute_file_contains "$ks" "%post"
-  refute_file_contains "$ks" "zz-linux-setup-kickstart.log"
+  refute_file_contains "$ks" "zz-fedora-kickstart.log"
   refute_file_contains "$ks" "./install.sh install"
   refute_file_contains "$ks" "clearpart"
   refute_file_contains "$ks" "autopart"
@@ -234,50 +233,84 @@ SH
 }
 
 @test "Fedora Anaconda add-on exposes always-enabled GUI and TUI selection spokes" {
-  addon="$ROOT_DIR/iso/fedora/anaconda-addon/org_zz_linux_setup"
+  addon="$ROOT_DIR/iso/anaconda-addon/org_zz_fedora"
 
-  assert_file_contains "$addon/constants.py" "ZZ_LINUX_SETUP_NAMESPACE"
-  assert_file_contains "$addon/constants.py" '(*ADDONS_NAMESPACE, "ZZLinuxSetup")'
-  assert_file_contains "$addon/constants.py" 'SELECTION_FILE = "/tmp/zz-linux-setup-install-selected"'
+  assert_file_contains "$addon/constants.py" "ZZ_FEDORA_NAMESPACE"
+  assert_file_contains "$addon/constants.py" '(*ADDONS_NAMESPACE, "ZZFedora")'
+  assert_file_contains "$addon/constants.py" 'SELECTION_FILE = "/tmp/zz-fedora-install-selected"'
   assert_file_contains "$addon/constants.py" '"browsers"'
-  assert_file_contains "$addon/service/__main__.py" "org_zz_linux_setup.service.zz_linux_setup"
-  assert_file_contains "$addon/service/zz_linux_setup.py" "def install_with_tasks"
-  assert_file_contains "$addon/service/zz_linux_setup.py" "ZZLinuxSetupInstallationTask"
+  assert_file_contains "$addon/service/__main__.py" "org_zz_fedora.service.zz_fedora"
+  assert_file_contains "$addon/service/zz_fedora.py" "def install_with_tasks"
+  assert_file_contains "$addon/service/zz_fedora.py" "ZZFedoraInstallationTask"
   assert_file_contains "$addon/service/installation.py" "self.report_progress(message)"
   assert_file_contains "$addon/service/installation.py" "_report_process_line"
   assert_file_contains "$addon/service/installation.py" "DNF_TRANSACTION_RE"
   assert_file_contains "$addon/service/installation.py" "chroot"
   assert_file_contains "$addon/service/installation.py" "ZZ_INSTALL_PROGRESS_FILE"
   assert_file_contains "$addon/service/installation.py" "ZZ_INSTALLER_APPLY_RELEASE_UPDATES=1"
-  assert_file_contains "$ROOT_DIR/iso/fedora/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZLinuxSetup.service" "start-module org_zz_linux_setup.service"
-  assert_file_contains "$ROOT_DIR/iso/fedora/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZLinuxSetup.conf" "org.fedoraproject.Anaconda.Addons.ZZLinuxSetup"
+  assert_file_contains "$ROOT_DIR/iso/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZFedora.service" "start-module org_zz_fedora.service"
+  assert_file_contains "$ROOT_DIR/iso/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZFedora.conf" "org.fedoraproject.Anaconda.Addons.ZZFedora"
   assert_file_contains "$addon/selection.py" "def read_categories"
   assert_file_contains "$addon/selection.py" "def default_selections"
+  assert_file_contains "$addon/selection.py" 'parents[3] / "choices"'
+  assert_file_contains "$addon/selection.py" 'root / ("%s.conf" % category_id)'
   assert_file_contains "$addon/selection.py" "select.%s=%s"
-  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "class ZZLinuxSetupSpoke"
-  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "NormalSpoke"
-  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "from pyanaconda.ui.categories.software import SoftwareCategory"
-  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "category = SoftwareCategory"
-  refute_file_contains "$addon/gui/spokes/zz_linux_setup.py" "ZZLinuxSetupCategory"
-  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "_build_category_rows"
-  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "_render_choices"
-  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "_update_preferred_browser_combo"
-  assert_file_contains "$addon/gui/spokes/zz_linux_setup.py" "write_state(True"
-  assert_file_contains "$addon/gui/spokes/zz_linux_setup.glade" "Optional categories"
-  assert_file_contains "$addon/gui/spokes/zz_linux_setup.glade" "categoryListBox"
-  assert_file_contains "$addon/gui/spokes/zz_linux_setup.glade" "choiceListBox"
-  refute_file_contains "$addon/gui/spokes/zz_linux_setup.glade" "Install ZZ Linux Setup managed desktop"
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "org_zz_linux_setup/choices"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "class ZZFedoraSpoke"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "NormalSpoke"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "from pyanaconda.ui.categories.software import SoftwareCategory"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "category = SoftwareCategory"
+  refute_file_contains "$addon/gui/spokes/zz_fedora.py" "ZZFedoraCategory"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_build_category_rows"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_render_choices"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_update_preferred_browser_combo"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "write_state(True"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "Optional categories"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "categoryListBox"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "choiceListBox"
+  refute_file_contains "$addon/gui/spokes/zz_fedora.glade" "Install ZZ Fedora managed desktop"
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "org_zz_fedora/choices"
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "hidden_spokes ="
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "SoftwareSelectionSpoke"
-  assert_file_contains "$addon/tui/spokes/zz_linux_setup.py" "NormalTUISpoke"
-  assert_file_contains "$addon/tui/spokes/zz_linux_setup.py" "from pyanaconda.ui.categories.software import SoftwareCategory"
-  assert_file_contains "$addon/tui/spokes/zz_linux_setup.py" "category = SoftwareCategory"
-  refute_file_contains "$addon/tui/spokes/zz_linux_setup.py" "ZZLinuxSetupCategory"
-  assert_file_contains "$addon/tui/spokes/zz_linux_setup.py" "CheckboxWidget"
-  assert_file_contains "$addon/tui/spokes/zz_linux_setup.py" "_toggle_choice"
-  assert_file_contains "$addon/tui/spokes/zz_linux_setup.py" "write_state(True"
-  refute_file_contains "$addon/tui/spokes/zz_linux_setup.py" "_toggle_selection"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "NormalTUISpoke"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "from pyanaconda.ui.categories.software import SoftwareCategory"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "category = SoftwareCategory"
+  refute_file_contains "$addon/tui/spokes/zz_fedora.py" "ZZFedoraCategory"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "CheckboxWidget"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "_toggle_choice"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "write_state(True"
+  refute_file_contains "$addon/tui/spokes/zz_fedora.py" "_toggle_selection"
+}
+
+@test "Fedora Anaconda add-on reads flattened choice catalogs" {
+  run env ZZ_REPO_ROOT="$ROOT_DIR" python3 - <<'PY'
+import importlib.util
+import os
+import sys
+import types
+from pathlib import Path
+
+repo_root = Path(os.environ["ZZ_REPO_ROOT"])
+package = types.ModuleType("org_zz_fedora")
+package.__path__ = []
+constants = types.ModuleType("org_zz_fedora.constants")
+constants.CATEGORY_ORDER = ("browsers", "dev")
+constants.SELECTION_FILE = "/tmp/zz-fedora-test-selection"
+sys.modules["org_zz_fedora"] = package
+sys.modules["org_zz_fedora.constants"] = constants
+
+selection_file = repo_root / "iso/anaconda-addon/org_zz_fedora/selection.py"
+spec = importlib.util.spec_from_file_location("zz_fedora_selection", selection_file)
+selection = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(selection)
+
+assert selection.SOURCE_TREE_CHOICES_DIR == repo_root / "choices"
+categories = selection.read_categories()
+assert [category.id for category in categories] == ["browsers", "dev"]
+assert any(choice.id == "firefox" for choice in categories[0].choices)
+assert any(choice.id == "docker" for choice in categories[1].choices)
+PY
+
+  [ "$status" -eq 0 ]
 }
 
 @test "Fedora VM installer test defaults to ISO boot path" {
@@ -299,21 +332,19 @@ SH
   assert_file_contains "$script" "repo=fedora-%s&arch=%s"
   assert_file_contains "$script" "--cmdline \"console=ttyS0,115200n8 inst.cmdline\""
   assert_file_contains "$script" "direct_append+=\" console=ttyS0,115200n8 inst.cmdline\""
-  assert_file_contains "$script" "printf 'selected=1\\n' >/tmp/zz-linux-setup-install-selected"
+  assert_file_contains "$script" "printf 'selected=1\\n' >/tmp/zz-fedora-install-selected"
   assert_file_contains "$script" "addon_data_dir="
   assert_file_contains "$script" "usr/share/anaconda/dbus/services"
   assert_file_contains "$script" "SoftwareSelectionSpoke"
   assert_file_contains "$script" "--add \"\$images_dir\""
   refute_file_contains "$script" "Bootstrap failed with exit code %s"
-  refute_file_contains "$script" "cp -a /run/install/repo/zz-linux-setup /mnt/sysimage/opt/zz-linux-setup"
+  refute_file_contains "$script" "cp -a /run/install/repo/zz-fedora /mnt/sysimage/opt/zz-fedora"
 }
 
 @test "Fedora install readiness treats planned artifacts as planned during install" {
   source_core
   source_modules
-  DISTRO=fedora
-  load_adapter
-  build_fedora_plan
+  build_test_plan
   COMMAND=install
   DRY_RUN=0
 
@@ -330,15 +361,13 @@ SH
 @test "Fedora installer mode enables services without starting them in chroot" {
   source_core
   source_modules
-  DISTRO=fedora
-  load_adapter
   DRY_RUN=0
   ZZ_INSTALLER_DEFER_START_SERVICES=1
   run_cmd_as_root() {
     printf '%s\n' "$*"
   }
 
-  run distro_enable_service_now NetworkManager
+  run fedora_enable_service_now NetworkManager
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "systemctl enable NetworkManager"
@@ -348,8 +377,6 @@ SH
 @test "Fedora installer release update flag refreshes and upgrades Fedora repos" {
   source_core
   source_modules
-  DISTRO=fedora
-  load_adapter
   DRY_RUN=0
   ZZ_INSTALLER_APPLY_RELEASE_UPDATES=1
   COMMAND=install

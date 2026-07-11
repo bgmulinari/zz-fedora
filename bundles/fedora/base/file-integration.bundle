@@ -1,6 +1,0 @@
-BUNDLE_ID="base-file-integration"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
-BUNDLE_ITEMS_FILE="packages/fedora/official/file-integration-core.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Core XDG and file integration packages for Fedora"

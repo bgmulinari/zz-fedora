@@ -1,6 +1,0 @@
-BUNDLE_ID="shell-zsh"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
-BUNDLE_ITEMS_FILE="packages/fedora/official/shell/zsh.pkgs"
-BUNDLE_STOW_PACKAGES="zsh"
-BUNDLE_DESCRIPTION="Zsh bundle for Fedora"

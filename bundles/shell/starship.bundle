@@ -1,0 +1,6 @@
+BUNDLE_ID="shell-starship"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID="copr:atim/starship"
+BUNDLE_ITEMS_FILE="packages/copr/atim-starship/starship.pkgs"
+BUNDLE_STOW_PACKAGES="shell-starship"
+BUNDLE_DESCRIPTION="Starship shell bundle for Fedora"

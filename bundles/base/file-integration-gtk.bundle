@@ -1,0 +1,5 @@
+BUNDLE_ID="base-file-integration-gtk"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/official/file-integration-gtk.pkgs"
+BUNDLE_DESCRIPTION="GTK and Nautilus file integration packages for Fedora"

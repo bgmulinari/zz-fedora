@@ -1,6 +1,0 @@
-BUNDLE_ID="media-codecs-free"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID="rpmfusion-free"
-BUNDLE_ITEMS_FILE="packages/fedora/rpmfusion/media-free.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="RPM Fusion Free codec bundle for Fedora"

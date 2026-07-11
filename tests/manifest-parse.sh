@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-TEST_ROOT="$(mktemp -d /tmp/zz-linux-setup-manifest.XXXXXX)"
+TEST_ROOT="$(mktemp -d /tmp/zz-fedora-manifest.XXXXXX)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
 
 export XDG_STATE_HOME="$TEST_ROOT/state"

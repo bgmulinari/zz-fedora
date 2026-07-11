@@ -1,4 +1,4 @@
-# Managed by zz-linux-setup.
+# Managed by zz-fedora.
 
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME=""

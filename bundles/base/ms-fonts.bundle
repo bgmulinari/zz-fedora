@@ -1,0 +1,6 @@
+BUNDLE_ID="base-ms-fonts"
+BUNDLE_INSTALLER="action"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/actions/base-ms-fonts.actions"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Microsoft core fonts for Fedora"

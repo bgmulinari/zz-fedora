@@ -6,20 +6,18 @@ setup() {
   setup_test_env
   source_core
   source_modules
-  DISTRO=fedora
-  load_adapter
 }
 
 @test "required source failure aborts sources module before optional sources" {
   source_list="$TEST_ROOT/required-source-failure.list"
   printf 'required-source\noptional-source\n' >"$source_list"
-  source_plan_files_for_distro() {
+  source_plan_files() {
     printf '%s\n' "$source_list"
   }
   source_required_for_install() {
     [[ "$1" == "required-source" ]]
   }
-  distro_enable_sources() {
+  fedora_enable_sources() {
     printf 'enable:%s\n' "$1"
     return 1
   }
@@ -43,7 +41,7 @@ setup() {
     printf 'install:%s\n' "$1"
   }
 
-  run distro_install_flatpaks com.discordapp.Discord org.onlyoffice.desktopeditors
+  run fedora_install_flatpaks com.discordapp.Discord org.onlyoffice.desktopeditors
 
   [ "$status" -ne 0 ]
   assert_contains "$output" "remote-bootstrap"
@@ -162,9 +160,8 @@ setup() {
 }
 
 @test "Fedora vendor and RPM Fusion source setup imports keys before repo installs" {
-  DISTRO=fedora
   DRY_RUN=0
-  distro_repo_enabled() {
+  fedora_repo_enabled() {
     return 1
   }
   run_cmd_as_root() {
@@ -176,9 +173,9 @@ setup() {
 
   set +e
   output="$({
-    distro_enable_sources vendor:google-chrome
-    distro_enable_sources rpmfusion-free
-    distro_enable_sources rpmfusion-nonfree
+    fedora_enable_sources vendor:google-chrome
+    fedora_enable_sources rpmfusion-free
+    fedora_enable_sources rpmfusion-nonfree
   } 2>&1)"
   status=$?
   set -e

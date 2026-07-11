@@ -1,6 +1,0 @@
-BUNDLE_ID="media-spotify"
-BUNDLE_INSTALLER="flatpak"
-BUNDLE_SOURCE_ID="flathub"
-BUNDLE_ITEMS_FILE="packages/fedora/flatpak/media.flatpaks"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Spotify Flatpak for Fedora"

@@ -1,6 +1,0 @@
-BUNDLE_ID="shell-gh"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
-BUNDLE_ITEMS_FILE="packages/fedora/official/shell/gh.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="GitHub CLI bundle for Fedora"

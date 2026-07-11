@@ -1,6 +1,0 @@
-BUNDLE_ID="shell-bat"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
-BUNDLE_ITEMS_FILE="packages/fedora/official/shell/bat.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="bat bundle for Fedora"

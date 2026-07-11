@@ -12,7 +12,6 @@ Common options:
   --use-saved
   --skip-dotfiles
   --target-user USER
-  --distro auto|fedora
   --desktop-app-profile auto|full|minimal
   --select category=a,b,c
   --no-tui
@@ -66,10 +65,6 @@ parse_cli() {
       --target-user)
         idx=$((idx + 1))
         TARGET_USER="${args[$idx]:-}"
-        ;;
-      --distro)
-        idx=$((idx + 1))
-        DISTRO="${args[$idx]:-}"
         ;;
       --desktop-app-profile)
         idx=$((idx + 1))

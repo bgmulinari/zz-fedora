@@ -1,6 +1,0 @@
-BUNDLE_ID="shell-btop"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
-BUNDLE_ITEMS_FILE="packages/fedora/official/shell/btop.pkgs"
-BUNDLE_STOW_PACKAGES="btop"
-BUNDLE_DESCRIPTION="btop bundle for Fedora"

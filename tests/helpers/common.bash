@@ -4,7 +4,7 @@ TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT_DIR="$(cd "$TESTS_DIR/.." && pwd)"
 
 setup_test_env() {
-  TEST_ROOT="${BATS_TEST_TMPDIR:-$(mktemp -d /tmp/zz-linux-setup-bats.XXXXXX)}"
+  TEST_ROOT="${BATS_TEST_TMPDIR:-$(mktemp -d /tmp/zz-fedora-bats.XXXXXX)}"
   export XDG_STATE_HOME="$TEST_ROOT/state"
   export XDG_CACHE_HOME="$TEST_ROOT/cache"
   export XDG_CONFIG_HOME="$TEST_ROOT/config"
@@ -35,14 +35,14 @@ source_core() {
   source "$ROOT_DIR/lib/stow.sh"
   # shellcheck source=../../lib/files.sh
   source "$ROOT_DIR/lib/files.sh"
-  # shellcheck source=../../lib/os.sh
-  source "$ROOT_DIR/lib/os.sh"
   # shellcheck source=../../lib/tui.sh
   source "$ROOT_DIR/lib/tui.sh"
   # shellcheck source=../../lib/planner.sh
   source "$ROOT_DIR/lib/planner.sh"
   # shellcheck source=../../lib/readiness.sh
   source "$ROOT_DIR/lib/readiness.sh"
+  # shellcheck source=../../lib/fedora.sh
+  source "$ROOT_DIR/lib/fedora.sh"
 }
 
 source_modules() {
@@ -108,8 +108,7 @@ capture_without_bats_debug_trap() {
   status_ref="$command_status"
 }
 
-build_fedora_plan() {
-  DISTRO=fedora
+build_test_plan() {
   COMMAND="${COMMAND:-install}"
   TARGET_HOME="${TARGET_HOME:-$TEST_ROOT/home}"
   TARGET_USER="${TARGET_USER:-${USER:-test-user}}"
@@ -119,7 +118,7 @@ build_fedora_plan() {
   fi
 
   local cache_key cache_root cache_dir cache_tmp
-  cache_key="fedora"
+  cache_key="plan"
   cache_key+="__desktop_app_profile=$(resolved_desktop_app_profile)"
   local selection
   for selection in "$@"; do
@@ -128,7 +127,7 @@ build_fedora_plan() {
   local cache_namespace="${BATS_TEST_FILENAME:-standalone}"
   cache_namespace="${cache_namespace##*/}"
   cache_namespace="${cache_namespace//[^A-Za-z0-9_.-]/_}"
-  cache_root="${BATS_RUN_TMPDIR:-${BATS_TMPDIR:-/tmp}/zz-linux-setup-plan-cache-${BATS_ROOT_PID:-$PPID}}/$cache_namespace"
+  cache_root="${BATS_RUN_TMPDIR:-${BATS_TMPDIR:-/tmp}/zz-fedora-plan-cache-${BATS_ROOT_PID:-$PPID}}/$cache_namespace"
   if [[ "${ZZ_TEST_CONFLICT_PREVIEW:-0}" -ne 1 && -n "$cache_root" ]]; then
     cache_dir="$cache_root/$cache_key"
     if [[ -f "$cache_dir/.complete" ]]; then
@@ -249,14 +248,11 @@ assert_unique_file() {
 }
 
 assert_base_manifests_in_plan() {
-  local distro="$1"
-  local base_var="BASE_BUNDLE_IDS_${distro}"
-  local -n base_bundle_ids_ref="$base_var"
   local bundle_id plan_file base_item
 
-  for bundle_id in "${base_bundle_ids_ref[@]}"; do
+  for bundle_id in "${BASE_BUNDLE_IDS[@]}"; do
     assert_plan_has "$PLAN_DIR/bundles.list" "$bundle_id"
-    load_bundle_descriptor "$distro" "$bundle_id"
+    load_bundle_descriptor "$bundle_id"
     plan_file="$(package_file_for_backend "$BUNDLE_INSTALLER")"
     while IFS= read -r base_item; do
       [[ -n "$base_item" ]] || continue

@@ -1,6 +1,0 @@
-BUNDLE_ID="base-desktop-apps"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
-BUNDLE_ITEMS_FILE="packages/fedora/official/desktop-apps.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Desktop applications bundle for Fedora"

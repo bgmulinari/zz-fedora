@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST_ROOT="$(mktemp -d /tmp/zz-linux-setup-stow.XXXXXX)"
+TEST_ROOT="$(mktemp -d /tmp/zz-fedora-stow.XXXXXX)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
 
 grep -F -- '--no-folding' "$ROOT_DIR/lib/stow.sh" >/dev/null

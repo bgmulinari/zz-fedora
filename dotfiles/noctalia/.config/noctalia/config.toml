@@ -1,4 +1,4 @@
-# Managed by zz-linux-setup.
+# Managed by zz-fedora.
 #
 # Noctalia v5 loads hand-written config from ~/.config/noctalia/*.toml.
 # Noctalia writes GUI/runtime overrides to ~/.local/state/noctalia/settings.toml,

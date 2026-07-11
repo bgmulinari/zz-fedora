@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST_ROOT="$(mktemp -d /tmp/zz-linux-setup-tui.XXXXXX)"
+TEST_ROOT="$(mktemp -d /tmp/zz-fedora-tui.XXXXXX)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
 
 export XDG_STATE_HOME="$TEST_ROOT/state"

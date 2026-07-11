@@ -9,7 +9,7 @@ acquire_lock() {
     trap cleanup_on_exit EXIT
     return 0
   fi
-  die "Another zz-linux-setup process appears to be running. Remove $LOCK_DIR if that is stale."
+  die "Another zz-fedora process appears to be running. Remove $LOCK_DIR if that is stale."
 }
 
 cleanup_on_exit() {
@@ -29,7 +29,7 @@ restore_state_ownership() {
   local owner_group dir
   owner_group="$(id -gn "$STATE_OWNER_USER" 2>/dev/null)" || return 0
   for dir in "$STATE_DIR" "$CACHE_DIR" "$CONFIG_DIR" "$LOG_DIR"; do
-    [[ -d "$dir" && "$dir" == */zz-linux-setup ]] || continue
+    [[ -d "$dir" && "$dir" == */zz-fedora ]] || continue
     chown -R "$STATE_OWNER_USER:$owner_group" "$dir" 2>/dev/null || true
   done
   if [[ -d "$LOG_DIR" && "$LOG_DIR" == "$ROOT_DIR/logs" ]]; then
@@ -203,7 +203,7 @@ file_install_if_changed() {
   fi
   local temp_file
   mkdir -p "$(dirname "$destination")"
-  temp_file="$(mktemp "$(dirname "$destination")/.zz-linux-setup.XXXXXX")"
+  temp_file="$(mktemp "$(dirname "$destination")/.zz-fedora.XXXXXX")"
   cp "$source_file" "$temp_file"
   chmod "$mode" "$temp_file"
   if [[ -e "$destination" || -L "$destination" ]]; then
@@ -221,8 +221,8 @@ file_template_if_changed() {
 
 service_enable_if_exists() {
   local service_name="$1"
-  if distro_service_exists "$service_name"; then
-    distro_enable_service "$service_name"
+  if fedora_service_exists "$service_name"; then
+    fedora_enable_service "$service_name"
   else
     log_warn "Skipping missing service: $service_name"
   fi
@@ -230,8 +230,8 @@ service_enable_if_exists() {
 
 systemctl_enable_now_if_exists() {
   local service_name="$1"
-  if distro_service_exists "$service_name"; then
-    distro_enable_service_now "$service_name"
+  if fedora_service_exists "$service_name"; then
+    fedora_enable_service_now "$service_name"
   else
     log_warn "Skipping missing service: $service_name"
   fi
@@ -403,7 +403,7 @@ flatpak_install_or_update() {
 repo_enable_if_missing() {
   local repo_id="$1"
   shift
-  if distro_repo_enabled "$repo_id"; then
+  if fedora_repo_enabled "$repo_id"; then
     log_info "Source already enabled: $repo_id"
     return 0
   fi
@@ -416,8 +416,8 @@ package_install_idempotent() {
   local -a packages=("$@")
   [[ "${#packages[@]}" -gt 0 ]] || return 0
   case "$backend" in
-    dnf) distro_install_dnf_packages "${packages[@]}" ;;
-    flatpak) distro_install_flatpaks "${packages[@]}" ;;
+    dnf) fedora_install_dnf_packages "${packages[@]}" ;;
+    flatpak) fedora_install_flatpaks "${packages[@]}" ;;
     *) die "Unsupported package backend: $backend" ;;
   esac
 }

@@ -1,6 +1,0 @@
-BUNDLE_ID="browser-chrome"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID="vendor:google-chrome"
-BUNDLE_ITEMS_FILE="packages/fedora/vendor/google-chrome/browsers-chrome.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Google Chrome browser bundle for Fedora"
