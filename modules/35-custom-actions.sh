@@ -12,7 +12,10 @@ DOTNET_TOOLS=(
   powershell
   volo.abp.studio.cli
 )
-NOCTALIA_FEDORA_COPR_REPO="copr:copr.fedorainfracloud.org:lionheartp:Hyprland"
+NOCTALIA_FEDORA_PACKAGE="noctalia"
+NOCTALIA_FEDORA_MINIMUM_VERSION="5.0.0~beta2"
+NOCTALIA_FEDORA_TESTING_REPO="updates-testing"
+NOCTALIA_GREETER_FEDORA_COPR_REPO="copr:copr.fedorainfracloud.org:lionheartp:Hyprland"
 NOCTALIA_GREETER_PACKAGE="noctalia-greeter"
 NOCTALIA_GREETER_USER="greeter"
 NOCTALIA_GREETER_STATE_DIR="/var/lib/noctalia-greeter"
@@ -366,16 +369,32 @@ install_fedora_noctalia_v5() {
   [[ "$DISTRO" == "fedora" ]] || return 0
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: install or sync Noctalia v5 package noctalia-git from %s\n' "$NOCTALIA_FEDORA_COPR_REPO"
+    printf 'DRY-RUN: install Noctalia v5 package %s from official Fedora repositories, allowing %s while beta2 is in testing\n' \
+      "$NOCTALIA_FEDORA_PACKAGE" "$NOCTALIA_FEDORA_TESTING_REPO"
     return 0
   fi
 
-  log_progress "Installing or syncing Noctalia v5"
+  log_progress "Installing Noctalia v5 from official Fedora repositories"
   if rpm -q noctalia-git >/dev/null 2>&1; then
-    run_cmd_as_root dnf distro-sync -y --allowerasing --from-repo "$NOCTALIA_FEDORA_COPR_REPO" noctalia-git
+    run_cmd_as_root dnf swap -y --allowerasing \
+      --enablerepo "$NOCTALIA_FEDORA_TESTING_REPO" \
+      noctalia-git "$NOCTALIA_FEDORA_PACKAGE"
   else
-    run_cmd_as_root dnf install -y --allowerasing --from-repo "$NOCTALIA_FEDORA_COPR_REPO" noctalia-git
+    run_cmd_as_root dnf install -y --allowerasing \
+      --enablerepo "$NOCTALIA_FEDORA_TESTING_REPO" \
+      "$NOCTALIA_FEDORA_PACKAGE"
   fi
+}
+
+noctalia_fedora_package_is_compatible() {
+  local installed_version oldest_version
+  installed_version="$(rpm -q --qf '%{VERSION}' "$NOCTALIA_FEDORA_PACKAGE" 2>/dev/null)" || return 1
+  oldest_version="$(
+    printf '%s\n%s\n' "$NOCTALIA_FEDORA_MINIMUM_VERSION" "$installed_version" \
+      | sort -V \
+      | head -n 1
+  )"
+  [[ "$oldest_version" == "$NOCTALIA_FEDORA_MINIMUM_VERSION" ]]
 }
 
 noctalia_greeter_action_skipped() {
@@ -390,9 +409,9 @@ install_fedora_noctalia_greeter_package() {
 
   log_progress "Installing or syncing Noctalia Greeter"
   if rpm -q "$NOCTALIA_GREETER_PACKAGE" >/dev/null 2>&1; then
-    run_cmd_as_root dnf distro-sync -y --allowerasing --from-repo "$NOCTALIA_FEDORA_COPR_REPO" "$NOCTALIA_GREETER_PACKAGE"
+    run_cmd_as_root dnf distro-sync -y --allowerasing --from-repo "$NOCTALIA_GREETER_FEDORA_COPR_REPO" "$NOCTALIA_GREETER_PACKAGE"
   else
-    run_cmd_as_root dnf install -y --allowerasing --from-repo "$NOCTALIA_FEDORA_COPR_REPO" "$NOCTALIA_GREETER_PACKAGE"
+    run_cmd_as_root dnf install -y --allowerasing --from-repo "$NOCTALIA_GREETER_FEDORA_COPR_REPO" "$NOCTALIA_GREETER_PACKAGE"
   fi
 }
 
@@ -526,7 +545,7 @@ install_fedora_noctalia_greeter() {
   fi
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: install greetd and Noctalia Greeter package %s from %s\n' "$NOCTALIA_GREETER_PACKAGE" "$NOCTALIA_FEDORA_COPR_REPO"
+    printf 'DRY-RUN: install greetd and Noctalia Greeter package %s from %s\n' "$NOCTALIA_GREETER_PACKAGE" "$NOCTALIA_GREETER_FEDORA_COPR_REPO"
     ensure_noctalia_greeter_user
     install_noctalia_greetd_config
     configure_noctalia_greetd_pam
@@ -627,7 +646,7 @@ verify_custom_action() {
         && grep -F "noctalia-greeter-session" "$NOCTALIA_GREETD_CONFIG" >/dev/null 2>&1
       ;;
     noctalia-v5-fedora)
-      rpm -q noctalia-git >/dev/null 2>&1 && command -v noctalia >/dev/null 2>&1
+      noctalia_fedora_package_is_compatible && command -v noctalia >/dev/null 2>&1
       ;;
     *)
       return 0

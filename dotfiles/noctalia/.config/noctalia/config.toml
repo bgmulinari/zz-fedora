@@ -26,8 +26,9 @@ center = [ "clock", "weather" ]
 margin_edge = 0
 margin_ends = 0
 radius = 0
-radius_bottom_left = -10
-radius_bottom_right = -10
+radius_bottom_left = 10
+radius_bottom_right = 10
+concave_edge_corners = true
 background_opacity = 0.9
 
 [dock]

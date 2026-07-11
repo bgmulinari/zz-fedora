@@ -10,7 +10,7 @@ setup() {
   load_adapter
 }
 
-@test "Terra source excludes Noctalia package provider" {
+@test "Terra source excludes the Noctalia Greeter package provider" {
   DRY_RUN=0
   distro_repo_enabled() {
     return 0
@@ -26,5 +26,5 @@ setup() {
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "root:dnf config-manager setopt terra.repo_gpgcheck=0"
-  assert_contains "$output" "root:dnf config-manager setopt terra.excludepkgs=noctalia-git,noctalia-greeter"
+  assert_contains "$output" "root:dnf config-manager setopt terra.excludepkgs=noctalia-greeter"
 }
