@@ -363,7 +363,7 @@ if [[ "$EUID" -eq 0 ]]; then
   mkksiso "${mkksiso_args[@]}"
 else
   sudo -n mkksiso "${mkksiso_args[@]}"
-  sudo -n chown "$USER:$(id -gn)" "$test_iso"
+  sudo -n chown "$(id -un):$(id -gn)" "$test_iso"
 fi
 qemu-img create -f qcow2 "$disk_image" "$disk_size" >/dev/null
 if [[ "$boot_mode" == "uefi" ]]; then

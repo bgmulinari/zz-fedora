@@ -116,7 +116,10 @@ run_cmd_as_clean_root() {
 run_cmd_as_user() {
   local user="$1"
   shift
-  if [[ "$user" == "$USER" && -z "${SUDO_USER:-}" ]]; then
+  local current_user
+  current_user="${USER:-}"
+  [[ -n "$current_user" ]] || current_user="$(id -un)"
+  if [[ "$user" == "$current_user" && -z "${SUDO_USER:-}" ]]; then
     run_cmd "$@"
   else
     local uid user_home runtime_dir dbus_bus

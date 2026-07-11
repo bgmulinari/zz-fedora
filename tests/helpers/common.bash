@@ -4,13 +4,16 @@ TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT_DIR="$(cd "$TESTS_DIR/.." && pwd)"
 
 setup_test_env() {
+  local current_user
+  current_user="${USER:-}"
+  [[ -n "$current_user" ]] || current_user="$(id -un)"
   TEST_ROOT="${BATS_TEST_TMPDIR:-$(mktemp -d /tmp/zz-fedora-bats.XXXXXX)}"
   export XDG_STATE_HOME="$TEST_ROOT/state"
   export XDG_CACHE_HOME="$TEST_ROOT/cache"
   export XDG_CONFIG_HOME="$TEST_ROOT/config"
   export LOG_DIR="$TEST_ROOT/logs"
   export TARGET_HOME="$TEST_ROOT/home"
-  export TARGET_USER="${TARGET_USER:-${USER:-test-user}}"
+  export TARGET_USER="${TARGET_USER:-$current_user}"
   export FLATPAK_REMOTE_WAIT_SECONDS=0
   export FLATPAK_REMOTE_RETRY_SECONDS=0
   export VERIFY_INSTALLS=0
@@ -111,7 +114,7 @@ capture_without_bats_debug_trap() {
 build_test_plan() {
   COMMAND="${COMMAND:-install}"
   TARGET_HOME="${TARGET_HOME:-$TEST_ROOT/home}"
-  TARGET_USER="${TARGET_USER:-${USER:-test-user}}"
+  TARGET_USER="${TARGET_USER:-${DEFAULT_TARGET_USER:-$(id -un)}}"
   DRY_RUN=1
   if [[ "${ZZ_TEST_CONFLICT_PREVIEW:-0}" -ne 1 ]] && declare -F stow_write_conflict_preview >/dev/null 2>&1; then
     stow_write_conflict_preview() { :; }

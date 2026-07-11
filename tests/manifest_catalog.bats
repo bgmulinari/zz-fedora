@@ -7,6 +7,16 @@ setup() {
   source_core
 }
 
+@test "defaults resolve the current account when USER is absent" {
+  run env -u USER -u SUDO_USER bash -c '
+    set -Eeuo pipefail
+    source "$1/config/defaults.sh"
+    [[ "$DEFAULT_TARGET_USER" == "$(id -un)" ]]
+  ' _ "$ROOT_DIR"
+
+  [ "$status" -eq 0 ]
+}
+
 @test "manifest parser trims comments, blanks, whitespace, and duplicates" {
   manifest="$TEST_ROOT/test.pkgs"
   printf '%s\n' \
