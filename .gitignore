@@ -6,6 +6,8 @@ logs/
 *.bak
 .env
 .direnv/
+__pycache__/
+*.py[cod]
 /downloads/
 /release/
 /test-artifacts/
