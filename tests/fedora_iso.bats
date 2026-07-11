@@ -256,6 +256,7 @@ SH
   assert_file_contains "$addon/selection.py" 'root / ("%s.conf" % category_id)'
   assert_file_contains "$addon/selection.py" "select.%s=%s"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "class ZZFedoraSpoke"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" 'builderObjects = ["zzFedoraSpokeWindow"]'
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "NormalSpoke"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "from pyanaconda.ui.categories.software import SoftwareCategory"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "category = SoftwareCategory"
@@ -265,6 +266,7 @@ SH
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_update_preferred_browser_combo"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "write_state(True"
   assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "Optional categories"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" 'id="zzFedoraSpokeWindow"'
   assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "categoryListBox"
   assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "choiceListBox"
   refute_file_contains "$addon/gui/spokes/zz_fedora.glade" "Install ZZ Fedora managed desktop"

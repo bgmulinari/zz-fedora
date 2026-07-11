@@ -2,23 +2,23 @@
 <interface>
   <requires lib="gtk+" version="3.20"/>
   <requires lib="AnacondaWidgets" version="1.0"/>
-  <object class="AnacondaSpokeWindow" id="zzLinuxSetupSpokeWindow">
+  <object class="AnacondaSpokeWindow" id="zzFedoraSpokeWindow">
     <property name="can-focus">False</property>
     <property name="hexpand">True</property>
     <property name="vexpand">True</property>
     <property name="window-name" translatable="yes">ZZ Fedora</property>
     <signal name="button-clicked" handler="on_back_clicked" swapped="no"/>
     <child internal-child="main_box">
-      <object class="GtkBox" id="zzLinuxSetupMainBox">
+      <object class="GtkBox" id="zzFedoraMainBox">
         <property name="can-focus">False</property>
         <property name="hexpand">True</property>
         <property name="vexpand">True</property>
         <property name="orientation">vertical</property>
         <child internal-child="nav_box">
-          <object class="GtkEventBox" id="zzLinuxSetupNavBox">
+          <object class="GtkEventBox" id="zzFedoraNavBox">
             <property name="can-focus">False</property>
             <child internal-child="nav_area">
-              <object class="GtkGrid" id="zzLinuxSetupNavArea">
+              <object class="GtkGrid" id="zzFedoraNavArea">
                 <property name="can-focus">False</property>
               </object>
             </child>
@@ -30,7 +30,7 @@
           </packing>
         </child>
         <child internal-child="alignment">
-          <object class="GtkAlignment" id="zzLinuxSetupAlignment">
+          <object class="GtkAlignment" id="zzFedoraAlignment">
             <property name="can-focus">False</property>
             <property name="hexpand">True</property>
             <property name="vexpand">True</property>
@@ -41,7 +41,7 @@
             <property name="left-padding">24</property>
             <property name="right-padding">24</property>
             <child internal-child="action_area">
-              <object class="GtkBox" id="zzLinuxSetupActionArea">
+              <object class="GtkBox" id="zzFedoraActionArea">
                 <property name="can-focus">False</property>
                 <property name="hexpand">True</property>
                 <property name="vexpand">True</property>

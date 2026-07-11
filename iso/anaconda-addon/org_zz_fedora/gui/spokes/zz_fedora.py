@@ -22,8 +22,8 @@ N_ = lambda x: x
 class ZZFedoraSpoke(NormalSpoke):
     """Mandatory custom-ISO spoke for selecting optional setup components."""
 
-    builderObjects = ["zzLinuxSetupSpokeWindow"]
-    mainWidgetName = "zzLinuxSetupSpokeWindow"
+    builderObjects = ["zzFedoraSpokeWindow"]
+    mainWidgetName = "zzFedoraSpokeWindow"
     uiFile = "zz_fedora.glade"
 
     category = SoftwareCategory
