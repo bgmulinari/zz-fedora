@@ -5,7 +5,7 @@ module_00_preflight() {
   log_progress "Checking shell, repository, and operating system"
   [[ "${BASH_VERSINFO[0]}" -ge 4 ]] || die "Bash 4+ is required"
   [[ -f /etc/os-release ]] || [[ "$COMMAND" == "print-plan" || "$COMMAND" == "check" || "$COMMAND" == "list-choices" || "$COMMAND" == "list-sources" ]] || die "/etc/os-release not found"
-  [[ -d "$ROOT_DIR/.git" || -f "$ROOT_DIR/config/iso-payload.conf" ]] \
+  [[ -d "$ROOT_DIR/.git" || -f "$ROOT_DIR/.git" || -f "$ROOT_DIR/config/iso-payload.conf" ]] \
     || die "Repository root is neither a Git checkout nor a verified ISO payload: $ROOT_DIR"
   log_progress "Checking target user and home directory"
   id "$TARGET_USER" >/dev/null 2>&1 || die "Target user does not exist: $TARGET_USER"

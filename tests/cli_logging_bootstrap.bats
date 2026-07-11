@@ -27,6 +27,32 @@ setup() {
   assert_contains "$output" "sudo systemctl enable --force greetd.service"
 }
 
+@test "preflight accepts a worktree-style Git checkout" {
+  fixture_root="$TEST_ROOT/worktree-checkout"
+  mkdir -p "$fixture_root/config" "$fixture_root/home"
+  touch "$fixture_root/.git"
+  # shellcheck source=../modules/00-preflight.sh
+  source "$ROOT_DIR/modules/00-preflight.sh"
+
+  run_preflight_fixture() {
+    ROOT_DIR="$fixture_root"
+    COMMAND=install
+    DRY_RUN=1
+    TARGET_USER="$(id -un)"
+    TARGET_HOME="$fixture_root/home"
+    log_progress() { :; }
+    die() { printf '%s\n' "$*" >&2; return 1; }
+    acquire_lock() { :; }
+    resolved_desktop_app_profile() { printf 'full\n'; }
+    category_names() { :; }
+    module_00_preflight
+  }
+
+  run run_preflight_fixture
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Mode: install"
+}
+
 @test "logging captures command output and redacts secrets" {
   source_core
   COMMAND="logging-test"
