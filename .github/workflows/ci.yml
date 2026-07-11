@@ -15,8 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Install test dependencies
-        run: dnf install -y bats ShellCheck git python3 findutils rsync cpio gzip
+        run: |
+          dnf install -y bats ShellCheck git python3 findutils diffutils rsync cpio gzip shadow-utils util-linux
+          useradd --create-home zzci
+          chown -R zzci:zzci "$GITHUB_WORKSPACE"
       - name: Smoke and lint
-        run: ZZ_TEST_LINT=1 ./tests/smoke.sh
+        run: runuser -u zzci -- env HOME=/home/zzci USER=zzci ZZ_TEST_LINT=1 ./tests/smoke.sh
       - name: Full regression
-        run: ./tests/full.sh
+        run: runuser -u zzci -- env HOME=/home/zzci USER=zzci ./tests/full.sh

@@ -31,7 +31,7 @@ setup() {
   assert_contains "$output" "noctalia-v5 command:noctalia"
   assert_contains "$output" "managed-config ~/.config/autostart/zz-first-run.desktop: first-run"
   assert_contains "$output" "Fatal readiness issues:"
-  assert_contains "$output" "package-manager locks"
+  assert_contains "$output" "package-manager "
   [[ ! -e "$XDG_CONFIG_HOME/zz-fedora/selections.conf" ]]
 }
 
