@@ -16,7 +16,7 @@ from org_zz_fedora.constants import SELECTION_FILE
 
 log = logging.getLogger(__name__)
 
-SOURCE_REPO_DIR = Path("/run/install/repo/zz-fedora")
+SOURCE_REPO_DIR = Path("/run/zz-fedora/repository")
 TARGET_SELECTION_PATH = Path("root/zz-fedora-install-selected")
 TASK_LOG_PATH = Path("root/zz-fedora-kickstart.log")
 RUN_SCRIPT_PATH = Path("root/zz-fedora-run-install.sh")

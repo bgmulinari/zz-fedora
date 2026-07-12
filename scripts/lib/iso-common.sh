@@ -56,23 +56,17 @@ iso_verify_sha256() {
 iso_stage_tracked_runtime_payload() {
   local repo_dir="$1"
   local destination="$2"
-  local -a runtime_paths=(
-    LICENSE
-    README.md
-    assets
-    bin
-    bootstrap.sh
-    bundles
-    choices
-    config
-    dotfiles
-    install.sh
-    lib
-    modules
-    packages
-    sources
-    templates
-  )
+  local runtime_paths_file="$repo_dir/config/iso-runtime-paths.conf"
+  [[ -f "$runtime_paths_file" ]] || {
+    iso_err "missing ISO runtime paths manifest: $runtime_paths_file"
+    return 1
+  }
+  local -a runtime_paths=()
+  mapfile -t runtime_paths < <(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$runtime_paths_file")
+  [[ "${#runtime_paths[@]}" -gt 0 ]] || {
+    iso_err "ISO runtime paths manifest is empty: $runtime_paths_file"
+    return 1
+  }
 
   rm -rf "$destination"
   mkdir -p "$destination"

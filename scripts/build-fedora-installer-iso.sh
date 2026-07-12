@@ -10,10 +10,10 @@ usage() {
   cat <<'EOF'
 Usage: scripts/build-fedora-installer-iso.sh --input ISO --output ISO [--input-sha256 HASH]
 
-Embed this checkout and the zz-fedora Fedora Kickstart into a Fedora
-installer ISO. The resulting ISO exposes the checkout at
-/run/install/repo/zz-fedora and runs the normal installer online from an
-Anaconda add-on D-Bus task.
+Embed this checkout and the zz-fedora Fedora Kickstart into a Fedora installer
+ISO. The embedded checkout refreshes the remote runtime before Anaconda shows
+its choices. An Anaconda add-on D-Bus task runs the normal installer from that
+refreshed snapshot.
 EOF
 }
 

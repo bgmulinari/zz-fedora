@@ -2,9 +2,18 @@
 
 from gi.repository import GLib, Gtk
 
+from pyanaconda.core.constants import THREAD_PAYLOAD
+from pyanaconda.core.threads import thread_manager
 from pyanaconda.ui.categories.software import SoftwareCategory
+from pyanaconda.ui.communication import hubQ
 from pyanaconda.ui.gui.spokes import NormalSpoke
+from pyanaconda.ui.gui.utils import gtk_call_once
 
+from org_zz_fedora.runtime import (
+    THREAD_RUNTIME_REFRESH,
+    payload_proxy_url,
+    refresh_runtime,
+)
 from org_zz_fedora.selection import (
     default_selections,
     read_categories,
@@ -46,6 +55,8 @@ class ZZFedoraSpoke(NormalSpoke):
         self._selections = {}
         self._preferred_browser = ""
         self._current_category_id = ""
+        self._runtime_ready = False
+        self._runtime_error = ""
         self._refreshing = False
         self._category_list_box = None
         self._choice_list_box = None
@@ -55,20 +66,6 @@ class ZZFedoraSpoke(NormalSpoke):
 
     def initialize(self):
         super().initialize()
-
-        self._categories = read_categories()
-        self._category_by_id = {
-            category.id: category for category in self._categories
-        }
-        enabled, selections, preferred_browser = read_state(self._categories)
-        if enabled:
-            self._selections = selections
-            self._preferred_browser = preferred_browser
-        else:
-            self._selections = default_selections(self._categories)
-            self._preferred_browser = ""
-            self._persist_state()
-
         self._category_list_box = self.builder.get_object("categoryListBox")
         self._choice_list_box = self.builder.get_object("choiceListBox")
         self._choice_header_label = self.builder.get_object("choiceHeaderLabel")
@@ -82,9 +79,60 @@ class ZZFedoraSpoke(NormalSpoke):
         )
         self._category_list_box.connect("row-selected", self._on_category_selected)
 
-        self._build_category_rows()
+        self.initialize_start()
+        thread_manager.add_thread(
+            name=THREAD_RUNTIME_REFRESH,
+            target=self._initialize_runtime,
+        )
+
+    def _initialize_runtime(self):
+        try:
+            try:
+                thread_manager.wait(THREAD_PAYLOAD)
+            except Exception as error:  # pylint: disable=broad-except
+                self._runtime_ready = False
+                self._runtime_error = str(error)
+            else:
+                self._load_latest_choices()
+        finally:
+            hubQ.send_ready(self.__class__.__name__)
+            self.initialize_done()
+
+    def _load_latest_choices(self, force=False):
+        try:
+            refresh_runtime(payload_proxy_url(self.payload), force=force)
+            categories = read_categories()
+            if not categories:
+                raise RuntimeError("The refreshed runtime has no optional choices")
+        except Exception as error:  # pylint: disable=broad-except
+            self._runtime_ready = False
+            self._runtime_error = str(error)
+            return False
+
+        self._categories = categories
+        self._category_by_id = {
+            category.id: category for category in self._categories
+        }
+        enabled, selections, preferred_browser = read_state(self._categories)
+        if enabled:
+            self._selections = selections
+            self._preferred_browser = preferred_browser
+        else:
+            self._selections = default_selections(self._categories)
+            self._preferred_browser = ""
+            self._persist_state()
+        self._runtime_ready = True
+        self._runtime_error = ""
+        return True
 
     def refresh(self):
+        if not self._runtime_ready:
+            if not thread_manager.get(THREAD_RUNTIME_REFRESH):
+                self._start_runtime_retry()
+            self._show_runtime_progress()
+            return
+
+        self._build_category_rows()
         enabled, selections, preferred_browser = read_state(self._categories)
         if enabled:
             self._selections = selections
@@ -105,7 +153,46 @@ class ZZFedoraSpoke(NormalSpoke):
         else:
             self._render_choices()
 
+    def _start_runtime_retry(self):
+        self._runtime_error = ""
+        hubQ.send_not_ready(self.__class__.__name__)
+        thread_manager.add_thread(
+            name=THREAD_RUNTIME_REFRESH,
+            target=self._retry_runtime,
+        )
+
+    def _retry_runtime(self):
+        try:
+            self._load_latest_choices(force=True)
+        finally:
+            gtk_call_once(self._finish_runtime_retry)
+            hubQ.send_ready(self.__class__.__name__)
+
+    def _finish_runtime_retry(self):
+        if self._runtime_ready:
+            self.refresh()
+        else:
+            self._show_runtime_error()
+
+    def _clear_runtime_view(self, message):
+        for list_box in (self._category_list_box, self._choice_list_box):
+            for child in list_box.get_children():
+                list_box.remove(child)
+        self._choice_header_label.set_text(message)
+        self._preferred_browser_box.set_visible(False)
+
+    def _show_runtime_progress(self):
+        self._clear_runtime_view(_("Refreshing latest choices"))
+
+    def _show_runtime_error(self):
+        self._clear_runtime_view(
+            _("Latest choices unavailable. Configure networking and return "
+              "to retry. %s") % self._runtime_error
+        )
+
     def apply(self):
+        if not self._runtime_ready:
+            return
         self._persist_state()
 
     def execute(self):
@@ -114,18 +201,22 @@ class ZZFedoraSpoke(NormalSpoke):
 
     @property
     def ready(self):
-        return True
+        return not thread_manager.get(THREAD_RUNTIME_REFRESH)
 
     @property
     def completed(self):
-        return True
+        return self._runtime_ready
 
     @property
     def mandatory(self):
-        return False
+        return True
 
     @property
     def status(self):
+        if thread_manager.get(THREAD_RUNTIME_REFRESH):
+            return _("Refreshing latest choices")
+        if not self._runtime_ready:
+            return _("Latest choices unavailable")
         enabled, selections, _preferred_browser = read_state(self._categories)
         if not enabled:
             selections = default_selections(self._categories)

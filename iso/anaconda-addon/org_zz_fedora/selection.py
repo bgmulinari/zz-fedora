@@ -7,6 +7,7 @@ from pathlib import Path
 from org_zz_fedora.constants import CATEGORY_ORDER, SELECTION_FILE
 
 PACKAGE_CHOICES_DIR = Path(__file__).resolve().parent / "choices"
+REMOTE_RUNTIME_CHOICES_DIR = Path("/run/zz-fedora/repository/choices")
 INSTALL_REPO_CHOICES_DIR = Path("/run/install/repo/zz-fedora/choices")
 SOURCE_TREE_CHOICES_DIR = Path(__file__).resolve().parents[3] / "choices"
 
@@ -42,8 +43,9 @@ class Category:
 
 def _choice_catalog_root():
     for root in (
-        PACKAGE_CHOICES_DIR,
+        REMOTE_RUNTIME_CHOICES_DIR,
         INSTALL_REPO_CHOICES_DIR,
+        PACKAGE_CHOICES_DIR,
         SOURCE_TREE_CHOICES_DIR,
     ):
         if (root / "browsers.conf").is_file():
@@ -55,12 +57,24 @@ def _catalog_path(root, category_id):
     return root / ("%s.conf" % category_id)
 
 
+def _category_ids(root):
+    discovered = {path.stem for path in root.glob("*.conf") if path.is_file()}
+    ordered = [category_id for category_id in CATEGORY_ORDER if category_id in discovered]
+    ordered.extend(sorted(discovered.difference(ordered)))
+    return ordered
+
+
+def _category_label(category_id):
+    generated = category_id.replace("-", " ").replace("_", " ").capitalize()
+    return CATEGORY_LABELS.get(category_id, generated)
+
+
 def read_categories():
-    """Read Fedora optional choices from the embedded catalog snapshot."""
+    """Read Fedora optional choices from the refreshed catalog snapshot."""
 
     root = _choice_catalog_root()
     categories = []
-    for category_id in CATEGORY_ORDER:
+    for category_id in _category_ids(root):
         path = _catalog_path(root, category_id)
         if not path.exists():
             continue
@@ -90,7 +104,7 @@ def read_categories():
             categories.append(
                 Category(
                     category_id=category_id,
-                    label=CATEGORY_LABELS.get(category_id, category_id.title()),
+                    label=_category_label(category_id),
                     choices=choices,
                 )
             )

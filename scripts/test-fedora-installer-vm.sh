@@ -11,11 +11,12 @@ usage() {
 Usage: scripts/test-fedora-installer-vm.sh --input ISO [--input-sha256 HASH] [--work-dir DIR] [--boot-mode iso|direct|uefi] [--installer-ui graphical|text] [--graphics vnc|none|egl-headless]
 
 Run an unattended QEMU install that exercises the Fedora ISO add-on task path.
-The generated test ISO uses the same embedded checkout and installer invocation
-as the production add-on task, but adds VM-only storage, user, and shutdown
-Kickstart commands. The default iso boot mode boots through the generated ISO
-bootloader. Use --boot-mode direct to boot the generated ISO's kernel and initrd
-directly, or --boot-mode uefi to exercise the generated ISO UEFI firmware path.
+The generated test ISO uses the same remote runtime refresh and installer
+invocation as the production add-on task, but adds VM-only storage, user, and
+shutdown Kickstart commands. The default iso boot mode boots through the
+generated ISO bootloader. Use --boot-mode direct to boot the generated ISO's
+kernel and initrd directly, or --boot-mode uefi to exercise the generated ISO
+UEFI firmware path.
 The default graphical installer UI uses a local QEMU VNC display; use
 --installer-ui text for serial-console debugging.
 Use --graphics egl-headless for a headless virtio GL device suitable for

@@ -24,8 +24,9 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
   updates the boot configuration to run that Kickstart.
 - A generated `images/product.img` contains the Anaconda add-on payload under
   `/usr/share/anaconda/addons/`, matching Red Hat's documented installer
-  customization layout. The product image also includes a snapshot of
-  `choices/` so the spoke can render optional package catalogs inside Anaconda.
+  customization layout. The product image also includes a fallback snapshot of
+  `choices/` for add-on development and diagnostics. During an ISO install, the
+  spoke renders the catalogs from the refreshed remote runtime instead.
   It also installs an Anaconda configuration snippet that hides the built-in
   `SoftwareSelectionSpoke`; all optional setup choices are made in the
   `ZZ Fedora` spoke under Anaconda's existing Software section.
@@ -35,12 +36,28 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
   the task's `report_progress()` messages in the normal installer progress UI.
 - The Kickstart leaves disk partitioning, locale, timezone, hostname, root
   password, user creation, and ZZ Fedora execution to Anaconda.
-- The embedded checkout is copied to `~/zz-fedora` for the
-  first regular user created in Anaconda by the add-on task.
-- The checkout is a tracked runtime snapshot, not a copy of the developer
-  repository's `.git` directory. A payload marker allows installer preflight
-  to recognize the snapshot. A later bootstrap run backs it up and replaces it
-  with a normal Git clone before updating.
+- The embedded checkout is a tracked runtime snapshot, not a copy of the
+  developer repository's `.git` directory. It provides the stable loader that
+  refreshes `main` before the ZZ Fedora choices become available.
+- The graphical and text add-on spokes wait for Anaconda's installation-source
+  setup to reach a terminal state before downloading the current remote
+  archive. This lets users configure Wi-Fi, static networking, or a source
+  proxy through Anaconda first. A failed refresh leaves the mandatory spoke
+  incomplete and re-entering it retries the download.
+- The loader filters the archive to the runtime paths declared by that revision's
+  `config/iso-runtime-paths.conf`, and stages it at
+  `/run/zz-fedora/repository`. Failure to fetch or validate that snapshot stops
+  the installation instead of silently using stale catalogs. If TLS validation
+  reports an invalid installer clock, the loader uses chronyd to synchronize
+  time and retries the download once. The embedded manifest is used only when
+  refreshing from an older revision that predates the manifest.
+- Both the graphical and text spokes read `choices/` from that refreshed
+  snapshot. New rows and new `choices/*.conf` catalogs are discovered without
+  rebuilding the ISO. The add-on later copies the exact same snapshot to
+  `~/zz-fedora` for the first regular user created in Anaconda and runs the
+  installer from it. The generated payload marker records the resolved archive
+  revision and remote ref. A later bootstrap run backs up the snapshot and
+  replaces it with a normal Git clone before updating.
 - The add-on writes the chosen optional packages to the normal saved selection
   format. The installer is invoked with `--use-saved`,
   `--desktop-app-profile full`, and user-scoped state paths so
@@ -89,17 +106,28 @@ embedded repository payload is assembled only from Git-tracked runtime files;
 `.git`, tests, local logs, caches, ignored files, and unrelated untracked files
 are never copied into the ISO.
 
+The ISO must still be rebuilt for changes to the Kickstart, Anaconda add-on,
+base installer packages, boot integration, or remote-runtime loader. Changes
+to installer modules, manifests, package choices, bundles, sources, dotfiles,
+and templates are picked up from `main` when installation starts. This makes
+the result intentionally time-dependent: two installations from the same ISO
+can resolve different repository revisions.
+
 ## Install Flow
 
 1. Write the generated ISO to USB.
 2. Boot the Fedora install entry.
 3. Complete the Anaconda screens, including creating a regular user.
-4. Open the `ZZ Fedora` Anaconda spoke and review the preselected full install.
+4. Configure networking or the installation-source proxy if necessary. The
+   `ZZ Fedora` spoke waits for source setup, then fetches and validates the
+   current `main` runtime. Open it and review the preselected full install; its
+   catalogs come from that fetched revision.
    Deselect any AI tools, development tools, .NET components, office apps,
    gaming apps, or multimedia packages you do not want, or change the Firefox
    browser selection.
 5. Start installation.
-6. The add-on task copies this checkout to the installed system and runs:
+6. The add-on task copies that same refreshed runtime to the installed system
+   and runs:
 
 ```bash
 ./install.sh install --yes --use-saved --desktop-app-profile full --no-tui --target-user "$target_user"
@@ -124,8 +152,8 @@ scripts/test-fedora-installer-vm.sh \
 
 The harness builds a VM-only Kickstart ISO, boots the generated ISO's Fedora
 bootloader by default, starts Anaconda in graphical mode over a local QEMU VNC
-display, and runs the same embedded checkout and installer invocation used by
-the production add-on task. Use `--installer-ui text` for serial-console
+display, and runs the same remote runtime refresh and installer invocation used
+by the production add-on task. Use `--installer-ui text` for serial-console
 debugging, `--boot-mode direct` for faster kernel/initrd boot debugging, and
 `--boot-mode uefi` when you specifically need to exercise the generated ISO
 UEFI firmware path.

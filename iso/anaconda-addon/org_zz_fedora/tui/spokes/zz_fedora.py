@@ -3,11 +3,18 @@
 from simpleline.render.containers import ListColumnContainer
 from simpleline.render.prompt import Prompt
 from simpleline.render.screen import InputState
-from simpleline.render.widgets import CheckboxWidget
+from simpleline.render.widgets import CheckboxWidget, TextWidget
 
+from pyanaconda.core.constants import THREAD_PAYLOAD
+from pyanaconda.core.threads import thread_manager
 from pyanaconda.ui.categories.software import SoftwareCategory
 from pyanaconda.ui.tui.spokes import NormalTUISpoke
 
+from org_zz_fedora.runtime import (
+    THREAD_RUNTIME_REFRESH,
+    payload_proxy_url,
+    refresh_runtime,
+)
 from org_zz_fedora.selection import (
     default_selections,
     read_categories,
@@ -34,24 +41,91 @@ class ZZFedoraSpoke(NormalTUISpoke):
         self._container = None
         self._selections = {}
         self._preferred_browser = ""
+        self._runtime_ready = False
+        self._runtime_error = ""
 
     @classmethod
     def should_run(cls, environment, data):
         return True
 
-    def setup(self, args=None):
-        super().setup(args)
-        self._categories = read_categories()
+    def initialize(self):
+        super().initialize()
+        self.initialize_start()
+        thread_manager.add_thread(
+            name=THREAD_RUNTIME_REFRESH,
+            target=self._initialize_runtime,
+        )
+
+    def _initialize_runtime(self):
+        try:
+            try:
+                thread_manager.wait(THREAD_PAYLOAD)
+            except Exception as error:  # pylint: disable=broad-except
+                self._runtime_ready = False
+                self._runtime_error = str(error)
+            else:
+                self._load_latest_choices()
+        finally:
+            self.initialize_done()
+
+    def _load_latest_choices(self, force=False):
+        try:
+            refresh_runtime(payload_proxy_url(self.payload), force=force)
+            categories = read_categories()
+            if not categories:
+                raise RuntimeError("The refreshed runtime has no optional choices")
+        except Exception as error:  # pylint: disable=broad-except
+            self._runtime_ready = False
+            self._runtime_error = str(error)
+            return False
+
+        self._categories = categories
         enabled, self._selections, self._preferred_browser = read_state(self._categories)
+        self._runtime_ready = True
         if not enabled:
             self._selections = default_selections(self._categories)
             self._preferred_browser = ""
             self.apply()
+        self._runtime_error = ""
         return True
+
+    def setup(self, args=None):
+        super().setup(args)
+        if not self._runtime_ready and not thread_manager.get(THREAD_RUNTIME_REFRESH):
+            self._start_runtime_retry()
+        return True
+
+    def _start_runtime_retry(self):
+        self._runtime_error = ""
+        thread_manager.add_thread(
+            name=THREAD_RUNTIME_REFRESH,
+            target=self._retry_runtime,
+        )
+
+    def _retry_runtime(self):
+        self._load_latest_choices(force=True)
 
     def refresh(self, args=None):
         super().refresh(args)
         self._container = ListColumnContainer(columns=1)
+        if thread_manager.get(THREAD_RUNTIME_REFRESH):
+            self._container.add(
+                TextWidget(
+                    title=_("Refreshing latest choices. Return to the hub and "
+                            "re-enter this spoke when the refresh completes.")
+                )
+            )
+            self.window.add_with_separator(self._container)
+            return
+        if not self._runtime_ready:
+            self._container.add(
+                TextWidget(
+                    title=_("Latest choices unavailable. Configure networking "
+                            "and return to retry. %s") % self._runtime_error
+                )
+            )
+            self.window.add_with_separator(self._container)
+            return
         for category in self._categories:
             for choice in category.choices:
                 title = "%s: %s" % (category.label, choice.label)
@@ -68,21 +142,31 @@ class ZZFedoraSpoke(NormalTUISpoke):
         self.window.add_with_separator(self._container)
 
     def apply(self):
+        if not self._runtime_ready:
+            return
         write_state(True, self._selections, self._preferred_browser)
+
+    @property
+    def ready(self):
+        return not thread_manager.get(THREAD_RUNTIME_REFRESH)
 
     def execute(self):
         pass
 
     @property
     def completed(self):
-        return True
+        return self._runtime_ready
 
     @property
     def mandatory(self):
-        return False
+        return True
 
     @property
     def status(self):
+        if thread_manager.get(THREAD_RUNTIME_REFRESH):
+            return _("Refreshing latest choices")
+        if not self._runtime_ready:
+            return _("Latest choices unavailable")
         count = selected_choice_count(self._selections)
         if count == 0:
             return _("Base desktop")

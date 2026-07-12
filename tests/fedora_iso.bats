@@ -181,15 +181,16 @@ SH
 
   fixture="$TEST_ROOT/payload-repo"
   destination="$TEST_ROOT/payload"
-  mkdir -p "$fixture/lib" "$fixture/tests" "$fixture/logs"
+  mkdir -p "$fixture/config" "$fixture/lib" "$fixture/tests" "$fixture/logs"
   printf '#!/usr/bin/env bash\n' >"$fixture/install.sh"
   chmod +x "$fixture/install.sh"
+  printf 'install.sh\nlib\nconfig\n' >"$fixture/config/iso-runtime-paths.conf"
   printf 'runtime\n' >"$fixture/lib/runtime.sh"
   printf 'test\n' >"$fixture/tests/not-runtime.bats"
   printf 'secret\n' >"$fixture/.env"
   printf 'log\n' >"$fixture/logs/local.log"
   git -C "$fixture" init -q
-  git -C "$fixture" add install.sh lib/runtime.sh tests/not-runtime.bats
+  git -C "$fixture" add config/iso-runtime-paths.conf install.sh lib/runtime.sh tests/not-runtime.bats
 
   # shellcheck source=../scripts/lib/iso-common.sh
   source "$ROOT_DIR/scripts/lib/iso-common.sh"
@@ -197,12 +198,122 @@ SH
   iso_stage_tracked_runtime_payload "$fixture" "$destination"
 
   [[ -x "$destination/install.sh" ]]
+  [[ -f "$destination/config/iso-runtime-paths.conf" ]]
   [[ -f "$destination/lib/runtime.sh" ]]
   [[ ! -e "$destination/.git" ]]
   [[ ! -e "$destination/.env" ]]
   [[ ! -e "$destination/logs" ]]
   [[ ! -e "$destination/tests" ]]
   assert_file_contains "$destination/config/iso-payload.conf" "format=1"
+}
+
+@test "ISO runtime refresh stages a remote runtime snapshot" {
+  command -v curl >/dev/null 2>&1 || skip "curl is not installed"
+  command -v rsync >/dev/null 2>&1 || skip "rsync is not installed"
+  command -v tar >/dev/null 2>&1 || skip "tar is not installed"
+
+  archive_root="$TEST_ROOT/snapshot-deadbee"
+  archive="$TEST_ROOT/snapshot.tar.gz"
+  destination="$TEST_ROOT/runtime"
+  mkdir -p "$archive_root/choices" "$archive_root/config" "$archive_root/extra-runtime" "$archive_root/lib" "$archive_root/tests"
+  printf '#!/usr/bin/env bash\n' >"$archive_root/install.sh"
+  chmod +x "$archive_root/install.sh"
+  printf 'firefox\tFirefox\t1\tbrowser-firefox\tFirefox\n' >"$archive_root/choices/browsers.conf"
+  printf 'manifest-driven\n' >"$archive_root/extra-runtime/marker"
+  printf 'latest runtime\n' >"$archive_root/lib/latest.sh"
+  printf 'not runtime\n' >"$archive_root/tests/not-runtime.bats"
+  printf 'install.sh\nchoices\nconfig\nlib\nextra-runtime\n' >"$archive_root/config/iso-runtime-paths.conf"
+  tar -czf "$archive" -C "$TEST_ROOT" "$(basename "$archive_root")"
+
+  run env \
+    ZZ_ISO_RUNTIME_ARCHIVE_URL="file://$archive" \
+    ZZ_ISO_RUNTIME_REF=main \
+    ZZ_ISO_RUNTIME_DIR="$destination" \
+    "$ROOT_DIR/lib/iso-runtime.sh"
+
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+  [[ -x "$destination/install.sh" ]]
+  [[ -f "$destination/config/iso-runtime-paths.conf" ]]
+  [[ -f "$destination/extra-runtime/marker" ]]
+  [[ -f "$destination/lib/latest.sh" ]]
+  [[ ! -e "$destination/tests" ]]
+  assert_file_contains "$destination/config/iso-payload.conf" "git_revision=deadbee"
+  assert_file_contains "$destination/config/iso-payload.conf" "remote_ref=main"
+}
+
+@test "ISO runtime refresh repairs the clock after TLS validation failure" {
+  command -v rsync >/dev/null 2>&1 || skip "rsync is not installed"
+  command -v tar >/dev/null 2>&1 || skip "tar is not installed"
+
+  fake_bin="$TEST_ROOT/clock-bin"
+  archive_root="$TEST_ROOT/snapshot-c0ffee0"
+  archive="$TEST_ROOT/clock-snapshot.tar.gz"
+  destination="$TEST_ROOT/clock-runtime"
+  paths_file="$TEST_ROOT/clock-runtime-paths.conf"
+  mkdir -p "$fake_bin" "$archive_root/choices"
+  printf '#!/usr/bin/env bash\n' >"$archive_root/install.sh"
+  chmod +x "$archive_root/install.sh"
+  printf 'firefox\tFirefox\t1\tbrowser-firefox\tFirefox\n' >"$archive_root/choices/browsers.conf"
+  printf 'install.sh\nchoices\n' >"$paths_file"
+  tar -czf "$archive" -C "$TEST_ROOT" "$(basename "$archive_root")"
+
+  cat >"$fake_bin/curl" <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+count=0
+[[ ! -f "$ZZ_TEST_CURL_COUNT" ]] || count="$(<"$ZZ_TEST_CURL_COUNT")"
+count=$((count + 1))
+printf '%s\n' "$count" >"$ZZ_TEST_CURL_COUNT"
+if [[ "$count" -eq 1 ]]; then
+  exit 60
+fi
+output=
+while (($# > 0)); do
+  case "$1" in
+    --output)
+      output="$2"
+      shift 2
+      ;;
+    *) shift ;;
+  esac
+done
+cp "$ZZ_TEST_ARCHIVE" "$output"
+SH
+  chmod +x "$fake_bin/curl"
+
+  cat >"$fake_bin/chronyd" <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf '%s\n' "$*" >"$ZZ_TEST_CHRONYD_LOG"
+SH
+  chmod +x "$fake_bin/chronyd"
+
+  cat >"$fake_bin/chronyc" <<'SH'
+#!/usr/bin/env bash
+exit 1
+SH
+  chmod +x "$fake_bin/chronyc"
+
+  run env \
+    PATH="$fake_bin:$PATH" \
+    ZZ_ISO_RUNTIME_ARCHIVE_URL=https://example.invalid/runtime.tar.gz \
+    ZZ_ISO_RUNTIME_PATHS_FILE="$paths_file" \
+    ZZ_ISO_RUNTIME_DIR="$destination" \
+    ZZ_TEST_ARCHIVE="$archive" \
+    ZZ_TEST_CHRONYD_LOG="$TEST_ROOT/chronyd.log" \
+    ZZ_TEST_CURL_COUNT="$TEST_ROOT/curl-count" \
+    "$ROOT_DIR/lib/iso-runtime.sh"
+
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+  assert_file_contains "$TEST_ROOT/curl-count" "2"
+  assert_file_contains "$TEST_ROOT/chronyd.log" "-q -t 30"
+  [[ -x "$destination/install.sh" ]]
 }
 
 @test "Fedora ISO builder forwards development skip-mkefiboot flag" {
@@ -297,13 +408,19 @@ SH
   assert_file_contains "$addon/service/installation.py" "DNF_TRANSACTION_RE"
   assert_file_contains "$addon/service/installation.py" "chroot"
   assert_file_contains "$addon/service/installation.py" "ZZ_INSTALL_PROGRESS_FILE"
+  assert_file_contains "$addon/service/installation.py" 'SOURCE_REPO_DIR = Path("/run/zz-fedora/repository")'
   assert_file_contains "$ROOT_DIR/iso/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZFedora.service" "start-module org_zz_fedora.service"
   assert_file_contains "$ROOT_DIR/iso/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZFedora.conf" "org.fedoraproject.Anaconda.Addons.ZZFedora"
   assert_file_contains "$addon/selection.py" "def read_categories"
+  assert_file_contains "$addon/selection.py" "def _category_ids"
+  assert_file_contains "$addon/selection.py" 'REMOTE_RUNTIME_CHOICES_DIR = Path("/run/zz-fedora/repository/choices")'
   assert_file_contains "$addon/selection.py" "def default_selections"
   assert_file_contains "$addon/selection.py" 'parents[3] / "choices"'
   assert_file_contains "$addon/selection.py" 'root / ("%s.conf" % category_id)'
   assert_file_contains "$addon/selection.py" "select.%s=%s"
+  assert_file_contains "$addon/runtime.py" "def refresh_runtime"
+  assert_file_contains "$addon/runtime.py" "def payload_proxy_url"
+  assert_file_contains "$addon/runtime.py" "THREAD_RUNTIME_REFRESH"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "class ZZFedoraSpoke"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" 'builderObjects = ["zzFedoraSpokeWindow"]'
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "NormalSpoke"
@@ -314,6 +431,10 @@ SH
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_render_choices"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_update_preferred_browser_combo"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "write_state(True"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "thread_manager.wait(THREAD_PAYLOAD)"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "payload_proxy_url(self.payload)"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "target=self._retry_runtime"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "gtk_call_once(self._finish_runtime_retry)"
   assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "Optional categories"
   assert_file_contains "$addon/gui/spokes/zz_fedora.glade" 'id="zzFedoraSpokeWindow"'
   assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "categoryListBox"
@@ -329,6 +450,9 @@ SH
   assert_file_contains "$addon/tui/spokes/zz_fedora.py" "CheckboxWidget"
   assert_file_contains "$addon/tui/spokes/zz_fedora.py" "_toggle_choice"
   assert_file_contains "$addon/tui/spokes/zz_fedora.py" "write_state(True"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "thread_manager.wait(THREAD_PAYLOAD)"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "payload_proxy_url(self.payload)"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "target=self._retry_runtime"
   refute_file_contains "$addon/tui/spokes/zz_fedora.py" "_toggle_selection"
 }
 
@@ -344,7 +468,15 @@ repo_root = Path(os.environ["ZZ_REPO_ROOT"])
 package = types.ModuleType("org_zz_fedora")
 package.__path__ = []
 constants = types.ModuleType("org_zz_fedora.constants")
-constants.CATEGORY_ORDER = ("browsers", "dev")
+constants.CATEGORY_ORDER = (
+    "browsers",
+    "ai",
+    "dev",
+    "dotnet",
+    "office",
+    "gaming",
+    "media",
+)
 constants.SELECTION_FILE = "/tmp/zz-fedora-test-selection"
 sys.modules["org_zz_fedora"] = package
 sys.modules["org_zz_fedora.constants"] = constants
@@ -356,9 +488,10 @@ spec.loader.exec_module(selection)
 
 assert selection.SOURCE_TREE_CHOICES_DIR == repo_root / "choices"
 categories = selection.read_categories()
-assert [category.id for category in categories] == ["browsers", "dev"]
-assert any(choice.id == "firefox" for choice in categories[0].choices)
-assert any(choice.id == "docker" for choice in categories[1].choices)
+category_by_id = {category.id: category for category in categories}
+assert [category.id for category in categories] == list(constants.CATEGORY_ORDER)
+assert any(choice.id == "firefox" for choice in category_by_id["browsers"].choices)
+assert any(choice.id == "docker" for choice in category_by_id["dev"].choices)
 PY
 
   [ "$status" -eq 0 ]
@@ -387,6 +520,7 @@ PY
   assert_file_contains "$script" "--cmdline \"console=ttyS0,115200n8 inst.cmdline\""
   assert_file_contains "$script" "direct_append+=\" console=ttyS0,115200n8 inst.cmdline\""
   assert_file_contains "$script" "printf 'selected=1\\n' >/run/zz-fedora/install-selected"
+  assert_file_contains "$script" "%pre --interpreter=/usr/bin/bash"
   assert_file_contains "$script" "addon_data_dir="
   assert_file_contains "$script" "usr/share/anaconda/dbus/services"
   assert_file_contains "$script" "SoftwareSelectionSpoke"
