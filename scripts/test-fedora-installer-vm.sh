@@ -278,7 +278,7 @@ bootloader --location=mbr --append="console=ttyS0,115200n8"
 
 EOF
   printf 'url --metalink="https://mirrors.fedoraproject.org/metalink?repo=fedora-%s&arch=%s"\n' "$fedora_release" "$fedora_arch"
-  printf 'repo --name="updates" --metalink="https://mirrors.fedoraproject.org/metalink?repo=updates-released-f%s&arch=%s" --install\n' "$fedora_release" "$fedora_arch"
+  printf 'repo --name="updates"\n'
   cat <<'EOF'
 
 services --enabled=NetworkManager

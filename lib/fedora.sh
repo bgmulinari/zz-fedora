@@ -177,13 +177,6 @@ fedora_install_dnf_packages() {
   fi
 }
 
-fedora_apply_release_updates() {
-  log_progress "Refreshing Fedora release metadata"
-  run_cmd_as_root dnf makecache --refresh
-  log_progress "Applying Fedora release updates"
-  run_cmd_as_root dnf upgrade -y --refresh
-}
-
 fedora_install_flatpaks() {
   log_progress "Ensuring Flathub remote is ready"
   flatpak_remote_add_if_missing flathub https://dl.flathub.org/repo/flathub.flatpakrepo || return 1

@@ -74,7 +74,7 @@ output=${args[1]:-}
 [[ -f "$ks" ]]
 ks_has_release=no
 if grep -F 'repo=fedora-44&arch=x86_64' "$ks" >/dev/null &&
-  grep -F 'repo=updates-released-f44&arch=x86_64' "$ks" >/dev/null; then
+  grep -Fx 'repo --name="updates"' "$ks" >/dev/null; then
   ks_has_release=yes
 fi
 payload_marker=no
@@ -268,6 +268,7 @@ SH
   assert_file_contains "$ks" "network --bootproto=dhcp --activate"
   assert_file_contains "$ks" "firstboot --disable"
   assert_file_contains "$ks" "url --metalink=\"https://mirrors.fedoraproject.org/metalink?repo=fedora-@FEDORA_RELEASE@&arch=@FEDORA_ARCH@\""
+  assert_file_contains "$ks" 'repo --name="updates"'
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "iso_extract_fedora_metadata"
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "render_kickstart_template"
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "addon_data_dir="
@@ -296,7 +297,6 @@ SH
   assert_file_contains "$addon/service/installation.py" "DNF_TRANSACTION_RE"
   assert_file_contains "$addon/service/installation.py" "chroot"
   assert_file_contains "$addon/service/installation.py" "ZZ_INSTALL_PROGRESS_FILE"
-  assert_file_contains "$addon/service/installation.py" "ZZ_INSTALLER_APPLY_RELEASE_UPDATES=1"
   assert_file_contains "$ROOT_DIR/iso/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZFedora.service" "start-module org_zz_fedora.service"
   assert_file_contains "$ROOT_DIR/iso/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZFedora.conf" "org.fedoraproject.Anaconda.Addons.ZZFedora"
   assert_file_contains "$addon/selection.py" "def read_categories"
@@ -426,21 +426,4 @@ PY
   [ "$status" -eq 0 ]
   assert_contains "$output" "systemctl enable NetworkManager"
   refute_contains "$output" "--now"
-}
-
-@test "Fedora installer release update flag refreshes and upgrades Fedora repos" {
-  source_core
-  source_modules
-  DRY_RUN=0
-  ZZ_INSTALLER_APPLY_RELEASE_UPDATES=1
-  COMMAND=install
-  run_cmd_as_root() {
-    printf '%s\n' "$*"
-  }
-
-  run module_05_bootstrap_tools
-
-  [ "$status" -eq 0 ]
-  assert_contains "$output" "dnf makecache --refresh"
-  assert_contains "$output" "dnf upgrade -y --refresh"
 }

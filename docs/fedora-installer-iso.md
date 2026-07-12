@@ -41,11 +41,13 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
   `--desktop-app-profile full`, and user-scoped state paths so
   the result matches the unattended bootstrap baseline plus the Anaconda
   choices.
-- The ISO path sets `ZZ_INSTALLER_APPLY_RELEASE_UPDATES=1`. Before enabling
-  third-party repositories, the installer refreshes Fedora metadata and runs
-  `dnf upgrade -y --refresh`, so packages installed by Anaconda are brought up
-  to the current Fedora release updates before the managed desktop baseline is
-  applied.
+- The Kickstart enables Anaconda's built-in `updates` repository by name. This
+  makes Anaconda resolve its original package transaction against both the
+  Fedora release and current updates repositories, matching the online
+  Everything installer without a second full-system upgrade transaction.
+  The repository is intentionally not redefined with `--metalink`: Anaconda
+  disables built-in repositories while loading an explicit URL source, and a
+  URL redefinition of the existing `updates` repository does not re-enable it.
 
 ## Build
 
@@ -98,10 +100,11 @@ are never copied into the ISO.
 ```
 
 System services are enabled for first boot during ISO installs instead of being
-started inside the Anaconda chroot. The add-on task refreshes Fedora metadata
-and applies release updates before enabling RPM Fusion, COPR, Terra, vendor
-repositories, or Flathub. First-login/session-sensitive work remains registered
-through the existing `zz first-run` path.
+started inside the Anaconda chroot. Anaconda installs Fedora packages from the
+release and updates repositories in one transaction before the add-on enables
+RPM Fusion, COPR, Terra, vendor repositories, or Flathub.
+First-login/session-sensitive work remains registered through the existing
+`zz first-run` path.
 
 ## VM Validation
 

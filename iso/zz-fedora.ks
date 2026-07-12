@@ -11,7 +11,10 @@ firstboot --disable
 selinux --enforcing
 
 url --metalink="https://mirrors.fedoraproject.org/metalink?repo=fedora-@FEDORA_RELEASE@&arch=@FEDORA_ARCH@"
-repo --name="updates" --metalink="https://mirrors.fedoraproject.org/metalink?repo=updates-released-f@FEDORA_RELEASE@&arch=@FEDORA_ARCH@" --install
+# Re-enable Anaconda's built-in Fedora updates repository. Do not redefine it
+# by URL: Anaconda disables system repositories while loading an explicit URL
+# source, and reconfiguring the existing repo does not enable it again.
+repo --name="updates"
 
 bootloader --location=mbr
 services --enabled=NetworkManager
