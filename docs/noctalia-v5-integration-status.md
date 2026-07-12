@@ -9,7 +9,7 @@ This is the living checkpoint for the Noctalia v5 integration. Update it every t
 - Restored installer seeding, the managed-config policy, doctor coverage, and Noctalia's wallpaper directory. Seeding is non-destructive: a same-named user file is never replaced.
 - Set `Alpenglow.jpg` as the portable initial default.
 
-Noctalia v5 is currently beta software and this branch is experimental. Treat this file as the handoff note for future work: compare this checkpoint with the then-current Noctalia v5 repo/docs before changing the integration again.
+Noctalia v5 is the project's supported shell baseline. Treat this file as the handoff note for future work: compare this checkpoint with the then-current Noctalia v5 repo/docs before changing the integration again.
 
 ## Checkpoint: 2026-07-11
 
