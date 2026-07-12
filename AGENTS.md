@@ -1,34 +1,95 @@
-# Repository Guidelines
+# Repository instructions
 
-## Project Structure & Module Organization
-`install.sh` is the main entrypoint; `bootstrap.sh` installs prerequisites and clones/updates the repo before handing off to `install.sh`. Shared Bash helpers and Fedora platform operations live in `lib/`, and ordered install stages live in `modules/` using the `NN-name.sh` pattern (`00-preflight.sh` through `90-doctor.sh`).
+## Scope and invariants
 
-Data-driven inputs live under `choices/`, `bundles/`, `packages/`, and `sources/`. Use `choices/*.conf` for optional wizard choices, `packages/**/*.pkgs` and `*.flatpaks` for manifests, `packages/actions/*.actions` for direct installer actions, and `sources/**/*.source` for repo definitions. Base bundles are declared in `BASE_BUNDLE_IDS` and are installed before selected optional bundles. Base bundle IDs must not also appear in optional choice catalogs. Broader default selections live in `DEFAULT_BUNDLE_IDS`; optional catalog defaults live in the third field of each `choices/*.conf` row. The default install selects every non-browser catalog choice and selects only Firefox in the browser catalog. Managed user config lives under `dotfiles/<stow-package>/`, while `templates/` is reserved for rendered files that are not shipped through Stow. Fedora is a project invariant, not a selectable distro abstraction. Regression checks live in `tests/`.
+- This repository is a Fedora post-install bootstrapper for the Niri and Noctalia desktop.
+- `install.sh` owns setup. `bootstrap.sh` only installs prerequisites, clones or updates the repository, and hands off to `install.sh`.
+- The installed `zz` launcher is for post-install operations. Do not add install, wizard, plan, check, or repair wrappers under `bin/zz.d/`. Discover its supported commands with `./bin/zz commands --json`.
+- The installer is under active development. Do not add migrations, compatibility shims, existing-install preservation, or regression guards for previous behavior unless the user explicitly requests them.
+- Keep new repository-facing identifiers and documentation generic. Do not introduce third-party branding into bundle IDs, manifest names, Stow package names, or docs unless the user explicitly requests it.
 
-The installed `zz` launcher is a post-install utility only. Do not add install, wizard, plan, check, or repair wrappers under `bin/zz.d/`; setup stays under `./install.sh` and `./bootstrap.sh`. Current `zz` commands are `doctor`, `logs`, `debug`, `first-run`, `defaults`, `dotnet`, `update`, and `commands --json`.
+## Put changes in the right place
 
-## Build, Test, and Development Commands
-Run the installer locally with `./install.sh wizard` for the interactive flow or `./install.sh install --yes --dry-run` to inspect the generated base plan safely. Use `./install.sh print-plan --select browser=brave --dry-run` when validating optional planner changes without applying them. Use `zz doctor`, `zz logs --tail`, `zz debug`, `zz first-run`, `zz defaults`, `zz dotnet devcert status`, and `zz update all` for post-install operations.
+- Keep ordered install orchestration in `modules/NN-name.sh`; put reusable Bash logic in `lib/` and keep modules thin.
+- Treat `choices/`, `bundles/`, `packages/`, and `sources/` as the data-driven installer API.
+- Put optional wizard choices in `choices/*.conf`, bundle composition in `bundles/**/*.bundle`, package lists in `packages/**/*.pkgs` or `*.flatpaks`, direct installer actions in `packages/actions/*.actions`, and repository definitions in `sources/**/*.source`.
+- Put portable user configuration in `dotfiles/<stow-package>/`. Reserve `templates/` for files rendered by the installer rather than deployed through Stow.
+- Put regression tests in `tests/`; share test helpers through `tests/helpers/`.
+- When upstream reference code or docs are needed, prefer the read-only checkouts under `/files/Dev/ref_repos` when available instead of package decompilation or ad hoc reverse engineering.
 
-Run `./tests/smoke.sh` before opening a PR. The suite uses Bats and fails fast with an install hint when `bats` is missing. Smoke covers shell syntax, manifest parsing, catalog validation, Fedora platform validation, fast planner behavior, and CLI smoke checks. Set `ZZ_TEST_LINT=1` to include `shellcheck` in smoke. Run `./tests/full.sh` for full regression, `./tests/full.sh --timings` for per-suite durations during the full gate, and `./tests/profile.sh` for the non-gating timing helper. For targeted work, run individual Bats files such as `bats tests/planner.bats` or compatibility shims such as `./tests/idempotency.sh`.
+## Preserve manifest contracts
 
-## Coding Style & Naming Conventions
-Write Bash with `#!/usr/bin/env bash` and `set -Eeuo pipefail`. Follow the existing style: lowercase function names (`build_plan_from_selections`), uppercase globals/environment flags (`DRY_RUN`, `TARGET_HOME`), and quote variable expansions. Keep modules thin and push reusable logic into `lib/`.
+- Keep each `choices/*.conf` row tab-separated with exactly five fields: `id`, `label`, `default`, `bundle_ids`, and `description`.
+- Preserve manifest suffixes: `.conf`, `.bundle`, `.pkgs`, `.flatpaks`, `.actions`, and `.source`.
+- Base bundles belong in `BASE_BUNDLE_IDS`, are planned before optional bundles, and must not appear in an optional choice catalog. Use `DEFAULT_BUNDLE_IDS` only for broader defaults outside the choice catalogs.
+- The default install selects every non-browser catalog choice and only Firefox from the browser catalog. Express optional catalog defaults through the third field of each choice row.
+- Give every base-owning bundle a useful `BUNDLE_DESCRIPTION`; base package and action work must remain explainable in the generated `base-rationale.tsv`.
+- Source descriptors must declare trust metadata with `SOURCE_GPG_POLICY`, `SOURCE_BOOTSTRAP_EXCEPTION`, `SOURCE_REQUIRED`, and `SOURCE_REASON`.
 
-Manifest and choice files are part of the API. Preserve existing suffixes (`.pkgs`, `.flatpaks`, `.actions`, `.source`, `.conf`) and keep `choices/*.conf` as tab-separated records with five fields: `id`, `label`, `default`, `bundle_ids`, and `description`. Source descriptors must include trust metadata: `SOURCE_GPG_POLICY`, `SOURCE_BOOTSTRAP_EXCEPTION`, `SOURCE_REQUIRED`, and `SOURCE_REASON`.
+## Bash and installer behavior
 
-## Testing Guidelines
-Add or update a focused Bats suite in `tests/` for planner, parser, CLI, first-run, source trust, verification, or idempotency changes. Prefer fast, non-interactive assertions that run without root access or network calls. Source shared helpers from `tests/helpers/` and use in-process planner/module calls instead of repeated `install.sh` subprocesses unless the behavior under test is the CLI boundary. New tests should fail on regressions without needing root access or network calls. If you change base bundle behavior, update tests that prove base bundles are always planned, installed before optional bundles, verified when required, and not blocked by optional package failures. If you change first-login/session-sensitive work, cover marker creation/removal and idempotency.
+- Use `#!/usr/bin/env bash` and `set -Eeuo pipefail` in Bash entrypoints.
+- Follow the existing naming style: lowercase function names, uppercase globals and environment flags, and quoted variable expansions.
+- Keep required base actions idempotent and give them explicit verification checks.
+- Keep GUI defaults that require a logged-in user session in the first-run path rather than the system install path.
+- For Noctalia changes, keep portable settings in the managed dotfiles and do not commit generated, monitor-specific, or hardware-specific state from `~/.local/state/noctalia/`.
 
-## Commit & Pull Request Guidelines
-Recent history uses short, imperative commit subjects, for example `Implement GTK-oriented Niri Noctalia bootstrapper with gum wizard`. Keep the first line concise and descriptive.
+## Fedora installer ISO
 
-PRs should summarize any new sources/packages/choices and list the commands you ran, usually `./tests/smoke.sh`. Include screenshots only when changing user-facing TUI behavior or generated desktop/session assets.
+- Treat `iso/zz-fedora.ks`, `iso/anaconda-addon/`, `iso/anaconda-addon-data/`, `scripts/build-fedora-installer-iso.sh`, `scripts/lib/iso-common.sh`, and `scripts/test-fedora-installer-vm.sh` as one installer path. Keep `docs/fedora-installer-iso.md` synchronized with behavior and CLI changes.
+- Keep the ISO online: it embeds the current checkout and installer integration, not package mirrors. Stage only Git-tracked runtime files; never include `.git`, tests, logs, caches, ignored files, or unrelated untracked files.
+- Keep disk layout, locale, timezone, hostname, credentials, and user creation under Anaconda. Run repository setup through the add-on service and normal `install.sh` path; do not duplicate it in Kickstart `%post` logic.
+- Build only from a supported Fedora x86_64 installer ISO and pass `--input-sha256` from Fedora's signed checksum file. Input and output paths must differ, and generated images belong under ignored `release/` rather than in Git.
+- Use `--skip-mkefiboot` only for development builds that do not need a refreshed EFI boot image. Validate publishable media without that flag.
+- For ISO changes, run the focused suites:
 
-## Agent Notes
-When you need upstream reference code or docs, prefer the read-only repos under `/files/Dev/ref_repos` instead of package decompilation or ad hoc reverse engineering.
-Keep repository-facing names and documentation generic. Do not introduce third-party project branding into bundle IDs, manifest filenames, stow package names, or docs unless the user explicitly asks for that.
-For Noctalia v5 work, read and update `docs/noctalia-v5-integration-status.md`; it is the living checkpoint for the current alpha integration, package pinning, known issues, and next comparison steps.
-This installer is under active development. Do not add migration logic, backward-compatibility shims, existing-install preservation work, or regression guards for prior behavior unless the user explicitly asks for them.
-Package manifests and installer wiring are expected to churn while the desktop baseline is being explored. When changing or removing packages, actions, bundle IDs, installer strings, manifest filenames, or other implementation identifiers, do not add or keep tests whose only purpose is to assert that the old identifier stays absent. Prefer assertions for the new desired behavior, and only test negative selection when it protects intentional planner behavior or an explicitly requested constraint.
-Base package/action manifests should stay explainable through the generated `base-rationale.tsv`; when adding base work, make sure the owning bundle description gives a clear reason. Keep session-sensitive GUI defaults in the first-run path when they depend on a user session, and keep required base actions idempotent with an explicit verification check.
+  ```bash
+  bats tests/fedora_iso.bats tests/anaconda_addon.bats tests/post_actions_installer_iso.bats
+  ```
+
+- Before publishing installer-path changes, run `scripts/test-fedora-installer-vm.sh --input <fedora-installer.iso> --input-sha256 <sha256>`. Use its direct/text/headless modes for iteration, but validate the generated ISO boot path for release work.
+
+## Safe development commands
+
+- Inspect the generated base plan without applying it:
+
+  ```bash
+  ./install.sh install --yes --dry-run
+  ```
+
+- Exercise an optional planner selection without applying it:
+
+  ```bash
+  ./install.sh print-plan --select browser=brave --dry-run
+  ```
+
+- Use `./install.sh wizard` only for an intentional interactive install. Do not run a non-dry installation unless the user explicitly asks for it.
+
+## Verification
+
+- Run the smallest relevant Bats suite while iterating, for example:
+
+  ```bash
+  bats tests/planner.bats
+  ```
+
+- Run the required pre-PR smoke gate:
+
+  ```bash
+  ./tests/smoke.sh
+  ```
+
+  It requires Bats. Set `ZZ_TEST_LINT=1` to include ShellCheck.
+
+- Use `./tests/full.sh` for broad or cross-cutting changes, `./tests/full.sh --timings` to include per-suite timings, and `./tests/profile.sh` only as the non-gating performance helper.
+- Prefer fast, non-interactive tests that need neither root nor network access. Test planner and module behavior in-process; use `install.sh` subprocesses only when testing the CLI boundary.
+- For base-bundle changes, test that base work is always planned, runs before optional work, is verified when required, and is not blocked by optional package failures.
+- For first-login or session-sensitive changes, test marker creation and removal plus repeated-run idempotency.
+- When implementation identifiers churn, test the new desired behavior. Do not add absence-only tests for old package names, actions, bundle IDs, filenames, or installer strings unless a negative selection is an intentional planner contract.
+
+## Commits and pull requests
+
+- Only create branches or PRs when specifically instructed to.
+- Use a short, imperative commit subject.
+- In a pull request, summarize changed sources, packages, choices, and user-visible behavior; list the exact validation commands run.
+- Include screenshots only for user-facing TUI or generated desktop/session changes.
