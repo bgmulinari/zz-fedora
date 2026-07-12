@@ -116,6 +116,51 @@ setup() {
   assert_contains "$output" "Command timed out after 7s: slow command"
 }
 
+@test "JetBrains Toolbox install removes the vendor login autostart entry" {
+  DRY_RUN=0
+  command_log="$TEST_ROOT/toolbox-install-command.log"
+  toolbox_bin="$TARGET_HOME/.local/share/JetBrains/Toolbox/bin/jetbrains-toolbox"
+  toolbox_link="$TARGET_HOME/.local/bin/jetbrains-toolbox"
+  application_file="$TARGET_HOME/.local/share/applications/jetbrains-toolbox.desktop"
+  autostart_file="$TARGET_HOME/.config/autostart/jetbrains-toolbox.desktop"
+
+  run_user_login_shell() {
+    printf '%s\n' "$1" >"$command_log"
+    mkdir -p "$(dirname "$toolbox_bin")" "$(dirname "$toolbox_link")" \
+      "$(dirname "$application_file")" "$(dirname "$autostart_file")"
+    touch "$toolbox_bin" "$application_file"
+    chmod +x "$toolbox_bin"
+    ln -s "$toolbox_bin" "$toolbox_link"
+    (sleep 0.2 && touch "$autostart_file") &
+  }
+
+  run install_jetbrains_toolbox
+
+  [ "$status" -eq 0 ]
+  [[ -x "$toolbox_bin" ]]
+  [[ ! -e "$autostart_file" ]]
+  assert_file_contains "$command_log" "nohup"
+}
+
+@test "JetBrains Toolbox install rerun removes an existing login autostart entry" {
+  DRY_RUN=0
+  toolbox_bin="$TARGET_HOME/.local/share/JetBrains/Toolbox/bin/jetbrains-toolbox"
+  autostart_file="$TARGET_HOME/.config/autostart/jetbrains-toolbox.desktop"
+  mkdir -p "$(dirname "$toolbox_bin")" "$(dirname "$autostart_file")"
+  touch "$toolbox_bin" "$autostart_file"
+  chmod +x "$toolbox_bin"
+  run_user_login_shell() {
+    printf 'unexpected Toolbox relaunch\n' >&2
+    return 1
+  }
+
+  run install_jetbrains_toolbox
+
+  [ "$status" -eq 0 ]
+  [[ ! -e "$autostart_file" ]]
+  refute_contains "$output" "unexpected Toolbox relaunch"
+}
+
 @test "required package transaction aborts without optional retry loop" {
   plan_file="$TEST_ROOT/required.pkgs"
   printf 'bad-package\ngood-package\n' >"$plan_file"

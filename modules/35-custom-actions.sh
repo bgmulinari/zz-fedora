@@ -105,14 +105,44 @@ install_claude_code() {
   rm -f "$install_script"
 }
 
+jetbrains_toolbox_autostart_file() {
+  printf '%s\n' "$TARGET_HOME/.config/autostart/jetbrains-toolbox.desktop"
+}
+
+disable_jetbrains_toolbox_autostart() {
+  local autostart_file
+  autostart_file="$(jetbrains_toolbox_autostart_file)"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: remove JetBrains Toolbox autostart entry -> %s\n' "$autostart_file"
+    return 0
+  fi
+
+  run_cmd_as_user "$TARGET_USER" rm -f "$autostart_file"
+}
+
+wait_for_jetbrains_toolbox_autostart() {
+  local autostart_file attempt
+  autostart_file="$(jetbrains_toolbox_autostart_file)"
+
+  for ((attempt = 0; attempt < 100; attempt++)); do
+    [[ -e "$autostart_file" ]] && return 0
+    sleep 0.1
+  done
+}
+
 install_jetbrains_toolbox() {
   local toolbox_dir="$TARGET_HOME/.local/share/JetBrains/Toolbox"
   local toolbox_bin="$toolbox_dir/bin/jetbrains-toolbox"
   local symlink="$TARGET_HOME/.local/bin/jetbrains-toolbox"
-  [[ -x "$toolbox_bin" ]] && return 0
+  if [[ -x "$toolbox_bin" ]]; then
+    disable_jetbrains_toolbox_autostart
+    return 0
+  fi
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: install JetBrains Toolbox -> %s\n' "$toolbox_dir"
+    disable_jetbrains_toolbox_autostart
     return 0
   fi
 
@@ -159,6 +189,8 @@ install_jetbrains_toolbox() {
     log_warn "JetBrains Toolbox installer completed without creating $symlink."
     return 1
   }
+  wait_for_jetbrains_toolbox_autostart
+  disable_jetbrains_toolbox_autostart
 }
 
 install_devtunnel() {
@@ -622,7 +654,8 @@ verify_custom_action() {
       [[ -x "$TARGET_HOME/.local/bin/claude" ]]
       ;;
     jetbrains-toolbox)
-      [[ -x "$TARGET_HOME/.local/share/JetBrains/Toolbox/bin/jetbrains-toolbox" ]]
+      [[ -x "$TARGET_HOME/.local/share/JetBrains/Toolbox/bin/jetbrains-toolbox" ]] \
+        && [[ ! -e "$(jetbrains_toolbox_autostart_file)" ]]
       ;;
     devtunnel)
       [[ -x "$TARGET_HOME/.local/bin/devtunnel" ]]
