@@ -11,6 +11,11 @@ offline package mirror: Fedora, RPM Fusion, COPR, Terra, Flathub, GitHub-hosted
 shell/font assets, and any selected upstream installers are still fetched from
 the network exactly as they are during the bootstrap flow.
 
+The default is a full installation: every optional non-browser choice is
+preselected, while Firefox is the only preselected browser and therefore the
+default browser. The normal setup wizard and both Anaconda UIs use the same
+catalog defaults; deselect any components you do not want before continuing.
+
 The supported build and installation target is Fedora 44 x86_64.
 
 The implementation follows Fedora/Lorax's Kickstart ISO approach:
@@ -89,9 +94,10 @@ are never copied into the ISO.
 1. Write the generated ISO to USB.
 2. Boot the Fedora install entry.
 3. Complete the Anaconda screens, including creating a regular user.
-4. Open the `ZZ Fedora` Anaconda spoke and select any optional browsers,
-   AI tools, development tools, .NET components, office apps, gaming apps, or
-   multimedia packages you want.
+4. Open the `ZZ Fedora` Anaconda spoke and review the preselected full install.
+   Deselect any AI tools, development tools, .NET components, office apps,
+   gaming apps, or multimedia packages you do not want, or change the Firefox
+   browser selection.
 5. Start installation.
 6. The add-on task copies this checkout to the installed system and runs:
 

@@ -147,6 +147,67 @@ EOF
   [ "$status" -ne 0 ]
 }
 
+@test "normal installer defaults to every optional choice except Firefox-only browsers" {
+  local category
+  assert_equal "firefox" "$(effective_choice_ids browsers)"
+
+  for category in ai dev dotnet gaming media office; do
+    assert_equal \
+      "$(all_choice_ids "$category")" \
+      "$(effective_choice_ids "$category")"
+  done
+}
+
+@test "choice descriptions explain purpose without package source wording" {
+  local catalog choice_id label default_flag bundle_ids description
+  while IFS= read -r catalog; do
+    while IFS=$'\t' read -r choice_id label default_flag bundle_ids description; do
+      [[ -n "$choice_id" && "$choice_id" != \#* ]] || continue
+      if grep -Eiq '(RPM|COPR|Flatpak|Flathub|Homebrew|Fedora|repository)' <<<"$description"; then
+        printf 'package source wording in %s description: %s\n' "$choice_id" "$description" >&2
+        return 1
+      fi
+    done <"$catalog"
+  done < <(list_choice_catalogs)
+}
+
+@test "TUI passes defaults separately and escapes gum selection delimiters" {
+  local gum_args="$TEST_ROOT/gum-args"
+  gum() {
+    printf '%s\n' "$@" >"$gum_args"
+    return 1
+  }
+
+  tui_pick_catalog_choices ai "Test choices"
+
+  assert_equal \
+    "$(all_choice_ids ai | wc -l | tr -d ' ')" \
+    "$(grep -cx -- '--selected' "$gum_args")"
+  assert_file_contains \
+    "$gum_args" \
+    'Claude Code                    Terminal coding agent that reads\, edits\, and tests codebases'
+}
+
+@test "catalog identifies installed product surfaces precisely" {
+  local record
+
+  record="$(choice_record ai opencode)"
+  assert_equal "OpenCode Terminal" "$(choice_field "$record" 2)"
+  assert_equal \
+    "Open-source AI coding agent built for the terminal" \
+    "$(choice_field "$record" 5)"
+
+  record="$(choice_record ai claude-desktop)"
+  assert_equal \
+    "Unofficial Linux port of the Claude Desktop app" \
+    "$(choice_field "$record" 5)"
+
+  record="$(choice_record dev docker)"
+  assert_equal \
+    "Docker Engine, CLI, containerd, Buildx, and Compose for running containers" \
+    "$(choice_field "$record" 5)"
+}
+
 @test "base shell artifacts use pinned commit trust policies" {
   local source_id
   for source_id in \

@@ -23,7 +23,14 @@ setup() {
   assert_contains "$output" '"noctalia-greeter"'
   assert_contains "$output" '"noctalia-v5"'
   assert_contains "$output" '"copr:lionheartp/Hyprland"'
-  refute_contains "$output" '"code"'
+  assert_contains "$output" '"browser-firefox"'
+  assert_contains "$output" '"code"'
+  assert_contains "$output" '"com.discordapp.Discord"'
+  refute_contains "$output" '"browser-chromium"'
+  refute_contains "$output" '"browser-chrome"'
+  refute_contains "$output" '"browser-brave"'
+  refute_contains "$output" '"browser-zen-copr"'
+  refute_contains "$output" '"browser-helium-copr"'
   refute_contains "$output" "Log file:"
   [[ ! -e "$XDG_CONFIG_HOME/zz-fedora/selections.conf" ]]
 }

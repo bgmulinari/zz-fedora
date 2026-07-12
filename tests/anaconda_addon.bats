@@ -20,7 +20,15 @@ state = Path(os.environ["ZZ_TEST_ROOT"]) / "run/zz-fedora/install-selected"
 package = types.ModuleType("org_zz_fedora")
 package.__path__ = []
 constants = types.ModuleType("org_zz_fedora.constants")
-constants.CATEGORY_ORDER = ("browsers", "dev")
+constants.CATEGORY_ORDER = (
+    "browsers",
+    "ai",
+    "dev",
+    "dotnet",
+    "office",
+    "gaming",
+    "media",
+)
 constants.SELECTION_FILE = str(state)
 sys.modules["org_zz_fedora"] = package
 sys.modules["org_zz_fedora.constants"] = constants
@@ -33,6 +41,12 @@ module.SOURCE_TREE_CHOICES_DIR = repo / "choices"
 module.PACKAGE_CHOICES_DIR = repo / "choices"
 
 categories = module.read_categories()
+defaults = module.default_selections(categories)
+assert defaults["browsers"] == ["firefox"]
+for category in categories:
+    if category.id != "browsers":
+        assert defaults[category.id] == [choice.id for choice in category.choices]
+
 module.write_state(
     True,
     {"browsers": ["firefox", "not-valid"], "dev": ["docker"]},

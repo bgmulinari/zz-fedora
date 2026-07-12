@@ -24,7 +24,7 @@ if [[ "$src" == */anaconda-addon/ ]]; then
   mkdir -p "$dest/org_zz_fedora/service"
   printf 'service\n' >"$dest/org_zz_fedora/service/installation.py"
 elif [[ "$src" == */choices/ ]]; then
-  printf 'firefox\tFirefox\t0\tbrowser-firefox\tFedora official Firefox\n' >"$dest/browsers.conf"
+  printf 'firefox\tFirefox\t1\tbrowser-firefox\tFedora official Firefox\n' >"$dest/browsers.conf"
 else
   printf 'payload\n' >"$dest/payload-marker"
   printf '#!/usr/bin/env bash\n' >"$dest/install.sh"

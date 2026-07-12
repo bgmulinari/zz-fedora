@@ -534,7 +534,12 @@ tui_pick_catalog_choices() {
     --cursor.foreground ""
   )
   if [[ "${#selected_options[@]}" -gt 0 ]]; then
-    choose_args+=(--selected "$(join_by , "${selected_options[@]}")")
+    local escaped_option
+    for option in "${selected_options[@]}"; do
+      escaped_option="${option//\\/\\\\}"
+      escaped_option="${escaped_option//,/\\,}"
+      choose_args+=(--selected "$escaped_option")
+    done
   fi
 
   local chosen
