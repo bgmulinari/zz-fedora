@@ -4,25 +4,73 @@
 # Noctalia writes GUI/runtime overrides to ~/.local/state/noctalia/settings.toml,
 # so do not stow generated lockscreen or widget placement state here.
 
+# Shell and session
+
 [shell]
 polkit_agent = true
 telemetry_enabled = false
 
 [shell.greeter_sync]
-auto_sync = true
+auto_sync = false
 
-[location]
-auto_locate = true
+[shell.panel]
+open_near_click_session = true
 
-[wallpaper]
-directory = "~/.local/share/backgrounds"
+[[shell.session.actions]]
+action = "lock"
+countdown_seconds = 0.0
+enabled = true
+shortcut = "1"
+variant = "default"
 
-[wallpaper.default]
-path = "~/.local/share/backgrounds/Alpenglow.jpg"
+[[shell.session.actions]]
+action = "logout"
+countdown_seconds = 5.0
+enabled = true
+shortcut = "2"
+variant = "default"
+
+[[shell.session.actions]]
+action = "lock_and_suspend"
+countdown_seconds = 5.0
+enabled = true
+shortcut = "3"
+variant = "default"
+
+[[shell.session.actions]]
+action = "reboot"
+countdown_seconds = 5.0
+enabled = true
+shortcut = "4"
+variant = "default"
+
+[[shell.session.actions]]
+action = "shutdown"
+countdown_seconds = 5.0
+enabled = true
+shortcut = "5"
+variant = "destructive"
+
+# Bar, dock, and widgets
 
 [bar.default]
-start = [ "launcher", "settings", "wallpaper", "workspaces", "taskbar" ]
-center = [ "clock", "weather" ]
+start = [ "launcher", "wallpaper", "workspaces", "default-spacer", "taskbar" ]
+center = [ "default-spacer", "clock", "default-spacer", "weather", "default-spacer" ]
+end = [
+  "media",
+  "tray",
+  "notifications",
+  "clipboard",
+  "network",
+  "bluetooth",
+  "volume",
+  "brightness",
+  "battery",
+  "default-spacer",
+  "settings",
+  "control-center",
+  "session",
+]
 margin_edge = 0
 margin_ends = 0
 radius = 0
@@ -34,14 +82,11 @@ background_opacity = 0.9
 [dock]
 background_opacity = 0.9
 
-[notification]
-background_opacity = 0.9
-
-[osd]
-background_opacity = 0.9
-
 [widget.clock]
 format = "{:%b %d %H:%M}"
+
+[widget.default-spacer]
+type = "spacer"
 
 [widget.media]
 hide_when_no_media = true
@@ -56,9 +101,51 @@ show_window_title = true
 [widget.weather]
 show_condition = false
 
+# Notifications and on-screen display
+
+[notification]
+background_opacity = 0.9
+
+[osd]
+background_opacity = 0.9
+
+# Location and wallpaper
+
+[location]
+auto_locate = true
+
+[wallpaper]
+directory = "~/.local/share/backgrounds"
+
+[wallpaper.default]
+path = "~/.local/share/backgrounds/SilentPeaks.jpg"
+
+# Idle behavior
+
+[idle]
+behavior_order = [ "screen-off", "lock", "lock-and-suspend" ]
+pre_action_fade_seconds = 10
+
+[idle.behavior.lock]
+action = "lock"
+enabled = true
+timeout = 360.0
+
+[idle.behavior.lock-and-suspend]
+action = "lock_and_suspend"
+enabled = false
+timeout = 900.0
+
+[idle.behavior.screen-off]
+action = "screen_off"
+enabled = true
+timeout = 300.0
+
+# Theme and templates
+
 [theme]
 mode = "dark"
-source = "custom"
+source = "builtin"
 builtin = "Catppuccin"
 custom_palette = "catppuccin-mocha-blue"
 
