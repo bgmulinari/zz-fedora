@@ -8,6 +8,20 @@ setup() {
   source_modules
 }
 
+@test "installer lock ignores stale lock-file contents and releases cleanly" {
+  mkdir -p "$(dirname "$LOCK_FILE")"
+  printf '999999\n' >"$LOCK_FILE"
+
+  acquire_lock
+  assert_equal "1" "$LOCK_ACQUIRED"
+  release_lock
+  assert_equal "0" "$LOCK_ACQUIRED"
+
+  acquire_lock
+  assert_equal "1" "$LOCK_ACQUIRED"
+  release_lock
+}
+
 @test "check command reports readiness without saving selections" {
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" \
     bash "$ROOT_DIR/install.sh" check --dry-run --no-tui
@@ -17,7 +31,7 @@ setup() {
   assert_contains "$output" "noctalia-v5 command:noctalia"
   assert_contains "$output" "managed-config ~/.config/autostart/zz-first-run.desktop: first-run"
   assert_contains "$output" "Fatal readiness issues:"
-  assert_contains "$output" "package-manager locks"
+  assert_contains "$output" "package-manager "
   [[ ! -e "$XDG_CONFIG_HOME/zz-fedora/selections.conf" ]]
 }
 

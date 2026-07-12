@@ -329,17 +329,26 @@ EOF
   assert_file_contains "$TARGET_HOME/.config/niri/cfg/display.kdl" "custom display"
 }
 
-@test "bundled wallpapers are installed idempotently" {
+@test "bundled wallpapers are seeded without replacing user files" {
   TARGET_HOME="$TEST_ROOT/wallpaper-home"
-  mkdir -p "$TARGET_HOME"
   DRY_RUN=0
+  mkdir -p "$TARGET_HOME/.local/share/backgrounds"
+  printf 'user-selected image\n' >"$TARGET_HOME/.local/share/backgrounds/SilentPeaks.jpg"
 
   install_bundled_wallpapers
 
+  assert_equal "user-selected image" "$(cat "$TARGET_HOME/.local/share/backgrounds/SilentPeaks.jpg")"
+  [[ "$(find "$TARGET_HOME/.local/share/backgrounds" -maxdepth 1 -type f -name '*.jpg' | wc -l)" -eq 16 ]]
+  cmp -s "$ROOT_DIR/assets/wallpapers/PROVENANCE.md" "$TARGET_HOME/.local/share/backgrounds/PROVENANCE.md"
+
   local wallpaper_name
   while IFS= read -r wallpaper_name; do
+    [[ "$wallpaper_name" == "SilentPeaks.jpg" ]] && continue
     cmp -s "$ROOT_DIR/assets/wallpapers/$wallpaper_name" "$TARGET_HOME/.local/share/backgrounds/$wallpaper_name"
-  done < <(find "$ROOT_DIR/assets/wallpapers" -maxdepth 1 -type f -printf '%f\n' | sort)
+  done < <(find "$ROOT_DIR/assets/wallpapers" -maxdepth 1 -type f -name '*.jpg' -printf '%f\n' | sort)
+
+  install_bundled_wallpapers
+  [[ "$(find "$TARGET_HOME/.local/share/backgrounds" -maxdepth 1 -type f -name '*.jpg' | wc -l)" -eq 16 ]]
 }
 
 @test "first-run creates marker, removes autostart hook, and stays idempotent" {

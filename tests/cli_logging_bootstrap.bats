@@ -10,6 +10,9 @@ setup() {
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
     bash "$ROOT_DIR/install.sh" install --dry-run --no-tui
 
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
   [ "$status" -eq 0 ]
   assert_contains "$output" "==> [1/9] Preflight"
   assert_contains "$output" "==> [4/9] Base Setup"
@@ -22,6 +25,57 @@ setup() {
   assert_contains "$output" "sudo systemctl daemon-reload"
   assert_contains "$output" "sudo systemctl set-default graphical.target"
   assert_contains "$output" "sudo systemctl enable --force greetd.service"
+}
+
+@test "preflight accepts a worktree-style Git checkout" {
+  fixture_root="$TEST_ROOT/worktree-checkout"
+  mkdir -p "$fixture_root/config" "$fixture_root/home"
+  touch "$fixture_root/.git"
+  # shellcheck source=../modules/00-preflight.sh
+  source "$ROOT_DIR/modules/00-preflight.sh"
+
+  run_preflight_fixture() {
+    ROOT_DIR="$fixture_root"
+    COMMAND=install
+    DRY_RUN=1
+    TARGET_USER="$(id -un)"
+    TARGET_HOME="$fixture_root/home"
+    log_progress() { :; }
+    die() { printf '%s\n' "$*" >&2; return 1; }
+    acquire_lock() { :; }
+    resolved_desktop_app_profile() { printf 'full\n'; }
+    category_names() { :; }
+    module_00_preflight
+  }
+
+  run run_preflight_fixture
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Mode: install"
+}
+
+@test "preflight accepts Git metadata discoverable above the repository root" {
+  fixture_root="$ROOT_DIR/tests"
+  [[ ! -e "$fixture_root/.git" ]]
+  # shellcheck source=../modules/00-preflight.sh
+  source "$ROOT_DIR/modules/00-preflight.sh"
+
+  run_preflight_fixture() {
+    ROOT_DIR="$fixture_root"
+    COMMAND=install
+    DRY_RUN=1
+    TARGET_USER="$(id -un)"
+    TARGET_HOME="$TEST_ROOT/home"
+    log_progress() { :; }
+    die() { printf '%s\n' "$*" >&2; return 1; }
+    acquire_lock() { :; }
+    resolved_desktop_app_profile() { printf 'full\n'; }
+    category_names() { :; }
+    module_00_preflight
+  }
+
+  run run_preflight_fixture
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Mode: install"
 }
 
 @test "logging captures command output and redacts secrets" {
@@ -175,4 +229,21 @@ setup() {
   set -e
   [ "$status" -ne 0 ]
   assert_contains "$output" "has uncommitted changes"
+
+  git -C "$TEST_ROOT/install" reset --hard -q
+  git -C "$TEST_ROOT/install" remote set-url origin "$TEST_ROOT/other-origin.git"
+  set +e
+  output="$(clone_or_update_repo 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "expected $REPO_URL"
+
+  INSTALL_DIR="$TEST_ROOT/iso-snapshot-install"
+  mkdir -p "$INSTALL_DIR/config"
+  printf 'format=1\n' >"$INSTALL_DIR/config/iso-payload.conf"
+  REF="main"
+  clone_or_update_repo
+  [[ -d "$INSTALL_DIR/.git" ]]
+  compgen -G "$TEST_ROOT/iso-snapshot-install.iso-snapshot.*" >/dev/null
 }

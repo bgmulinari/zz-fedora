@@ -3,13 +3,16 @@ set -Eeuo pipefail
 
 acquire_lock() {
   ensure_state_dirs
-  if mkdir "$LOCK_DIR" 2>/dev/null; then
-    LOCK_ACQUIRED=1
-    printf '%s\n' "$$" >"$LOCK_DIR/pid"
-    trap cleanup_on_exit EXIT
-    return 0
+  have_cmd flock || die "flock is required for installer locking"
+  exec {LOCK_FD}>"$LOCK_FILE"
+  if ! flock -n "$LOCK_FD"; then
+    eval "exec ${LOCK_FD}>&-"
+    LOCK_FD=""
+    die "Another zz-fedora process is running (lock: $LOCK_FILE)."
   fi
-  die "Another zz-fedora process appears to be running. Remove $LOCK_DIR if that is stale."
+  LOCK_ACQUIRED=1
+  printf '%s\n' "$$" 1>&"$LOCK_FD"
+  trap cleanup_on_exit EXIT
 }
 
 cleanup_on_exit() {
@@ -38,10 +41,13 @@ restore_state_ownership() {
 }
 
 release_lock() {
-  if [[ "${LOCK_ACQUIRED:-0}" -eq 1 && -d "$LOCK_DIR" ]]; then
-    rm -rf "$LOCK_DIR"
-    LOCK_ACQUIRED=0
+  [[ "${LOCK_ACQUIRED:-0}" -eq 1 ]] || return 0
+  if [[ -n "${LOCK_FD:-}" ]]; then
+    flock -u "$LOCK_FD" 2>/dev/null || true
+    eval "exec ${LOCK_FD}>&-"
   fi
+  LOCK_FD=""
+  LOCK_ACQUIRED=0
 }
 
 run_cmd() {
@@ -110,7 +116,10 @@ run_cmd_as_clean_root() {
 run_cmd_as_user() {
   local user="$1"
   shift
-  if [[ "$user" == "$USER" && -z "${SUDO_USER:-}" ]]; then
+  local current_user
+  current_user="${USER:-}"
+  [[ -n "$current_user" ]] || current_user="$(id -un)"
+  if [[ "$user" == "$current_user" && -z "${SUDO_USER:-}" ]]; then
     run_cmd "$@"
   else
     local uid user_home runtime_dir dbus_bus

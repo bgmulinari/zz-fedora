@@ -1,6 +1,7 @@
 BUNDLE_ID="shell-zsh"
 BUNDLE_INSTALLER="dnf"
 BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS="artifact:oh-my-zsh,artifact:zsh-autosuggestions,artifact:zsh-syntax-highlighting"
 BUNDLE_ITEMS_FILE="packages/official/shell/zsh.pkgs"
 BUNDLE_STOW_PACKAGES="zsh"
 BUNDLE_DESCRIPTION="Zsh bundle for Fedora"

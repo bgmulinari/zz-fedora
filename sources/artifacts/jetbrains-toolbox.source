@@ -1,0 +1,9 @@
+SOURCE_ID="artifact:jetbrains-toolbox"
+SOURCE_KIND="artifact"
+SOURCE_LABEL="JetBrains Toolbox release service"
+SOURCE_PROJECT="https://data.services.jetbrains.com/products/releases"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="Optional JetBrains Toolbox release metadata and archive"
+SOURCE_GPG_POLICY="sha256"
+SOURCE_BOOTSTRAP_EXCEPTION=0
+SOURCE_REASON="JetBrains Toolbox is verified with the SHA-256 published beside the current vendor release"

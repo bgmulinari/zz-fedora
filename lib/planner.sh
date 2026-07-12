@@ -74,8 +74,26 @@ append_bundle_to_plan() {
   if [[ -n "${BUNDLE_SOURCE_ID:-}" ]]; then
     append_unique plan_sources_ref "$BUNDLE_SOURCE_ID"
   fi
+  local source_id
+  while IFS= read -r source_id; do
+    [[ -n "$source_id" ]] && append_unique plan_sources_ref "$source_id"
+  done < <(split_csv "${BUNDLE_SOURCE_IDS:-}")
   append_bundle_payload_to_plan
   append_bundle_stow_plan
+}
+
+expand_bundle_dependencies() {
+  local selected_name="$1"
+  local -n selected_ref="$selected_name"
+  local index=0 bundle_id dependency_id
+  while [[ "$index" -lt "${#selected_ref[@]}" ]]; do
+    bundle_id="${selected_ref[$index]}"
+    load_bundle_descriptor "$bundle_id" || die "Unknown bundle: $bundle_id"
+    while IFS= read -r dependency_id; do
+      [[ -n "$dependency_id" ]] && append_unique selected_ref "$dependency_id"
+    done < <(split_csv "${BUNDLE_DEPENDENCIES:-}")
+    index=$((index + 1))
+  done
 }
 
 append_backend_prereqs() {
@@ -132,12 +150,7 @@ build_plan_from_selections() {
     done < <(effective_choice_ids "$category")
   done
 
-  if array_contains "dotnet-tools" "${selected_bundle_ids[@]:-}"; then
-    append_unique selected_bundle_ids "dotnet-sdk"
-  fi
-  if array_contains "dev-docker" "${selected_bundle_ids[@]:-}"; then
-    append_unique selected_bundle_ids "dev-docker-post"
-  fi
+  expand_bundle_dependencies selected_bundle_ids
 
   for bundle_id in "${selected_bundle_ids[@]:-}"; do
     append_bundle_to_plan "$bundle_id" plan_sources plan_backends
@@ -159,6 +172,10 @@ build_plan_from_selections() {
   for source_id in "${plan_sources[@]:-}"; do
     [[ -n "$source_id" ]] || continue
     append_plan_source "$source_id"
+    load_source_descriptor "$source_id" || continue
+    if [[ "${SOURCE_GPG_POLICY:-}" == "tls-only" ]]; then
+      append_warning "Rolling upstream artifact uses TLS transport without a repository-pinned checksum: $SOURCE_ID"
+    fi
   done
 
   append_plan_entries "$PLAN_DIR/services/system-enable-now.list" "${DEFAULT_SYSTEM_SERVICES[@]}"
@@ -186,7 +203,9 @@ build_plan_from_selections() {
   fi
   write_plan_summary
   write_managed_files_report
-  [[ "$COMMAND" == "check" ]] || save_selections
+  case "$COMMAND" in
+    install|wizard) save_selections ;;
+  esac
 }
 
 count_plan_entries() {

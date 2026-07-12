@@ -7,6 +7,41 @@ setup() {
   source_core
 }
 
+assert_all_bundles_reachable() {
+  local -a reachable=()
+  local bundle_id catalog bundle_ids dependency_id index=0
+  for bundle_id in "${BASE_BUNDLE_IDS[@]}" "${DEFAULT_BUNDLE_IDS[@]}"; do
+    append_unique reachable "$bundle_id"
+  done
+
+  while IFS= read -r catalog; do
+    while IFS=$'\t' read -r _id _label _default bundle_ids _description; do
+      [[ -n "$_id" && "$_id" != \#* ]] || continue
+      while IFS= read -r bundle_id; do
+        [[ -n "$bundle_id" ]] && append_unique reachable "$bundle_id"
+      done < <(split_csv "$bundle_ids")
+    done <"$catalog"
+  done < <(list_choice_catalogs)
+
+  while [[ "$index" -lt "${#reachable[@]}" ]]; do
+    bundle_id="${reachable[$index]}"
+    load_bundle_descriptor "$bundle_id"
+    while IFS= read -r dependency_id; do
+      [[ -n "$dependency_id" ]] && append_unique reachable "$dependency_id"
+    done < <(split_csv "${BUNDLE_DEPENDENCIES:-}")
+    index=$((index + 1))
+  done
+
+  local bundle_file
+  while IFS= read -r bundle_file; do
+    descriptor_value_from_file "$bundle_file" BUNDLE_ID bundle_id
+    array_contains "$bundle_id" "${reachable[@]}" || {
+      printf 'unreachable bundle: %s\n' "$bundle_id" >&2
+      return 1
+    }
+  done < <(list_bundle_files)
+}
+
 @test "planner fixture restores Bats debug tracing" {
   local debug_trap_before debug_trap_after shell_flags_before
   debug_trap_before="$(trap -p DEBUG)"
@@ -37,7 +72,9 @@ setup() {
   assert_plan_has "$PLAN_DIR/bundles.list" "base-source-cisco-openh264"
   assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:lionheartp/Hyprland"
   assert_plan_has "$PLAN_DIR/sources/terra.list" "terra"
-  assert_plan_has "$PLAN_DIR/actions/actions.list" "ms-fonts"
+  assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:oh-my-zsh"
+  assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:zsh-autosuggestions"
+  assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:zsh-syntax-highlighting"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "jetbrains-mono-nerd-font"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-v5"
@@ -70,11 +107,6 @@ setup() {
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tpavucontrol\tbase-desktop-controls\tdefault-app\taudio mixer'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tsystem-config-printer\tbase-desktop-controls\tdefault-app\tprint UI'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tjetbrains-mono-nerd-font\tbase-jetbrains-mono-nerd-font'
-}
-
-@test "Fedora base plan does not include optional selections by default" {
-  build_test_plan
-
   refute_plan_has "$PLAN_DIR/sources/vendor.list" "vendor:vscode"
   refute_plan_has "$PLAN_DIR/sources/vendor.list" "vendor:claude-desktop"
   refute_plan_has "$PLAN_DIR/sources/copr.list" "copr:dejan/lazygit"
@@ -171,6 +203,8 @@ setup() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "code"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "lazygit"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "npm-global:@openai/codex"
+  assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:npm"
+  [[ "$(join_by $'\n' "${WARNING_MESSAGES[@]}")" == *"artifact:npm"* ]]
 }
 
 @test "Docker selection installs the engine and configures the user service" {
@@ -196,7 +230,8 @@ setup() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-tools"
 }
 
-@test "base manifests are always represented in the generated plan" {
+@test "base manifests are represented and every bundle is reachable" {
   build_test_plan
   run_without_bats_debug_trap assert_base_manifests_in_plan
+  run_without_bats_debug_trap assert_all_bundles_reachable
 }

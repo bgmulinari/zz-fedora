@@ -25,4 +25,5 @@ setup() {
   assert_contains "$output" '"copr:lionheartp/Hyprland"'
   refute_contains "$output" '"code"'
   refute_contains "$output" "Log file:"
+  [[ ! -e "$XDG_CONFIG_HOME/zz-fedora/selections.conf" ]]
 }

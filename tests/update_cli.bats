@@ -64,11 +64,16 @@ make_fake_sudo_passthrough() {
   assert_contains "$output" "DRY-RUN: install active .NET SDK channels"
   assert_contains "$output" "DRY-RUN: update installed .NET global tools"
   assert_contains "$output" "DRY-RUN: $FAKE_BIN/claude update"
-  assert_contains "$output" "==> Cleanup"
+  refute_contains "$output" "==> Cleanup"
   assert_contains "$output" "Update complete."
   assert_contains "$output" "- dnf:"
   assert_contains "$output" "- flatpak:"
   [[ ! -e "$COMMAND_LOG" ]]
+
+  run env PATH="$FAKE_BIN:$PATH" DOTNET_INSTALL_DIR="$dotnet_dir" \
+    bash "$ROOT_DIR/bin/zz" update all --dry-run --cleanup
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "==> Cleanup"
 }
 
 @test "zz update direct target executes only that updater" {
@@ -79,7 +84,7 @@ make_fake_sudo_passthrough() {
   run env PATH="$FAKE_BIN:$PATH" ZZ_UPDATE_ROOT_CONTEXT=1 bash "$ROOT_DIR/bin/zz" update flatpak
 
   [ "$status" -eq 0 ]
-  assert_file_contains "$COMMAND_LOG" "sudo -n $FAKE_BIN/flatpak update -y"
+  assert_file_contains "$COMMAND_LOG" "sudo -n env LC_ALL=C $FAKE_BIN/flatpak update -y"
   refute_file_contains "$COMMAND_LOG" "npm update"
 }
 
@@ -121,7 +126,7 @@ make_fake_sudo_passthrough() {
   assert_contains "$output" "1 update failed (com.discordapp.Discord)"
   assert_contains "$output" "[failed]"
   assert_contains "$output" "DNF offline upgrade will be applied when you next reboot normally."
-  assert_file_contains "$COMMAND_LOG" "sudo -n $FAKE_BIN/flatpak update -y"
+  assert_file_contains "$COMMAND_LOG" "sudo -n env LC_ALL=C $FAKE_BIN/flatpak update -y"
   assert_file_contains "$COMMAND_LOG" "sudo -n env DNF_SYSTEM_UPGRADE_NO_REBOOT=1 dnf5 -y offline reboot"
   assert_file_contains "$COMMAND_LOG" "brew update"
   assert_file_contains "$COMMAND_LOG" "claude update"
@@ -138,7 +143,7 @@ make_fake_sudo_passthrough() {
   assert_contains "$output" "Update complete."
   assert_contains "$output" "offline transaction prepared; will be applied on the next boot"
   assert_contains "$output" "DNF offline upgrade will be applied when you next reboot normally."
-  assert_file_contains "$COMMAND_LOG" "sudo -n $FAKE_BIN/dnf upgrade -y --refresh --offline"
+  assert_file_contains "$COMMAND_LOG" "sudo -n env LC_ALL=C $FAKE_BIN/dnf upgrade -y --refresh --offline"
   assert_file_contains "$COMMAND_LOG" "sudo -n env DNF_SYSTEM_UPGRADE_NO_REBOOT=1 dnf5 -y offline reboot"
   refute_file_contains "$COMMAND_LOG" "systemctl reboot"
 }
@@ -159,5 +164,5 @@ make_fake_sudo_passthrough() {
   assert_contains "$output" "Root privileges are required for zz update dnf"
   assert_file_contains "$COMMAND_LOG" "sudo -v"
   assert_file_contains "$COMMAND_LOG" "sudo env ZZ_UPDATE_RUN_USER="
-  assert_file_contains "$COMMAND_LOG" "sudo -n $FAKE_BIN/dnf upgrade -y --refresh --offline"
+  assert_file_contains "$COMMAND_LOG" "sudo -n env LC_ALL=C $FAKE_BIN/dnf upgrade -y --refresh --offline"
 }

@@ -11,6 +11,8 @@ offline package mirror: Fedora, RPM Fusion, COPR, Terra, Flathub, GitHub-hosted
 shell/font assets, and any selected upstream installers are still fetched from
 the network exactly as they are during the bootstrap flow.
 
+The supported build and installation target is Fedora 44 x86_64.
+
 The implementation follows Fedora/Lorax's Kickstart ISO approach:
 
 - `mkksiso` adds a Kickstart and extra files to an existing installer ISO and
@@ -30,6 +32,10 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
   password, user creation, and ZZ Fedora execution to Anaconda.
 - The embedded checkout is copied to `~/zz-fedora` for the
   first regular user created in Anaconda by the add-on task.
+- The checkout is a tracked runtime snapshot, not a copy of the developer
+  repository's `.git` directory. A payload marker allows installer preflight
+  to recognize the snapshot. A later bootstrap run backs it up and replaces it
+  with a normal Git clone before updating.
 - The add-on writes the chosen optional packages to the normal saved selection
   format. The installer is invoked with `--use-saved`,
   `--desktop-app-profile full`, and user-scoped state paths so
@@ -54,6 +60,7 @@ Build from a Fedora netinst or DVD ISO:
 ```bash
 scripts/build-fedora-installer-iso.sh \
   --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
+  --input-sha256 <sha256-from-the-signed-fedora-checksum-file> \
   --output release/zz-fedora.iso
 ```
 
@@ -68,6 +75,12 @@ sudo scripts/build-fedora-installer-iso.sh \
 
 `--skip-mkefiboot` is available for development-only builds where you do not
 need `mkksiso` to update the embedded EFI boot image.
+
+The builder supports Fedora 44 x86_64 input media. Always pass
+`--input-sha256` using the digest from Fedora's signed checksum file. The
+embedded repository payload is assembled only from Git-tracked runtime files;
+`.git`, tests, local logs, caches, ignored files, and unrelated untracked files
+are never copied into the ISO.
 
 ## Install Flow
 
@@ -107,6 +120,11 @@ the production add-on task. Use `--installer-ui text` for serial-console
 debugging, `--boot-mode direct` for faster kernel/initrd boot debugging, and
 `--boot-mode uefi` when you specifically need to exercise the generated ISO
 UEFI firmware path.
+
+For fast, deterministic iteration without VNC, use
+`--boot-mode direct --installer-ui text --graphics none`. Text-mode runs fail
+unless the serial log contains both the Doctor 9/9 marker and the final ZZ
+Fedora completion marker.
 
 Niri needs a 3D-capable virtual GPU for post-install desktop validation. Use
 `--graphics egl-headless` when the VM needs to boot or test the installed Niri

@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ISO_TOOL_NAME="build-fedora-installer-iso"
+# shellcheck source=lib/iso-common.sh
+source "$repo_dir/scripts/lib/iso-common.sh"
+
 usage() {
   cat <<'EOF'
-Usage: scripts/build-fedora-installer-iso.sh --input ISO --output ISO
+Usage: scripts/build-fedora-installer-iso.sh --input ISO --output ISO [--input-sha256 HASH]
 
 Embed this checkout and the zz-fedora Fedora Kickstart into a Fedora
 installer ISO. The resulting ISO exposes the checkout at
@@ -13,26 +18,7 @@ EOF
 }
 
 err() {
-  printf 'build-fedora-installer-iso: %s\n' "$*" >&2
-}
-
-extract_fedora_iso_metadata() {
-  local input_iso="$1"
-  local metadata_dir discinfo
-  metadata_dir="$(mktemp -d)"
-  discinfo="$metadata_dir/.discinfo"
-  xorriso -osirrox on -indev "$input_iso" -extract /.discinfo "$discinfo" >/dev/null 2>&1 || {
-    rm -rf "$metadata_dir"
-    err "could not extract /.discinfo from input ISO"
-    return 1
-  }
-  fedora_release="$(sed -n '2p' "$discinfo")"
-  fedora_arch="$(sed -n '3p' "$discinfo")"
-  rm -rf "$metadata_dir"
-  [[ -n "$fedora_release" && -n "$fedora_arch" ]] || {
-    err "could not determine Fedora release and architecture from input ISO"
-    return 1
-  }
+  iso_err "$@"
 }
 
 render_kickstart_template() {
@@ -45,6 +31,7 @@ render_kickstart_template() {
 }
 
 input_iso=
+input_sha256=
 output_iso=
 skip_mkefiboot=0
 fedora_release=
@@ -74,6 +61,18 @@ while (($# > 0)); do
       ;;
     --output=*)
       output_iso=${1#*=}
+      shift
+      ;;
+    --input-sha256)
+      if (($# < 2)); then
+        err "--input-sha256 requires a value."
+        exit 1
+      fi
+      input_sha256=$2
+      shift 2
+      ;;
+    --input-sha256=*)
+      input_sha256=${1#*=}
       shift
       ;;
     --skip-mkefiboot)
@@ -107,6 +106,10 @@ if [[ ! -f "$input_iso" ]]; then
   exit 1
 fi
 
+if [[ -n "$input_sha256" ]]; then
+  iso_verify_sha256 "$input_iso" "$input_sha256"
+fi
+
 for command in cpio gzip mkksiso rsync xorriso; do
   if ! command -v "$command" >/dev/null 2>&1; then
     err "missing required command: $command"
@@ -114,7 +117,6 @@ for command in cpio gzip mkksiso rsync xorriso; do
   fi
 done
 
-repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ks_file="$repo_dir/iso/zz-fedora.ks"
 addon_dir="$repo_dir/iso/anaconda-addon"
 addon_data_dir="$repo_dir/iso/anaconda-addon-data"
@@ -145,17 +147,9 @@ tmp_output="$(mktemp "$output_dir/.$output_base.tmp.XXXXXX")"
 rm -f "$tmp_output"
 trap 'rm -rf "$work_dir"; rm -f "$tmp_output"' EXIT
 
-rsync -a --delete \
-  --exclude='.cache/' \
-  --exclude='downloads/' \
-  --exclude='release/' \
-  --exclude='test-artifacts/' \
-  --exclude='livemedia.log' \
-  --exclude='program.log' \
-  --exclude='*.iso' \
-  "$repo_dir/" "$payload_dir/"
-
-extract_fedora_iso_metadata "$input_iso"
+iso_extract_fedora_metadata "$input_iso"
+iso_validate_supported_platform "$fedora_release" "$fedora_arch"
+iso_stage_tracked_runtime_payload "$repo_dir" "$payload_dir"
 render_kickstart_template "$ks_file" "$rendered_ks_file"
 
 mkdir -p \

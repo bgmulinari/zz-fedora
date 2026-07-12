@@ -1,6 +1,41 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+OH_MY_ZSH_REPOSITORY="https://github.com/ohmyzsh/ohmyzsh.git"
+OH_MY_ZSH_COMMIT="d2379b2701df66a36b217a7707e77f8029a99814"
+ZSH_AUTOSUGGESTIONS_REPOSITORY="https://github.com/zsh-users/zsh-autosuggestions.git"
+ZSH_AUTOSUGGESTIONS_COMMIT="85919cd1ffa7d2d5412f6d3fe437ebdbeeec4fc5"
+ZSH_SYNTAX_HIGHLIGHTING_REPOSITORY="https://github.com/zsh-users/zsh-syntax-highlighting.git"
+ZSH_SYNTAX_HIGHLIGHTING_COMMIT="1d85c692615a25fe2293bdd44b34c217d5d2bf04"
+
+install_pinned_git_checkout() {
+  local label="$1"
+  local repository="$2"
+  local commit="$3"
+  local destination="$4"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: install %s at commit %s -> %s\n' "$label" "$commit" "$destination"
+    return 0
+  fi
+
+  if [[ -e "$destination" && ! -d "$destination/.git" ]]; then
+    die "$label destination exists but is not a Git checkout: $destination"
+  fi
+  if [[ ! -d "$destination/.git" ]]; then
+    run_cmd_as_user "$TARGET_USER" git clone --filter=blob:none --no-checkout "$repository" "$destination"
+  fi
+  run_cmd_as_user "$TARGET_USER" git -C "$destination" fetch --depth=1 origin "$commit"
+  run_cmd_as_user "$TARGET_USER" git -C "$destination" checkout --detach "$commit"
+
+  local installed_commit
+  # The checkout belongs to the target user. Running this verification as root
+  # triggers Git's dubious-ownership protection on fresh installs even though
+  # the user-owned checkout is valid.
+  installed_commit="$(run_cmd_as_user "$TARGET_USER" git -C "$destination" rev-parse HEAD 2>/dev/null || true)"
+  [[ "$installed_commit" == "$commit" ]] || die "$label checkout verification failed: expected $commit, got ${installed_commit:-missing}"
+}
+
 install_from_plan_file() {
   local backend="$1"
   local plan_file="$2"
@@ -172,23 +207,17 @@ configure_base_shell() {
     command -v zsh >/dev/null 2>&1 || die "zsh is part of the base install but could not be installed. Check package manager output above."
   fi
 
-  if [[ ! -d "$oh_my_zsh_dir" ]]; then
-    log_progress "Installing Oh My Zsh for $TARGET_USER"
-    run_cmd_as_user "$TARGET_USER" bash -lc 'RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
-  fi
+  log_progress "Installing pinned Oh My Zsh for $TARGET_USER"
+  install_pinned_git_checkout "Oh My Zsh" "$OH_MY_ZSH_REPOSITORY" "$OH_MY_ZSH_COMMIT" "$oh_my_zsh_dir"
 
   run_cmd_as_user "$TARGET_USER" mkdir -p "$custom_plugins_dir"
   run_cmd_as_user "$TARGET_USER" mkdir -p "$TARGET_HOME/.zsh" "$TARGET_HOME/.zshrc.d"
 
-  if [[ ! -d "$custom_plugins_dir/zsh-autosuggestions" ]]; then
-    log_progress "Installing zsh autosuggestions"
-    run_cmd_as_user "$TARGET_USER" git clone https://github.com/zsh-users/zsh-autosuggestions "$custom_plugins_dir/zsh-autosuggestions"
-  fi
+  log_progress "Installing pinned zsh autosuggestions"
+  install_pinned_git_checkout "zsh-autosuggestions" "$ZSH_AUTOSUGGESTIONS_REPOSITORY" "$ZSH_AUTOSUGGESTIONS_COMMIT" "$custom_plugins_dir/zsh-autosuggestions"
 
-  if [[ ! -d "$custom_plugins_dir/zsh-syntax-highlighting" ]]; then
-    log_progress "Installing zsh syntax highlighting"
-    run_cmd_as_user "$TARGET_USER" git clone https://github.com/zsh-users/zsh-syntax-highlighting "$custom_plugins_dir/zsh-syntax-highlighting"
-  fi
+  log_progress "Installing pinned zsh syntax highlighting"
+  install_pinned_git_checkout "zsh-syntax-highlighting" "$ZSH_SYNTAX_HIGHLIGHTING_REPOSITORY" "$ZSH_SYNTAX_HIGHLIGHTING_COMMIT" "$custom_plugins_dir/zsh-syntax-highlighting"
 
   if ! grep -qxF "$shell_path" /etc/shells 2>/dev/null; then
     if [[ "$DRY_RUN" -eq 1 ]]; then

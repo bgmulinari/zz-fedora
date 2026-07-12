@@ -12,7 +12,7 @@ ZZ_FEDORA = DBusServiceIdentifier(
     message_bus=DBus,
 )
 
-SELECTION_FILE = "/tmp/zz-fedora-install-selected"
+SELECTION_FILE = "/run/zz-fedora/install-selected"
 
 CATEGORY_ORDER = (
     "browsers",

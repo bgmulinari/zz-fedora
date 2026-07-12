@@ -2,10 +2,17 @@
 set -Eeuo pipefail
 
 module_00_preflight() {
+  local git_checkout=0
   log_progress "Checking shell, repository, and operating system"
   [[ "${BASH_VERSINFO[0]}" -ge 4 ]] || die "Bash 4+ is required"
   [[ -f /etc/os-release ]] || [[ "$COMMAND" == "print-plan" || "$COMMAND" == "check" || "$COMMAND" == "list-choices" || "$COMMAND" == "list-sources" ]] || die "/etc/os-release not found"
-  [[ -d "$ROOT_DIR/.git" ]] || die "Repository root is not a Git repository: $ROOT_DIR"
+  if [[ -d "$ROOT_DIR/.git" || -f "$ROOT_DIR/.git" ]]; then
+    git_checkout=1
+  elif command -v git >/dev/null 2>&1 && git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git_checkout=1
+  fi
+  [[ "$git_checkout" -eq 1 || -f "$ROOT_DIR/config/iso-payload.conf" ]] \
+    || die "Repository root is neither a Git checkout nor a verified ISO payload: $ROOT_DIR"
   log_progress "Checking target user and home directory"
   id "$TARGET_USER" >/dev/null 2>&1 || die "Target user does not exist: $TARGET_USER"
   [[ -d "$TARGET_HOME" ]] || die "Target home does not exist: $TARGET_HOME"

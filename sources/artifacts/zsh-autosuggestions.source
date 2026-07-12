@@ -1,0 +1,9 @@
+SOURCE_ID="artifact:zsh-autosuggestions"
+SOURCE_KIND="artifact"
+SOURCE_LABEL="zsh-autosuggestions pinned Git checkout"
+SOURCE_PROJECT="https://github.com/zsh-users/zsh-autosuggestions.git@85919cd1ffa7d2d5412f6d3fe437ebdbeeec4fc5"
+SOURCE_REQUIRED=1
+SOURCE_DESCRIPTION="Pinned zsh-autosuggestions plugin checkout"
+SOURCE_GPG_POLICY="pinned-commit"
+SOURCE_BOOTSTRAP_EXCEPTION=0
+SOURCE_REASON="Provides required shell autosuggestions at an immutable commit"

@@ -1,6 +1,0 @@
-BUNDLE_ID="flatpak-communication"
-BUNDLE_INSTALLER="flatpak"
-BUNDLE_SOURCE_ID="flathub"
-BUNDLE_ITEMS_FILE="packages/flatpak/communication.flatpaks"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Communication Flatpaks for Fedora"

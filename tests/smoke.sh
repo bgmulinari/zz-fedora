@@ -21,6 +21,7 @@ bash -n install.sh
 bash -n bin/zz
 bash -n bin/zz.d/*
 bash -n scripts/*.sh
+bash -n scripts/lib/*.sh
 bash -n lib/*.sh
 bash -n modules/*.sh
 bash -n tests/*.sh
@@ -34,7 +35,7 @@ run_bats_suites \
 
 if [[ "${ZZ_TEST_LINT:-0}" -eq 1 ]]; then
   if command -v shellcheck >/dev/null 2>&1; then
-    shellcheck -S error bootstrap.sh install.sh bin/zz bin/zz.d/* scripts/*.sh lib/*.sh modules/*.sh tests/*.sh tests/helpers/*.bash
+    shellcheck -S error bootstrap.sh install.sh bin/zz bin/zz.d/* scripts/*.sh scripts/lib/*.sh lib/*.sh modules/*.sh tests/*.sh tests/helpers/*.bash
   else
     printf 'ZZ_TEST_LINT=1 was set, but shellcheck is not installed.\n' >&2
     exit 127

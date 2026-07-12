@@ -1,6 +1,7 @@
 BUNDLE_ID="ai-codex"
 BUNDLE_INSTALLER="action"
 BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS="artifact:npm"
 BUNDLE_ITEMS_FILE="packages/actions/ai-codex.actions"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Codex CLI from npm"

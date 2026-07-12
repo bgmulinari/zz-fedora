@@ -2,7 +2,11 @@
 set -Eeuo pipefail
 
 BREW_PREFIX="/home/linuxbrew/.linuxbrew"
+HOMEBREW_INSTALL_COMMIT="c7952e40b7957268f61643152f4db725379b292e"
+HOMEBREW_INSTALL_SHA256="99287f194a8b3c9e6b0203a11a5fa54518be57209343e6bb954dec4635796d9d"
 DOTNET_INSTALL_DIR_NAME=".dotnet"
+DOTNET_INSTALL_COMMIT="4a37a9f9d1a061fc389d6515100336db4e51710e"
+DOTNET_INSTALL_SHA256="082f7685e156738a1b2e2ed8381a621870d4ce8e8c59278034556f05c186eb2e"
 DOTNET_TOOLS=(
   csharp-ls
   dotnet-ef
@@ -51,7 +55,17 @@ install_homebrew_if_needed() {
   log_progress "Installing Homebrew"
   run_cmd_as_root mkdir -p "$BREW_PREFIX"
   run_cmd_as_root chown -R "$TARGET_USER:$TARGET_USER" /home/linuxbrew
-  run_user_login_shell 'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+  local install_script install_script_q
+  install_script="$(mktemp "$CACHE_DIR/homebrew-install.XXXXXX")"
+  if ! run_cmd curl -fsSL "https://raw.githubusercontent.com/Homebrew/install/$HOMEBREW_INSTALL_COMMIT/install.sh" -o "$install_script" \
+    || ! printf '%s  %s\n' "$HOMEBREW_INSTALL_SHA256" "$install_script" | sha256sum -c -; then
+    rm -f "$install_script"
+    return 1
+  fi
+  run_cmd chmod 0755 "$install_script"
+  printf -v install_script_q '%q' "$install_script"
+  run_user_login_shell "NONINTERACTIVE=1 /bin/bash $install_script_q"
+  rm -f "$install_script"
 }
 
 install_brew_package() {
@@ -80,7 +94,15 @@ install_claude_code() {
   local claude_bin="$TARGET_HOME/.local/bin/claude"
   [[ -x "$claude_bin" ]] && return 0
   log_progress "Installing Claude Code"
-  run_cmd_as_user "$TARGET_USER" bash -lc 'curl -fsSL https://claude.ai/install.sh | bash'
+  local install_script
+  install_script="$(mktemp "$CACHE_DIR/claude-install.XXXXXX")"
+  if ! run_cmd curl -fsSL https://claude.ai/install.sh -o "$install_script"; then
+    rm -f "$install_script"
+    return 1
+  fi
+  run_cmd chmod 0755 "$install_script"
+  run_cmd_as_user "$TARGET_USER" bash "$install_script"
+  rm -f "$install_script"
 }
 
 install_jetbrains_toolbox() {
@@ -104,18 +126,26 @@ install_jetbrains_toolbox() {
     set -Eeuo pipefail
     api='https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release'
     api_response=\$(mktemp)
-    trap 'rm -f \"\$api_response\"' EXIT
+    archive=\$(mktemp --suffix=.tar.gz)
+    checksum_file=\$(mktemp)
+    trap 'rm -f \"\$api_response\" \"\$archive\" \"\$checksum_file\"' EXIT
     curl -fsSL \"\$api\" -o \"\$api_response\"
     download_url=\$(jq -r 'to_entries[0].value[0].downloads.linux.link // empty' \"\$api_response\")
+    checksum_url=\$(jq -r 'to_entries[0].value[0].downloads.linux.checksumLink // empty' \"\$api_response\")
     version=\$(jq -r 'to_entries[0].value[0].version // empty' \"\$api_response\")
-    if [[ -z \"\$download_url\" ]]; then
-      echo 'Failed to parse JetBrains Toolbox Linux download URL from API response' >&2
+    if [[ -z \"\$download_url\" || -z \"\$checksum_url\" ]]; then
+      echo 'Failed to parse JetBrains Toolbox Linux download or checksum URL from API response' >&2
       exit 1
     fi
     echo \"JetBrains Toolbox version: \${version:-unknown}\"
     echo \"JetBrains Toolbox download: \$download_url\"
     mkdir -p $toolbox_dir_q \"\$(dirname $symlink_q)\"
-    curl -fsSL \"\$download_url\" | tar -xzf - -C $toolbox_dir_q --strip-components=1
+    curl -fsSL \"\$download_url\" -o \"\$archive\"
+    curl -fsSL \"\$checksum_url\" -o \"\$checksum_file\"
+    expected_checksum=\$(awk 'NF {print \$1; exit}' \"\$checksum_file\")
+    [[ \"\$expected_checksum\" =~ ^[A-Fa-f0-9]{64}$ ]]
+    printf '%s  %s\n' \"\$expected_checksum\" \"\$archive\" | sha256sum -c -
+    tar -xzf \"\$archive\" -C $toolbox_dir_q --strip-components=1
     [[ -x $toolbox_bin_q ]]
     ln -sfn $toolbox_bin_q $symlink_q
     nohup $toolbox_bin_q >/dev/null 2>&1 &
@@ -135,9 +165,16 @@ install_devtunnel() {
   local devtunnel_bin="$TARGET_HOME/.local/bin/devtunnel"
   [[ -x "$devtunnel_bin" ]] && return 0
   log_progress "Installing Microsoft devtunnel CLI"
+  local downloaded_bin
+  downloaded_bin="$(mktemp "$CACHE_DIR/devtunnel.XXXXXX")"
   run_cmd_as_user "$TARGET_USER" mkdir -p "$TARGET_HOME/.local/bin"
-  run_cmd_as_user "$TARGET_USER" curl -fsSL https://aka.ms/TunnelsCliDownload/linux-x64 -o "$devtunnel_bin"
-  run_cmd_as_user "$TARGET_USER" chmod +x "$devtunnel_bin"
+  if ! run_cmd curl -fsSL https://aka.ms/TunnelsCliDownload/linux-x64 -o "$downloaded_bin"; then
+    rm -f "$downloaded_bin"
+    return 1
+  fi
+  run_cmd chmod 0644 "$downloaded_bin"
+  run_cmd_as_user "$TARGET_USER" install -m 0755 "$downloaded_bin" "$devtunnel_bin"
+  rm -f "$downloaded_bin"
 }
 
 install_fedora_docker() {
@@ -193,8 +230,12 @@ install_dotnet_sdks() {
   log_progress "Downloading .NET release metadata and installer"
   metadata="$(mktemp "$CACHE_DIR/dotnet-releases.XXXXXX")"
   install_script="$(mktemp "$CACHE_DIR/dotnet-install.XXXXXX")"
-  run_cmd curl -fsSL https://dotnetcli.azureedge.net/dotnet/release-metadata/releases-index.json -o "$metadata"
-  run_cmd curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$install_script"
+  if ! run_cmd curl -fsSL https://dotnetcli.azureedge.net/dotnet/release-metadata/releases-index.json -o "$metadata" \
+    || ! run_cmd curl -fsSL "https://raw.githubusercontent.com/dotnet/install-scripts/$DOTNET_INSTALL_COMMIT/src/dotnet-install.sh" -o "$install_script" \
+    || ! printf '%s  %s\n' "$DOTNET_INSTALL_SHA256" "$install_script" | sha256sum -c -; then
+    rm -f "$metadata" "$install_script"
+    return 1
+  fi
   run_cmd chmod 0755 "$install_script"
 
   channel_lines="$(dotnet_channel_versions "$metadata" || true)"
@@ -266,50 +307,6 @@ install_dotnet_tools() {
   [[ "$failed" -eq 0 ]]
 }
 
-install_fedora_ms_fonts() {
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: install Microsoft core fonts RPM\n'
-    return 0
-  fi
-  local font_dir=/usr/share/fonts/msttcore
-  local docs_dir=/usr/share/doc/msttcore-fonts-installer
-  local installed_list=/usr/lib/msttcore-fonts-installer/installed-list.txt
-  local refresh_script=/usr/lib/msttcore-fonts-installer/refresh-msttcore-fonts.sh
-  local rpm_url=https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-2.6-1.noarch.rpm
-  if rpm -q msttcore-fonts-installer >/dev/null 2>&1 && compgen -G "$font_dir/*.ttf" >/dev/null; then
-    return 0
-  fi
-  log_progress "Installing Microsoft core fonts dependencies"
-  run_cmd_as_root dnf install -y curl cabextract fontconfig mkfontscale xorg-x11-font-utils xset
-  local xset_wrapper_dir
-  xset_wrapper_dir="$(mktemp -d "$CACHE_DIR/ms-fonts-xset.XXXXXX")"
-  printf '#!/usr/bin/env sh\nexit 0\n' >"$xset_wrapper_dir/xset"
-  cat >"$xset_wrapper_dir/cabextract" <<'SH'
-#!/usr/bin/env bash
-/usr/bin/cabextract "$@" 2> >(grep -Fv 'ppviewer.cab: WARNING; possible 6912 extra bytes at end of file.' >&2)
-SH
-  chmod 0755 "$xset_wrapper_dir/xset"
-  chmod 0755 "$xset_wrapper_dir/cabextract"
-  if ! rpm -q msttcore-fonts-installer >/dev/null 2>&1; then
-    log_progress "Installing Microsoft core fonts RPM"
-    if ! run_cmd_as_root rpm -i --noscripts --nodigest --nosignature "$rpm_url"; then
-      rm -rf "$xset_wrapper_dir"
-      return 1
-    fi
-  fi
-  if ! run_cmd_as_root install -d -m 0755 "$docs_dir"; then
-    rm -rf "$xset_wrapper_dir"
-    return 1
-  fi
-  log_progress "Refreshing Microsoft core fonts"
-  if ! run_cmd_as_root env "PATH=$xset_wrapper_dir:$PATH" \
-    "$refresh_script" -F "$font_dir" -L "$docs_dir" -I "$installed_list"; then
-    rm -rf "$xset_wrapper_dir"
-    return 1
-  fi
-  rm -rf "$xset_wrapper_dir"
-}
-
 jetbrains_mono_nerd_font_dir() {
   printf '%s\n' "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont"
 }
@@ -353,11 +350,6 @@ install_fedora_jetbrains_mono_nerd_font() {
     fc-cache -f '$font_dir'
   "
   jetbrains_mono_nerd_font_installed || die "JetBrains Mono Nerd Font action completed but no font files were found in $font_dir."
-}
-
-install_fedora_build_tools() {
-  log_progress "Installing Fedora development tools group"
-  run_cmd_as_root dnf group install -y development-tools
 }
 
 install_fedora_noctalia_v5() {
@@ -605,8 +597,6 @@ run_custom_action() {
     docker-post-install) configure_docker_post_install ;;
     dotnet-sdk) install_dotnet_sdks ;;
     dotnet-tools) install_dotnet_tools ;;
-    build-tools) install_fedora_build_tools ;;
-    ms-fonts) install_fedora_ms_fonts ;;
     jetbrains-mono-nerd-font) install_fedora_jetbrains_mono_nerd_font ;;
     noctalia-greeter) install_fedora_noctalia_greeter ;;
     noctalia-v5) install_fedora_noctalia_v5 ;;
@@ -619,15 +609,45 @@ verify_custom_action() {
   local action="$1"
   [[ "$DRY_RUN" -eq 0 ]] || return 0
   case "$action" in
-    ms-fonts)
-      rpm -q msttcore-fonts-installer >/dev/null 2>&1 \
-        && compgen -G "/usr/share/fonts/msttcore/*.ttf" >/dev/null
+    brew:*)
+      local brew_package_q
+      printf -v brew_package_q '%q' "${action#brew:}"
+      [[ -x "$BREW_PREFIX/bin/brew" ]] \
+        && run_user_login_shell "brew list $brew_package_q >/dev/null 2>&1"
+      ;;
+    npm-global:*)
+      npm list -g --depth=0 "${action#npm-global:}" >/dev/null 2>&1
+      ;;
+    claude-code)
+      [[ -x "$TARGET_HOME/.local/bin/claude" ]]
+      ;;
+    jetbrains-toolbox)
+      [[ -x "$TARGET_HOME/.local/share/JetBrains/Toolbox/bin/jetbrains-toolbox" ]]
+      ;;
+    devtunnel)
+      [[ -x "$TARGET_HOME/.local/bin/devtunnel" ]]
+      ;;
+    docker)
+      rpm -q docker-ce docker-ce-cli containerd.io >/dev/null 2>&1
+      ;;
+    docker-post-install)
+      systemctl is-enabled docker.service >/dev/null 2>&1 \
+        && id -nG "$TARGET_USER" | grep -qw docker
+      ;;
+    dotnet-sdk)
+      [[ -x "$TARGET_HOME/$DOTNET_INSTALL_DIR_NAME/dotnet" ]]
+      ;;
+    dotnet-tools)
+      local dotnet_bin="$TARGET_HOME/$DOTNET_INSTALL_DIR_NAME/dotnet"
+      [[ -x "$dotnet_bin" ]] || return 1
+      local tool installed_tools
+      installed_tools="$(run_cmd_as_user "$TARGET_USER" "$dotnet_bin" tool list -g 2>/dev/null || true)"
+      for tool in "${DOTNET_TOOLS[@]}"; do
+        awk -v wanted="${tool,,}" 'NR > 2 && tolower($1) == wanted {found=1} END {exit !found}' <<<"$installed_tools" || return 1
+      done
       ;;
     jetbrains-mono-nerd-font)
       jetbrains_mono_nerd_font_installed
-      ;;
-    build-tools)
-      return 0
       ;;
     noctalia-greeter)
       noctalia_greeter_action_skipped && return 0
@@ -639,6 +659,9 @@ verify_custom_action() {
       ;;
     noctalia-v5)
       noctalia_fedora_package_is_compatible && command -v noctalia >/dev/null 2>&1
+      ;;
+    media-codecs)
+      rpm -q ffmpeg-libs gstreamer1-libav >/dev/null 2>&1
       ;;
     *)
       return 0

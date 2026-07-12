@@ -4,7 +4,7 @@ ZZ Fedora is a modular, idempotent Fedora post-install desktop bootstrapper for 
 
 ## Status
 
-- Fedora Linux is the only supported platform. The installer validates that invariant before planning or applying changes.
+- Fedora Linux 44 on x86_64 is the supported platform. The installer and ISO builder reject other releases and architectures before planning or applying changes.
 - Catalog paths and installer internals intentionally avoid multi-distro indirection; Fedora package and source behavior lives in `lib/fedora.sh`.
 - Noctalia v5 support is experimental while v5 is in beta; track checkpoints in `docs/noctalia-v5-integration-status.md`.
 
@@ -29,7 +29,7 @@ ZZ Fedora is a modular, idempotent Fedora post-install desktop bootstrapper for 
 - Choose the `Niri` session at login.
 - Noctalia is launched from Niri autostart with `spawn-at-startup "noctalia"`, and Niri shell keybindings call `noctalia msg ...`.
 - Noctalia v5 uses the managed `~/.config/noctalia/config.toml` baseline; GUI-managed overrides live in `~/.local/state/noctalia/settings.toml`.
-- Bundled wallpapers are seeded to `~/.local/share/backgrounds`, and Noctalia defaults to the bundled `BlueTide.jpg`.
+- Sixteen license-cleared 6000×4000 wallpapers and their attribution record are seeded to `~/.local/share/backgrounds`; Noctalia initially uses the bundled `Alpenglow.jpg`, while existing user files are preserved.
 - Niri config is stowed from this repo. Hardware-specific Niri display config and `~/.config/niri/noctalia.kdl` are seeded only when absent.
 - Noctalia template selection is managed through the curated config; generated runtime state and hardware-specific widget placement stay app-managed.
 - The installer never starts greetd immediately. When no display manager is already enabled, reboot to begin using Noctalia Greeter.
@@ -48,7 +48,6 @@ ZZ Fedora is a modular, idempotent Fedora post-install desktop bootstrapper for 
 
 ## Shell Tooling
 
-- The base install always includes Zsh and its managed config.
 - The base install always includes Zsh, Oh My Zsh setup, Starship, zoxide, fastfetch, `gh`, btop, fd, fzf, bat, Yazi, and their managed dotfiles.
 - The Starship prompt uses a managed static config with a fallback Noctalia palette; dynamic Noctalia template-driven theming is deferred until the v5 baseline stabilizes.
 - Zsh setup bootstraps Oh My Zsh, installs the managed `~/.zshrc`, and changes the target user's login shell to `/bin/zsh`.
@@ -64,10 +63,12 @@ curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-fedora/main/bootstrap
 
 This prints the bootstrap packages it will install, asks for confirmation, clones the repo to `~/zz-fedora` by default, and then launches the installer.
 
-Pinned install:
+To pin both the downloaded bootstrap and checkout, use the same verified full
+commit or signed tag in both places:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-fedora/main/bootstrap.sh | bash -s -- --ref v0.1.0
+ref="<full-commit-or-signed-tag>"
+curl -fsSL "https://raw.githubusercontent.com/bgmulinari/zz-fedora/$ref/bootstrap.sh" | bash -s -- --ref "$ref"
 ```
 
 Unattended dry-run bootstrap:
@@ -85,7 +86,7 @@ curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-fedora/main/bootstrap
 Local install:
 
 ```bash
-git clone https://github.com/bgmulinari/zz-fedora.git
+git clone --filter=blob:none https://github.com/bgmulinari/zz-fedora.git
 cd zz-fedora
 ./install.sh wizard
 ```
@@ -96,6 +97,7 @@ Build an online Fedora installer ISO from the current checkout:
 sudo dnf install lorax rsync xorriso
 scripts/build-fedora-installer-iso.sh \
   --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
+  --input-sha256 <sha256-from-the-signed-fedora-checksum-file> \
   --output release/zz-fedora.iso
 ```
 
@@ -126,6 +128,7 @@ zz defaults
 zz dotnet devcert status
 zz dotnet devcert create
 zz update all
+zz update all --cleanup
 zz commands --json
 ./install.sh wizard
 ./install.sh install --yes
@@ -189,7 +192,8 @@ Re-running should:
 - Flathub is part of the protected Fedora base source set because the base plan installs GTK Flatpak theme runtimes and optional Flatpak apps use the same remote.
 - `lionheartp/Hyprland` is a required Copr source for Noctalia v5 and Noctalia Greeter.
 - Terra is a required base source for Ghostty. Its generated source-trust line is marked as an explicit bootstrap exception.
-- Selecting `zsh` also fetches Oh My Zsh plus the `zsh-autosuggestions` and `zsh-syntax-highlighting` plugin repositories from GitHub.
+- The base shell fetches Oh My Zsh plus the `zsh-autosuggestions` and `zsh-syntax-highlighting` repositories at reviewed pinned commits.
+- Optional rolling vendor installers and registries are represented as artifact sources. The generated plan warns when their integrity policy is TLS-only instead of a pinned checksum or repository signature.
 
 ## How To Extend
 

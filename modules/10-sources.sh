@@ -8,7 +8,8 @@ source_plan_files() {
     "$PLAN_DIR/sources/rpmfusion.list" \
     "$PLAN_DIR/sources/cisco-openh264.list" \
     "$PLAN_DIR/sources/vendor.list" \
-    "$PLAN_DIR/sources/flatpak-remotes.list"
+    "$PLAN_DIR/sources/flatpak-remotes.list" \
+    "$PLAN_DIR/sources/artifacts.list"
 }
 
 source_required_for_install() {

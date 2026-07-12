@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ISO_TOOL_NAME="test-fedora-installer-vm"
+# shellcheck source=lib/iso-common.sh
+source "$repo_dir/scripts/lib/iso-common.sh"
+
 usage() {
   cat <<'EOF'
-Usage: scripts/test-fedora-installer-vm.sh --input ISO [--work-dir DIR] [--boot-mode iso|direct|uefi] [--installer-ui graphical|text] [--graphics vnc|none|egl-headless]
+Usage: scripts/test-fedora-installer-vm.sh --input ISO [--input-sha256 HASH] [--work-dir DIR] [--boot-mode iso|direct|uefi] [--installer-ui graphical|text] [--graphics vnc|none|egl-headless]
 
 Run an unattended QEMU install that exercises the Fedora ISO add-on task path.
 The generated test ISO uses the same embedded checkout and installer invocation
@@ -19,29 +24,11 @@ EOF
 }
 
 err() {
-  printf 'test-fedora-installer-vm: %s\n' "$*" >&2
-}
-
-extract_fedora_iso_metadata() {
-  local input_iso="$1"
-  local metadata_dir discinfo
-  metadata_dir="$(mktemp -d)"
-  discinfo="$metadata_dir/.discinfo"
-  xorriso -osirrox on -indev "$input_iso" -extract /.discinfo "$discinfo" >/dev/null 2>&1 || {
-    rm -rf "$metadata_dir"
-    err "could not extract /.discinfo from input ISO"
-    return 1
-  }
-  fedora_release="$(sed -n '2p' "$discinfo")"
-  fedora_arch="$(sed -n '3p' "$discinfo")"
-  rm -rf "$metadata_dir"
-  [[ -n "$fedora_release" && -n "$fedora_arch" ]] || {
-    err "could not determine Fedora release and architecture from input ISO"
-    return 1
-  }
+  iso_err "$@"
 }
 
 input_iso=
+input_sha256=
 work_dir=
 memory=4096
 cpus=4
@@ -75,6 +62,18 @@ while (($# > 0)); do
       }
       work_dir=$2
       shift 2
+      ;;
+    --input-sha256)
+      (($# >= 2)) || {
+        err "--input-sha256 requires a value."
+        exit 1
+      }
+      input_sha256=$2
+      shift 2
+      ;;
+    --input-sha256=*)
+      input_sha256=${1#*=}
+      shift
       ;;
     --work-dir=*)
       work_dir=${1#*=}
@@ -201,6 +200,10 @@ if [[ ! -f "$input_iso" ]]; then
   exit 1
 fi
 
+if [[ -n "$input_sha256" ]]; then
+  iso_verify_sha256 "$input_iso" "$input_sha256"
+fi
+
 for command in cpio gzip mkksiso qemu-img qemu-system-x86_64 rsync timeout xorriso; do
   if ! command -v "$command" >/dev/null 2>&1; then
     err "missing required command: $command"
@@ -208,8 +211,8 @@ for command in cpio gzip mkksiso qemu-img qemu-system-x86_64 rsync timeout xorri
   fi
 done
 
-repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-extract_fedora_iso_metadata "$input_iso"
+iso_extract_fedora_metadata "$input_iso"
+iso_validate_supported_platform "$fedora_release" "$fedora_arch"
 addon_dir="$repo_dir/iso/anaconda-addon"
 addon_data_dir="$repo_dir/iso/anaconda-addon-data"
 if [[ ! -d "$addon_dir/org_zz_fedora" ]]; then
@@ -226,6 +229,7 @@ fi
 
 rm -rf "$work_dir"
 mkdir -p "$work_dir"
+work_dir="$(cd "$work_dir" && pwd)"
 
 ks_file="$work_dir/zz-fedora-vm.ks"
 payload_dir="$work_dir/payload/zz-fedora"
@@ -294,20 +298,14 @@ rsync
 
 %pre --interpreter=/usr/bin/bash
 set -Eeuo pipefail
-printf 'selected=1\n' >/tmp/zz-fedora-install-selected
+install -d -m 0700 /run/zz-fedora
+printf 'selected=1\n' >/run/zz-fedora/install-selected
+chmod 0600 /run/zz-fedora/install-selected
 %end
 EOF
 } >"$ks_file"
 
-rsync -a --delete \
-  --exclude='.cache/' \
-  --exclude='downloads/' \
-  --exclude='release/' \
-  --exclude='test-artifacts/' \
-  --exclude='livemedia.log' \
-  --exclude='program.log' \
-  --exclude='*.iso' \
-  "$repo_dir/" "$payload_dir/"
+iso_stage_tracked_runtime_payload "$repo_dir" "$payload_dir"
 
 mkdir -p \
   "$product_root/etc/anaconda/conf.d" \
@@ -365,7 +363,7 @@ if [[ "$EUID" -eq 0 ]]; then
   mkksiso "${mkksiso_args[@]}"
 else
   sudo -n mkksiso "${mkksiso_args[@]}"
-  sudo -n chown "$USER:$(id -gn)" "$test_iso"
+  sudo -n chown "$(id -un):$(id -gn)" "$test_iso"
 fi
 qemu-img create -f qcow2 "$disk_image" "$disk_size" >/dev/null
 if [[ "$boot_mode" == "uefi" ]]; then
@@ -446,3 +444,15 @@ else
 fi
 
 timeout "$timeout_seconds" qemu-system-x86_64 "${qemu_args[@]}" >"$qemu_log" 2>&1
+
+if [[ "$installer_ui" == "text" ]]; then
+  if ! grep -aFq 'ZZ Fedora (9/9): Completed Doctor' "$serial_log"; then
+    err "headless install exited without the Doctor completion marker; inspect $serial_log"
+    exit 1
+  fi
+  if ! grep -aFq 'ZZ Fedora complete' "$serial_log"; then
+    err "headless install exited without the final completion marker; inspect $serial_log"
+    exit 1
+  fi
+  printf 'Verified headless install completion markers in %s\n' "$serial_log"
+fi
