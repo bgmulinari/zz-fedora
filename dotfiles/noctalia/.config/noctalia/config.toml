@@ -67,6 +67,7 @@ end = [
   "brightness",
   "battery",
   "default-spacer",
+  "display-settings",
   "settings",
   "control-center",
   "session",
@@ -88,6 +89,9 @@ format = "{:%b %d %H:%M}"
 [widget.default-spacer]
 type = "spacer"
 
+[widget.display-settings]
+type = "local/display-settings:launcher"
+
 [widget.media]
 hide_when_no_media = true
 
@@ -100,6 +104,11 @@ show_window_title = true
 
 [widget.weather]
 show_condition = false
+
+# Local plugins
+
+[plugins]
+enabled = [ "local/display-settings" ]
 
 # Notifications and on-screen display
 

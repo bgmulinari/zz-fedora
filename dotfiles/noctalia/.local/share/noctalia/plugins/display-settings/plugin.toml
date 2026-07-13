@@ -1,0 +1,36 @@
+id = "local/display-settings"
+name = "Display Settings"
+version = "0.1.0"
+min_noctalia = "5.0.0"
+author = "local"
+license = "MIT"
+icon = "device-desktop-cog"
+description = "Configure connected Niri outputs from a native Noctalia panel"
+tags = ["display", "niri", "settings"]
+dependencies = ["niri", "python3"]
+
+[[setting]]
+key = "confirm_timeout"
+type = "int"
+label = "Preview Timeout"
+description = "Seconds before an unconfirmed display preview is reverted"
+default = 15
+min = 5
+max = 60
+
+[[widget]]
+id = "launcher"
+entry = "widget.luau"
+
+[[shortcut]]
+id = "control-center"
+entry = "shortcut.luau"
+
+[[panel]]
+id = "manager"
+entry = "panel.luau"
+width = 900
+height = 720
+placement = "attached"
+position = "center"
+open_near_click = true

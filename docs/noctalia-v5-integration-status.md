@@ -2,6 +2,16 @@
 
 This is the living checkpoint for the Noctalia v5 integration. Update it every time this repo changes its Noctalia v5 packages, sources, config, Niri wiring, templates, tests, or assumptions.
 
+## 2026-07-12 native Niri display settings plugin
+
+- Added the local `local/display-settings` Noctalia v5 plugin under the managed `noctalia` Stow package. It provides a lightweight bar launcher, optional Control Center shortcut, and fixed-size panel that attaches to the bar and opens near its launcher by default. The panel queries Niri only when opened or explicitly refreshed or reset; no plugin process polls in the background.
+- The panel reads connected outputs and their modes from `niri msg -j outputs`, then exposes native Noctalia controls for enablement, mode, scale, transform, logical position, automatic horizontal arrangement, and VRR.
+- Preview applies only temporary `niri msg output` changes. A detached Python watchdog retains rollback state and retries loading the persistent Niri configuration until restoration succeeds, unless the user keeps or explicitly reverts the preview before the configured timeout. The panel reconciles its controls with backend-owned preview state after failures instead of inferring rollback completion from a command exit. If the countdown state cannot be written after outputs change, the backend immediately restores the persistent configuration and reports whether any rollback work remains.
+- Keep validates generated KDL, backs up the prior dedicated display file as `display.kdl.previous`, atomically replaces `~/.config/niri/cfg/display.kdl`, validates the complete Niri configuration, and reloads it. Reload completion is acknowledged only after Niri emits a successful `ConfigLoaded` event because the `load-config-file` IPC action queues parsing asynchronously.
+- Preview and Keep conservatively refuse to replace an existing display file containing modelines, VRR on-demand, `max-bpc`, nested output layout, or other settings the deployed Niri IPC/config version cannot round-trip. They also preserve inactive saved settings when an output was disabled only through transient Niri IPC.
+- The managed Noctalia config enables the plugin and places its launcher in the default bar. Plugin code is portable; connected output names, modes, geometry, and generated KDL remain local hardware state and are not committed.
+- Added `tests/noctalia_display_plugin.bats` for managed wiring, manifest surfaces, Niri JSON normalization, transactional persistence, acknowledged reloads, backend/panel preview-state reconciliation, retrying rollback, preview/revert commands, and last-output protection.
+
 ## 2026-07-11 wallpaper asset replacement
 
 - Removed the former wallpaper files because their redistribution provenance and licenses were not documented.
@@ -314,6 +324,7 @@ Primary files:
 - `.agents/skills/promote-noctalia-config/scripts/noctalia_override_report.py`
 - `dotfiles/noctalia/.config/noctalia/config.toml`
 - `dotfiles/noctalia/.config/noctalia/templates/icon-theme-accent`
+- `dotfiles/noctalia/.local/share/noctalia/plugins/display-settings/`
 - `dotfiles/noctalia/.local/bin/noctalia-sync-icon-theme`
 - `dotfiles/niri/.config/niri/cfg/autostart.kdl`
 - `dotfiles/niri/.config/niri/cfg/keybinds.kdl`
@@ -326,6 +337,7 @@ Tests covering this checkpoint:
 - `tests/post_actions.bats`
 - `tests/doctor_hardening.bats`
 - `tests/cli_smoke.bats`
+- `tests/noctalia_display_plugin.bats`
 
 Last validation run:
 
@@ -339,6 +351,7 @@ bats --filter 'Noctalia v5 Fedora action' tests/package_modules.bats
 bats --filter 'Fedora base plan includes protected base desktop bundles and rationale|minimal desktop app profile keeps Niri baseline' tests/planner.bats
 bats --filter 'base responsibility and managed config policy|managed config conflicts and base rationale' tests/doctor_hardening.bats
 bats tests/cli_smoke.bats
+bats tests/noctalia_display_plugin.bats
 ./tests/smoke.sh
 ```
 
