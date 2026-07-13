@@ -17,7 +17,7 @@
 
 ## UI conventions
 
-- Prefer native Noctalia controls and patterns from `/home/bruno/repos/noctalia`; verify plugin APIs against `/home/bruno/repos/noctalia-docs` and output semantics against `/home/bruno/repos/niri`.
+- When upstream reference checkouts are available, use the Noctalia source for native controls and patterns, the Noctalia documentation for plugin APIs, and the Niri source for output semantics. Do not assume a fixed checkout location.
 - Match Noctalia capitalization, spacing, button variants, and compact settings-row layouts.
 - Write help text as sentence fragments without a trailing period.
 - Enable Preview and Reset only when the draft differs semantically from the queried output state. Enable Keep Settings only during an active preview with unapplied changes.
