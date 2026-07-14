@@ -144,7 +144,7 @@ org.gnome.Showtime.desktop	package:showtime	video/x-theora
 org.gnome.Showtime.desktop	package:showtime	video/x-theora+ogg
 nautilus-autorun-software.desktop	package:nautilus	x-content/unix-software
 org.gnome.Software.desktop	package:gnome-software	x-scheme-handler/appstream
-org.gnome.evolution-data-server.OAuth2-handler.desktop	package:evolution-data-server	x-scheme-handler/com.googleusercontent.apps.590402290962-2i0b7rqma8b9nmtfrcp7fa06g6cf7g74
-org.gnome.evolution-data-server.OAuth2-handler.desktop	package:evolution-data-server	x-scheme-handler/eds-oauth2
+org.gnome.evolution-data-server.OAuth2-handler.desktop	package:gnome-calendar	x-scheme-handler/com.googleusercontent.apps.590402290962-2i0b7rqma8b9nmtfrcp7fa06g6cf7g74
+org.gnome.evolution-data-server.OAuth2-handler.desktop	package:gnome-calendar	x-scheme-handler/eds-oauth2
 org.gnome.Software.desktop	package:gnome-software	x-scheme-handler/flatpak+https
 org.gnome.Software.desktop	package:gnome-software	x-scheme-handler/snap

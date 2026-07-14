@@ -82,7 +82,6 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "zsh"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "bats"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nss-tools"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nodejs24"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nodejs24-npm"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "starship"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "yazi"
@@ -105,7 +104,6 @@ assert_all_bundles_reachable() {
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tghostty-shell-integration\tbase-ghostty\tdefault-app\tterminal shell integration'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbats\tbase-bootstrap\tinstaller-bootstrap'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnss-tools\tbase-bootstrap\tinstaller-bootstrap\tbrowser certificate trust'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24\tbase-nodejs'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24-npm\tbase-nodejs'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tddcutil\tbase-wayland-tools\tnoctalia\texternal display brightness'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tpavucontrol\tbase-desktop-controls\tdefault-app\taudio mixer'
@@ -134,6 +132,55 @@ assert_all_bundles_reachable() {
   refute_plan_has "$PLAN_DIR/flatpak/apps.flatpaks" "com.discordapp.Discord"
   refute_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-sdk"
   refute_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-tools"
+}
+
+@test "base plan delegates dependency-owned RPMs while retaining owned services" {
+  build_test_plan
+
+  local dependency_owned
+  for dependency_owned in \
+    desktop-file-utils \
+    evolution-data-server \
+    libnotify \
+    nodejs24 \
+    shared-mime-info \
+    xdg-desktop-portal; do
+    refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$dependency_owned"
+  done
+
+  local dependency_parent
+  for dependency_parent in \
+    gnome-calendar \
+    nodejs24-npm \
+    system-config-printer \
+    xdg-desktop-portal-gnome \
+    xdg-desktop-portal-gtk \
+    xdg-utils; do
+    assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$dependency_parent"
+  done
+
+  local installer_owned
+  for installer_owned in avahi bluez udisks2; do
+    assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$installer_owned"
+  done
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tavahi\tbase-system-services\tdesktop-service\tnetwork discovery'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbluez\tbase-system-services\tdesktop-service\tBluetooth service'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tudisks2\tbase-file-integration\tfile-integration\tremovable media'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-greeter\tbase-login-manager\tdesktop-service\tgraphical login'
+}
+
+@test "minimal desktop keeps explicit services whose dependency parents are skipped" {
+  DESKTOP_APP_PROFILE=minimal
+  build_test_plan
+
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "avahi"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "bluez"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "udisks2"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-calendar"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-disk-utility"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-desktop-portal-gnome"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-desktop-portal-gtk"
 }
 
 @test "full desktop app profile installs requested GNOME apps" {

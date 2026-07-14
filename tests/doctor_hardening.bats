@@ -150,6 +150,15 @@ setup() {
   assert_contains "$output" "user service enabled app-com.mitchellh.ghostty.service"
 }
 
+@test "doctor infers the portal service from a selected backend" {
+  native_plan="$TEST_ROOT/native.pkgs"
+  printf 'xdg-desktop-portal-gtk\n' >"$native_plan"
+
+  run doctor_portal_planned "$native_plan"
+
+  [ "$status" -eq 0 ]
+}
+
 @test "doctor fails when planned Niri desktop readiness is missing" {
   build_test_plan
   COMMAND=doctor

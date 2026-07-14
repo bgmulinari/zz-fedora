@@ -106,6 +106,13 @@ doctor_plan_has_entry() {
   grep -Fx "$entry" "$plan_file" >/dev/null 2>&1
 }
 
+doctor_portal_planned() {
+  local native_plan="$1"
+  doctor_plan_has_entry "$native_plan" "xdg-desktop-portal" \
+    || doctor_plan_has_entry "$native_plan" "xdg-desktop-portal-gtk" \
+    || doctor_plan_has_entry "$native_plan" "xdg-desktop-portal-gnome"
+}
+
 doctor_noctalia_planned() {
   local native_plan="$1"
   local action_plan
@@ -205,7 +212,7 @@ module_90_doctor() {
     doctor_warn_file "$user_config_home/environment.d/10-niri-gtk.conf"
     doctor_warn_file "$user_config_home/niri/noctalia.kdl"
   fi
-  if doctor_plan_has_entry "$native_plan" "xdg-desktop-portal"; then
+  if doctor_portal_planned "$native_plan"; then
     doctor_warn_file "$user_config_home/xdg-desktop-portal/niri-portals.conf"
   fi
   doctor_warn_file "$user_config_home/xdg-terminals.list"

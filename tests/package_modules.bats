@@ -195,6 +195,39 @@ EOF
     "$(<"$rpm_log")"
 }
 
+@test "Docker action lets the engine select CLI and containerd dependencies" {
+  DRY_RUN=0
+  command_log="$TEST_ROOT/docker-commands.log"
+  fedora_repo_enabled() {
+    return 0
+  }
+  run_cmd_as_root() {
+    printf '%s\n' "$*" >>"$command_log"
+  }
+
+  run install_fedora_docker
+
+  [ "$status" -eq 0 ]
+  assert_file_contains "$command_log" "dnf install -y docker-ce docker-buildx-plugin docker-compose-plugin"
+  refute_file_contains "$command_log" "docker-ce-cli"
+  refute_file_contains "$command_log" "containerd.io"
+}
+
+@test "Docker verification checks the complete dependency-selected result" {
+  DRY_RUN=0
+  rpm_log="$TEST_ROOT/docker-rpm.log"
+  rpm() {
+    printf '%s\n' "$*" >"$rpm_log"
+  }
+
+  run verify_custom_action docker
+
+  [ "$status" -eq 0 ]
+  assert_equal \
+    "-q docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" \
+    "$(<"$rpm_log")"
+}
+
 @test "JetBrains Toolbox install removes the vendor login autostart entry" {
   DRY_RUN=0
   command_log="$TEST_ROOT/toolbox-install-command.log"

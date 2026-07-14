@@ -32,7 +32,6 @@ action	jetbrains-mono-nerd-font	theme-font	terminal and prompt rendering	Install
 flatpak	org.gtk.Gtk3theme.adw-gtk3	theme-font	Flatpak GTK apps	Matches Flatpak GTK3 apps to the base GTK theme.
 flatpak	org.gtk.Gtk3theme.adw-gtk3-dark	theme-font	Flatpak GTK apps	Matches Flatpak GTK3 apps to the base dark GTK theme.
 dnf	xwayland-satellite	niri	Xwayland apps under Niri	Provides Xwayland compatibility for the Niri session.
-dnf	xdg-desktop-portal	desktop-service	desktop portals	Provides the base portal service for Wayland apps.
 dnf	xdg-desktop-portal-gtk	desktop-service	GTK portals	Provides GTK portal implementations for file pickers and settings.
 dnf	xdg-desktop-portal-gnome	desktop-service	GNOME portal integration	Provides portal coverage expected by GTK/GNOME applications.
 dnf	gnome-keyring	desktop-service	secret storage	Provides keyring integration for desktop applications.
@@ -55,7 +54,6 @@ dnf	system-config-printer	default-app	print UI	Provides printer configuration UI
 dnf	ipp-usb	desktop-service	printer/scanner discovery	Supports driverless USB printer/scanner devices.
 dnf	avahi	desktop-service	network discovery	Provides mDNS discovery for printers and local services.
 dnf	nss-mdns	desktop-service	network discovery	Resolves mDNS hostnames.
-dnf	evolution-data-server	desktop-service	GTK account/calendar integration	Provides common data services consumed by GNOME/GTK applications.
 dnf	nautilus	default-app	file manager	Provides the default graphical file manager.
 dnf	gnome-calculator	default-app	utility app	Provides a basic calculator.
 dnf	gnome-calendar	default-app	calendar	Provides a graphical calendar application.
@@ -86,9 +84,6 @@ dnf	udiskie	file-integration	removable media	Provides user-session automount sup
 dnf	xdg-utils	file-integration	default apps	Provides XDG helper commands for MIME/default app setup.
 dnf	xdg-terminal-exec	file-integration	default terminal	Connects terminal launches to Ghostty.
 dnf	xdg-user-dirs	file-integration	user directories	Creates standard desktop user directories.
-dnf	desktop-file-utils	file-integration	MIME/default apps	Updates desktop entry and MIME caches.
-dnf	shared-mime-info	file-integration	MIME/default apps	Provides shared MIME database.
-dnf	libnotify	file-integration	notifications	Provides notification command/library support.
 dnf	ffmpegthumbnailer	file-integration	file previews	Provides video thumbnails in file managers.
 dnf	wtype	noctalia	clipboard auto-paste	Provides the upstream-supported text-injection fallback for clipboard auto-paste.
 dnf	ddcutil	noctalia	external display brightness	Provides Noctalia's optional DDC/CI backend for compatible external displays.
@@ -110,5 +105,4 @@ dnf	fd-find	installer-bootstrap	shell search	Provides fast file search.
 dnf	fzf	installer-bootstrap	shell picker	Provides fuzzy finding for shell workflows.
 dnf	bat	installer-bootstrap	shell pager	Provides syntax-highlighted file viewing.
 dnf	yazi	default-app	terminal file manager	Provides terminal file manager used by shell tooling.
-dnf	nodejs24	installer-bootstrap	npm global CLI tools	Provides Node.js for JavaScript-based CLI tools on Fedora's Node.js 24 package stream.
-dnf	nodejs24-npm	installer-bootstrap	npm global CLI tools	Provides npm for JavaScript-based CLI tools on Fedora's Node.js 24 package stream.
+dnf	nodejs24-npm	installer-bootstrap	npm global CLI tools	Provides npm and selects its matching Node.js 24 runtime dependency for JavaScript-based CLI tools.

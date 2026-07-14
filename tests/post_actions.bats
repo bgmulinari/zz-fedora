@@ -24,6 +24,7 @@ setup() {
   assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.TextEditor.desktop text/plain"
   assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Nautilus.desktop application/zip"
   assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Calendar.desktop text/calendar"
+  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.evolution-data-server.OAuth2-handler.desktop x-scheme-handler/eds-oauth2"
   refute_file_contains "$TEST_ROOT/commands.log" "x-scheme-handler/mailto"
 }
 

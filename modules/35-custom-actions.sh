@@ -217,7 +217,7 @@ install_fedora_docker() {
     run_cmd_as_root dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
   fi
   log_progress "Installing Docker Engine packages"
-  run_cmd_as_root dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  run_cmd_as_root dnf install -y docker-ce docker-buildx-plugin docker-compose-plugin
 }
 
 configure_docker_post_install() {
@@ -658,7 +658,12 @@ verify_custom_action() {
       [[ -x "$TARGET_HOME/.local/bin/devtunnel" ]]
       ;;
     docker)
-      rpm -q docker-ce docker-ce-cli containerd.io >/dev/null 2>&1
+      rpm -q \
+        docker-ce \
+        docker-ce-cli \
+        containerd.io \
+        docker-buildx-plugin \
+        docker-compose-plugin >/dev/null 2>&1
       ;;
     docker-post-install)
       systemctl is-enabled docker.service >/dev/null 2>&1 \
