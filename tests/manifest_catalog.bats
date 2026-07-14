@@ -167,11 +167,21 @@ EOF
   local category
   assert_equal "firefox" "$(effective_choice_ids browsers)"
 
-  for category in ai dev dotnet gaming media office; do
+  for category in $(category_names); do
+    [[ "$category" == "browsers" ]] && continue
     assert_equal \
       "$(all_choice_ids "$category")" \
       "$(effective_choice_ids "$category")"
   done
+}
+
+@test "minimal desktop profile skips desktop defaults but keeps explicit selections" {
+  DESKTOP_APP_PROFILE=minimal
+
+  assert_equal "" "$(effective_choice_ids desktop)"
+
+  add_category_selection desktop calculator
+  assert_equal "calculator" "$(effective_choice_ids desktop)"
 }
 
 @test "choice descriptions explain purpose without package source wording" {
@@ -187,7 +197,7 @@ EOF
   done < <(list_choice_catalogs)
 }
 
-@test "TUI passes defaults separately and escapes gum selection delimiters" {
+@test "TUI passes effective defaults separately and escapes gum selection delimiters" {
   local gum_args="$TEST_ROOT/gum-args"
   gum() {
     printf '%s\n' "$@" >"$gum_args"
@@ -202,6 +212,29 @@ EOF
   assert_file_contains \
     "$gum_args" \
     'Claude Code                    Terminal coding agent that reads\, edits\, and tests codebases'
+}
+
+@test "TUI desktop preselection respects the effective profile and explicit additions" {
+  local gum_args="$TEST_ROOT/gum-args"
+  gum() {
+    printf '%s\n' "$@" >"$gum_args"
+    return 1
+  }
+
+  DESKTOP_APP_PROFILE=minimal
+  tui_pick_catalog_choices desktop "Test desktop choices"
+  assert_equal \
+    "0" \
+    "$(awk '$0 == "--selected" {count++} END {print count+0}' "$gum_args")"
+
+  add_category_selection desktop calculator
+  tui_pick_catalog_choices desktop "Test desktop choices"
+  assert_equal \
+    "1" \
+    "$(awk '$0 == "--selected" {count++} END {print count+0}' "$gum_args")"
+  assert_file_contains \
+    "$gum_args" \
+    'Calculator                     Perform arithmetic\, scientific\, and financial calculations'
 }
 
 @test "catalog identifies installed product surfaces precisely" {

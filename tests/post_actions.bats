@@ -8,8 +8,8 @@ setup() {
   source_modules
 }
 
-@test "default application setup applies MIME defaults and omits guarded handlers" {
-  build_test_plan
+@test "default application setup applies selected MIME defaults" {
+  build_test_plan "desktop=audio-player,text-editor,video-player"
   run_cmd_as_user() {
     local user="$1"
     shift
@@ -23,9 +23,6 @@ setup() {
   assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Decibels.desktop audio/mpeg"
   assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.TextEditor.desktop text/plain"
   assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Nautilus.desktop application/zip"
-  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Calendar.desktop text/calendar"
-  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.evolution-data-server.OAuth2-handler.desktop x-scheme-handler/eds-oauth2"
-  refute_file_contains "$TEST_ROOT/commands.log" "x-scheme-handler/mailto"
 }
 
 @test "minimal desktop app profile skips full desktop MIME defaults but keeps terminal defaults" {

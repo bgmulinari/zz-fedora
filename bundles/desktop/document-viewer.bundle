@@ -1,0 +1,6 @@
+BUNDLE_ID="desktop-document-viewer"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/official/desktop/document-viewer.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Document viewer"

@@ -508,18 +508,22 @@ tui_pick_catalog_choices() {
   local -a options=()
   local -a selected_options=()
   local -A option_ids=()
-  local line choice_id label default_flag description option
+  local -A selected_choice_ids=()
+  local line choice_id label description option
+
+  while IFS= read -r choice_id; do
+    [[ -n "$choice_id" ]] && selected_choice_ids["$choice_id"]=1
+  done < <(effective_choice_ids "$category")
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
     choice_id="$(choice_field "$line" 1)"
     label="$(choice_field "$line" 2)"
-    default_flag="$(choice_field "$line" 3)"
     description="$(choice_field "$line" 5)"
     option="$(tui_choice_option_label "$label" "$description")"
     options+=("$option")
     option_ids["$option"]="$choice_id"
-    [[ "$default_flag" == "1" ]] && selected_options+=("$option")
+    [[ -n "${selected_choice_ids[$choice_id]:-}" ]] && selected_options+=("$option")
   done <"$catalog"
 
   [[ "${#options[@]}" -gt 0 ]] || return 0
@@ -577,8 +581,12 @@ tui_run_wizard() {
   fi
 
   local category header
-  for category in ai dev dotnet office gaming media; do
-    header="Select ${category} components. Space toggles, Enter continues."
+  for category in desktop ai dev dotnet office gaming media; do
+    if [[ "$category" == "desktop" ]]; then
+      header="Select desktop apps. Space toggles, Enter continues."
+    else
+      header="Select ${category} components. Space toggles, Enter continues."
+    fi
     mapfile -t category_choices < <(tui_pick_catalog_choices "$category" "$header" || true)
     if [[ "${#category_choices[@]}" -gt 0 ]]; then
       if [[ "${category_choices[0]}" == "__empty__" ]]; then

@@ -16,6 +16,7 @@ SELECTION_FILE = "/run/zz-fedora/install-selected"
 
 CATEGORY_ORDER = (
     "browsers",
+    "desktop",
     "ai",
     "dev",
     "dotnet",

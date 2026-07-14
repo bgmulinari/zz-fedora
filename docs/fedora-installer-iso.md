@@ -122,9 +122,9 @@ can resolve different repository revisions.
    `ZZ Fedora` spoke waits for source setup, then fetches and validates the
    current `main` runtime. Open it and review the preselected full install; its
    catalogs come from that fetched revision.
-   Deselect any AI tools, development tools, .NET components, office apps,
-   gaming apps, or multimedia packages you do not want, or change the Firefox
-   browser selection.
+   Deselect any desktop apps, AI tools, development tools, .NET
+   components, office apps, gaming apps, or multimedia packages you do not
+   want, or change the Firefox browser selection.
 5. Start installation.
 6. The add-on task copies that same refreshed runtime to the installed system
    and runs:

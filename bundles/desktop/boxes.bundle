@@ -1,0 +1,6 @@
+BUNDLE_ID="desktop-boxes"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/official/desktop/boxes.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Local virtual machine manager"

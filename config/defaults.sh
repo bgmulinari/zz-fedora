@@ -69,8 +69,6 @@ MINIMAL_DESKTOP_SKIP_BUNDLE_IDS=(
   base-source-flathub
   base-source-cisco-openh264
   base-gtk-portals
-  base-desktop-controls
-  base-desktop-apps
   base-file-integration-gtk
   base-gtk-look
   base-qt-look

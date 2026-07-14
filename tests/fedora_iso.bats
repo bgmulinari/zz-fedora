@@ -475,6 +475,7 @@ package.__path__ = []
 constants = types.ModuleType("org_zz_fedora.constants")
 constants.CATEGORY_ORDER = (
     "browsers",
+    "desktop",
     "ai",
     "dev",
     "dotnet",
@@ -496,6 +497,26 @@ categories = selection.read_categories()
 category_by_id = {category.id: category for category in categories}
 assert [category.id for category in categories] == list(constants.CATEGORY_ORDER)
 assert any(choice.id == "firefox" for choice in category_by_id["browsers"].choices)
+assert category_by_id["desktop"].label == "Desktop apps"
+assert [choice.id for choice in category_by_id["desktop"].choices] == [
+    "calculator",
+    "characters",
+    "text-editor",
+    "disks",
+    "logs",
+    "disk-usage-analyzer",
+    "image-viewer",
+    "document-viewer",
+    "video-player",
+    "audio-player",
+    "camera",
+    "document-scanner",
+    "file-roller",
+    "software",
+    "system-monitor",
+    "boxes",
+    "connections",
+]
 assert any(choice.id == "docker" for choice in category_by_id["dev"].choices)
 PY
 

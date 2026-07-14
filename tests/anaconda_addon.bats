@@ -22,6 +22,7 @@ package.__path__ = []
 constants = types.ModuleType("org_zz_fedora.constants")
 constants.CATEGORY_ORDER = (
     "browsers",
+    "desktop",
     "ai",
     "dev",
     "dotnet",

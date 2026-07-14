@@ -88,6 +88,8 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "starship"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "yazi"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-nautilus"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "wtype"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ddcutil"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
@@ -122,6 +124,27 @@ assert_all_bundles_reachable() {
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "firefox"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "python3-pip"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt5ct"
+  local non_base_desktop
+  for non_base_desktop in \
+    baobab \
+    decibels \
+    file-roller \
+    gnome-boxes \
+    gnome-calculator \
+    gnome-characters \
+    gnome-connections \
+    gnome-disk-utility \
+    gnome-logs \
+    gnome-software \
+    gnome-system-monitor \
+    gnome-text-editor \
+    loupe \
+    papers \
+    showtime \
+    simple-scan \
+    snapshot; do
+    refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$non_base_desktop"
+  done
   local non_runtime_tool
   for non_runtime_tool in dnf-plugins-core rsync zstd; do
     refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$non_runtime_tool"
@@ -161,7 +184,6 @@ assert_all_bundles_reachable() {
 
   local dependency_parent
   for dependency_parent in \
-    gnome-calendar \
     nodejs24-npm \
     system-config-printer \
     xdg-desktop-portal-gnome \
@@ -187,35 +209,65 @@ assert_all_bundles_reachable() {
 
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "avahi"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "bluez"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ddcutil"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "udisks2"
-  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-calendar"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-disk-utility"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-desktop-portal-gnome"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-desktop-portal-gtk"
 }
 
-@test "full desktop app profile installs requested GNOME apps" {
+@test "selected desktop feature choices install their complete application roots" {
+  local desktop_choices
+  desktop_choices="$(all_choice_ids desktop | paste -sd, -)"
+  build_test_plan "desktop=$desktop_choices"
+
+  local package
+  for package in \
+    baobab \
+    decibels \
+    file-roller \
+    gnome-boxes \
+    gnome-calculator \
+    gnome-characters \
+    gnome-connections \
+    gnome-disk-utility \
+    gnome-logs \
+    gnome-system-monitor \
+    gnome-software \
+    gnome-text-editor \
+    loupe \
+    papers \
+    showtime \
+    simple-scan \
+    snapshot; do
+    assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$package"
+  done
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-nautilus"
+}
+
+@test "DE-like hardware support remains in the protected base" {
   build_test_plan
 
   local package
   for package in \
-    gnome-calendar \
-    gnome-characters \
-    gnome-clocks \
-    gnome-system-monitor \
-    gnome-logs \
-    baobab \
-    gnome-font-viewer \
-    loupe \
-    papers \
-    showtime \
-    decibels \
-    snapshot \
-    gnome-boxes \
-    gnome-connections; do
+    NetworkManager-bluetooth \
+    bluez \
+    bluez-tools \
+    ddcutil \
+    cups \
+    ipp-usb \
+    avahi \
+    nss-mdns \
+    system-config-printer; do
     assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$package"
   done
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-nautilus"
+  assert_plan_has "$PLAN_DIR/services/system-enable-now.list" "bluetooth"
+  assert_plan_has "$PLAN_DIR/services/system-enable-now.list" "cups"
+  assert_plan_has "$PLAN_DIR/services/system-enable-now.list" "avahi-daemon"
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbluez\tbase-system-services\t'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tcups\tbase-system-services\t'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tddcutil\tbase-wayland-tools\t'
 }
 
 @test "minimal desktop app profile keeps Niri baseline but skips full desktop app fill-ins" {
@@ -232,17 +284,18 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-terminal-exec"
 
-  refute_plan_has "$PLAN_DIR/bundles.list" "base-desktop-apps"
+  assert_plan_has "$PLAN_DIR/bundles.list" "base-desktop-apps"
+  assert_plan_has "$PLAN_DIR/bundles.list" "base-desktop-controls"
   refute_plan_has "$PLAN_DIR/bundles.list" "base-gtk-portals"
   refute_plan_has "$PLAN_DIR/bundles.list" "base-gtk-look"
-  refute_plan_has "$PLAN_DIR/bundles.list" "base-desktop-controls"
   refute_plan_has "$PLAN_DIR/bundles.list" "base-file-integration-gtk"
   refute_plan_has "$PLAN_DIR/sources/rpmfusion.list" "rpmfusion-free"
   refute_plan_has "$PLAN_DIR/sources/flatpak-remotes.list" "flathub"
-  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-nautilus"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-software"
-  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
-  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-desktop-portal-gnome"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt6ct"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt6ct-kde"
@@ -260,9 +313,9 @@ assert_all_bundles_reachable() {
 
   assert_file_contains "$PLAN_DIR/summary.txt" "Desktop app profile: minimal"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "niri"
-  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
-  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
-  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-desktop-portal-gnome"
 }
 

@@ -52,26 +52,6 @@ dnf	ipp-usb	desktop-service	printer/scanner discovery	Supports driverless USB pr
 dnf	avahi	desktop-service	network discovery	Provides mDNS discovery for printers and local services.
 dnf	nss-mdns	desktop-service	network discovery	Resolves mDNS hostnames.
 dnf	nautilus	default-app	file manager	Provides the default graphical file manager.
-dnf	gnome-calculator	default-app	utility app	Provides a basic calculator.
-dnf	gnome-calendar	default-app	calendar	Provides a graphical calendar application.
-dnf	gnome-characters	default-app	character picker	Provides graphical Unicode character browsing and insertion.
-dnf	gnome-clocks	default-app	clock utility	Provides clocks, alarms, timers, and stopwatch tools.
-dnf	gnome-text-editor	default-app	text editor fallback	Provides a simple GUI text editor.
-dnf	gnome-software	default-app	app discovery	Provides a GUI software browsing/update front end.
-dnf	gnome-system-monitor	default-app	system monitor	Provides graphical process and resource monitoring.
-dnf	gnome-disk-utility	default-app	disk utility	Provides graphical disk inspection and formatting.
-dnf	gnome-logs	default-app	log viewer	Provides graphical systemd journal viewing.
-dnf	baobab	default-app	disk usage analyzer	Provides graphical disk usage inspection.
-dnf	gnome-font-viewer	default-app	font viewer	Provides graphical font previewing.
-dnf	loupe	default-app	image viewer	Provides the default GNOME image viewer.
-dnf	papers	default-app	document viewer	Provides the default PDF/document viewer.
-dnf	showtime	default-app	video player	Provides the default GNOME video player.
-dnf	decibels	default-app	audio player	Provides the default GNOME audio player.
-dnf	snapshot	default-app	camera	Provides a camera application for the desktop baseline.
-dnf	simple-scan	default-app	scanner workflow	Provides a scanner UI for the printer/scanner baseline.
-dnf	gnome-boxes	default-app	virtual machines	Provides graphical virtual machine management.
-dnf	gnome-connections	default-app	remote desktop	Provides graphical remote desktop connections.
-dnf	file-roller	default-app	archive manager	Provides graphical archive handling from the file manager.
 dnf	ghostty-nautilus	default-app	file manager terminal action	Provides Ghostty integration in the Nautilus context menu.
 dnf	gvfs-mtp	file-integration	file manager	Enables MTP device access in Nautilus/GVFS.
 dnf	gvfs-nfs	file-integration	file manager	Enables NFS access in Nautilus/GVFS.

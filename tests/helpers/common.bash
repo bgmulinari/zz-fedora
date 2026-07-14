@@ -70,7 +70,7 @@ reset_test_selections() {
   CATEGORY_ADDITIONS=()
   CATEGORY_OVERRIDE_PRESENT=()
   local category
-  for category in ai browsers dev dotnet gaming media office; do
+  for category in $(category_names); do
     set_category_override "$category" ""
   done
 }

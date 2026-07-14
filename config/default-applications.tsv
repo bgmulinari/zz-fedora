@@ -19,10 +19,6 @@ org.gnome.Nautilus.desktop	package:nautilus	application/x-compress
 org.gnome.Nautilus.desktop	package:nautilus	application/x-compressed-tar
 org.gnome.Nautilus.desktop	package:nautilus	application/x-cpio
 org.gnome.Papers.desktop	package:papers	application/x-ext-pdf
-org.gnome.font-viewer.desktop	package:gnome-font-viewer	application/x-font-otf
-org.gnome.font-viewer.desktop	package:gnome-font-viewer	application/x-font-pcf
-org.gnome.font-viewer.desktop	package:gnome-font-viewer	application/x-font-ttf
-org.gnome.font-viewer.desktop	package:gnome-font-viewer	application/x-font-type1
 gnome-software-local-file-metainfo.desktop	package:gnome-software	application/x-freedesktop-appstream-component
 org.gnome.Nautilus.desktop	package:nautilus	application/x-gzip
 org.gnome.Papers.desktop	package:papers	application/x-gzpdf
@@ -66,10 +62,6 @@ org.gnome.Decibels.desktop	package:decibels	audio/x-speex
 org.gnome.Decibels.desktop	package:decibels	audio/x-vorbis
 org.gnome.Decibels.desktop	package:decibels	audio/x-vorbis+ogg
 org.gnome.Decibels.desktop	package:decibels	audio/x-wavpack
-org.gnome.font-viewer.desktop	package:gnome-font-viewer	font/collection
-org.gnome.font-viewer.desktop	package:gnome-font-viewer	font/otf
-org.gnome.font-viewer.desktop	package:gnome-font-viewer	font/ttf
-org.gnome.font-viewer.desktop	package:gnome-font-viewer	font/woff
 org.gnome.Loupe.desktop	package:loupe	image/apng
 org.gnome.Loupe.desktop	package:loupe	image/avif
 org.gnome.Loupe.desktop	package:loupe	image/bmp
@@ -97,7 +89,6 @@ org.gnome.Loupe.desktop	package:loupe	image/x-win-bitmap
 org.gnome.Loupe.desktop	package:loupe	image/x-xbitmap
 org.gnome.Loupe.desktop	package:loupe	image/x-xpixmap
 org.gnome.Nautilus.desktop	package:nautilus	inode/directory
-org.gnome.Calendar.desktop	package:gnome-calendar	text/calendar
 org.gnome.TextEditor.desktop	package:gnome-text-editor	text/plain
 org.gnome.Showtime.desktop	package:showtime	video/3gp
 org.gnome.Showtime.desktop	package:showtime	video/3gpp
@@ -144,7 +135,5 @@ org.gnome.Showtime.desktop	package:showtime	video/x-theora
 org.gnome.Showtime.desktop	package:showtime	video/x-theora+ogg
 nautilus-autorun-software.desktop	package:nautilus	x-content/unix-software
 org.gnome.Software.desktop	package:gnome-software	x-scheme-handler/appstream
-org.gnome.evolution-data-server.OAuth2-handler.desktop	package:gnome-calendar	x-scheme-handler/com.googleusercontent.apps.590402290962-2i0b7rqma8b9nmtfrcp7fa06g6cf7g74
-org.gnome.evolution-data-server.OAuth2-handler.desktop	package:gnome-calendar	x-scheme-handler/eds-oauth2
 org.gnome.Software.desktop	package:gnome-software	x-scheme-handler/flatpak+https
 org.gnome.Software.desktop	package:gnome-software	x-scheme-handler/snap

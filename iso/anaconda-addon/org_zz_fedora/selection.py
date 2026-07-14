@@ -13,6 +13,7 @@ SOURCE_TREE_CHOICES_DIR = Path(__file__).resolve().parents[3] / "choices"
 
 CATEGORY_LABELS = {
     "browsers": "Browsers",
+    "desktop": "Desktop apps",
     "ai": "AI tools",
     "dev": "Development tools",
     "dotnet": ".NET SDK",

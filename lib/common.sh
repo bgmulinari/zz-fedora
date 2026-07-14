@@ -556,6 +556,15 @@ category_always_installed() {
   return 1
 }
 
+category_default_choices_enabled() {
+  local category
+  category="$(normalize_category_name "$1")"
+  if [[ "$category" == "desktop" && "$(resolved_desktop_app_profile)" == "minimal" ]]; then
+    return 1
+  fi
+  return 0
+}
+
 choice_record() {
   local category="$1"
   local choice_id="$2"
@@ -613,7 +622,7 @@ effective_choice_ids() {
     while IFS= read -r entry; do
       append_unique chosen "$entry"
     done < <(split_csv "${CATEGORY_OVERRIDES[$category]}")
-  else
+  elif category_default_choices_enabled "$category"; then
     while IFS= read -r entry; do
       append_unique chosen "$entry"
     done < <(default_choice_ids "$category")
