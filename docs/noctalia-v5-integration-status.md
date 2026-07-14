@@ -114,7 +114,8 @@ Current repo wiring:
 - Terra remains enabled for Ghostty, but the Terra source setup sets `terra.excludepkgs=noctalia-git` so normal DNF updates keep Noctalia on the validated LionHeartP COPR provider.
 - Noctalia remains a custom action instead of a plain `dnf` package manifest because the package provider is part of the integration contract.
 - The base Noctalia bundle now stows `dotfiles/noctalia/.config/noctalia/config.toml` as the hardware-agnostic user config layer, including semi-transparent `0.9` bar, dock, notification, and OSD backgrounds.
-- The pre-v5 Yaru icon accent sync has been restored through a v5 user template. Noctalia renders `colors.primary.default.hex` to `~/.cache/noctalia/icon-theme-accent`, then `~/.local/bin/noctalia-sync-icon-theme` maps it to the closest installed Yaru accent and updates GTK, Qt, KDE globals, and `QS_ICON_THEME`.
+- Qt application theming uses the built-in `kcolorscheme` template consumed by the managed `qt6ct` configuration. The normal `qt` template is disabled because upstream renders it to both Qt5 and Qt6 config roots, while this baseline no longer installs Qt5 theme support.
+- The pre-v5 Yaru icon accent sync has been restored through a v5 user template. Noctalia renders `colors.primary.default.hex` to `~/.cache/noctalia/icon-theme-accent`, then `~/.local/bin/noctalia-sync-icon-theme` maps it to the closest installed Yaru accent and updates GTK, Qt 6, KDE globals, and `QS_ICON_THEME`.
 - The repo still does not manage `~/.local/state/noctalia/settings.toml`; fresh-start lockscreen widget state includes output names and coordinates, so it remains generated state.
 
 Prior crash investigation:

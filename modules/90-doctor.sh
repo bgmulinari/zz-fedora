@@ -211,8 +211,7 @@ module_90_doctor() {
   doctor_warn_file "$user_config_home/xdg-terminals.list"
   doctor_plan_has_entry "$native_plan" "ghostty" && doctor_warn_file "$user_config_home/ghostty/config"
   doctor_plan_has_entry "$native_plan" "ghostty" && doctor_warn_file "$user_config_home/ghostty/themes/noctalia"
-  if doctor_plan_has_entry "$native_plan" "qt5ct" || doctor_plan_has_entry "$native_plan" "qt6ct" || doctor_plan_has_entry "$native_plan" "qt6ct-kde"; then
-    doctor_warn_file "$user_config_home/qt5ct/qt5ct.conf"
+  if doctor_plan_has_entry "$native_plan" "qt6ct" || doctor_plan_has_entry "$native_plan" "qt6ct-kde"; then
     doctor_warn_file "$user_config_home/qt6ct/qt6ct.conf"
     doctor_warn_file "$user_config_home/kdeglobals"
   fi
@@ -238,7 +237,7 @@ module_90_doctor() {
     if doctor_plan_has_entry "$native_plan" "nautilus"; then
       doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "nautilus"'
     fi
-    if doctor_plan_has_entry "$native_plan" "qt5ct" || doctor_plan_has_entry "$native_plan" "qt6ct" || doctor_plan_has_entry "$native_plan" "qt6ct-kde"; then
+    if doctor_plan_has_entry "$native_plan" "qt6ct" || doctor_plan_has_entry "$native_plan" "qt6ct-kde"; then
       doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'QT_QPA_PLATFORMTHEME=qt6ct'
     fi
   fi
@@ -257,10 +256,9 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "neovim"; then
     doctor_check_contains "$TARGET_HOME/.local/share/applications/nvim.desktop" 'Exec=xdg-terminal-exec'
   fi
-  if doctor_plan_has_entry "$native_plan" "qt5ct" || doctor_plan_has_entry "$native_plan" "qt6ct" || doctor_plan_has_entry "$native_plan" "qt6ct-kde"; then
+  if doctor_plan_has_entry "$native_plan" "qt6ct" || doctor_plan_has_entry "$native_plan" "qt6ct-kde"; then
     doctor_check_contains "$user_config_home/kdeglobals" 'widgetStyle=Fusion'
     doctor_check_contains "$user_config_home/kdeglobals" 'Theme='
-    doctor_check_contains "$user_config_home/qt5ct/qt5ct.conf" "color_scheme_path=$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
     doctor_check_contains "$user_config_home/qt6ct/qt6ct.conf" "color_scheme_path=$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
   fi
 

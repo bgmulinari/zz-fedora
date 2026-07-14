@@ -167,7 +167,6 @@ builtin_ids = [
   "btop",
   "gtk3",
   "gtk4",
-  "qt",
   "kcolorscheme",
 ]
 enable_community_templates = true

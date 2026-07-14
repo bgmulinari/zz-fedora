@@ -168,9 +168,7 @@ EOF
 
 gsettings set org.gnome.desktop.interface icon-theme "$best_theme" || true
 
-for qtct_config in "$HOME/.config/qt5ct/qt5ct.conf" "$HOME/.config/qt6ct/qt6ct.conf"; do
-  set_ini_key "$qtct_config" Appearance icon_theme "$best_theme"
-done
+set_ini_key "$HOME/.config/qt6ct/qt6ct.conf" Appearance icon_theme "$best_theme"
 
 if command -v kwriteconfig6 >/dev/null 2>&1; then
   kwriteconfig6 --file kdeglobals --group Icons --key Theme "$best_theme" || true

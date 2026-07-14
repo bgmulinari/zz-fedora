@@ -89,6 +89,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt6ct-kde"
   assert_plan_has "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/zz"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/autostart/zz-first-run.desktop"
@@ -115,6 +116,7 @@ assert_all_bundles_reachable() {
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "lazygit"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "firefox"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "python3-pip"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt5ct"
   refute_plan_has "$PLAN_DIR/flatpak/apps.flatpaks" "com.discordapp.Discord"
   refute_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-sdk"
   refute_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-tools"
@@ -171,6 +173,7 @@ assert_all_bundles_reachable() {
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-desktop-portal-gnome"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt6ct"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt6ct-kde"
   refute_plan_has "$PLAN_DIR/flatpak/apps.flatpaks" "org.gtk.Gtk3theme.adw-gtk3"
   refute_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/xdg-desktop-portal/niri-portals.conf"
 }

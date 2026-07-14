@@ -155,13 +155,12 @@ install_niri_display_seed_if_missing() {
   install_user_file_if_changed "$ROOT_DIR/templates/niri/display.kdl" "$destination"
 }
 
-install_qtct_config() {
-  local version="$1"
+install_qt6ct_config() {
   local config_file temp_file color_file
 
-  config_file="$TARGET_HOME/.config/qt${version}ct/qt${version}ct.conf"
+  config_file="$TARGET_HOME/.config/qt6ct/qt6ct.conf"
   color_file="$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
-  temp_file="$(mktemp "$CACHE_DIR/qt${version}ct.XXXXXX")"
+  temp_file="$(mktemp "$CACHE_DIR/qt6ct.XXXXXX")"
 
   cat >"$temp_file" <<EOF
 [Appearance]
@@ -178,11 +177,10 @@ EOF
 install_qt_theme_config() {
   local native_plan
   native_plan="$(package_file_for_backend "$(native_backend)")"
-  plan_has_any_backend_entry "$native_plan" qt5ct qt6ct qt6ct-kde || return 0
+  plan_has_any_backend_entry "$native_plan" qt6ct qt6ct-kde || return 0
 
   log_progress "Configuring Qt theme integration"
-  install_qtct_config 5
-  install_qtct_config 6
+  install_qt6ct_config
   install_kde_qt_theme_config
 }
 
@@ -276,7 +274,6 @@ configure_flatpak_theme_access() {
   run_cmd_as_user "$TARGET_USER" flatpak override --user \
     --filesystem=xdg-config/gtk-3.0:ro \
     --filesystem=xdg-config/gtk-4.0:ro \
-    --filesystem=xdg-config/qt5ct:ro \
     --filesystem=xdg-config/qt6ct:ro \
     --filesystem=xdg-config/kdeglobals:ro \
     --filesystem=xdg-data/color-schemes:ro

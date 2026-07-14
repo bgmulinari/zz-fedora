@@ -184,7 +184,7 @@ setup() {
   refute_file_contains "$TARGET_HOME/.config/ghostty/themes/noctalia" 'palette = 0=#11111b'
 }
 
-@test "qtct config uses Noctalia KColorScheme for Qt5 and Qt6" {
+@test "qt6ct config uses Noctalia KColorScheme" {
   build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/qtct-home"
@@ -196,11 +196,27 @@ setup() {
     HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
   }
 
-  install_qtct_config 5
-  install_qtct_config 6
+  install_qt6ct_config
 
-  assert_file_contains "$TARGET_HOME/.config/qt5ct/qt5ct.conf" "color_scheme_path=$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
   assert_file_contains "$TARGET_HOME/.config/qt6ct/qt6ct.conf" "color_scheme_path=$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
+}
+
+@test "managed Noctalia templates use KColorScheme without Qt palette output" {
+  config="$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml"
+
+  run python3 - "$config" <<'PY'
+import sys
+import tomllib
+
+with open(sys.argv[1], "rb") as config_file:
+    config = tomllib.load(config_file)
+
+builtin_ids = config["theme"]["templates"]["builtin_ids"]
+assert "kcolorscheme" in builtin_ids
+assert "qt" not in builtin_ids
+PY
+
+  [ "$status" -eq 0 ]
 }
 
 @test "Noctalia icon theme sync maps accent to closest installed Yaru theme" {
@@ -273,7 +289,6 @@ EOF
   assert_file_contains "$command_log" 'gsettings:set org.gnome.desktop.interface icon-theme Yaru-red'
   assert_file_contains "$command_log" 'systemctl:--user set-environment QS_ICON_THEME=Yaru-red'
   assert_file_contains "$command_log" 'dbus:Yaru-red:--systemd QS_ICON_THEME'
-  assert_file_contains "$TARGET_HOME/.config/qt5ct/qt5ct.conf" 'icon_theme=Yaru-red'
   assert_file_contains "$TARGET_HOME/.config/qt6ct/qt6ct.conf" 'icon_theme=Yaru-red'
   assert_file_contains "$TARGET_HOME/.config/kdeglobals" 'Theme=Yaru-red'
 }
@@ -302,7 +317,6 @@ EOF
     "$ROOT_DIR/dotfiles/noctalia/.local/bin/noctalia-sync-icon-theme"
 
   [[ ! -e "$command_log" ]]
-  [[ ! -e "$TARGET_HOME/.config/qt5ct/qt5ct.conf" ]]
   [[ ! -e "$TARGET_HOME/.config/qt6ct/qt6ct.conf" ]]
   [[ ! -e "$TARGET_HOME/.config/kdeglobals" ]]
 }
@@ -415,7 +429,6 @@ EOF
   assert_file_contains "$command_log" "user:test-user:flatpak override --user"
   assert_file_contains "$command_log" "--filesystem=xdg-config/gtk-3.0:ro"
   assert_file_contains "$command_log" "--filesystem=xdg-config/gtk-4.0:ro"
-  assert_file_contains "$command_log" "--filesystem=xdg-config/qt5ct:ro"
   assert_file_contains "$command_log" "--filesystem=xdg-config/qt6ct:ro"
   assert_file_contains "$command_log" "--filesystem=xdg-config/kdeglobals:ro"
   assert_file_contains "$command_log" "--filesystem=xdg-data/color-schemes:ro"
