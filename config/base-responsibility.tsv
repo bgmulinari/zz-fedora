@@ -48,8 +48,6 @@ dnf	pipewire-alsa	desktop-service	audio stack	Provides ALSA compatibility throug
 dnf	wireplumber	desktop-service	audio session manager	Provides PipeWire session policy.
 dnf	alsa-utils	desktop-service	audio diagnostics	Provides low-level audio controls and diagnostics.
 dnf	pavucontrol	default-app	audio mixer	Provides a GUI mixer fallback for standalone Niri sessions.
-dnf	pamixer	desktop-service	audio keybindings	Provides CLI volume control for keybindings/scripts.
-dnf	playerctl	desktop-service	media keybindings	Provides MPRIS media controls.
 dnf	upower	desktop-service	power status	Provides battery and power state data to desktop components.
 dnf	tuned-ppd	desktop-service	power profiles	Provides Fedora's PPD-compatible power profile service through TuneD.
 dnf	cups	desktop-service	print service	Provides printing support.
@@ -92,13 +90,8 @@ dnf	desktop-file-utils	file-integration	MIME/default apps	Updates desktop entry 
 dnf	shared-mime-info	file-integration	MIME/default apps	Provides shared MIME database.
 dnf	libnotify	file-integration	notifications	Provides notification command/library support.
 dnf	ffmpegthumbnailer	file-integration	file previews	Provides video thumbnails in file managers.
-dnf	wl-clipboard	niri	Wayland clipboard	Provides clipboard commands for Wayland keybindings/scripts.
-dnf	cliphist	niri	clipboard history	Provides clipboard history for Wayland workflows.
-dnf	wlsunset	desktop-service	display color temperature	Provides lightweight Wayland night-light behavior.
-dnf	wev	niri	input diagnostics	Provides Wayland event diagnostics for keybinding work.
-dnf	wtype	niri	input automation	Provides Wayland text injection for helper workflows.
-dnf	brightnessctl	desktop-service	brightness keybindings	Controls panel brightness from keybindings/scripts.
-dnf	ddcutil	desktop-service	external monitor brightness	Controls DDC/CI-capable external displays.
+dnf	wtype	noctalia	clipboard auto-paste	Provides the upstream-supported text-injection fallback for clipboard auto-paste.
+dnf	ddcutil	noctalia	external display brightness	Provides Noctalia's optional DDC/CI backend for compatible external displays.
 dnf	fontconfig	theme-font	font baseline	Provides font discovery and configuration.
 dnf	adw-gtk3-theme	theme-font	GTK theme	Provides Adwaita-compatible GTK3 theme assets.
 dnf	google-noto-sans-fonts	theme-font	font baseline	Provides default sans-serif coverage.

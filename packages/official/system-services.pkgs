@@ -9,8 +9,6 @@ pipewire-pulseaudio
 pipewire-alsa
 wireplumber
 alsa-utils
-pamixer
-playerctl
 upower
 tuned-ppd
 cups

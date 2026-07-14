@@ -368,7 +368,6 @@ noctalia-git	noctalia
 ghostty	ghostty
 xdg-terminal-exec	xdg-terminal-exec
 nautilus	nautilus
-brightnessctl	brightnessctl
 ddcutil	ddcutil
 papers	papers
 loupe	loupe

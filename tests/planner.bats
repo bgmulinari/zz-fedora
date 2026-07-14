@@ -87,6 +87,8 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "starship"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "yazi"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "wtype"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ddcutil"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt6ct-kde"
@@ -105,6 +107,7 @@ assert_all_bundles_reachable() {
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnss-tools\tbase-bootstrap\tinstaller-bootstrap\tbrowser certificate trust'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24\tbase-nodejs'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24-npm\tbase-nodejs'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tddcutil\tbase-wayland-tools\tnoctalia\texternal display brightness'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tpavucontrol\tbase-desktop-controls\tdefault-app\taudio mixer'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tsystem-config-printer\tbase-desktop-controls\tdefault-app\tprint UI'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tjetbrains-mono-nerd-font\tbase-jetbrains-mono-nerd-font'
@@ -117,6 +120,17 @@ assert_all_bundles_reachable() {
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "firefox"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "python3-pip"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt5ct"
+  local removed_helper
+  for removed_helper in \
+    brightnessctl \
+    cliphist \
+    pamixer \
+    playerctl \
+    wev \
+    wl-clipboard \
+    wlsunset; do
+    refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$removed_helper"
+  done
   refute_plan_has "$PLAN_DIR/flatpak/apps.flatpaks" "com.discordapp.Discord"
   refute_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-sdk"
   refute_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-tools"
