@@ -216,6 +216,14 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "docker-post-install"
 }
 
+@test "media codecs include detected hardware acceleration" {
+  build_test_plan "media=codecs"
+
+  assert_plan_has "$PLAN_DIR/bundles.list" "media-codecs"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "media-codecs"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "media-hardware-acceleration"
+}
+
 @test "plan files stay unique after repeated overlapping selections" {
   build_test_plan "browser=zen-copr" "dev=vscode,neovim" "ai=codex,codex" "dotnet=tools"
 

@@ -26,6 +26,8 @@ source_core() {
   source "$ROOT_DIR/lib/common.sh"
   # shellcheck source=../../lib/idempotency.sh
   source "$ROOT_DIR/lib/idempotency.sh"
+  # shellcheck source=../../lib/hardware.sh
+  source "$ROOT_DIR/lib/hardware.sh"
   # shellcheck source=../../lib/cli.sh
   source "$ROOT_DIR/lib/cli.sh"
   # shellcheck source=../../lib/packages.sh

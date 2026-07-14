@@ -605,15 +605,11 @@ install_fedora_noctalia_greeter() {
 
 install_fedora_media_codecs() {
   log_progress "Replacing Fedora ffmpeg-free with RPM Fusion ffmpeg"
-  run_cmd_as_root dnf swap -y ffmpeg-free ffmpeg --allowerasing
-  log_progress "Installing GStreamer codec packages"
-  run_cmd_as_root dnf install -y 'gstreamer1-plugins-bad-*' 'gstreamer1-plugins-good-*' gstreamer1-plugins-base gstreamer1-plugin-openh264 gstreamer1-libav 'lame*' --exclude=gstreamer1-plugins-bad-free-devel --exclude=gstreamer1-plugins-good-qt6
-  log_progress "Installing Fedora multimedia groups"
-  run_cmd_as_root dnf group install -y multimedia
-  run_cmd_as_root dnf group install -y sound-and-video
-  log_progress "Installing hardware codec support packages"
-  run_cmd_as_root dnf install -y ffmpeg-libs libva libva-utils openh264 gstreamer1-plugin-openh264 mozilla-openh264
-  run_cmd_as_root dnf config-manager setopt fedora-cisco-openh264.enabled=1
+  run_cmd_as_root dnf swap -y ffmpeg-free ffmpeg --allowerasing || return 1
+  log_progress "Installing the curated multimedia codec group"
+  run_cmd_as_root dnf install -y @multimedia --setopt=install_weak_deps=False --exclude=PackageKit-gstreamer-plugin --exclude=libva-intel-media-driver || return 1
+  log_progress "Installing Firefox OpenH264 integration"
+  run_cmd_as_root dnf install -y mozilla-openh264 || return 1
 }
 
 run_custom_action() {
@@ -633,6 +629,7 @@ run_custom_action() {
     noctalia-greeter) install_fedora_noctalia_greeter ;;
     noctalia-v5) install_fedora_noctalia_v5 ;;
     media-codecs) install_fedora_media_codecs ;;
+    media-hardware-acceleration) install_fedora_media_hardware_acceleration ;;
     *) die "Unknown custom action: $action" ;;
   esac
 }
@@ -694,7 +691,17 @@ verify_custom_action() {
       noctalia_fedora_package_is_compatible && command -v noctalia >/dev/null 2>&1
       ;;
     media-codecs)
-      rpm -q ffmpeg-libs gstreamer1-libav >/dev/null 2>&1
+      rpm -q \
+        ffmpeg \
+        ffmpeg-libs \
+        gstreamer1-plugin-libav \
+        gstreamer1-plugin-openh264 \
+        gstreamer1-plugins-bad-freeworld \
+        gstreamer1-plugins-ugly \
+        mozilla-openh264 >/dev/null 2>&1
+      ;;
+    media-hardware-acceleration)
+      verify_fedora_media_hardware_acceleration
       ;;
     *)
       return 0

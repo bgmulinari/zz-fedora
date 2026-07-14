@@ -116,6 +116,58 @@ setup() {
   assert_contains "$output" "Command timed out after 7s: slow command"
 }
 
+@test "media codec action installs the curated hardware-neutral package set" {
+  DRY_RUN=0
+  command_log="$TEST_ROOT/media-codec-commands.log"
+  run_cmd_as_root() {
+    printf '%s\n' "$*" >>"$command_log"
+  }
+
+  run install_fedora_media_codecs
+
+  [ "$status" -eq 0 ]
+  expected_commands="$(cat <<'EOF'
+dnf swap -y ffmpeg-free ffmpeg --allowerasing
+dnf install -y @multimedia --setopt=install_weak_deps=False --exclude=PackageKit-gstreamer-plugin --exclude=libva-intel-media-driver
+dnf install -y mozilla-openh264
+EOF
+)"
+  assert_equal "$expected_commands" "$(<"$command_log")"
+}
+
+@test "media codec action stops and reports a failed DNF transaction" {
+  DRY_RUN=0
+  command_log="$TEST_ROOT/media-codec-failure-commands.log"
+  run_cmd_as_root() {
+    printf '%s\n' "$*" >>"$command_log"
+    [[ "$*" != "dnf install -y @multimedia --setopt=install_weak_deps=False --exclude=PackageKit-gstreamer-plugin --exclude=libva-intel-media-driver" ]]
+  }
+
+  run install_fedora_media_codecs
+
+  [ "$status" -eq 1 ]
+  assert_equal "$(cat <<'EOF'
+dnf swap -y ffmpeg-free ffmpeg --allowerasing
+dnf install -y @multimedia --setopt=install_weak_deps=False --exclude=PackageKit-gstreamer-plugin --exclude=libva-intel-media-driver
+EOF
+)" "$(<"$command_log")"
+}
+
+@test "media codec verification checks exact Fedora package names" {
+  DRY_RUN=0
+  rpm_log="$TEST_ROOT/media-codec-rpm.log"
+  rpm() {
+    printf '%s\n' "$*" >"$rpm_log"
+  }
+
+  run verify_custom_action media-codecs
+
+  [ "$status" -eq 0 ]
+  assert_equal \
+    "-q ffmpeg ffmpeg-libs gstreamer1-plugin-libav gstreamer1-plugin-openh264 gstreamer1-plugins-bad-freeworld gstreamer1-plugins-ugly mozilla-openh264" \
+    "$(<"$rpm_log")"
+}
+
 @test "JetBrains Toolbox install removes the vendor login autostart entry" {
   DRY_RUN=0
   command_log="$TEST_ROOT/toolbox-install-command.log"
