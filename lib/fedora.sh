@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+CLAUDE_DESKTOP_PREFLIGHT_REPOSITORY_ID="claude-desktop-unofficial-preflight"
+CLAUDE_DESKTOP_REPOSITORY_BASEURL='https://pkg.claude-desktop-debian.dev/rpm/$basearch'
+CLAUDE_DESKTOP_GPG_KEY_URL="https://pkg.claude-desktop-debian.dev/KEY.gpg"
+CLAUDE_DESKTOP_REPOSITORY_FILE="/etc/yum.repos.d/claude-desktop-unofficial.repo"
+CLAUDE_DESKTOP_PACKAGE_NAME="claude-desktop-unofficial"
+CLAUDE_DESKTOP_PACKAGE_ARCHITECTURE="x86_64"
+
 fedora_release_file_is_supported() {
   local os_release_file="$1"
   [[ -f "$os_release_file" ]] || return 1
@@ -9,13 +16,104 @@ fedora_release_file_is_supported() {
   [[ "$id" == "fedora" ]]
 }
 
+fedora_release_is_supported() {
+  local release="$1"
+  [[ "$release" =~ ^[0-9]+$ ]] || return 1
+  [[ "$MINIMUM_FEDORA_RELEASE" =~ ^[0-9]+$ ]] || return 1
+  ((10#$release >= 10#$MINIMUM_FEDORA_RELEASE))
+}
+
 require_fedora() {
   fedora_release_file_is_supported /etc/os-release || die "ZZ Fedora requires Fedora Linux"
   local release architecture
   release="$(awk -F= '$1=="VERSION_ID"{gsub(/"/, "", $2); print $2}' /etc/os-release)"
   architecture="$(uname -m)"
-  array_contains "$release" "${SUPPORTED_FEDORA_RELEASES[@]}" || die "Unsupported Fedora release: ${release:-unknown}. Supported: $(join_by ', ' "${SUPPORTED_FEDORA_RELEASES[@]}")"
+  fedora_release_is_supported "$release" || die "Unsupported Fedora release: ${release:-unknown}. Minimum supported: $MINIMUM_FEDORA_RELEASE"
   array_contains "$architecture" "${SUPPORTED_ARCHITECTURES[@]}" || die "Unsupported architecture: ${architecture:-unknown}. Supported: $(join_by ', ' "${SUPPORTED_ARCHITECTURES[@]}")"
+}
+
+claude_desktop_repository_package_metadata() {
+  dnf --assumeyes --quiet \
+    --repofrompath="$CLAUDE_DESKTOP_PREFLIGHT_REPOSITORY_ID,$CLAUDE_DESKTOP_REPOSITORY_BASEURL" \
+    --setopt="$CLAUDE_DESKTOP_PREFLIGHT_REPOSITORY_ID.gpgcheck=1" \
+    --setopt="$CLAUDE_DESKTOP_PREFLIGHT_REPOSITORY_ID.repo_gpgcheck=1" \
+    --setopt="$CLAUDE_DESKTOP_PREFLIGHT_REPOSITORY_ID.gpgkey=$CLAUDE_DESKTOP_GPG_KEY_URL" \
+    --repo="$CLAUDE_DESKTOP_PREFLIGHT_REPOSITORY_ID" \
+    repoquery \
+    --available \
+    --latest-limit=1 \
+    --arch="$CLAUDE_DESKTOP_PACKAGE_ARCHITECTURE" \
+    --qf '%{name}|%{arch}|%{version}|%{release}|%{sourcerpm}' \
+    "$CLAUDE_DESKTOP_PACKAGE_NAME.$CLAUDE_DESKTOP_PACKAGE_ARCHITECTURE"
+}
+
+verify_claude_desktop_repository_package() {
+  local architecture="${1:-}"
+  local package_spec="$CLAUDE_DESKTOP_PACKAGE_NAME.$CLAUDE_DESKTOP_PACKAGE_ARCHITECTURE"
+
+  [[ -n "$architecture" ]] || architecture="$(uname -m)"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: verify exact repository package %s\n' "$package_spec"
+    return 0
+  fi
+  if [[ "$architecture" != "$CLAUDE_DESKTOP_PACKAGE_ARCHITECTURE" ]]; then
+    log_error "Claude Desktop package compatibility requires $CLAUDE_DESKTOP_PACKAGE_ARCHITECTURE; detected ${architecture:-unknown}."
+    return 1
+  fi
+
+  local metadata package_name package_architecture package_version package_release source_rpm
+  if ! metadata="$(claude_desktop_repository_package_metadata)" || [[ -z "$metadata" || "$metadata" == *$'\n'* ]]; then
+    log_error "Claude Desktop repository does not expose exactly one package for $package_spec."
+    return 1
+  fi
+  IFS='|' read -r package_name package_architecture package_version package_release source_rpm <<<"$metadata"
+
+  if [[ "$package_name" != "$CLAUDE_DESKTOP_PACKAGE_NAME" \
+    || "$package_architecture" != "$CLAUDE_DESKTOP_PACKAGE_ARCHITECTURE" \
+    || "$source_rpm" != "$package_name-$package_version-$package_release.src.rpm" ]]; then
+    log_error "Claude Desktop repository returned an unexpected package identity: $metadata"
+    return 1
+  fi
+
+  log_info "Verified exact Claude Desktop repository package: $package_name-$package_version-$package_release.$package_architecture"
+}
+
+configure_claude_desktop_repository() {
+  local repo_file
+  repo_file="$(mktemp "$CACHE_DIR/claude-desktop-unofficial.repo.XXXXXX")"
+  cat >"$repo_file" <<'EOF'
+[claude-desktop-unofficial]
+name=Claude Desktop (unofficial packaging) for Fedora/RHEL
+baseurl=https://pkg.claude-desktop-debian.dev/rpm/$basearch
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://pkg.claude-desktop-debian.dev/KEY.gpg
+metadata_expire=1h
+EOF
+
+  if ! run_cmd_as_root rpm --import "$CLAUDE_DESKTOP_GPG_KEY_URL"; then
+    rm -f "$repo_file"
+    return 1
+  fi
+  if ! verify_claude_desktop_repository_package; then
+    rm -f "$repo_file"
+    if [[ "$DRY_RUN" -eq 0 ]]; then
+      run_cmd_as_root rm -f "$CLAUDE_DESKTOP_REPOSITORY_FILE" || return 1
+    fi
+    return 1
+  fi
+
+  log_progress "Adding Claude Desktop repository"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: install %s -> %s\n' "$repo_file" "$CLAUDE_DESKTOP_REPOSITORY_FILE"
+  else
+    run_cmd_as_root install -Dm0644 "$repo_file" "$CLAUDE_DESKTOP_REPOSITORY_FILE" || {
+      rm -f "$repo_file"
+      return 1
+    }
+  fi
+  rm -f "$repo_file"
 }
 
 fedora_enable_sources() {
@@ -69,20 +167,27 @@ fedora_enable_sources() {
       esac
       ;;
     vendor)
-      if ! fedora_repo_enabled "$SOURCE_ID"; then
-        case "$SOURCE_ID" in
-          vendor:brave)
-            log_progress "Adding Brave browser repository"
-            run_cmd_as_root dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
-            ;;
-          vendor:google-chrome)
-            local defaults_file repo_file
-            defaults_file="$(mktemp "$CACHE_DIR/google-chrome-defaults.XXXXXX")"
-            repo_file="$(mktemp "$CACHE_DIR/google-chrome.repo.XXXXXX")"
-            cat >"$defaults_file" <<'EOF'
+      case "$SOURCE_ID" in
+        vendor:claude-desktop)
+          configure_claude_desktop_repository || return 1
+          ;;
+        *)
+          if fedora_repo_enabled "$SOURCE_ID"; then
+            return 0
+          fi
+          case "$SOURCE_ID" in
+            vendor:brave)
+              log_progress "Adding Brave browser repository"
+              run_cmd_as_root dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+              ;;
+            vendor:google-chrome)
+              local defaults_file repo_file
+              defaults_file="$(mktemp "$CACHE_DIR/google-chrome-defaults.XXXXXX")"
+              repo_file="$(mktemp "$CACHE_DIR/google-chrome.repo.XXXXXX")"
+              cat >"$defaults_file" <<'EOF'
 repo_add_once="false"
 EOF
-            cat >"$repo_file" <<'EOF'
+              cat >"$repo_file" <<'EOF'
 [google-chrome]
 name=google-chrome
 baseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64
@@ -90,22 +195,22 @@ enabled=1
 gpgcheck=1
 gpgkey=https://dl.google.com/linux/linux_signing_key.pub
 EOF
-            run_cmd_as_root bash -c 'rpm --import https://dl.google.com/linux/linux_signing_key.pub 2>/dev/null'
-            log_progress "Adding Google Chrome repository"
-            if [[ "$DRY_RUN" -eq 1 ]]; then
-              printf 'DRY-RUN: install %s -> /etc/default/google-chrome\n' "$defaults_file"
-              printf 'DRY-RUN: install %s -> /etc/yum.repos.d/google-chrome.repo\n' "$repo_file"
-            else
-              run_cmd_as_root install -Dm0644 "$defaults_file" /etc/default/google-chrome
-              run_cmd_as_root install -Dm0644 "$repo_file" /etc/yum.repos.d/google-chrome.repo
-            fi
-            rm -f "$defaults_file" "$repo_file"
-            ;;
-          vendor:vscode)
-            local repo_file
-            repo_file="$(mktemp "$CACHE_DIR/vscode.repo.XXXXXX")"
-            log_progress "Adding Visual Studio Code repository"
-            cat >"$repo_file" <<'EOF'
+              run_cmd_as_root bash -c 'rpm --import https://dl.google.com/linux/linux_signing_key.pub 2>/dev/null'
+              log_progress "Adding Google Chrome repository"
+              if [[ "$DRY_RUN" -eq 1 ]]; then
+                printf 'DRY-RUN: install %s -> /etc/default/google-chrome\n' "$defaults_file"
+                printf 'DRY-RUN: install %s -> /etc/yum.repos.d/google-chrome.repo\n' "$repo_file"
+              else
+                run_cmd_as_root install -Dm0644 "$defaults_file" /etc/default/google-chrome
+                run_cmd_as_root install -Dm0644 "$repo_file" /etc/yum.repos.d/google-chrome.repo
+              fi
+              rm -f "$defaults_file" "$repo_file"
+              ;;
+            vendor:vscode)
+              local repo_file
+              repo_file="$(mktemp "$CACHE_DIR/vscode.repo.XXXXXX")"
+              log_progress "Adding Visual Studio Code repository"
+              cat >"$repo_file" <<'EOF'
 [code]
 name=Visual Studio Code
 baseurl=https://packages.microsoft.com/yumrepos/vscode
@@ -113,37 +218,16 @@ enabled=1
 gpgcheck=1
 gpgkey=https://packages.microsoft.com/keys/microsoft.asc
 EOF
-            if [[ "$DRY_RUN" -eq 1 ]]; then
-              printf 'DRY-RUN: install %s -> /etc/yum.repos.d/vscode.repo\n' "$repo_file"
-            else
-              run_cmd_as_root install -Dm0644 "$repo_file" /etc/yum.repos.d/vscode.repo
-            fi
-            rm -f "$repo_file"
-            ;;
-          vendor:claude-desktop)
-            local repo_file
-            repo_file="$(mktemp "$CACHE_DIR/claude-desktop.repo.XXXXXX")"
-            cat >"$repo_file" <<'EOF'
-[claude-desktop]
-name=Claude Desktop for Fedora/RHEL
-baseurl=https://pkg.claude-desktop-debian.dev/rpm/$basearch
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://pkg.claude-desktop-debian.dev/KEY.gpg
-metadata_expire=1h
-EOF
-            run_cmd_as_root rpm --import https://pkg.claude-desktop-debian.dev/KEY.gpg
-            log_progress "Adding Claude Desktop repository"
-            if [[ "$DRY_RUN" -eq 1 ]]; then
-              printf 'DRY-RUN: install %s -> /etc/yum.repos.d/claude-desktop.repo\n' "$repo_file"
-            else
-              run_cmd_as_root install -Dm0644 "$repo_file" /etc/yum.repos.d/claude-desktop.repo
-            fi
-            rm -f "$repo_file"
-            ;;
-        esac
-      fi
+              if [[ "$DRY_RUN" -eq 1 ]]; then
+                printf 'DRY-RUN: install %s -> /etc/yum.repos.d/vscode.repo\n' "$repo_file"
+              else
+                run_cmd_as_root install -Dm0644 "$repo_file" /etc/yum.repos.d/vscode.repo
+              fi
+              rm -f "$repo_file"
+              ;;
+          esac
+          ;;
+      esac
       ;;
     cisco-openh264)
       log_progress "Enabling Cisco OpenH264 repository"
@@ -199,7 +283,15 @@ fedora_preview_plan() {
 }
 
 fedora_package_installed() {
-  rpm -q "$1" >/dev/null 2>&1 || rpm -q --whatprovides "$1" >/dev/null 2>&1
+  local package_spec="$1"
+  case "$package_spec" in
+    *.noarch|*.x86_64|*.aarch64|*.i386|*.i486|*.i586|*.i686|*.ppc64le|*.s390x)
+      rpm -q "$package_spec" >/dev/null 2>&1
+      ;;
+    *)
+      rpm -q "$package_spec" >/dev/null 2>&1 || rpm -q --whatprovides "$package_spec" >/dev/null 2>&1
+      ;;
+  esac
 }
 
 fedora_command_exists() {
@@ -250,7 +342,7 @@ fedora_repo_enabled() {
       [[ -f /etc/yum.repos.d/vscode.repo ]]
       ;;
     vendor:claude-desktop)
-      [[ -f /etc/yum.repos.d/claude-desktop.repo ]]
+      [[ -f "$CLAUDE_DESKTOP_REPOSITORY_FILE" ]]
       ;;
     docker-ce)
       dnf repolist 2>/dev/null | grep -F 'docker-ce' >/dev/null 2>&1

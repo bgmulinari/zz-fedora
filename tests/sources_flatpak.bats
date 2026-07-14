@@ -8,30 +8,6 @@ setup() {
   source_modules
 }
 
-@test "required source failure aborts sources module before optional sources" {
-  source_list="$TEST_ROOT/required-source-failure.list"
-  printf 'required-source\noptional-source\n' >"$source_list"
-  source_plan_files() {
-    printf '%s\n' "$source_list"
-  }
-  source_required_for_install() {
-    [[ "$1" == "required-source" ]]
-  }
-  fedora_enable_sources() {
-    printf 'enable:%s\n' "$1"
-    return 1
-  }
-  enable_source_best_effort() {
-    printf 'optional:%s\n' "$1"
-  }
-
-  run module_10_sources
-
-  [ "$status" -ne 0 ]
-  assert_contains "$output" "enable:required-source"
-  refute_contains "$output" "optional:optional-source"
-}
-
 @test "Flatpak install aborts when required remote bootstrap fails" {
   flatpak_remote_add_if_missing() {
     printf 'remote-bootstrap\n'
@@ -157,33 +133,4 @@ setup() {
   assert_contains "$output" "chmod:0644 /tmp/flathub-test.gpg"
   assert_contains "$output" "root:flatpak remote-modify --gpg-verify --gpg-import=/tmp/flathub-test.gpg flathub"
   refute_contains "$output" "--no-gpg-verify"
-}
-
-@test "Fedora vendor and RPM Fusion source setup imports keys before repo installs" {
-  DRY_RUN=0
-  fedora_repo_enabled() {
-    return 1
-  }
-  run_cmd_as_root() {
-    printf 'root:%s\n' "$*"
-  }
-  rpm() {
-    [[ "$*" == "-E %fedora" ]] && printf '44\n'
-  }
-
-  set +e
-  output="$({
-    fedora_enable_sources vendor:google-chrome
-    fedora_enable_sources rpmfusion-free
-    fedora_enable_sources rpmfusion-nonfree
-  } 2>&1)"
-  status=$?
-  set -e
-
-  [ "$status" -eq 0 ]
-  assert_contains "$output" "root:bash -c rpm --import https://dl.google.com/linux/linux_signing_key.pub 2>/dev/null"
-  assert_contains "$output" "root:rpm --import https://download1.rpmfusion.org/free/fedora/RPM-GPG-KEY-rpmfusion-free-fedora-2020"
-  assert_contains "$output" "root:dnf install -y --setopt=localpkg_gpgcheck=1 https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-44.noarch.rpm"
-  assert_contains "$output" "root:rpm --import https://download1.rpmfusion.org/nonfree/fedora/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020"
-  assert_contains "$output" "root:dnf install -y --setopt=localpkg_gpgcheck=1 https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-44.noarch.rpm"
 }

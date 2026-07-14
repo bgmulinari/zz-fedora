@@ -8,4 +8,4 @@ if ! command -v bats >/dev/null 2>&1; then
 fi
 
 cd "$ROOT_DIR"
-exec bats tests/doctor_hardening.bats tests/sources_flatpak.bats
+exec bats tests/doctor_hardening.bats tests/sources.bats tests/sources_flatpak.bats

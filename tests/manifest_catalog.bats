@@ -43,6 +43,22 @@ setup() {
   [ "$status" -ne 0 ]
 }
 
+@test "Fedora release support uses a minimum version floor" {
+  MINIMUM_FEDORA_RELEASE=44
+
+  run fedora_release_is_supported 43
+  [ "$status" -ne 0 ]
+
+  run fedora_release_is_supported 44
+  [ "$status" -eq 0 ]
+
+  run fedora_release_is_supported 45
+  [ "$status" -eq 0 ]
+
+  run fedora_release_is_supported rawhide
+  [ "$status" -ne 0 ]
+}
+
 @test "bundle descriptor validation rejects missing or unsupported fields" {
   local descriptor_dir="$TEST_ROOT/bundles"
   mkdir -p "$descriptor_dir"

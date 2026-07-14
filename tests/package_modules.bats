@@ -26,6 +26,33 @@ setup() {
   assert_equal "dnf:good-package" "${install_attempts[2]}"
 }
 
+@test "optional package verification rejects a provider for an architecture-qualified RPM" {
+  plan_file="$TEST_ROOT/optional-exact.pkgs"
+  install_log="$TEST_ROOT/optional-exact-installs.log"
+  rpm_log="$TEST_ROOT/optional-exact-rpm.log"
+  printf 'claude-desktop-unofficial.x86_64\n' >"$plan_file"
+  VERIFY_INSTALLS=1
+  DRY_RUN=0
+  package_install_idempotent() {
+    printf '%s:%s\n' "$1" "$2" >>"$install_log"
+  }
+  rpm() {
+    printf '%s\n' "$*" >>"$rpm_log"
+    if [[ "$*" == "-q --whatprovides claude-desktop-unofficial.x86_64" ]]; then
+      return 0
+    fi
+    return 1
+  }
+
+  run install_from_plan_file dnf "$plan_file" optional
+
+  [ "$status" -eq 0 ]
+  [ "$(wc -l <"$install_log")" -eq 2 ]
+  assert_contains "$output" "Optional packages missing after install: claude-desktop-unofficial.x86_64"
+  assert_contains "$output" "Optional dnf package failed and will be skipped for now: claude-desktop-unofficial.x86_64"
+  refute_contains "$(<"$rpm_log")" "--whatprovides"
+}
+
 @test "display manager detector recognizes Plasma Login Manager" {
   DRY_RUN=0
   systemd_unit_enabled() {
@@ -477,7 +504,7 @@ EOF
     return 1
   }
 
-  run verify_required_plan_entries dnf "$plan_file" "base packages"
+  run verify_plan_entries dnf "$plan_file" "base packages" required
 
   [ "$status" -ne 0 ]
   assert_contains "$output" "Required base packages missing after install: missing-native-package"

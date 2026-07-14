@@ -49,22 +49,26 @@ install_from_plan_file() {
   if package_install_idempotent "$backend" "${packages[@]}"; then
     if [[ "$mode" == "required" ]]; then
       log_progress "Verifying required $backend $label"
-      verify_required_plan_entries "$backend" "$plan_file" "$label" || return 1
+      verify_plan_entries "$backend" "$plan_file" "$label" required || return 1
+      return 0
     fi
-    return 0
-  fi
-
-  if [[ "$mode" != "optional" ]]; then
+    if verify_plan_entries "$backend" "$plan_file" "$label" optional; then
+      return 0
+    fi
+    log_warn "Optional $backend package transaction completed but verification failed; retrying packages individually."
+  elif [[ "$mode" != "optional" ]]; then
     log_error "Required $backend $label transaction failed. Check the package manager output above."
     return 1
+  else
+    log_warn "Optional $backend package transaction failed; retrying packages individually."
   fi
 
-  log_warn "Optional $backend package transaction failed; retrying packages individually."
   local package_name
   local failed=0
   for package_name in "${packages[@]}"; do
     log_progress "Installing optional $backend package: $package_name"
-    if package_install_idempotent "$backend" "$package_name"; then
+    if package_install_idempotent "$backend" "$package_name" \
+      && verify_plan_entry "$backend" "$package_name"; then
       continue
     fi
     log_warn "Optional $backend package failed and will be skipped for now: $package_name"
@@ -75,10 +79,30 @@ install_from_plan_file() {
   return 0
 }
 
-verify_required_plan_entries() {
+verify_plan_entry() {
+  local backend="$1"
+  local entry="$2"
+  [[ "$DRY_RUN" -eq 0 ]] || return 0
+  [[ "${VERIFY_INSTALLS:-1}" -eq 1 ]] || return 0
+
+  case "$backend" in
+    dnf)
+      fedora_package_installed "$entry"
+      ;;
+    flatpak)
+      flatpak info --system "$entry" >/dev/null 2>&1 || flatpak info "$entry" >/dev/null 2>&1
+      ;;
+    *)
+      die "Unsupported package verification backend: $backend"
+      ;;
+  esac
+}
+
+verify_plan_entries() {
   local backend="$1"
   local plan_file="$2"
   local label="$3"
+  local mode="$4"
   [[ "$DRY_RUN" -eq 0 ]] || return 0
   [[ "${VERIFY_INSTALLS:-1}" -eq 1 ]] || return 0
   [[ -f "$plan_file" ]] || return 0
@@ -86,23 +110,13 @@ verify_required_plan_entries() {
   local entry missing=0
   while IFS= read -r entry; do
     [[ -n "$entry" ]] || continue
-    case "$backend" in
-      dnf)
-        fedora_package_installed "$entry" || {
-          log_error "Required $label missing after install: $entry"
-          missing=1
-        }
-        ;;
-      flatpak)
-        flatpak info --system "$entry" >/dev/null 2>&1 || flatpak info "$entry" >/dev/null 2>&1 || {
-          log_error "Required $label missing after install: $entry"
-          missing=1
-        }
-        ;;
-      *)
-        die "Unsupported required verification backend: $backend"
-        ;;
-    esac
+    verify_plan_entry "$backend" "$entry" && continue
+    if [[ "$mode" == "required" ]]; then
+      log_error "Required $label missing after install: $entry"
+    else
+      log_warn "Optional $label missing after install: $entry"
+    fi
+    missing=1
   done < <(read_plan_file "$plan_file")
 
   [[ "$missing" -eq 0 ]]

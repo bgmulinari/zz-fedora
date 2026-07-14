@@ -207,6 +207,14 @@ assert_all_bundles_reachable() {
   [[ "$(join_by $'\n' "${WARNING_MESSAGES[@]}")" == *"artifact:npm"* ]]
 }
 
+@test "Claude Desktop selection plans the exact repository package and architecture" {
+  build_test_plan "ai=claude-desktop"
+
+  assert_plan_has "$PLAN_DIR/sources/vendor.list" "vendor:claude-desktop"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "claude-desktop-unofficial.x86_64"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "claude-desktop"
+}
+
 @test "Docker selection installs the engine and configures the user service" {
   build_test_plan "dev=docker"
 
