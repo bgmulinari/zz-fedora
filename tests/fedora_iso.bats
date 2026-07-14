@@ -209,7 +209,7 @@ SH
 
 @test "ISO runtime refresh stages a remote runtime snapshot" {
   command -v curl >/dev/null 2>&1 || skip "curl is not installed"
-  command -v rsync >/dev/null 2>&1 || skip "rsync is not installed"
+  command -v cp >/dev/null 2>&1 || skip "cp is not installed"
   command -v tar >/dev/null 2>&1 || skip "tar is not installed"
 
   archive_root="$TEST_ROOT/snapshot-deadbee"
@@ -245,7 +245,7 @@ SH
 }
 
 @test "ISO runtime refresh repairs the clock after TLS validation failure" {
-  command -v rsync >/dev/null 2>&1 || skip "rsync is not installed"
+  command -v cp >/dev/null 2>&1 || skip "cp is not installed"
   command -v tar >/dev/null 2>&1 || skip "tar is not installed"
 
   fake_bin="$TEST_ROOT/clock-bin"
@@ -375,6 +375,7 @@ SH
 
 @test "Fedora Kickstart preserves Anaconda decisions and delegates setup to add-on service" {
   ks="$ROOT_DIR/iso/zz-fedora.ks"
+  package_lines="$(sed -n '/^%packages$/,/^%end$/p' "$ks")"
 
   assert_file_contains "$ks" "network --bootproto=dhcp --activate"
   assert_file_contains "$ks" "firstboot --disable"
@@ -385,6 +386,10 @@ SH
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "addon_data_dir="
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "usr/share/anaconda/dbus/confs"
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "org.fedoraproject.Anaconda.Addons.ZZFedora.service"
+  assert_contains "$package_lines" "dnf5-plugins"
+  refute_contains "$package_lines" "bats"
+  refute_contains "$package_lines" "dnf-plugins-core"
+  refute_contains "$package_lines" "rsync"
   refute_file_contains "$ks" "%post"
   refute_file_contains "$ks" "zz-fedora-kickstart.log"
   refute_file_contains "$ks" "./install.sh install"

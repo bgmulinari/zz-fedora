@@ -1,15 +1,14 @@
+# Persistent desktop and installer-rerun tools. Initial bootstrap prerequisites
+# are installed separately by bootstrap.sh or the Fedora installer profile.
 ca-certificates
 nss-tools
 curl
 git
 gum
 stow
-rsync
 jq
 tar
 unzip
-zstd
 bash-completion
 bats
-dnf-plugins-core
 dnf5-plugins

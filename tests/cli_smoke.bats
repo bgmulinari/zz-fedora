@@ -19,6 +19,7 @@ setup() {
   assert_contains "$output" '"native_packages":'
   assert_contains "$output" '"base_rationale":'
   assert_contains "$output" '"bats"'
+  assert_contains "$output" '"dnf5-plugins"'
   assert_contains "$output" '"niri"'
   assert_contains "$output" '"noctalia-greeter"'
   assert_contains "$output" '"noctalia-v5"'

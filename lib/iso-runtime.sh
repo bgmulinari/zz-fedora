@@ -64,7 +64,7 @@ iso_download_runtime_archive_with_clock_recovery() {
 
 iso_refresh_runtime() (
   local command
-  for command in curl rsync tar; do
+  for command in cp curl tar; do
     command -v "$command" >/dev/null 2>&1 || {
       iso_runtime_err "missing required command: $command"
       return 1
@@ -120,7 +120,7 @@ iso_refresh_runtime() (
       return 1
     }
     [[ -e "$archive_dir/$runtime_path" || -L "$archive_dir/$runtime_path" ]] || continue
-    rsync -a "$archive_dir/$runtime_path" "$staged_dir/"
+    cp -a "$archive_dir/$runtime_path" "$staged_dir/"
   done
 
   [[ -x "$staged_dir/install.sh" ]] || {

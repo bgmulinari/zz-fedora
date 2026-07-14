@@ -289,12 +289,7 @@ services --enabled=NetworkManager
 sudo
 ca-certificates
 curl
-git
-gum
-bats
-dnf-plugins-core
 dnf5-plugins
-rsync
 %end
 
 %pre --interpreter=/usr/bin/bash

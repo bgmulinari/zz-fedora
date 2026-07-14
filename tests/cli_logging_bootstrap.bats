@@ -155,7 +155,7 @@ setup() {
   [[ -L "$target_home/.local/share/wallpapers/SilentPeaks.jpg" ]]
 }
 
-@test "bootstrap notice and dry-run Fedora prerequisites include bats" {
+@test "bootstrap installs only Fedora prerequisites needed before handoff" {
   source_bootstrap_functions
   DRY_RUN=1
   need_sudo() {
@@ -163,10 +163,14 @@ setup() {
   }
 
   output="$(bootstrap_notice)"
-  assert_contains "$output" "Packages: ca-certificates curl git gum bats dnf-plugins-core dnf5-plugins"
+  assert_contains "$output" "Packages: ca-certificates curl git gum dnf5-plugins"
+  refute_contains "$output" "bats"
+  refute_contains "$output" "dnf-plugins-core"
 
   output="$(bootstrap_fedora)"
-  assert_contains "$output" "bats"
+  assert_contains "$output" "dnf install -y ca-certificates curl git gum dnf5-plugins"
+  refute_contains "$output" "bats"
+  refute_contains "$output" "dnf-plugins-core"
 }
 
 @test "bootstrap clone update fast-forwards clean installs and rejects dirty installs" {

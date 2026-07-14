@@ -80,7 +80,9 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-v5"
   assert_plan_has "$PLAN_DIR/stow/packages.list" "noctalia"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "zsh"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "bash-completion"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "bats"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "dnf5-plugins"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nss-tools"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nodejs24-npm"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "starship"
@@ -102,7 +104,9 @@ assert_all_bundles_reachable() {
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-greeter\tbase-login-manager\tdesktop-service\tgraphical login'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-ghostty'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tghostty-shell-integration\tbase-ghostty\tdefault-app\tterminal shell integration'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbats\tbase-bootstrap\tinstaller-bootstrap'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbash-completion\tbase-bootstrap\tshell-tool\tinteractive Bash'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbats\tbase-bootstrap\tdevelopment-tool\trepository regression suite'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tdnf5-plugins\tbase-bootstrap\tinstaller-bootstrap\tFedora source setup and installer reruns'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnss-tools\tbase-bootstrap\tinstaller-bootstrap\tbrowser certificate trust'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24-npm\tbase-nodejs'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tddcutil\tbase-wayland-tools\tnoctalia\texternal display brightness'
@@ -118,6 +122,13 @@ assert_all_bundles_reachable() {
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "firefox"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "python3-pip"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt5ct"
+  local non_runtime_tool
+  for non_runtime_tool in dnf-plugins-core rsync zstd; do
+    refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$non_runtime_tool"
+  done
+  assert_plan_has "$PLAN_DIR/prereqs/dnf.pkgs" "flatpak"
+  assert_plan_has "$PLAN_DIR/prereqs/dnf.pkgs" "stow"
+  refute_plan_has "$PLAN_DIR/prereqs/dnf.pkgs" "gnupg2"
   local removed_helper
   for removed_helper in \
     brightnessctl \

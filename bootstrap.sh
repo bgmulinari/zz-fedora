@@ -42,7 +42,7 @@ need_sudo() {
 }
 
 bootstrap_notice() {
-  local packages="ca-certificates curl git gum bats dnf-plugins-core dnf5-plugins"
+  local packages="ca-certificates curl git gum dnf5-plugins"
   printf 'ZZ Fedora bootstrap\n'
   printf 'This will install Fedora bootstrap packages, clone or update %s, and then launch the installer.\n' "$INSTALL_DIR"
   if [[ -n "$REF" ]]; then
@@ -134,9 +134,9 @@ parse_args() {
 
 bootstrap_fedora() {
   if need_sudo; then
-    run sudo dnf install -y ca-certificates curl git gum bats dnf-plugins-core dnf5-plugins
+    run sudo dnf install -y ca-certificates curl git gum dnf5-plugins
   else
-    run dnf install -y ca-certificates curl git gum bats dnf-plugins-core dnf5-plugins
+    run dnf install -y ca-certificates curl git gum dnf5-plugins
   fi
 }
 

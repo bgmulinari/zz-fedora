@@ -84,7 +84,9 @@ setup() {
 }
 
 @test "base responsibility and managed config policy include critical rationale rows" {
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tbats\tinstaller-bootstrap\ttest-runner\tProvides the Bats test runner used by the repository regression suite.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tbash-completion\tshell-tool\tinteractive Bash\tProvides command completions for the persistent Bash shell environment.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tbats\tdevelopment-tool\trepository regression suite\tKeeps the repository\'s Bats test suites runnable out of the box on the development-focused desktop.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tdnf5-plugins\tinstaller-bootstrap\tFedora source setup and installer reruns\tProvides the DNF5 COPR and config-manager commands used during source setup.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tnss-tools\tinstaller-bootstrap\tbrowser certificate trust\tProvides certutil for importing development CAs into Firefox-style browser profiles.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tgnome-software\tdefault-app\tapp discovery\tProvides a GUI software browsing/update front end.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\twtype\tnoctalia\tclipboard auto-paste\tProvides the upstream-supported text-injection fallback for clipboard auto-paste.'
