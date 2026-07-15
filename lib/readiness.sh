@@ -295,7 +295,7 @@ readiness_generate_desktop_files() {
   fi
   severity="info"
   [[ "$status" == "missing" ]] && severity="fatal"
-  readiness_record "noctalia-v5" "command:noctalia" "$status" "$severity" "Expected package: noctalia-git"
+  readiness_record "noctalia-v5" "command:noctalia" "$status" "$severity" "Expected package: noctalia"
 }
 
 readiness_generate_target_home() {
@@ -364,7 +364,6 @@ readiness_generate_key_commands() {
   done <<'EOF'
 niri	niri
 niri	niri-session
-noctalia-git	noctalia
 ghostty	ghostty
 xdg-terminal-exec	xdg-terminal-exec
 nautilus	nautilus

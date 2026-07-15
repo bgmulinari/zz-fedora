@@ -393,15 +393,9 @@ install_fedora_noctalia_v5() {
   fi
 
   log_progress "Installing Noctalia v5 from official Fedora repositories"
-  if rpm -q noctalia-git >/dev/null 2>&1; then
-    run_cmd_as_root dnf swap -y --allowerasing \
-      --enablerepo "$NOCTALIA_FEDORA_TESTING_REPO" \
-      noctalia-git "$NOCTALIA_FEDORA_PACKAGE"
-  else
-    run_cmd_as_root dnf install -y --allowerasing \
-      --enablerepo "$NOCTALIA_FEDORA_TESTING_REPO" \
-      "$NOCTALIA_FEDORA_PACKAGE"
-  fi
+  run_cmd_as_root dnf install -y --allowerasing \
+    --enablerepo "$NOCTALIA_FEDORA_TESTING_REPO" \
+    "$NOCTALIA_FEDORA_PACKAGE"
 }
 
 noctalia_fedora_package_is_compatible() {

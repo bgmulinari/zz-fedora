@@ -359,26 +359,8 @@ EOF
   assert_contains "$output" "allowing updates-testing while beta2 is in testing"
 }
 
-@test "Noctalia v5 Fedora action swaps out the COPR shell package" {
+@test "Noctalia v5 Fedora action installs the official package" {
   DRY_RUN=0
-  rpm() {
-    [[ "$*" == "-q noctalia-git" ]]
-  }
-  run_cmd_as_root() {
-    printf 'root:%s\n' "$*"
-  }
-
-  run install_fedora_noctalia_v5
-
-  [ "$status" -eq 0 ]
-  assert_contains "$output" "root:dnf swap -y --allowerasing --enablerepo updates-testing noctalia-git noctalia"
-}
-
-@test "Noctalia v5 Fedora action installs the official package on fresh systems" {
-  DRY_RUN=0
-  rpm() {
-    return 1
-  }
   run_cmd_as_root() {
     printf 'root:%s\n' "$*"
   }

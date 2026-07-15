@@ -35,10 +35,10 @@ Official Fedora package transition:
 
 - Fedora 44 Updates now carries the official `noctalia` package. Stable currently has `noctalia-5.0.0~beta1-1.fc44`; `noctalia-5.0.0~beta2-1.fc44` entered Updates Testing on 2026-07-10 as Bodhi update `FEDORA-2026-e863a3e051`.
 - Do not fall back to the stable beta1 build. It is the `v5.0.0-beta1` code previously reproduced as crashing on a true fresh state, and it does not understand `concave_edge_corners`.
-- The `noctalia-v5` base action now installs the official Fedora `noctalia` package with `updates-testing` allowed while beta2 is there. Once beta2 is promoted, the same transaction naturally resolves it from stable Updates. If `noctalia-git` is installed, the action explicitly swaps it for `noctalia`; this avoids DNF retaining an older non-conflicting COPR build alongside the official package. Action verification requires `5.0.0~beta2` or newer so an installed beta1 cannot incorrectly skip the upgrade.
+- The `noctalia-v5` base action now installs the official Fedora `noctalia` package with `updates-testing` allowed while beta2 is there. Once beta2 is promoted, the same transaction naturally resolves it from stable Updates. Action verification requires `5.0.0~beta2` or newer so an installed beta1 cannot incorrectly skip the upgrade.
 - The base Noctalia bundle no longer claims the LionHeartP COPR as its source. The COPR remains required for two separate packages that Fedora does not currently provide: `noctalia-greeter` and `qt6ct-kde`.
-- The LionHeartP source descriptor and base rationale now describe only Noctalia Greeter and patched Qt integration. Terra's provider exclusion is narrowed to `noctalia-greeter`; the obsolete `noctalia-git` exclusion was removed.
-- Fedora beta2 does not currently provide the `desktop-notification-daemon` virtual capability that the COPR package advertised. On this system, the swap transaction therefore adds `mako` to satisfy `system-config-printer`'s dependency. No repo autostart wiring was added for Mako, but Fedora packaging should be rechecked because D-Bus activation before Noctalia starts could claim the notification service first.
+- The LionHeartP source descriptor and base rationale now describe only Noctalia Greeter and patched Qt integration. Terra's provider exclusion is limited to `noctalia-greeter`.
+- Fedora beta2 does not currently provide the `desktop-notification-daemon` virtual capability that the former COPR shell package advertised. On this system, the official package transaction therefore adds `mako` to satisfy `system-config-printer`'s dependency. No repo autostart wiring was added for Mako, but Fedora packaging should be rechecked because D-Bus activation before Noctalia starts could claim the notification service first.
 
 Config schema migration:
 
@@ -52,7 +52,7 @@ Candidate validation:
 - `noctalia config validate` from the extracted beta2 package accepted the managed config with no warnings.
 - The extracted `v5.0.0-beta2` binary was launched alongside the existing shell with isolated XDG config/state/cache/runtime paths and a symlink to the active Niri Wayland socket.
 - With no initial config or `settings.toml`, beta2 generated fresh state and remained alive until `timeout -s TERM 10s` stopped it with status `124`. The earlier fresh-state crash did not reproduce.
-- The currently installed COPR build also validates the migrated managed config without warnings.
+- The previously installed COPR build also validated the migrated managed config without warnings.
 
 ## Checkpoint: 2026-07-04
 
@@ -66,7 +66,7 @@ Local Noctalia Greeter replacement:
   - `/home/user/repos/noctalia-greeter`: `3dcf1e4f15be861de636bfd442da09db7db37ad2`
 - Noctalia Greeter is a separate greetd greeter, not part of the main Noctalia shell process. greetd runs `noctalia-greeter-session`, which starts the bundled `noctalia-greeter-compositor` and then the greeter UI.
 - The docs say to install `noctalia-greeter` from the distro when available, with `greetd`, D-Bus, and polkit available on the machine. The greeter stores admin-managed state in `/var/lib/noctalia-greeter/greeter.toml`.
-- Fedora package metadata showed `noctalia-greeter-1.0.0-1.gite12f8f8.fc44` available from `copr:lionheartp/Hyprland`. Terra also carries older `noctalia-greeter` builds, so the Terra exclude now covers both `noctalia-git` and `noctalia-greeter`.
+- Fedora package metadata showed `noctalia-greeter-1.0.0-1.gite12f8f8.fc44` available from `copr:lionheartp/Hyprland`. Terra also carries older `noctalia-greeter` builds, so the Terra exclude covers `noctalia-greeter`.
 - `base-login-manager` now runs the required `noctalia-greeter` action instead of installing `sddm`. The action installs/syncs the COPR greeter package, writes `/etc/greetd/config.toml` for `/usr/bin/noctalia-greeter-session`, prepares the `greeter` account and `/var/lib/noctalia-greeter`, patches `/etc/pam.d/greetd` for `pam_systemd.so` or `pam_elogind.so` when available, initializes `greeter.toml`, and enables `greetd.service`.
 - The existing display-manager policy is preserved: if any display manager is already enabled, including SDDM, GDM, Plasma Login Manager, LightDM, Ly, or greetd, the Noctalia Greeter fallback action records a skip and does not install or enable another login manager.
 - The managed Noctalia shell config enables `[shell.greeter_sync].auto_sync`, so once the greeter is installed the shell uses its native greeter sync path to mirror wallpaper, palette, theme mode, session actions, and monitor layout changes into `/var/lib/noctalia-greeter/appearance.json`. The privilege command remains unset because Noctalia's default `pkexec` or `run0` escalation is preferred when logind or elogind provides an in-session polkit prompt.
@@ -103,15 +103,15 @@ Current upstream and package validation:
 - Noctalia v5 docs in `/home/user/repos/noctalia-docs` were rechecked for config layering. User-managed config belongs in `~/.config/noctalia/*.toml`; Noctalia-managed GUI/runtime overrides live in `~/.local/state/noctalia/settings.toml` and load last.
 - The docs confirm split config is supported: Noctalia reads every root `*.toml` in `~/.config/noctalia/` sorted alphabetically, and `[include]` can pull in files or directories when a subdirectory layout is wanted.
 - Current upstream `src/shell/hot_corners/hot_corners.cpp` guards `HotCorners::onConfigReload()` when `m_config` or `m_wayland` is null, which addresses the startup ordering crash identified below.
-- Fedora package metadata was refreshed. COPR latest observed: `noctalia-git-5.0.0-0.242.git6b39dc8.fc44`. Terra latest observed: `noctalia-git-5.0.0^20260703git.6e7aa3b-1.fc44`.
+- Fedora package metadata was refreshed. Latest observed COPR shell build: `5.0.0-0.242.git6b39dc8.fc44`. Latest observed Terra shell build: `5.0.0^20260703git.6e7aa3b-1.fc44`.
 - The COPR `0.242.git6b39dc8` RPM was downloaded and extracted without installing system-wide.
 - The extracted `noctalia v5.0.0 (6b39dc8)` binary was run in the active Niri session with a fresh isolated XDG config/state/cache profile and an isolated `XDG_RUNTIME_DIR` symlinked to the real Wayland socket, while the existing Noctalia process stayed running.
 - Result: the candidate created fresh `state/noctalia/settings.toml`, stayed alive until `timeout -s TERM 10s` stopped it with status `124`, and did not segfault.
 
 Current repo wiring:
 
-- The Fedora Noctalia action installs or `distro-sync`s `noctalia-git` from `copr:lionheartp/Hyprland`.
-- Terra remains enabled for Ghostty, but the Terra source setup sets `terra.excludepkgs=noctalia-git` so normal DNF updates keep Noctalia on the validated LionHeartP COPR provider.
+- At this checkpoint, the Fedora Noctalia action installed or `distro-sync`ed the shell from `copr:lionheartp/Hyprland`.
+- Terra remained enabled for Ghostty, but its competing Noctalia shell provider was excluded so normal DNF updates kept Noctalia on the validated LionHeartP COPR provider.
 - Noctalia remains a custom action instead of a plain `dnf` package manifest because the package provider is part of the integration contract.
 - The base Noctalia bundle now stows `dotfiles/noctalia/.config/noctalia/config.toml` as the hardware-agnostic user config layer, including semi-transparent `0.9` bar, dock, notification, and OSD backgrounds.
 - Qt application theming uses the built-in `kcolorscheme` template consumed by the managed `qt6ct` configuration. The normal `qt` template is disabled because upstream renders it to both Qt5 and Qt6 config roots, while this baseline no longer installs Qt5 theme support.
@@ -132,7 +132,7 @@ Fresh-state reboot result:
 Confirmed crash signature from installed package:
 
 - `coredumpctl` recorded SIGSEGV for `/usr/bin/noctalia` at `2026-07-02 23:34:58 -03`.
-- Package in the coredump: `noctalia-git/5.0.0-0.240.gitad11b4b.fc44`.
+- Package in the coredump: the former COPR shell package, build `5.0.0-0.240.gitad11b4b.fc44`.
 - The installed-package stack matched the earlier isolated extracted-RPM test:
 
   ```text
@@ -166,11 +166,11 @@ Upstream report:
 
 Current decision:
 
-- Use the validated COPR `noctalia-git` package.
+- Use the validated COPR shell package.
 - Stow a curated `~/.config/noctalia/config.toml` user config.
 - Do not add a static Noctalia state seed, and do not stow generated `settings.toml`.
 - Do not add a simple retry wrapper around Noctalia.
-- Keep forcing the COPR provider and excluding Terra's `noctalia-git` package.
+- Keep forcing the COPR provider and excluding Terra's competing shell package.
 - Before changing Noctalia provider or package wiring again, re-test the candidate from a true missing-`settings.toml` state.
 
 ## Checkpoint: 2026-07-02
@@ -188,18 +188,18 @@ Upstream state:
 - Current upstream release tag observed locally: `v5.0.0-beta1` at `ad11b4ba`.
 - Niri docs still use `spawn-at-startup "noctalia"` and `noctalia msg ...` keybindings.
 - Built-in template IDs still include `ghostty`, `starship`, `kcolorscheme`, and `niri`.
-- Fedora source recommendation remains LionHeartP COPR with `dnf install noctalia-git`.
+- Fedora source recommendation at this checkpoint remained the LionHeartP COPR shell package.
 - Current Fedora build dependencies include `wireplumber-devel`; the RPM runtime dependencies now include `libwireplumber-0.5`, `libmd4c`, and `libtomlplusplus`.
 
 Fedora package query on Fedora 44 with Terra and LionHeartP COPR enabled:
 
-- COPR latest observed: `noctalia-git-5.0.0-0.240.gitad11b4b.fc44`.
-- Terra latest observed: `noctalia-git-5.0.0^20260702git.8d2c688-1.fc44`.
-- Installed local package during this checkpoint: `noctalia-git-5.0.0-0.222.gitd2d2f9b.fc44`.
+- Latest observed COPR shell build: `5.0.0-0.240.gitad11b4b.fc44`.
+- Latest observed Terra shell build: `5.0.0^20260702git.8d2c688-1.fc44`.
+- Installed local shell build during this checkpoint: `5.0.0-0.222.gitd2d2f9b.fc44`.
 
 Fresh-profile candidate test:
 
-- Candidate tested without installing system-wide by downloading and extracting the COPR RPM `noctalia-git-5.0.0-0.240.gitad11b4b.fc44.x86_64`.
+- Candidate tested without installing system-wide by downloading and extracting COPR build `5.0.0-0.240.gitad11b4b.fc44.x86_64`.
 - Missing local runtime libraries for the extracted binary were supplied from downloaded Fedora RPMs `tomlplusplus-3.4.0-7.fc44.x86_64` and `md4c-0.5.1-5.fc44.x86_64` through `LD_LIBRARY_PATH`.
 - The active pinned Noctalia instance was left running, so the test used an isolated `XDG_RUNTIME_DIR` with a symlink to the real Wayland socket to avoid the single-instance lock.
 - Result: `noctalia v5.0.0 (ad11b4b)` segfaulted from fresh XDG config/state/cache.
@@ -210,7 +210,7 @@ Follow-up crash triage:
 
 - No exact upstream issue or PR was found for the fresh-state `lockscreen_widgets`/`HotCorners` startup crash when searching `noctalia-dev/noctalia` issues and PRs for `SIGSEGV`, `lockscreen_widgets`, `settings.toml`, `fresh config`, `hot corners`, and related terms.
 - Nearby upstream crash issues exist, for example `#3213` (`libqalculate` SIGSEGV, fixed), `#3086` (wallpaper/settings crash), and `#3013` (NetworkManager D-Bus timeout crash), but they do not match this startup signature.
-- COPR debuginfo for `noctalia-git-5.0.0-0.240.gitad11b4b.fc44` resolved the crash stack to:
+- COPR debuginfo for build `5.0.0-0.240.gitad11b4b.fc44` resolved the crash stack to:
 
   ```text
   std::_Function_handler<void (), Application::initBarDockAndLayout()::{lambda()#6}>::_M_invoke
@@ -227,7 +227,7 @@ Follow-up crash triage:
 
 Current decision:
 
-- Keep the Fedora pin at `noctalia-git-5.0.0-0.222.gitd2d2f9b.fc<fedora-release>`.
+- Keep the Fedora pin at COPR build `5.0.0-0.222.gitd2d2f9b.fc<fedora-release>`.
 - Keep Niri launching plain `noctalia`; do not add a retry wrapper.
 - Do not pre-seed Noctalia config to mask the crash.
 - Re-test a newer candidate before removing the pin. Prefer a candidate that fixes or guards hot-corner reload before initialization, then validate with an exact same-runtime test after stopping the pinned instance or a clean VM login test.
@@ -251,7 +251,7 @@ Fedora package state at this checkpoint:
 - Installed through `packages/actions/base-noctalia.actions`.
 - Action id: `noctalia-v5`.
 - Package source: `copr:lionheartp/Hyprland`.
-- Known-good build: `noctalia-git-5.0.0-0.222.gitd2d2f9b.fc<fedora-release>`.
+- Known-good COPR shell build: `5.0.0-0.222.gitd2d2f9b.fc<fedora-release>`.
 - The action applies `dnf versionlock add` for the pinned package.
 
 ## Why The Pin Existed
@@ -266,7 +266,7 @@ Observed details:
 - The crash reproduced with both Terra and COPR packages for `dfa00a4`.
 - Disabling the setup wizard did not fix it.
 - A retry wrapper worked only because the first crash wrote enough state for the second launch, but that was rejected as the wrong solution.
-- COPR build `noctalia-git-5.0.0-0.222.gitd2d2f9b.fc44` started cleanly from an isolated fresh XDG config/state/cache profile.
+- COPR shell build `5.0.0-0.222.gitd2d2f9b.fc44` started cleanly from an isolated fresh XDG config/state/cache profile.
 
 Resolution as of 2026-07-11:
 
