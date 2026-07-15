@@ -6,6 +6,12 @@ setup() {
   setup_test_env
 }
 
+@test "Anaconda GUI and TUI profile controls update and persist selections" {
+  run python3 "$ROOT_DIR/tests/helpers/anaconda_profile_controls.py"
+
+  [ "$status" -eq 0 ]
+}
+
 @test "Anaconda selection state is atomic, private, and filters invalid choices" {
   run env ZZ_REPO_ROOT="$ROOT_DIR" ZZ_TEST_ROOT="$TEST_ROOT" python3 - <<'PY'
 import importlib.util
