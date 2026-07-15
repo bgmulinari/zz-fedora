@@ -30,6 +30,8 @@ constants.CATEGORY_ORDER = (
     "gaming",
     "media",
 )
+constants.DEFAULT_DESKTOP_APP_PROFILE = "full"
+constants.DESKTOP_APP_PROFILES = ("full", "minimal")
 constants.SELECTION_FILE = str(state)
 sys.modules["org_zz_fedora"] = package
 sys.modules["org_zz_fedora.constants"] = constants
@@ -40,6 +42,8 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 module.SOURCE_TREE_CHOICES_DIR = repo / "choices"
 module.PACKAGE_CHOICES_DIR = repo / "choices"
+profile_file = Path(os.environ["ZZ_TEST_ROOT"]) / "desktop-app-profile"
+module.INSTALLER_DESKTOP_APP_PROFILE_FILE = profile_file
 
 categories = module.read_categories()
 defaults = module.default_selections(categories)
@@ -47,22 +51,47 @@ assert defaults["browsers"] == ["firefox"]
 for category in categories:
     if category.id != "browsers":
         assert defaults[category.id] == [choice.id for choice in category.choices]
+minimal_defaults = module.default_selections(categories, "minimal")
+assert minimal_defaults["desktop"] == []
+assert minimal_defaults["browsers"] == ["firefox"]
+assert minimal_defaults["dev"] == defaults["dev"]
+
+profile_file.write_text("minimal\n")
+enabled, profile, selections, preferred = module.read_state(categories)
+assert not enabled
+assert profile == "minimal"
+assert selections["desktop"] == []
+assert preferred == ""
+profile_file.write_text("not-valid\n")
+assert module.installer_default_desktop_app_profile() == "full"
+profile_file.write_text("minimal\n")
 
 module.write_state(
     True,
+    "minimal",
     {"browsers": ["firefox", "not-valid"], "dev": ["docker"]},
     "not-valid",
 )
 assert stat.S_IMODE(state.stat().st_mode) == 0o600
 text = state.read_text()
+assert "desktop_app_profile=minimal" in text
 assert "select.browsers=firefox" in text
 assert "select.dev=docker" in text
 assert "not-valid" not in text
-enabled, selections, preferred = module.read_state(categories)
+enabled, profile, selections, preferred = module.read_state(categories)
 assert enabled
+assert profile == "minimal"
 assert selections["browsers"] == ["firefox"]
 assert selections["dev"] == ["docker"]
+assert selections["desktop"] == []
 assert preferred == ""
+
+try:
+    module.write_state(True, "invalid", {}, "")
+except ValueError as error:
+    assert "Unsupported desktop app profile" in str(error)
+else:
+    raise AssertionError("invalid desktop app profile was accepted")
 PY
 
   [ "$status" -eq 0 ]
@@ -91,6 +120,8 @@ package = types.ModuleType("org_zz_fedora")
 package.__path__ = []
 constants = types.ModuleType("org_zz_fedora.constants")
 constants.CATEGORY_ORDER = ("browsers",)
+constants.DEFAULT_DESKTOP_APP_PROFILE = "full"
+constants.DESKTOP_APP_PROFILES = ("full", "minimal")
 constants.SELECTION_FILE = str(root / "run/zz-fedora/install-selected")
 sys.modules["org_zz_fedora"] = package
 sys.modules["org_zz_fedora.constants"] = constants
@@ -192,6 +223,8 @@ sys.modules["pyanaconda.modules.common.task"] = task_module
 package = types.ModuleType("org_zz_fedora")
 package.__path__ = []
 constants = types.ModuleType("org_zz_fedora.constants")
+constants.DEFAULT_DESKTOP_APP_PROFILE = "full"
+constants.DESKTOP_APP_PROFILES = ("full", "minimal")
 constants.SELECTION_FILE = str(root / "run/zz-fedora/install-selected")
 sys.modules["org_zz_fedora"] = package
 sys.modules["org_zz_fedora.constants"] = constants
@@ -203,11 +236,55 @@ spec.loader.exec_module(module)
 
 task = module.ZZFedoraInstallationTask(root)
 assert module.SOURCE_REPO_DIR == Path("/run/zz-fedora/repository")
-assert task._find_target_user()["name"] == "zztest"
+user = task._find_target_user()
+assert user["name"] == "zztest"
 assert task._target_path("etc/passwd") == root / "etc/passwd"
 assert task._progress_detail_from_output("Dependencies resolved.") == "Resolved package dependencies"
 assert task._progress_detail_from_output("irrelevant output") == ""
 assert task._format_progress("done", "9", "9", "ZZ Fedora", "") == "ZZ Fedora complete"
+
+selection_lines = [
+    "selected=1\n",
+    "desktop_app_profile=minimal\n",
+    "select.desktop=boxes\n",
+    "preferred_browser=firefox\n",
+]
+profile = task._read_desktop_app_profile(selection_lines)
+assert profile == "minimal"
+assert task._read_desktop_app_profile(["selected=1\n"]) == "full"
+try:
+    task._read_desktop_app_profile(["desktop_app_profile=invalid\n"])
+except RuntimeError as error:
+    assert "Unsupported desktop app profile" in str(error)
+else:
+    raise AssertionError("invalid desktop app profile was accepted")
+
+selection_config = root / "home/zztest/.config/zz-fedora/selections.conf"
+task._write_selection_config(
+    selection_lines,
+    selection_config,
+    user,
+    profile,
+)
+selection_text = selection_config.read_text()
+assert "desktop_app_profile=minimal\n" in selection_text
+assert "select.desktop=boxes\n" in selection_text
+
+task._write_runner_script(
+    target_repo_dir=Path("/home/zztest/zz-fedora"),
+    state_dir=Path("/home/zztest/.local/state/zz-fedora"),
+    cache_dir=Path("/home/zztest/.cache/zz-fedora"),
+    config_dir=Path("/home/zztest/.config/zz-fedora"),
+    log_dir=Path("/home/zztest/.local/state/zz-fedora/logs"),
+    progress_file=Path(
+        "/home/zztest/.local/state/zz-fedora/logs/install-progress.tsv"
+    ),
+    target_user="zztest",
+    desktop_app_profile=profile,
+)
+runner_text = (root / module.RUN_SCRIPT_PATH).read_text()
+assert "export DESKTOP_APP_PROFILE=minimal\n" in runner_text
+assert '--desktop-app-profile "$DESKTOP_APP_PROFILE"' in runner_text
 PY
 
   [ "$status" -eq 0 ]

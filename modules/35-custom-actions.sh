@@ -602,6 +602,8 @@ install_fedora_media_codecs() {
   run_cmd_as_root dnf swap -y ffmpeg-free ffmpeg --allowerasing || return 1
   log_progress "Installing the curated multimedia codec group"
   run_cmd_as_root dnf install -y @multimedia --setopt=install_weak_deps=False --exclude=PackageKit-gstreamer-plugin --exclude=libva-intel-media-driver || return 1
+  log_progress "Retaining Bluetooth aptX support as part of the multimedia group"
+  run_cmd_as_root dnf -y mark group multimedia pipewire-codec-aptx || return 1
   log_progress "Installing Firefox OpenH264 integration"
   run_cmd_as_root dnf install -y mozilla-openh264 || return 1
 }
@@ -697,6 +699,7 @@ verify_custom_action() {
         gstreamer1-plugin-openh264 \
         gstreamer1-plugins-bad-freeworld \
         gstreamer1-plugins-ugly \
+        pipewire-codec-aptx \
         mozilla-openh264 >/dev/null 2>&1
       ;;
     media-hardware-acceleration)

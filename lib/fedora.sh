@@ -308,13 +308,19 @@ fedora_enable_service() {
 }
 
 fedora_enable_service_now() {
+  fedora_enable_services_now "$1"
+}
+
+fedora_enable_services_now() {
+  local -a service_names=("$@")
+  [[ "${#service_names[@]}" -gt 0 ]] || return 0
   if [[ "${ZZ_INSTALLER_DEFER_START_SERVICES:-0}" -eq 1 ]]; then
-    log_progress "Enabling system service for first boot: $1"
-    run_cmd_as_root systemctl enable "$1"
+    log_progress "Enabling system services for first boot: ${service_names[*]}"
+    run_cmd_as_root systemctl enable "${service_names[@]}"
     return 0
   fi
-  log_progress "Enabling and starting system service: $1"
-  run_cmd_as_root systemctl enable --now "$1"
+  log_progress "Enabling and starting system services: ${service_names[*]}"
+  run_cmd_as_root systemctl enable --now "${service_names[@]}"
 }
 
 fedora_repo_enabled() {

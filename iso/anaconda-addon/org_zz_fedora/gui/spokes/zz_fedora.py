@@ -9,6 +9,7 @@ from pyanaconda.ui.communication import hubQ
 from pyanaconda.ui.gui.spokes import NormalSpoke
 from pyanaconda.ui.gui.utils import gtk_call_once
 
+from org_zz_fedora.constants import DEFAULT_DESKTOP_APP_PROFILE
 from org_zz_fedora.runtime import (
     THREAD_RUNTIME_REFRESH,
     payload_proxy_url,
@@ -52,6 +53,7 @@ class ZZFedoraSpoke(NormalSpoke):
         self._category_rows = {}
         self._category_summary_labels = {}
         self._choice_buttons = {}
+        self._desktop_app_profile = DEFAULT_DESKTOP_APP_PROFILE
         self._selections = {}
         self._preferred_browser = ""
         self._current_category_id = ""
@@ -61,6 +63,7 @@ class ZZFedoraSpoke(NormalSpoke):
         self._category_list_box = None
         self._choice_list_box = None
         self._choice_header_label = None
+        self._profile_combo = None
         self._preferred_browser_box = None
         self._preferred_browser_combo = None
 
@@ -69,6 +72,7 @@ class ZZFedoraSpoke(NormalSpoke):
         self._category_list_box = self.builder.get_object("categoryListBox")
         self._choice_list_box = self.builder.get_object("choiceListBox")
         self._choice_header_label = self.builder.get_object("choiceHeaderLabel")
+        self._profile_combo = self.builder.get_object("desktopAppProfileCombo")
         self._preferred_browser_box = self.builder.get_object("preferredBrowserBox")
         self._preferred_browser_combo = self.builder.get_object(
             "preferredBrowserCombo"
@@ -77,6 +81,9 @@ class ZZFedoraSpoke(NormalSpoke):
             "changed",
             self._on_preferred_browser_changed,
         )
+        self._profile_combo.append("full", _("Full desktop"))
+        self._profile_combo.append("minimal", _("Minimal desktop apps"))
+        self._profile_combo.connect("changed", self._on_profile_changed)
         self._category_list_box.connect("row-selected", self._on_category_selected)
 
         self.initialize_start()
@@ -113,12 +120,22 @@ class ZZFedoraSpoke(NormalSpoke):
         self._category_by_id = {
             category.id: category for category in self._categories
         }
-        enabled, selections, preferred_browser = read_state(self._categories)
+        (
+            enabled,
+            desktop_app_profile,
+            selections,
+            preferred_browser,
+        ) = read_state(self._categories)
         if enabled:
+            self._desktop_app_profile = desktop_app_profile
             self._selections = selections
             self._preferred_browser = preferred_browser
         else:
-            self._selections = default_selections(self._categories)
+            self._desktop_app_profile = desktop_app_profile
+            self._selections = default_selections(
+                self._categories,
+                self._desktop_app_profile,
+            )
             self._preferred_browser = ""
             self._persist_state()
         self._runtime_ready = True
@@ -133,16 +150,27 @@ class ZZFedoraSpoke(NormalSpoke):
             return
 
         self._build_category_rows()
-        enabled, selections, preferred_browser = read_state(self._categories)
+        (
+            enabled,
+            desktop_app_profile,
+            selections,
+            preferred_browser,
+        ) = read_state(self._categories)
         if enabled:
+            self._desktop_app_profile = desktop_app_profile
             self._selections = selections
             self._preferred_browser = preferred_browser
         else:
-            self._selections = default_selections(self._categories)
+            self._desktop_app_profile = desktop_app_profile
+            self._selections = default_selections(
+                self._categories,
+                self._desktop_app_profile,
+            )
             self._preferred_browser = ""
             self._persist_state()
 
         self._refreshing = True
+        self._profile_combo.set_active_id(self._desktop_app_profile)
         self._update_category_summaries()
         self._refreshing = False
 
@@ -217,16 +245,29 @@ class ZZFedoraSpoke(NormalSpoke):
             return _("Refreshing latest choices")
         if not self._runtime_ready:
             return _("Latest choices unavailable")
-        enabled, selections, _preferred_browser = read_state(self._categories)
+        (
+            enabled,
+            desktop_app_profile,
+            selections,
+            _preferred_browser,
+        ) = read_state(self._categories)
         if not enabled:
-            selections = default_selections(self._categories)
+            selections = default_selections(
+                self._categories,
+                desktop_app_profile,
+            )
 
         count = selected_choice_count(selections)
+        profile_label = (
+            _("Minimal desktop")
+            if desktop_app_profile == "minimal"
+            else _("Full desktop")
+        )
         if count == 0:
-            return _("Base desktop")
+            return profile_label
         if count == 1:
-            return _("Base desktop + 1 option")
-        return _("Base desktop + %d options") % count
+            return _("%s + 1 option") % profile_label
+        return _("%s + %d options") % (profile_label, count)
 
     def _build_category_rows(self):
         for child in self._category_list_box.get_children():
@@ -364,6 +405,26 @@ class ZZFedoraSpoke(NormalSpoke):
         self._preferred_browser = combo.get_active_id() or ""
         self._persist_state()
 
+    def _on_profile_changed(self, combo):
+        if self._refreshing:
+            return
+
+        desktop_app_profile = combo.get_active_id()
+        if not desktop_app_profile or desktop_app_profile == self._desktop_app_profile:
+            return
+
+        self._desktop_app_profile = desktop_app_profile
+        profile_defaults = default_selections(
+            self._categories,
+            self._desktop_app_profile,
+        )
+        self._selections["desktop"] = profile_defaults.get("desktop", [])
+        self._refreshing = True
+        self._render_choices()
+        self._update_category_summaries()
+        self._refreshing = False
+        self._persist_state()
+
     def _update_category_summaries(self):
         for category in self._categories:
             count = len(self._selections.get(category.id, []))
@@ -409,4 +470,9 @@ class ZZFedoraSpoke(NormalSpoke):
         self._refreshing = False
 
     def _persist_state(self):
-        write_state(True, self._selections, self._preferred_browser)
+        write_state(
+            True,
+            self._desktop_app_profile,
+            self._selections,
+            self._preferred_browser,
+        )

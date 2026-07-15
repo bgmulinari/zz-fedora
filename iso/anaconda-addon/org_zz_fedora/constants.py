@@ -14,6 +14,12 @@ ZZ_FEDORA = DBusServiceIdentifier(
 
 SELECTION_FILE = "/run/zz-fedora/install-selected"
 
+DEFAULT_DESKTOP_APP_PROFILE = "full"
+DESKTOP_APP_PROFILES = (
+    "full",
+    "minimal",
+)
+
 CATEGORY_ORDER = (
     "browsers",
     "desktop",

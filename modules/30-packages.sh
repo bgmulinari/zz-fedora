@@ -283,15 +283,18 @@ configure_niri_session() {
 
 configure_base_system_services() {
   local service_name
+  local -a service_names=()
   while IFS= read -r service_name; do
     [[ -n "$service_name" ]] || continue
     log_progress "Enabling system service: $service_name"
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-      fedora_enable_service_now "$service_name" || return 1
-    else
-      enable_required_system_service_now "$service_name" || return 1
-    fi
+    service_names+=("$service_name")
   done < <(system_services_now_from_plan)
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    fedora_enable_services_now "${service_names[@]}" || return 1
+  else
+    enable_required_system_services_now "${service_names[@]}" || return 1
+  fi
 }
 
 module_30_packages() {

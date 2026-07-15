@@ -404,6 +404,8 @@ SH
   assert_file_contains "$addon/constants.py" "ZZ_FEDORA_NAMESPACE"
   assert_file_contains "$addon/constants.py" '(*ADDONS_NAMESPACE, "ZZFedora")'
   assert_file_contains "$addon/constants.py" 'SELECTION_FILE = "/run/zz-fedora/install-selected"'
+  assert_file_contains "$addon/constants.py" 'DEFAULT_DESKTOP_APP_PROFILE = "full"'
+  assert_file_contains "$addon/constants.py" '"minimal"'
   assert_file_contains "$addon/constants.py" '"browsers"'
   assert_file_contains "$addon/service/__main__.py" "org_zz_fedora.service.zz_fedora"
   assert_file_contains "$addon/service/zz_fedora.py" "def install_with_tasks"
@@ -420,6 +422,7 @@ SH
   assert_file_contains "$addon/selection.py" "def _category_ids"
   assert_file_contains "$addon/selection.py" 'REMOTE_RUNTIME_CHOICES_DIR = Path("/run/zz-fedora/repository/choices")'
   assert_file_contains "$addon/selection.py" "def default_selections"
+  assert_file_contains "$addon/selection.py" "desktop_app_profile == \"minimal\""
   assert_file_contains "$addon/selection.py" 'parents[3] / "choices"'
   assert_file_contains "$addon/selection.py" 'root / ("%s.conf" % category_id)'
   assert_file_contains "$addon/selection.py" "select.%s=%s"
@@ -435,7 +438,8 @@ SH
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_build_category_rows"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_render_choices"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_update_preferred_browser_combo"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "write_state(True"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_on_profile_changed"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "write_state("
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "thread_manager.wait(THREAD_PAYLOAD)"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "payload_proxy_url(self.payload)"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "target=self._retry_runtime"
@@ -444,6 +448,7 @@ SH
   assert_file_contains "$addon/gui/spokes/zz_fedora.glade" 'id="zzFedoraSpokeWindow"'
   assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "categoryListBox"
   assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "choiceListBox"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "desktopAppProfileCombo"
   refute_file_contains "$addon/gui/spokes/zz_fedora.glade" "Install ZZ Fedora managed desktop"
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "org_zz_fedora/choices"
   assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "hidden_spokes ="
@@ -454,7 +459,8 @@ SH
   refute_file_contains "$addon/tui/spokes/zz_fedora.py" "ZZFedoraCategory"
   assert_file_contains "$addon/tui/spokes/zz_fedora.py" "CheckboxWidget"
   assert_file_contains "$addon/tui/spokes/zz_fedora.py" "_toggle_choice"
-  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "write_state(True"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "_toggle_desktop_app_profile"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "write_state("
   assert_file_contains "$addon/tui/spokes/zz_fedora.py" "thread_manager.wait(THREAD_PAYLOAD)"
   assert_file_contains "$addon/tui/spokes/zz_fedora.py" "payload_proxy_url(self.payload)"
   assert_file_contains "$addon/tui/spokes/zz_fedora.py" "target=self._retry_runtime"
@@ -483,6 +489,8 @@ constants.CATEGORY_ORDER = (
     "gaming",
     "media",
 )
+constants.DEFAULT_DESKTOP_APP_PROFILE = "full"
+constants.DESKTOP_APP_PROFILES = ("full", "minimal")
 constants.SELECTION_FILE = "/tmp/zz-fedora-test-selection"
 sys.modules["org_zz_fedora"] = package
 sys.modules["org_zz_fedora.constants"] = constants
@@ -529,9 +537,11 @@ PY
   assert_file_contains "$script" "--boot-mode iso|direct|uefi"
   assert_file_contains "$script" "--installer-ui graphical|text"
   assert_file_contains "$script" "--graphics vnc|none|egl-headless"
+  assert_file_contains "$script" "--desktop-app-profile full|minimal"
   assert_file_contains "$script" "boot_mode=iso"
   assert_file_contains "$script" "installer_ui=graphical"
   assert_file_contains "$script" "graphics_mode=vnc"
+  assert_file_contains "$script" "desktop_app_profile=full"
   assert_file_contains "$script" "iso|direct|uefi)"
   assert_file_contains "$script" "graphical|text)"
   assert_file_contains "$script" "vnc|none|egl-headless)"
@@ -545,7 +555,9 @@ PY
   assert_file_contains "$script" "repo=fedora-%s&arch=%s"
   assert_file_contains "$script" "--cmdline \"console=ttyS0,115200n8 inst.cmdline\""
   assert_file_contains "$script" "direct_append+=\" console=ttyS0,115200n8 inst.cmdline\""
-  assert_file_contains "$script" "printf 'selected=1\\n' >/run/zz-fedora/install-selected"
+  assert_file_contains "$script" 'desktop_app_profile=$desktop_app_profile'
+  assert_file_contains "$script" 'etc/zz-fedora/desktop-app-profile'
+  assert_file_contains "$script" "Desktop app profile: %s"
   assert_file_contains "$script" "%pre --interpreter=/usr/bin/bash"
   assert_file_contains "$script" "addon_data_dir="
   assert_file_contains "$script" "usr/share/anaconda/dbus/services"
@@ -553,6 +565,15 @@ PY
   assert_file_contains "$script" "--add \"\$images_dir\""
   refute_file_contains "$script" "Bootstrap failed with exit code %s"
   refute_file_contains "$script" "cp -a /run/install/repo/zz-fedora /mnt/sysimage/opt/zz-fedora"
+}
+
+@test "Fedora VM installer rejects unsupported desktop app profiles" {
+  script="$ROOT_DIR/scripts/test-fedora-installer-vm.sh"
+
+  run "$script" --desktop-app-profile unsupported
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "unsupported desktop app profile: unsupported"
 }
 
 @test "Fedora install readiness treats planned artifacts as planned during install" {

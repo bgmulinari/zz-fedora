@@ -4,10 +4,18 @@ import os
 import tempfile
 from pathlib import Path
 
-from org_zz_fedora.constants import CATEGORY_ORDER, SELECTION_FILE
+from org_zz_fedora.constants import (
+    CATEGORY_ORDER,
+    DEFAULT_DESKTOP_APP_PROFILE,
+    DESKTOP_APP_PROFILES,
+    SELECTION_FILE,
+)
 
 PACKAGE_CHOICES_DIR = Path(__file__).resolve().parent / "choices"
 REMOTE_RUNTIME_CHOICES_DIR = Path("/run/zz-fedora/repository/choices")
+INSTALLER_DESKTOP_APP_PROFILE_FILE = Path(
+    "/etc/zz-fedora/desktop-app-profile"
+)
 INSTALL_REPO_CHOICES_DIR = Path("/run/install/repo/zz-fedora/choices")
 SOURCE_TREE_CHOICES_DIR = Path(__file__).resolve().parents[3] / "choices"
 
@@ -113,9 +121,42 @@ def read_categories():
     return categories
 
 
-def default_selections(categories):
+def validate_desktop_app_profile(desktop_app_profile):
+    """Return a supported desktop app profile or reject the value."""
+
+    if desktop_app_profile not in DESKTOP_APP_PROFILES:
+        raise ValueError(
+            "Unsupported desktop app profile: {}".format(desktop_app_profile)
+        )
+    return desktop_app_profile
+
+
+def installer_default_desktop_app_profile():
+    """Read an installer-image profile override when one is provided."""
+
+    try:
+        desktop_app_profile = (
+            INSTALLER_DESKTOP_APP_PROFILE_FILE.read_text(encoding="utf-8")
+            .strip()
+        )
+    except FileNotFoundError:
+        return DEFAULT_DESKTOP_APP_PROFILE
+
+    if desktop_app_profile not in DESKTOP_APP_PROFILES:
+        return DEFAULT_DESKTOP_APP_PROFILE
+    return desktop_app_profile
+
+
+def default_selections(
+    categories,
+    desktop_app_profile=DEFAULT_DESKTOP_APP_PROFILE,
+):
+    desktop_app_profile = validate_desktop_app_profile(desktop_app_profile)
     selections = {}
     for category in categories:
+        if category.id == "desktop" and desktop_app_profile == "minimal":
+            selections[category.id] = []
+            continue
         selections[category.id] = [
             choice.id for choice in category.choices if choice.default
         ]
@@ -136,16 +177,18 @@ def _split_selection(value):
 
 
 def read_state(categories=None):
-    """Return enabled state, category selections, and preferred browser."""
+    """Return enabled state, profile, category selections, and browser."""
 
     categories = categories or read_categories()
-    selections = default_selections(categories)
+    desktop_app_profile = installer_default_desktop_app_profile()
+    selections = default_selections(categories, desktop_app_profile)
     preferred_browser = ""
 
     if not os.path.exists(SELECTION_FILE):
-        return False, selections, preferred_browser
+        return False, desktop_app_profile, selections, preferred_browser
 
     valid_ids = _valid_choice_ids(categories)
+    stored_selections = {}
     with open(SELECTION_FILE, "r", encoding="utf-8") as state_file:
         for raw_line in state_file:
             line = raw_line.strip()
@@ -153,17 +196,23 @@ def read_state(categories=None):
                 continue
 
             key, value = line.split("=", 1)
-            if key.startswith("select."):
+            if key == "desktop_app_profile":
+                if value in DESKTOP_APP_PROFILES:
+                    desktop_app_profile = value
+            elif key.startswith("select."):
                 category_id = key[len("select.") :]
                 if category_id not in valid_ids:
                     continue
-                selections[category_id] = [
+                stored_selections[category_id] = [
                     item
                     for item in _split_selection(value)
                     if item in valid_ids[category_id]
                 ]
             elif key == "preferred_browser":
                 preferred_browser = value
+
+    selections = default_selections(categories, desktop_app_profile)
+    selections.update(stored_selections)
 
     selected_browsers = [
         item
@@ -173,10 +222,15 @@ def read_state(categories=None):
     if preferred_browser not in selected_browsers:
         preferred_browser = ""
 
-    return True, selections, preferred_browser
+    return True, desktop_app_profile, selections, preferred_browser
 
 
-def write_state(enabled, selections, preferred_browser=""):
+def write_state(
+    enabled,
+    desktop_app_profile,
+    selections,
+    preferred_browser="",
+):
     """Persist the Anaconda choices for the installation task."""
 
     if not enabled:
@@ -186,6 +240,7 @@ def write_state(enabled, selections, preferred_browser=""):
             pass
         return
 
+    desktop_app_profile = validate_desktop_app_profile(desktop_app_profile)
     categories = read_categories()
     valid_ids = _valid_choice_ids(categories)
     selected_browsers = [
@@ -209,6 +264,9 @@ def write_state(enabled, selections, preferred_browser=""):
         ) as state_file:
             temporary_path = state_file.name
             state_file.write("selected=1\n")
+            state_file.write(
+                "desktop_app_profile=%s\n" % desktop_app_profile
+            )
             for category in categories:
                 selected_ids = [
                     item

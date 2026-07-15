@@ -83,6 +83,22 @@ doctor_check_user_enabled() {
   fi
 }
 
+doctor_check_failed_system_units() {
+  local failed_units=""
+  if ! failed_units="$(systemctl list-units --state=failed --no-legend --no-pager --plain 2>/dev/null)"; then
+    printf '[warn] unable to query failed system units\n'
+    return 0
+  fi
+
+  if [[ -z "${failed_units//[[:space:]]/}" ]]; then
+    printf '[ok] no failed system units\n'
+    return 0
+  fi
+
+  printf '[warn] failed system units detected:\n%s\n' "$failed_units"
+  return 1
+}
+
 doctor_warn_command() {
   doctor_check_command "$1" || true
 }
@@ -357,6 +373,7 @@ module_90_doctor() {
   doctor_warn_enabled tuned-ppd
   doctor_warn_enabled cups
   doctor_warn_enabled avahi-daemon
+  doctor_check_failed_system_units || ((++fatal_checks))
 
   log_progress "Collecting Fedora repository diagnostics"
   run_cmd_as_root dnf copr list || true

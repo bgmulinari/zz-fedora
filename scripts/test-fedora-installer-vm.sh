@@ -8,7 +8,7 @@ source "$repo_dir/scripts/lib/iso-common.sh"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/test-fedora-installer-vm.sh --input ISO [--input-sha256 HASH] [--work-dir DIR] [--boot-mode iso|direct|uefi] [--installer-ui graphical|text] [--graphics vnc|none|egl-headless]
+Usage: scripts/test-fedora-installer-vm.sh --input ISO [--input-sha256 HASH] [--work-dir DIR] [--boot-mode iso|direct|uefi] [--installer-ui graphical|text] [--graphics vnc|none|egl-headless] [--desktop-app-profile full|minimal]
 
 Run an unattended QEMU install that exercises the Fedora ISO add-on task path.
 The generated test ISO uses the same remote runtime refresh and installer
@@ -21,6 +21,8 @@ The default graphical installer UI uses a local QEMU VNC display; use
 --installer-ui text for serial-console debugging.
 Use --graphics egl-headless for a headless virtio GL device suitable for
 post-install Niri/Wayland validation.
+The desktop app profile defaults to full; use --desktop-app-profile minimal
+to exercise the minimal Niri/Noctalia baseline.
 EOF
 }
 
@@ -38,6 +40,7 @@ timeout_seconds=14400
 boot_mode=iso
 installer_ui=graphical
 graphics_mode=vnc
+desktop_app_profile=full
 vnc_display=127.0.0.1:99
 fedora_release=
 fedora_arch=
@@ -140,6 +143,18 @@ while (($# > 0)); do
       graphics_mode=${1#*=}
       shift
       ;;
+    --desktop-app-profile)
+      (($# >= 2)) || {
+        err "--desktop-app-profile requires a value."
+        exit 1
+      }
+      desktop_app_profile=$2
+      shift 2
+      ;;
+    --desktop-app-profile=*)
+      desktop_app_profile=${1#*=}
+      shift
+      ;;
     --vnc-display)
       (($# >= 2)) || {
         err "--vnc-display requires a value."
@@ -187,6 +202,15 @@ case "$graphics_mode" in
     ;;
   *)
     err "unsupported graphics mode: $graphics_mode"
+    exit 1
+    ;;
+esac
+
+case "$desktop_app_profile" in
+  full|minimal)
+    ;;
+  *)
+    err "unsupported desktop app profile: $desktop_app_profile"
     exit 1
     ;;
 esac
@@ -280,7 +304,7 @@ bootloader --location=mbr --append="console=ttyS0,115200n8"
 EOF
   printf 'url --metalink="https://mirrors.fedoraproject.org/metalink?repo=fedora-%s&arch=%s"\n' "$fedora_release" "$fedora_arch"
   printf 'repo --name="updates"\n'
-  cat <<'EOF'
+  cat <<EOF
 
 services --enabled=NetworkManager
 
@@ -295,7 +319,7 @@ dnf5-plugins
 %pre --interpreter=/usr/bin/bash
 set -Eeuo pipefail
 install -d -m 0700 /run/zz-fedora
-printf 'selected=1\n' >/run/zz-fedora/install-selected
+printf 'selected=1\ndesktop_app_profile=$desktop_app_profile\n' >/run/zz-fedora/install-selected
 chmod 0600 /run/zz-fedora/install-selected
 %end
 EOF
@@ -305,6 +329,7 @@ iso_stage_tracked_runtime_payload "$repo_dir" "$payload_dir"
 
 mkdir -p \
   "$product_root/etc/anaconda/conf.d" \
+  "$product_root/etc/zz-fedora" \
   "$product_root/usr/share/anaconda/dbus/confs" \
   "$product_root/usr/share/anaconda/dbus/services" \
   "$product_root/usr/share/anaconda/addons" \
@@ -320,6 +345,7 @@ install -m 0644 \
 install -m 0644 \
   "$addon_data_dir/org.fedoraproject.Anaconda.Addons.ZZFedora.service" \
   "$product_root/usr/share/anaconda/dbus/services/"
+printf '%s\n' "$desktop_app_profile" >"$product_root/etc/zz-fedora/desktop-app-profile"
 cat >"$product_root/etc/anaconda/conf.d/100-zz-fedora.conf" <<'EOF'
 [User Interface]
 hidden_spokes =
@@ -374,6 +400,7 @@ printf 'QEMU log: %s\n' "$qemu_log"
 printf 'Boot mode: %s\n' "$boot_mode"
 printf 'Installer UI: %s\n' "$installer_ui"
 printf 'Graphics: %s\n' "$graphics_mode"
+printf 'Desktop app profile: %s\n' "$desktop_app_profile"
 if [[ "$graphics_mode" == "vnc" ]]; then
   printf 'VNC display: %s\n' "$vnc_display"
 fi

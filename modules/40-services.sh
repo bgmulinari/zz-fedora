@@ -15,7 +15,7 @@ service_package() {
   esac
 }
 
-enable_required_system_service_now() {
+ensure_required_system_service() {
   local service_name="$1"
   local package_name=""
 
@@ -31,6 +31,22 @@ enable_required_system_service_now() {
   if ! fedora_service_exists "$service_name"; then
     die "Required system service is still not available after package retry: $service_name"
   fi
+}
 
+enable_required_system_services_now() {
+  local -a service_names=("$@")
+  local service_name
+  [[ "${#service_names[@]}" -gt 0 ]] || return 0
+
+  for service_name in "${service_names[@]}"; do
+    ensure_required_system_service "$service_name" || return 1
+  done
+
+  fedora_enable_services_now "${service_names[@]}"
+}
+
+enable_required_system_service_now() {
+  local service_name="$1"
+  ensure_required_system_service "$service_name" || return 1
   fedora_enable_service_now "$service_name"
 }

@@ -10,6 +10,7 @@ from pyanaconda.core.threads import thread_manager
 from pyanaconda.ui.categories.software import SoftwareCategory
 from pyanaconda.ui.tui.spokes import NormalTUISpoke
 
+from org_zz_fedora.constants import DEFAULT_DESKTOP_APP_PROFILE
 from org_zz_fedora.runtime import (
     THREAD_RUNTIME_REFRESH,
     payload_proxy_url,
@@ -39,6 +40,7 @@ class ZZFedoraSpoke(NormalTUISpoke):
         self.title = N_("ZZ Fedora")
         self._categories = []
         self._container = None
+        self._desktop_app_profile = DEFAULT_DESKTOP_APP_PROFILE
         self._selections = {}
         self._preferred_browser = ""
         self._runtime_ready = False
@@ -80,10 +82,18 @@ class ZZFedoraSpoke(NormalTUISpoke):
             return False
 
         self._categories = categories
-        enabled, self._selections, self._preferred_browser = read_state(self._categories)
+        (
+            enabled,
+            self._desktop_app_profile,
+            self._selections,
+            self._preferred_browser,
+        ) = read_state(self._categories)
         self._runtime_ready = True
         if not enabled:
-            self._selections = default_selections(self._categories)
+            self._selections = default_selections(
+                self._categories,
+                self._desktop_app_profile,
+            )
             self._preferred_browser = ""
             self.apply()
         self._runtime_error = ""
@@ -126,6 +136,16 @@ class ZZFedoraSpoke(NormalTUISpoke):
             )
             self.window.add_with_separator(self._container)
             return
+        self._container.add(
+            CheckboxWidget(
+                title=_(
+                    "Minimal desktop apps - keep the Niri and Noctalia "
+                    "baseline without default desktop applications"
+                ),
+                completed=self._desktop_app_profile == "minimal",
+            ),
+            callback=self._toggle_desktop_app_profile(),
+        )
         for category in self._categories:
             for choice in category.choices:
                 title = "%s: %s" % (category.label, choice.label)
@@ -144,7 +164,12 @@ class ZZFedoraSpoke(NormalTUISpoke):
     def apply(self):
         if not self._runtime_ready:
             return
-        write_state(True, self._selections, self._preferred_browser)
+        write_state(
+            True,
+            self._desktop_app_profile,
+            self._selections,
+            self._preferred_browser,
+        )
 
     @property
     def ready(self):
@@ -168,11 +193,16 @@ class ZZFedoraSpoke(NormalTUISpoke):
         if not self._runtime_ready:
             return _("Latest choices unavailable")
         count = selected_choice_count(self._selections)
+        profile_label = (
+            _("Minimal desktop")
+            if self._desktop_app_profile == "minimal"
+            else _("Full desktop")
+        )
         if count == 0:
-            return _("Base desktop")
+            return profile_label
         if count == 1:
-            return _("Base desktop + 1 option")
-        return _("Base desktop + %d options") % count
+            return _("%s + 1 option") % profile_label
+        return _("%s + %d options") % (profile_label, count)
 
     def input(self, args, key):
         if self._container.process_user_input(key):
@@ -198,5 +228,21 @@ class ZZFedoraSpoke(NormalTUISpoke):
 
             if category_id == "browsers" and self._preferred_browser == choice_id:
                 self._preferred_browser = ""
+
+        return toggle
+
+    def _toggle_desktop_app_profile(self):
+        def toggle(data):
+            del data
+            if self._desktop_app_profile == "minimal":
+                self._desktop_app_profile = "full"
+            else:
+                self._desktop_app_profile = "minimal"
+
+            profile_defaults = default_selections(
+                self._categories,
+                self._desktop_app_profile,
+            )
+            self._selections["desktop"] = profile_defaults.get("desktop", [])
 
         return toggle

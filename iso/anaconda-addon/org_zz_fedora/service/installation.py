@@ -12,7 +12,11 @@ from pathlib import Path
 
 from pyanaconda.modules.common.task import Task
 
-from org_zz_fedora.constants import SELECTION_FILE
+from org_zz_fedora.constants import (
+    DEFAULT_DESKTOP_APP_PROFILE,
+    DESKTOP_APP_PROFILES,
+    SELECTION_FILE,
+)
 
 log = logging.getLogger(__name__)
 
@@ -72,11 +76,13 @@ class ZZFedoraInstallationTask(Task):
         self._copy_repo(target_repo_path, user["uid"], user["gid"])
         self._prepare_state_dirs(target_home_path, user["uid"], user["gid"])
         selection_lines = self._read_selection_lines()
+        desktop_app_profile = self._read_desktop_app_profile(selection_lines)
         self._write_target_selection(selection_lines)
         self._write_selection_config(
             selection_lines,
             self._target_path(config_dir / "selections.conf"),
             user,
+            desktop_app_profile,
         )
         self._write_runner_script(
             target_repo_dir=target_repo_dir,
@@ -86,6 +92,7 @@ class ZZFedoraInstallationTask(Task):
             log_dir=log_dir,
             progress_file=progress_file,
             target_user=user["name"],
+            desktop_app_profile=desktop_app_profile,
         )
 
         self._report("Starting ZZ Fedora for {}".format(user["name"]))
@@ -193,13 +200,39 @@ class ZZFedoraInstallationTask(Task):
             if selection_lines and not selection_lines[-1].endswith("\n"):
                 state_file.write("\n")
 
-    def _write_selection_config(self, selection_lines, destination, user):
+    def _read_desktop_app_profile(self, selection_lines):
+        desktop_app_profile = DEFAULT_DESKTOP_APP_PROFILE
+        for raw_line in selection_lines:
+            line = raw_line.strip()
+            if not line or "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            if key != "desktop_app_profile":
+                continue
+            if value not in DESKTOP_APP_PROFILES:
+                raise RuntimeError(
+                    "Unsupported desktop app profile: {}".format(value)
+                )
+            desktop_app_profile = value
+
+        return desktop_app_profile
+
+    def _write_selection_config(
+        self,
+        selection_lines,
+        destination,
+        user,
+        desktop_app_profile,
+    ):
         preferred_browser_seen = False
         destination.parent.mkdir(parents=True, exist_ok=True)
 
         with open(destination, "w", encoding="utf-8") as state_file:
             state_file.write("target_user={}\n".format(user["name"]))
-            state_file.write("desktop_app_profile=full\n")
+            state_file.write(
+                "desktop_app_profile={}\n".format(desktop_app_profile)
+            )
 
             for raw_line in selection_lines:
                 line = raw_line.strip()
@@ -230,6 +263,7 @@ class ZZFedoraInstallationTask(Task):
         log_dir,
         progress_file,
         target_user,
+        desktop_app_profile,
     ):
         script_path = self._target_path(RUN_SCRIPT_PATH)
         script_path.parent.mkdir(parents=True, exist_ok=True)
@@ -243,7 +277,7 @@ export CONFIG_DIR={config_dir}
 export LOG_DIR={log_dir}
 export STATE_OWNER_USER={target_user}
 export TARGET_USER={target_user}
-export DESKTOP_APP_PROFILE=full
+export DESKTOP_APP_PROFILE={desktop_app_profile}
 export ZZ_INSTALLER_DEFER_START_SERVICES=1
 export ZZ_INSTALLER_POST_TIMEOUT_SECONDS="${{ZZ_INSTALLER_POST_TIMEOUT_SECONDS:-14400}}"
 export ZZ_COMMAND_TIMEOUT_SECONDS="${{ZZ_COMMAND_TIMEOUT_SECONDS:-3600}}"
@@ -265,13 +299,14 @@ export LANG LC_ALL
 
 cd {target_repo_dir}
 exec timeout --foreground --kill-after=60s "$ZZ_INSTALLER_POST_TIMEOUT_SECONDS" \\
-  ./install.sh install --yes --use-saved --desktop-app-profile full --no-tui --target-user "$TARGET_USER"
+  ./install.sh install --yes --use-saved --desktop-app-profile "$DESKTOP_APP_PROFILE" --no-tui --target-user "$TARGET_USER"
 """.format(
             state_dir=shlex.quote(str(state_dir)),
             cache_dir=shlex.quote(str(cache_dir)),
             config_dir=shlex.quote(str(config_dir)),
             log_dir=shlex.quote(str(log_dir)),
             target_user=shlex.quote(target_user),
+            desktop_app_profile=shlex.quote(desktop_app_profile),
             progress_file=shlex.quote(str(progress_file)),
             target_repo_dir=shlex.quote(str(target_repo_dir)),
         )

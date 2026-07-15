@@ -152,6 +152,48 @@ setup() {
   assert_contains "$output" "user service enabled app-com.mitchellh.ghostty.service"
 }
 
+@test "doctor fails and identifies failed system units" {
+  build_test_plan
+  COMMAND=doctor
+  DRY_RUN=0
+
+  doctor_check_command() {
+    printf '[ok] command %s\n' "$1"
+  }
+  doctor_check_file() {
+    printf '[ok] file %s\n' "$1"
+  }
+  doctor_check_contains() {
+    printf '[ok] %s contains %s\n' "$1" "$2"
+  }
+  doctor_check_dir_has_files() {
+    printf '[ok] directory %s has %s\n' "$1" "$2"
+  }
+  doctor_check_user_enabled() {
+    return 0
+  }
+  detect_enabled_display_manager() {
+    printf 'gdm.service\n'
+  }
+  systemctl() {
+    if [[ "$1" == "list-units" ]]; then
+      printf 'foomaticrip-upgrade.service loaded failed failed Allowing already installed printers\n'
+      return 0
+    fi
+    [[ "$1" == "is-enabled" ]]
+  }
+  run_cmd_as_root() {
+    return 0
+  }
+
+  capture_without_bats_debug_trap output status module_90_doctor
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "failed system units detected"
+  assert_contains "$output" "foomaticrip-upgrade.service"
+  assert_contains "$output" "Fatal desktop readiness checks failed: 1"
+}
+
 @test "doctor infers the portal service from a selected backend" {
   native_plan="$TEST_ROOT/native.pkgs"
   printf 'xdg-desktop-portal-gtk\n' >"$native_plan"

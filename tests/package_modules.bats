@@ -156,6 +156,7 @@ setup() {
   expected_commands="$(cat <<'EOF'
 dnf swap -y ffmpeg-free ffmpeg --allowerasing
 dnf install -y @multimedia --setopt=install_weak_deps=False --exclude=PackageKit-gstreamer-plugin --exclude=libva-intel-media-driver
+dnf -y mark group multimedia pipewire-codec-aptx
 dnf install -y mozilla-openh264
 EOF
 )"
@@ -180,6 +181,25 @@ EOF
 )" "$(<"$command_log")"
 }
 
+@test "media codec action stops when aptX group ownership cannot be recorded" {
+  DRY_RUN=0
+  command_log="$TEST_ROOT/media-codec-aptx-failure-commands.log"
+  run_cmd_as_root() {
+    printf '%s\n' "$*" >>"$command_log"
+    [[ "$*" != "dnf -y mark group multimedia pipewire-codec-aptx" ]]
+  }
+
+  run install_fedora_media_codecs
+
+  [ "$status" -eq 1 ]
+  assert_equal "$(cat <<'EOF'
+dnf swap -y ffmpeg-free ffmpeg --allowerasing
+dnf install -y @multimedia --setopt=install_weak_deps=False --exclude=PackageKit-gstreamer-plugin --exclude=libva-intel-media-driver
+dnf -y mark group multimedia pipewire-codec-aptx
+EOF
+)" "$(<"$command_log")"
+}
+
 @test "media codec verification checks exact Fedora package names" {
   DRY_RUN=0
   rpm_log="$TEST_ROOT/media-codec-rpm.log"
@@ -191,7 +211,7 @@ EOF
 
   [ "$status" -eq 0 ]
   assert_equal \
-    "-q ffmpeg ffmpeg-libs gstreamer1-plugin-libav gstreamer1-plugin-openh264 gstreamer1-plugins-bad-freeworld gstreamer1-plugins-ugly mozilla-openh264" \
+    "-q ffmpeg ffmpeg-libs gstreamer1-plugin-libav gstreamer1-plugin-openh264 gstreamer1-plugins-bad-freeworld gstreamer1-plugins-ugly pipewire-codec-aptx mozilla-openh264" \
     "$(<"$rpm_log")"
 }
 
@@ -463,9 +483,6 @@ EOF
     run_cmd_as_root() {
       printf 'cmd:%s\n' "$*"
     }
-    fedora_enable_service_now() {
-      printf 'enable:%s\n' "$1"
-    }
     configure_base_system_services
   )"
   status=$?
@@ -474,7 +491,27 @@ EOF
   [ "$status" -ne 0 ]
   assert_contains "$output" "install:dnf:tuned-ppd"
   assert_contains "$output" "cmd:systemctl daemon-reload"
-  assert_contains "$output" "enable:NetworkManager"
+  refute_contains "$output" "cmd:systemctl enable"
+}
+
+@test "base system services are enabled and started in one transaction" {
+  build_test_plan
+  DRY_RUN=0
+
+  fedora_service_exists() {
+    return 0
+  }
+  run_cmd_as_root() {
+    printf 'cmd:%s\n' "$*"
+  }
+
+  run configure_base_system_services
+
+  [ "$status" -eq 0 ]
+  [ "$(grep -Fc 'cmd:systemctl enable --now' <<<"$output")" -eq 1 ]
+  for service_name in NetworkManager firewalld bluetooth chronyd tuned-ppd cups avahi-daemon; do
+    grep -F 'cmd:systemctl enable --now' <<<"$output" | grep -F "$service_name" >/dev/null
+  done
 }
 
 @test "Niri readiness failure aborts base setup" {

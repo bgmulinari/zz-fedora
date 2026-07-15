@@ -96,6 +96,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt6ct-kde"
   assert_plan_has "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/systemd/user/app-com.mitchellh.ghostty.service.d/restart.conf"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/zz"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/autostart/zz-first-run.desktop"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/ghostty/themes/noctalia"

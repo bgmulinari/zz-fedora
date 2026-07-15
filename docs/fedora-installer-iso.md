@@ -11,10 +11,13 @@ offline package mirror: Fedora, RPM Fusion, COPR, Terra, Flathub, GitHub-hosted
 shell/font assets, and any selected upstream installers are still fetched from
 the network exactly as they are during the bootstrap flow.
 
-The default is a full installation: every optional non-browser choice is
+The default profile is `full`: every optional non-browser choice is
 preselected, while Firefox is the only preselected browser and therefore the
-default browser. The normal setup wizard and both Anaconda UIs use the same
-catalog defaults; deselect any components you do not want before continuing.
+default browser. Both Anaconda UIs also expose the `minimal` desktop app
+profile. It keeps the Niri and Noctalia baseline, suppresses the Desktop
+catalog defaults and full-profile desktop integration bundles, and still
+allows individual desktop apps to be selected explicitly. Other optional
+catalogs keep their normal defaults in both profiles.
 
 The supported build and installation target is Fedora 44 x86_64.
 
@@ -58,11 +61,11 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
   installer from it. The generated payload marker records the resolved archive
   revision and remote ref. A later bootstrap run backs up the snapshot and
   replaces it with a normal Git clone before updating.
-- The add-on writes the chosen optional packages to the normal saved selection
-  format. The installer is invoked with `--use-saved`,
-  `--desktop-app-profile full`, and user-scoped state paths so
-  the result matches the unattended bootstrap baseline plus the Anaconda
-  choices.
+- The add-on writes the chosen desktop app profile and optional packages to
+  the normal saved selection format. The installer is invoked with
+  `--use-saved`, the selected `--desktop-app-profile full|minimal`, and
+  user-scoped state paths so the result matches the selected baseline plus the
+  Anaconda choices.
 - The Kickstart enables Anaconda's built-in `updates` repository by name. This
   makes Anaconda resolve its original package transaction against both the
   Fedora release and current updates repositories, matching the online
@@ -120,9 +123,11 @@ can resolve different repository revisions.
 3. Complete the Anaconda screens, including creating a regular user.
 4. Configure networking or the installation-source proxy if necessary. The
    `ZZ Fedora` spoke waits for source setup, then fetches and validates the
-   current `main` runtime. Open it and review the preselected full install; its
-   catalogs come from that fetched revision.
-   Deselect any desktop apps, AI tools, development tools, .NET
+   current `main` runtime. Open it, select the full or minimal desktop app
+   profile, and review its choices; the catalogs come from that fetched
+   revision. Full remains the default. Selecting minimal clears the Desktop
+   catalog defaults, after which individual desktop apps can be selected.
+   Deselect any AI tools, development tools, .NET
    components, office apps, gaming apps, or multimedia packages you do not
    want, or change the Firefox browser selection.
 5. Start installation.
@@ -130,7 +135,7 @@ can resolve different repository revisions.
    and runs:
 
 ```bash
-./install.sh install --yes --use-saved --desktop-app-profile full --no-tui --target-user "$target_user"
+./install.sh install --yes --use-saved --desktop-app-profile "$desktop_app_profile" --no-tui --target-user "$target_user"
 ```
 
 System services are enabled for first boot during ISO installs instead of being
@@ -149,6 +154,11 @@ changes to the installer path:
 scripts/test-fedora-installer-vm.sh \
   --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso
 ```
+
+The VM harness defaults to the full profile. Pass
+`--desktop-app-profile minimal` to persist a minimal selection through the
+same add-on state and service path. The resulting qcow2 remains in the selected
+work directory for a separate graphical boot and Niri/Noctalia login check.
 
 The harness builds a VM-only Kickstart ISO, boots the generated ISO's Fedora
 bootloader by default, starts Anaconda in graphical mode over a local QEMU VNC
