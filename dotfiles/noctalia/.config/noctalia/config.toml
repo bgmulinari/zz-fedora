@@ -67,7 +67,7 @@ end = [
   "brightness",
   "battery",
   "default-spacer",
-  "display-settings",
+  "niri-outputs",
   "settings",
   "control-center",
   "session",
@@ -89,8 +89,8 @@ format = "{:%b %d %H:%M}"
 [widget.default-spacer]
 type = "spacer"
 
-[widget.display-settings]
-type = "local/display-settings:launcher"
+[widget.niri-outputs]
+type = "local/niri-outputs:launcher"
 
 [widget.media]
 hide_when_no_media = true
@@ -108,7 +108,7 @@ show_condition = false
 # Local plugins
 
 [plugins]
-enabled = [ "local/display-settings" ]
+enabled = [ "local/niri-outputs" ]
 
 # Notifications and on-screen display
 

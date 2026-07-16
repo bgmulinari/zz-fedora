@@ -1,10 +1,10 @@
 local backend = noctalia.pluginDir() .. "/backend.py"
 local runtimeBase = noctalia.getenv("XDG_RUNTIME_DIR") or "/tmp"
-local runtimeDir = runtimeBase .. "/noctalia-display-settings-panel"
+local runtimeDir = runtimeBase .. "/noctalia-niri-outputs-panel"
 local draftPath = runtimeDir .. "/draft.json"
-local configPath = noctalia.expandPath("~/.config/niri/cfg/display.kdl")
+local displayConfigPath = noctalia.expandPath("~/.config/niri/cfg/display.kdl")
+local mainConfigPath = noctalia.expandPath("~/.config/niri/config.kdl")
 local transformValues = { "normal", "90", "180", "270", "flipped", "flipped-90", "flipped-180", "flipped-270" }
-local transformLabels = { "Normal", "90°", "180°", "270°", "Flipped", "Flipped 90°", "Flipped 180°", "Flipped 270°" }
 local outputCallbacks = {
   "selectOutput1", "selectOutput2", "selectOutput3", "selectOutput4",
   "selectOutput5", "selectOutput6", "selectOutput7", "selectOutput8",
@@ -15,7 +15,7 @@ local busy = false
 local draft = nil
 local baselineOutputs = nil
 local selectedIndex = 1
-local statusText = "Loading connected displays…"
+local statusText = noctalia.tr("panel.status.loading_outputs")
 local statusError = false
 local previewActive = false
 local previewRemaining = 0
@@ -26,6 +26,23 @@ local formRevision = 0
 
 local render
 local restorePreview
+
+local function tr(key, substitutions)
+  return noctalia.tr(key, substitutions)
+end
+
+local function transformLabels()
+  return {
+    tr("transforms.normal"),
+    tr("transforms.rotate_90"),
+    tr("transforms.rotate_180"),
+    tr("transforms.rotate_270"),
+    tr("transforms.flipped"),
+    tr("transforms.flipped_90"),
+    tr("transforms.flipped_180"),
+    tr("transforms.flipped_270"),
+  }
+end
 
 local function shellQuote(value)
   return "'" .. string.gsub(value, "'", "'\\''") .. "'"
@@ -112,6 +129,26 @@ local function setStatus(message, isError)
   statusError = isError == true
 end
 
+local function translateBackendError(descriptor)
+  if type(descriptor) ~= "table" or type(descriptor.key) ~= "string" then
+    return nil
+  end
+  local substitutions = {}
+  if type(descriptor.args) == "table" then
+    for key, value in pairs(descriptor.args) do
+      substitutions[key] = value
+    end
+  end
+  if type(descriptor.cause) == "table" then
+    substitutions.reason = translateBackendError(descriptor.cause) or ""
+  end
+  local translated = tr(descriptor.key, substitutions)
+  if translated == descriptor.key then
+    return nil
+  end
+  return translated
+end
+
 local function clearPreviewState()
   previewActive = false
   previewRemaining = 0
@@ -144,7 +181,7 @@ local function decodeBackendResult(result, fallback)
     return decoded, nil, nil
   end
   if decoded and decoded.error then
-    return nil, decoded.error, decoded.preview
+    return nil, translateBackendError(decoded.error_localization) or decoded.error, decoded.preview
   end
   local detail = result.stderr or ""
   if detail == "" then
@@ -164,7 +201,7 @@ local function runBackend(arguments, callback)
   end)
   if not started then
     busy = false
-    setStatus("Could not start the display settings backend", true)
+    setStatus(tr("panel.errors.backend_start"), true)
     render()
   end
 end
@@ -173,18 +210,21 @@ local function queryOutputs(successMessage, pendingMessage)
   if busy then
     return
   end
-  setStatus(pendingMessage or "Refreshing connected displays…", false)
+  setStatus(pendingMessage or tr("panel.status.refreshing_outputs"), false)
   runBackend("query", function(result)
-    local decoded, backendError = decodeBackendResult(result, "Could not query connected displays")
+    local decoded, backendError = decodeBackendResult(result, tr("panel.errors.query_outputs"))
     if not decoded then
       setStatus(backendError, true)
       return
     end
     if type(decoded.outputs) ~= "table" or not replaceDraft(decoded.outputs) then
-      setStatus("Niri returned an invalid output list", true)
+      setStatus(tr("panel.errors.invalid_output_list"), true)
       return
     end
-    setStatus(successMessage or "Connected display state refreshed", false)
+    if not syncPreviewState(decoded.preview) then
+      clearPreviewState()
+    end
+    setStatus(successMessage or tr("panel.status.outputs_refreshed"), false)
   end)
 end
 
@@ -209,6 +249,21 @@ local function transformIndex(output)
   return 0
 end
 
+local function localizedModeLabels(output)
+  local labels = {}
+  for index, value in ipairs(output.mode_values or {}) do
+    local label = string.gsub(value, "@", " @ ") .. " " .. tr("units.hertz")
+    if type(output.mode_preferred) == "table" and output.mode_preferred[index] == true then
+      label = label .. "  • " .. tr("panel.mode_badges.preferred")
+    end
+    if output.custom_mode == true and value == output.mode then
+      label = label .. "  • " .. tr("panel.mode_badges.custom")
+    end
+    table.insert(labels, label)
+  end
+  return labels
+end
+
 local function logicalWidth(output)
   local width, height = string.match(output.mode or "", "^(%d+)x(%d+)@")
   width = tonumber(width) or output.logical_width or 0
@@ -222,7 +277,7 @@ end
 local function monitorButtons()
   local children = {}
   if not draft or type(draft.outputs) ~= "table" or #draft.outputs == 0 then
-    table.insert(children, ui.label({ text = "No connected outputs", color = "on_surface_variant" }))
+    table.insert(children, ui.label({ text = tr("panel.states.no_connected_outputs"), color = "on_surface_variant" }))
     return children
   end
 
@@ -243,7 +298,7 @@ local function monitorButtons()
   end
   if #draft.outputs > #outputCallbacks then
     table.insert(children, ui.label({
-      text = "Only the first eight outputs can be edited in this preview build",
+      text = tr("panel.limits.first_eight_outputs"),
       fontSize = 11,
       color = "secondary",
       maxLines = 2,
@@ -265,12 +320,12 @@ end
 local function detailContent()
   local output = selectedOutput()
   if not output then
-    return { ui.label({ text = "Select a connected output", color = "on_surface_variant" }) }
+    return { ui.label({ text = tr("panel.states.select_output"), color = "on_surface_variant" }) }
   end
 
-  local modeLabels = output.mode_labels or {}
+  local modeLabels = localizedModeLabels(output)
   if #modeLabels == 0 then
-    modeLabels = { "No modes reported" }
+    modeLabels = { tr("panel.states.no_modes") }
   end
 
   local positionKey = output.name .. "-" .. tostring(formRevision)
@@ -278,9 +333,9 @@ local function detailContent()
     ui.row({ align = "center", gap = 8 }, {
       ui.glyph({ name = "device-desktop", size = 20, color = "primary" }),
       ui.label({ text = output.name, fontSize = 20, fontWeight = "bold" }),
-      ui.label({ text = output.description or "Connected output", fontSize = 12, color = "on_surface_variant", maxLines = 1, flexGrow = 1 }),
+      ui.label({ text = output.description or tr("panel.states.connected_output"), fontSize = 12, color = "on_surface_variant", maxLines = 1, flexGrow = 1 }),
       ui.label({
-        text = output.enabled and "Enabled" or "Disabled",
+        text = output.enabled and tr("panel.states.enabled") or tr("panel.states.disabled"),
         color = output.enabled and "primary" or "on_surface_variant",
         fontWeight = "bold",
       }),
@@ -288,15 +343,15 @@ local function detailContent()
 
     ui.separator({ spacing = 2 }),
 
-    ui.label({ text = "Output", color = "secondary", fontWeight = "bold" }),
+    ui.label({ text = tr("panel.sections.output"), color = "secondary", fontWeight = "bold" }),
     settingRow(
-      "Enabled",
-      "At least one connected output must remain enabled",
+      tr("panel.fields.enabled.label"),
+      tr("panel.fields.enabled.description"),
       ui.toggle({ checked = output.enabled == true, enabled = not busy and not previewActive, onChange = "onEnabledChanged" })
     ),
     settingRow(
-      "Mode",
-      "Resolution and exact refresh rate reported by Niri",
+      tr("panel.fields.mode.label"),
+      tr("panel.fields.mode.description"),
       ui.select({
         options = modeLabels,
         selectedIndex = modeIndex(output),
@@ -306,8 +361,8 @@ local function detailContent()
       })
     ),
     settingRow(
-      "Variable Refresh Rate",
-      output.vrr_supported and "Reduce tearing when the output supports VRR" or "This output did not report VRR support",
+      tr("panel.fields.vrr.label"),
+      output.vrr_supported and tr("panel.fields.vrr.supported_description") or tr("panel.fields.vrr.unsupported_description"),
       ui.toggle({
         checked = output.vrr_enabled == true,
         enabled = not busy and not previewActive and output.vrr_supported == true,
@@ -317,20 +372,20 @@ local function detailContent()
 
     ui.separator({ spacing = 2 }),
 
-    ui.label({ text = "Layout", color = "secondary", fontWeight = "bold" }),
+    ui.label({ text = tr("panel.sections.scale_transform_position"), color = "secondary", fontWeight = "bold" }),
     settingRow(
-      "Scale",
-      "Logical output scale; fractional values are supported",
+      tr("panel.fields.scale.label"),
+      tr("panel.fields.scale.description"),
       ui.row({ gap = 8, width = 240, align = "center" }, {
         ui.slider({ min = 0.5, max = 3.0, step = 0.05, value = output.scale, flexGrow = 1, enabled = not busy and not previewActive, onChange = "onScaleChanged" }),
         ui.label({ text = string.format("%.2f×", output.scale), width = 52, textAlign = "end", color = "primary", fontWeight = "bold" }),
       })
     ),
     settingRow(
-      "Transform",
-      "Rotate counter-clockwise or flip this output",
+      tr("panel.fields.transform.label"),
+      tr("panel.fields.transform.description"),
       ui.select({
-        options = transformLabels,
+        options = transformLabels(),
         selectedIndex = transformIndex(output),
         width = 190,
         enabled = not busy and not previewActive,
@@ -340,13 +395,13 @@ local function detailContent()
     ui.column({ gap = 6 }, {
       ui.row({ gap = 8, align = "center" }, {
         ui.column({ gap = 2, flexGrow = 1 }, {
-          ui.label({ text = "Position", fontWeight = "medium" }),
-          ui.label({ text = "Logical coordinates; buttons move by 10 logical pixels", fontSize = 11, color = "on_surface_variant", maxLines = 2 }),
+          ui.label({ text = tr("panel.fields.position.label"), fontWeight = "medium" }),
+          ui.label({ text = tr("panel.fields.position.description"), fontSize = 11, color = "on_surface_variant", maxLines = 2 }),
         }),
-        ui.button({ text = "Auto Arrange", glyph = "layout-columns", variant = "outline", enabled = not busy and not previewActive, onClick = "autoArrange" }),
+        ui.button({ text = tr("panel.buttons.auto_arrange"), glyph = "layout-columns", variant = "outline", enabled = not busy and not previewActive, onClick = "autoArrange" }),
       }),
       ui.row({ gap = 8, align = "center" }, {
-        ui.label({ text = "Horizontal (X)", flexGrow = 1, color = "on_surface_variant" }),
+        ui.label({ text = tr("panel.fields.position.horizontal"), flexGrow = 1, color = "on_surface_variant" }),
         ui.row({ gap = 4, align = "center" }, {
           ui.button({ glyph = "minus", variant = "outline", width = 32, height = 32, enabled = not busy and not previewActive, onClick = "nudgeXMinus" }),
           ui.input({ key = "x-" .. positionKey, value = tostring(output.x), width = 84, enabled = not busy and not previewActive, onChange = "onXChanged" }),
@@ -354,7 +409,7 @@ local function detailContent()
         }),
       }),
       ui.row({ gap = 8, align = "center" }, {
-        ui.label({ text = "Vertical (Y)", flexGrow = 1, color = "on_surface_variant" }),
+        ui.label({ text = tr("panel.fields.position.vertical"), flexGrow = 1, color = "on_surface_variant" }),
         ui.row({ gap = 4, align = "center" }, {
           ui.button({ glyph = "minus", variant = "outline", width = 32, height = 32, enabled = not busy and not previewActive, onClick = "nudgeYMinus" }),
           ui.input({ key = "y-" .. positionKey, value = tostring(output.y), width = 84, enabled = not busy and not previewActive, onChange = "onYChanged" }),
@@ -372,26 +427,26 @@ render = function()
 
   local statusColor = statusError and "error" or "primary"
   local draftChanged = draftHasChanges()
-  local previewText = draftChanged and "Changes are not applied until Preview is pressed" or "No unapplied changes"
+  local previewText = draftChanged and tr("panel.preview.unapplied_changes") or tr("panel.preview.no_unapplied_changes")
   if previewActive then
-    if previewStatus == "rollback" then
-      previewText = "Restoring persistent display settings…"
+    if previewStatus == "restoring" then
+      previewText = tr("panel.preview.restoring")
     else
-      previewText = "Preview reverts in " .. tostring(previewRemaining) .. " seconds"
+      previewText = noctalia.trp("panel.preview.reverts_in", previewRemaining)
     end
   end
   panel.render(ui.column({ gap = 12, padding = 14, flexGrow = 1 }, {
     ui.row({ gap = 8, align = "center" }, {
       ui.glyph({ name = "device-desktop-cog", size = 20, color = "primary" }),
-      ui.label({ text = "Display Settings", fontSize = 20, fontWeight = "bold" }),
-      ui.label({ text = "Configure connected Niri outputs", fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
+      ui.label({ text = tr("panel.title"), fontSize = 20, fontWeight = "bold" }),
+      ui.label({ text = tr("panel.subtitle"), fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
       ui.button({ glyph = "refresh", variant = "ghost", width = 32, height = 32, enabled = not busy and not previewActive and not draftChanged, onClick = "refreshOutputs" }),
       ui.button({ glyph = "close", variant = "ghost", width = 32, height = 32, onClick = "closePanel" }),
     }),
 
     ui.row({ gap = 12, flexGrow = 1, align = "stretch" }, {
       ui.column({ gap = 8, padding = 6, width = 200, fill = "surface", radius = 12 }, {
-        ui.label({ text = "Connected Outputs", fontWeight = "bold", color = "secondary" }),
+        ui.label({ text = tr("panel.sections.connected_outputs"), fontWeight = "bold", color = "secondary" }),
         ui.scroll({ gap = 6, flexGrow = 1 }, monitorButtons()),
       }),
       ui.separator({ orientation = "vertical" }),
@@ -405,11 +460,11 @@ render = function()
       ui.label({ text = previewText, fontSize = 11, color = "on_surface_variant" }),
     }),
     ui.row({ gap = 10, align = "center" }, {
-      ui.button({ text = "Reset", glyph = "restore", variant = "ghost", enabled = not busy and not previewActive and draftChanged, onClick = "resetDraft" }),
+      ui.button({ text = tr("panel.buttons.reset"), glyph = "restore", variant = "ghost", enabled = not busy and not previewActive and draftChanged, onClick = "resetDraft" }),
       ui.spacer({ flexGrow = 1 }),
-      ui.button({ text = "Revert", glyph = "arrow-back-up", variant = "outline", enabled = not busy and previewActive, onClick = "revertPreview" }),
-      ui.button({ text = busy and "Working…" or "Preview", glyph = "eye", variant = "secondary", enabled = not busy and not previewActive and draftChanged, onClick = "previewChanges" }),
-      ui.button({ text = "Keep Settings", glyph = "device-floppy", variant = "primary", enabled = not busy and previewActive and previewStatus == "active" and draftChanged, onClick = "keepChanges" }),
+      ui.button({ text = tr("panel.buttons.revert"), glyph = "arrow-back-up", variant = "outline", enabled = not busy and previewActive, onClick = "revertPreview" }),
+      ui.button({ text = busy and tr("panel.buttons.working") or tr("panel.buttons.preview"), glyph = "eye", variant = "secondary", enabled = not busy and not previewActive and draftChanged, onClick = "previewChanges" }),
+      ui.button({ text = tr("panel.buttons.keep_settings"), glyph = "device-floppy", variant = "primary", enabled = not busy and previewActive and previewStatus == "active", onClick = "keepChanges" }),
     }),
   }))
 end
@@ -520,19 +575,19 @@ function autoArrange()
     end
   end
   formRevision = formRevision + 1
-  setStatus("Outputs arranged left to right in the draft", false)
+  setStatus(tr("panel.status.outputs_arranged"), false)
   render()
 end
 
 function refreshOutputs()
   if not busy and not draftHasChanges() then
-    queryOutputs("Connected display state refreshed", "Refreshing connected displays…")
+    queryOutputs(tr("panel.status.outputs_refreshed"), tr("panel.status.refreshing_outputs"))
   end
 end
 
 function resetDraft()
   if not busy and not previewActive then
-    queryOutputs("Draft reset to the current Niri output state", "Resetting the display draft…")
+    queryOutputs(tr("panel.status.draft_reset"), tr("panel.status.resetting_draft"))
   end
 end
 
@@ -543,22 +598,25 @@ function previewChanges()
   noctalia.mkdirAll(runtimeDir)
   local encoded, encodeError = noctalia.json.encode(draft, true)
   if not encoded then
-    setStatus(encodeError or "Could not encode the display draft", true)
+    setStatus(encodeError or tr("panel.errors.encode_draft"), true)
     render()
     return
   end
   local written, writeError = noctalia.writeFile(draftPath, encoded)
   if not written then
-    setStatus(writeError or "Could not save the display draft", true)
+    setStatus(writeError or tr("panel.errors.write_draft"), true)
     render()
     return
   end
 
-  local timeout = tonumber(panel.getConfig("confirm_timeout")) or 15
-  local arguments = "preview --draft " .. shellQuote(draftPath) .. " --config " .. shellQuote(configPath) .. " --timeout " .. tostring(timeout)
-  setStatus("Applying a temporary display preview…", false)
+  local timeout = tonumber(noctalia.getConfig("confirm_timeout")) or 15
+  local arguments = "preview --draft " .. shellQuote(draftPath)
+    .. " --display-config " .. shellQuote(displayConfigPath)
+    .. " --main-config " .. shellQuote(mainConfigPath)
+    .. " --timeout " .. tostring(timeout)
+  setStatus(tr("panel.status.applying_preview"), false)
   runBackend(arguments, function(result)
-    local decoded, backendError, previewState = decodeBackendResult(result, "Could not preview display settings")
+    local decoded, backendError, previewState = decodeBackendResult(result, tr("panel.errors.preview"))
     if not decoded then
       if not syncPreviewState(previewState) then
         clearPreviewState()
@@ -566,32 +624,36 @@ function previewChanges()
       setStatus(backendError, true)
       return
     end
-    previewActive = true
-    previewId = decoded.preview_id
-    previewExpires = decoded.expires or (os.time() + (decoded.timeout or timeout))
-    previewStatus = "active"
-    previewRemaining = math.max(0, previewExpires - os.time())
-    panel.setWantsSecondTicks(true)
-    setStatus("Preview applied — confirm it before the countdown expires", false)
+    if not syncPreviewState(decoded.preview) then
+      previewActive = true
+      previewId = decoded.preview_id
+      previewExpires = decoded.expires or (os.time() + (decoded.timeout or timeout))
+      previewStatus = "active"
+      previewRemaining = math.max(0, previewExpires - os.time())
+      panel.setWantsSecondTicks(true)
+    end
+    setStatus(tr("panel.status.preview_applied"), false)
   end)
 end
 
 function keepChanges()
-  if busy or not previewActive or previewStatus ~= "active" or not draftHasChanges() then
+  if busy or not previewActive or previewStatus ~= "active" then
     return
   end
-  local arguments = "keep --draft " .. shellQuote(draftPath) .. " --config " .. shellQuote(configPath) .. " --preview-id " .. shellQuote(previewId)
-  setStatus("Validating and saving the Niri display configuration…", false)
+  local arguments = "keep --preview-id " .. shellQuote(previewId)
+  setStatus(tr("panel.status.saving_settings"), false)
   runBackend(arguments, function(result)
-    local decoded, backendError, previewState = decodeBackendResult(result, "Could not save display settings")
+    local decoded, backendError, previewState = decodeBackendResult(result, tr("panel.errors.save"))
     if not decoded then
       syncPreviewState(previewState)
       setStatus(backendError, true)
       return
     end
     clearPreviewState()
-    baselineOutputs = clone(draft.outputs)
-    setStatus("Display settings saved to " .. decoded.config_path, false)
+    queryOutputs(
+      tr("panel.status.settings_saved", { path = decoded.config_path }),
+      tr("panel.status.loading_outputs")
+    )
   end)
 end
 
@@ -599,31 +661,31 @@ restorePreview = function(successMessage)
   if busy or not previewActive then
     return
   end
-  setStatus("Restoring the persistent Niri display configuration…", false)
+  setStatus(tr("panel.status.restoring_settings"), false)
   runBackend("revert --preview-id " .. shellQuote(previewId), function(result)
-    local decoded, backendError, previewState = decodeBackendResult(result, "Could not revert display settings")
+    local decoded, backendError, previewState = decodeBackendResult(result, tr("panel.errors.revert"))
     if not decoded then
       syncPreviewState(previewState)
       setStatus(backendError, true)
       return
     end
     clearPreviewState()
-    setStatus(successMessage, false)
+    queryOutputs(successMessage, tr("panel.status.loading_outputs"))
   end)
 end
 
 function revertPreview()
-  restorePreview("Preview reverted")
+  restorePreview(tr("panel.status.preview_reverted"))
 end
 
 function update()
   if previewActive then
-    if previewStatus == "rollback" then
-      restorePreview("Persistent display configuration restored")
+    if previewStatus == "restoring" then
+      restorePreview(tr("panel.status.settings_restored"))
     else
       previewRemaining = math.max(0, previewExpires - os.time())
       if previewRemaining == 0 then
-        restorePreview("Preview timed out and the persistent display configuration was restored")
+        restorePreview(tr("panel.status.preview_timed_out"))
       else
         render()
       end
@@ -637,25 +699,7 @@ end
 
 function onOpen(context)
   opened = true
-  if previewActive then
-    if previewStatus == "rollback" then
-      panel.setWantsSecondTicks(true)
-      restorePreview("Persistent display configuration restored")
-    else
-      previewRemaining = math.max(0, previewExpires - os.time())
-      if previewRemaining == 0 then
-        panel.setWantsSecondTicks(true)
-        restorePreview("Preview timed out and the persistent display configuration was restored")
-      else
-        panel.setWantsSecondTicks(true)
-      end
-    end
-  end
-  if not previewActive then
-    queryOutputs("Edit a display, then use Preview to test it safely", "Loading connected displays…")
-  else
-    render()
-  end
+  queryOutputs(tr("panel.status.ready"), tr("panel.status.loading_outputs"))
 end
 
 function onClose()

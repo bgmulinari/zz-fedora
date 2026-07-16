@@ -1,0 +1,163 @@
+{
+  "settings": {
+    "confirm_timeout": {
+      "label": "Preview Timeout",
+      "description": "Seconds before an unconfirmed output preview is reverted"
+    }
+  },
+  "widget": {
+    "tooltip": "Niri Outputs"
+  },
+  "shortcut": {
+    "label": "Outputs"
+  },
+  "units": {
+    "hertz": "Hz"
+  },
+  "transforms": {
+    "normal": "Normal",
+    "rotate_90": "90° counter-clockwise",
+    "rotate_180": "180°",
+    "rotate_270": "270° counter-clockwise",
+    "flipped": "Flipped horizontally",
+    "flipped_90": "90° counter-clockwise, flipped horizontally",
+    "flipped_180": "Flipped vertically",
+    "flipped_270": "270° counter-clockwise, flipped horizontally"
+  },
+  "panel": {
+    "title": "Niri Outputs",
+    "subtitle": "Configure connected outputs",
+    "sections": {
+      "connected_outputs": "Connected Outputs",
+      "output": "Output",
+      "scale_transform_position": "Scale, Transform, and Position"
+    },
+    "states": {
+      "no_connected_outputs": "No connected outputs",
+      "select_output": "Select a connected output",
+      "no_modes": "No modes reported",
+      "connected_output": "Connected output",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "limits": {
+      "first_eight_outputs": "Only the first eight outputs can be edited in this preview build"
+    },
+    "mode_badges": {
+      "preferred": "preferred",
+      "custom": "custom"
+    },
+    "fields": {
+      "enabled": {
+        "label": "Enabled",
+        "description": "Turn this output on or off; at least one connected output must remain enabled"
+      },
+      "mode": {
+        "label": "Mode",
+        "description": "Set the output resolution and exact refresh rate reported by Niri"
+      },
+      "vrr": {
+        "label": "Variable Refresh Rate",
+        "supported_description": "Enable variable refresh rate (VRR) for this output",
+        "unsupported_description": "Variable refresh rate is not supported"
+      },
+      "scale": {
+        "label": "Scale",
+        "description": "Set the scale of the output; fractional values are supported"
+      },
+      "transform": {
+        "label": "Transform",
+        "description": "Rotate the output counter-clockwise or flip it"
+      },
+      "position": {
+        "label": "Position",
+        "description": "Set the output position in the global coordinate space, in logical pixels",
+        "horizontal": "Logical X",
+        "vertical": "Logical Y"
+      }
+    },
+    "buttons": {
+      "auto_arrange": "Arrange Left to Right",
+      "reset": "Reset",
+      "revert": "Revert",
+      "working": "Working…",
+      "preview": "Preview",
+      "keep_settings": "Keep Changes"
+    },
+    "preview": {
+      "unapplied_changes": "Changes are not applied until Preview is pressed",
+      "no_unapplied_changes": "No unapplied changes",
+      "restoring": "Restoring the previous output configuration…",
+      "reverts_in": {
+        "one": "Preview reverts in {count} second",
+        "other": "Preview reverts in {count} seconds"
+      }
+    },
+    "status": {
+      "loading_outputs": "Loading connected outputs…",
+      "refreshing_outputs": "Refreshing connected outputs…",
+      "outputs_refreshed": "Connected output state refreshed",
+      "outputs_arranged": "Outputs arranged left to right in the draft",
+      "draft_reset": "Draft reset to the current Niri output state",
+      "resetting_draft": "Resetting the output draft…",
+      "applying_preview": "Applying a temporary output preview…",
+      "preview_applied": "Preview applied — confirm it before the countdown expires",
+      "saving_settings": "Validating and saving the Niri output configuration…",
+      "settings_saved": "Output configuration saved to {path}",
+      "restoring_settings": "Restoring the previous output configuration…",
+      "preview_reverted": "Preview reverted",
+      "settings_restored": "Previous output configuration restored",
+      "preview_timed_out": "Preview timed out and the previous output configuration was restored",
+      "ready": "Edit an output, then use Preview to test it safely"
+    },
+    "errors": {
+      "backend_start": "Could not start the Niri Outputs backend",
+      "query_outputs": "Could not query connected outputs",
+      "invalid_output_list": "Niri returned an invalid output list",
+      "encode_draft": "Could not encode the output draft",
+      "write_draft": "Could not save the output draft",
+      "preview": "Could not preview the output configuration",
+      "save": "Could not save the output configuration",
+      "revert": "Could not revert the output configuration"
+    }
+  },
+  "backend_errors": {
+    "unexpected": "{detail}",
+    "run_command": "Could not run {command}: {detail}",
+    "niri_command_failed": "{command} failed: {detail}",
+    "unexpected_output_document": "Niri returned an unexpected output document",
+    "invalid_json": "Niri returned invalid JSON: {detail}",
+    "read_draft": "Could not read the output draft: {detail}",
+    "draft_outputs_array": "The output draft must contain an outputs array",
+    "output_not_object": "Output {index} is not an object",
+    "invalid_connector_name": "Output {index} has an invalid connector name",
+    "duplicate_connector": "Duplicate output connector: {name}",
+    "invalid_mode": "{name}: invalid mode {mode}",
+    "numeric_scale_position": "{name}: scale and position must be numeric",
+    "scale_range": "{name}: scale must be between 0.1 and 10",
+    "no_outputs": "No outputs were found",
+    "one_output_required": "At least one output must remain enabled",
+    "create_preview_files": "Could not create the temporary output preview: {detail}",
+    "read_preview_file": "Could not read the temporary output preview: {detail}",
+    "read_main_config": "Could not read the normal Niri configuration: {detail}",
+    "managed_display_include": "The normal Niri configuration must contain exactly one managed output include",
+    "read_preview_state": "Could not read the output preview state: {detail}",
+    "update_preview_state": "Could not update the output preview state: {detail}",
+    "remove_preview_state": "Could not remove the output preview files: {detail}",
+    "invalid_preview_state": "The output preview state is invalid",
+    "config_missing": "Niri configuration does not exist: {path}",
+    "config_invalid": "Niri configuration is invalid: {detail}",
+    "config_load_timeout": "Timed out waiting for Niri to finish loading its configuration",
+    "config_event_stream_ended": "The Niri event stream ended before configuration loading completed",
+    "config_event_stream_start": "Could not start the Niri configuration event stream: {detail}",
+    "config_load_rejected": "Niri rejected the configuration",
+    "watchdog_start": "Could not start the output rollback watchdog: {detail}",
+    "preview_restore_pending": "{reason}; switching back to the normal Niri configuration is still pending",
+    "preview_inactive": "The output preview is no longer active",
+    "preview_not_active": "The output preview is not ready to keep",
+    "preview_expired": "The output preview expired",
+    "restore_config_file": "Could not restore the prior Niri output configuration: {detail}",
+    "install_config_file": "Could not install the Niri output configuration: {detail}",
+    "different_preview_active": "A different output preview is active"
+  }
+}
