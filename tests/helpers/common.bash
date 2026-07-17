@@ -32,6 +32,8 @@ source_core() {
   source "$ROOT_DIR/lib/cli.sh"
   # shellcheck source=../../lib/packages.sh
   source "$ROOT_DIR/lib/packages.sh"
+  # shellcheck source=../../lib/actions.sh
+  source "$ROOT_DIR/lib/actions.sh"
   # shellcheck source=../../lib/sources.sh
   source "$ROOT_DIR/lib/sources.sh"
   # shellcheck source=../../lib/systemd.sh

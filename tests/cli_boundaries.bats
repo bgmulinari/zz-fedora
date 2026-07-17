@@ -90,6 +90,34 @@ setup() {
   fi
 }
 
+@test "install rejects unknown commands by name with usage" {
+  run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" \
+    bash "$ROOT_DIR/install.sh" bogus-command --dry-run --no-tui
+
+  [ "$status" -eq 1 ]
+  assert_contains "$output" "Unknown command: 'bogus-command'"
+  assert_contains "$output" "Usage:"
+}
+
+@test "install help is generated from the command catalog" {
+  run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" \
+    bash "$ROOT_DIR/install.sh" --help
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "[wizard|install|check|doctor|first-run|defaults|print-plan|list-profiles|list-choices|list-sources] [options]"
+  local command_name
+  for command_name in wizard install check doctor first-run defaults print-plan list-profiles list-choices list-sources; do
+    grep -E "^  ${command_name}[[:space:]]" <<<"$output" >/dev/null || {
+      printf 'usage does not describe command: %s\n' "$command_name" >&2
+      return 1
+    }
+  done
+  if grep -E '^  apply[[:space:]]|\|apply[|\]]' <<<"$output" >/dev/null; then
+    printf 'internal apply command must stay hidden from usage\n' >&2
+    return 1
+  fi
+}
+
 @test "install list-profiles exposes desktop app profiles" {
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" \
     bash "$ROOT_DIR/install.sh" list-profiles --dry-run --no-tui
