@@ -272,16 +272,6 @@ fedora_install_flatpaks() {
   done
 }
 
-fedora_preview_plan() {
-  local -a packages=("$@")
-  [[ "${#packages[@]}" -gt 0 ]] || return 0
-  if [[ "$INSTALL_WEAK_DEPS" -eq 1 ]]; then
-    run_cmd_as_root dnf install --assumeno "${packages[@]}"
-  else
-    run_cmd_as_root dnf install --assumeno --setopt=install_weak_deps=False "${packages[@]}"
-  fi
-}
-
 fedora_package_installed() {
   local package_spec="$1"
   case "$package_spec" in
@@ -294,21 +284,8 @@ fedora_package_installed() {
   esac
 }
 
-fedora_command_exists() {
-  command -v "$1" >/dev/null 2>&1
-}
-
 fedora_service_exists() {
   systemd_unit_file_exists "$1"
-}
-
-fedora_enable_service() {
-  log_progress "Enabling system service: $1"
-  run_cmd_as_root systemctl enable "$1"
-}
-
-fedora_enable_service_now() {
-  fedora_enable_services_now "$1"
 }
 
 fedora_enable_services_now() {
@@ -363,12 +340,4 @@ fedora_repo_enabled() {
       return 1
       ;;
   esac
-}
-
-fedora_repoquery_provides() {
-  run_cmd_as_root dnf repoquery --whatprovides "$1"
-}
-
-fedora_post_install_notes() {
-  printf 'Reboot, open Noctalia Greeter, and choose the Niri session.\n'
 }

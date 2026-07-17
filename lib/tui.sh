@@ -401,7 +401,6 @@ tui_show_install_plan() {
   gum style --bold "Selected Choices"
   local category labels
   for category in $(category_names); do
-    category_always_installed "$category" && continue
     labels="$(tui_choice_labels_for_category "$category")"
     [[ -n "$labels" ]] || continue
     printf '  %s %s: %s\n' "$(gum style --foreground 2 '+')" "$category" "$labels"

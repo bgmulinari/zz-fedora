@@ -102,19 +102,6 @@ append_unique() {
   array_ref+=("$value")
 }
 
-remove_value() {
-  local array_name="$1"
-  local value="$2"
-  local -n array_ref="$array_name"
-  local current
-  local kept=()
-  for current in "${array_ref[@]:-}"; do
-    [[ "$current" == "$value" ]] && continue
-    kept+=("$current")
-  done
-  array_ref=("${kept[@]:-}")
-}
-
 array_contains() {
   local needle="$1"
   shift || true
@@ -206,15 +193,6 @@ split_csv() {
   done
 }
 
-append_csv_unique() {
-  local array_name="$1"
-  local raw="${2:-}"
-  local entry
-  while IFS= read -r entry; do
-    append_unique "$array_name" "$entry"
-  done < <(split_csv "$raw")
-}
-
 resolve_target_home() {
   local user="$1"
   local entry
@@ -232,10 +210,6 @@ resolve_target_home() {
 
 timestamp() {
   date +"%Y%m%d-%H%M%S"
-}
-
-trim_inline_comment() {
-  sed -E 's/[[:space:]]*#.*$//'
 }
 
 read_clean_lines() {
@@ -559,10 +533,6 @@ all_choice_ids() {
   awk -F'\t' 'NF==5 && $1 !~ /^#/ {print $1}' "$catalog"
 }
 
-category_always_installed() {
-  return 1
-}
-
 category_default_choices_enabled() {
   local category
   category="$(normalize_category_name "$1")"
@@ -621,11 +591,7 @@ effective_choice_ids() {
   category="$(normalize_category_name "$1")"
   local -a chosen=()
   local entry
-  if category_always_installed "$category"; then
-    while IFS= read -r entry; do
-      append_unique chosen "$entry"
-    done < <(all_choice_ids "$category")
-  elif [[ -n "${CATEGORY_OVERRIDE_PRESENT[$category]:-}" ]]; then
+  if [[ -n "${CATEGORY_OVERRIDE_PRESENT[$category]:-}" ]]; then
     while IFS= read -r entry; do
       append_unique chosen "$entry"
     done < <(split_csv "${CATEGORY_OVERRIDES[$category]}")

@@ -631,9 +631,6 @@ EOF
   run_cmd_as_root() {
     printf 'cmd:%s\n' "$*"
   }
-  enable_required_system_service_now() {
-    printf 'service:%s\n' "$1"
-  }
 
   capture_without_bats_debug_trap output status module_30_packages
 

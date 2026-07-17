@@ -44,9 +44,3 @@ enable_required_system_services_now() {
 
   fedora_enable_services_now "${service_names[@]}"
 }
-
-enable_required_system_service_now() {
-  local service_name="$1"
-  ensure_required_system_service "$service_name" || return 1
-  fedora_enable_service_now "$service_name"
-}

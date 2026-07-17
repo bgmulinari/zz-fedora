@@ -602,7 +602,7 @@ PY
     printf '%s\n' "$*"
   }
 
-  run fedora_enable_service_now NetworkManager
+  run fedora_enable_services_now NetworkManager
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "systemctl enable NetworkManager"

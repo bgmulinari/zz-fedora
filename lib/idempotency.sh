@@ -100,19 +100,6 @@ run_cmd_as_root() {
   fi
 }
 
-run_cmd_as_clean_root() {
-  local -a clean_env=(
-    env -i
-    "HOME=/root"
-    "PATH=/usr/sbin:/usr/bin:/sbin:/bin"
-  )
-  if [[ "$EUID" -eq 0 ]]; then
-    run_cmd "${clean_env[@]}" "$@"
-  else
-    run_cmd sudo "${clean_env[@]}" "$@"
-  fi
-}
-
 run_cmd_as_user() {
   local user="$1"
   shift
@@ -219,31 +206,6 @@ file_install_if_changed() {
     backup_file_if_needed "$destination"
   fi
   mv -f "$temp_file" "$destination"
-}
-
-file_template_if_changed() {
-  local template_file="$1"
-  local destination="$2"
-  local mode="${3:-0644}"
-  file_install_if_changed "$template_file" "$destination" "$mode"
-}
-
-service_enable_if_exists() {
-  local service_name="$1"
-  if fedora_service_exists "$service_name"; then
-    fedora_enable_service "$service_name"
-  else
-    log_warn "Skipping missing service: $service_name"
-  fi
-}
-
-systemctl_enable_now_if_exists() {
-  local service_name="$1"
-  if fedora_service_exists "$service_name"; then
-    fedora_enable_service_now "$service_name"
-  else
-    log_warn "Skipping missing service: $service_name"
-  fi
 }
 
 flatpak_remote_usable() {
@@ -407,16 +369,6 @@ flatpak_install_or_update() {
     return 0
   fi
   run_cmd_as_root flatpak install -y --or-update "$remote" "$app_id"
-}
-
-repo_enable_if_missing() {
-  local repo_id="$1"
-  shift
-  if fedora_repo_enabled "$repo_id"; then
-    log_info "Source already enabled: $repo_id"
-    return 0
-  fi
-  run_cmd "$@"
 }
 
 package_install_idempotent() {
