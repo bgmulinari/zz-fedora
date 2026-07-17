@@ -173,6 +173,16 @@ setup() {
   refute_contains "$output" "dnf-plugins-core"
 }
 
+@test "bootstrap confirmation prompts before continuing without --yes" {
+  command -v script >/dev/null 2>&1 || skip "script is not installed"
+  source_bootstrap_functions
+
+  confirm_cmd="$(printf '%q' "source \"$TEST_ROOT/bootstrap-source.sh\"; ASSUME_YES=0; DRY_RUN=0; NO_TUI=1; bootstrap_confirm && exit 1 || exit 0")"
+  confirm_output="$(printf 'n\n' | script -qfec "bash -lc $confirm_cmd" /dev/null 2>&1)"
+
+  assert_contains "$confirm_output" "Continue with bootstrap? [y/N]"
+}
+
 @test "bootstrap clone update fast-forwards clean installs and rejects dirty installs" {
   command -v git >/dev/null 2>&1 || skip "git is not installed"
   source_bootstrap_functions

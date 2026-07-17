@@ -94,6 +94,17 @@ EOF
   run validate_bundle_descriptor "$descriptor_dir/bad-installer.bundle"
   [ "$status" -ne 0 ]
 
+  cat >"$descriptor_dir/bad-source.bundle" <<'EOF'
+BUNDLE_ID="test-bad-source"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID="missing-source"
+BUNDLE_ITEMS_FILE="packages/official/bootstrap.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Bad source"
+EOF
+  run validate_bundle_descriptor "$descriptor_dir/bad-source.bundle"
+  [ "$status" -ne 0 ]
+
   cat >"$descriptor_dir/missing-items.bundle" <<'EOF'
 BUNDLE_ID="test-missing-items"
 BUNDLE_INSTALLER="dnf"
