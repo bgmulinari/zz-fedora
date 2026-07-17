@@ -138,6 +138,27 @@ EOF
   done < <(find "$ROOT_DIR/bundles" -type f -name '*.bundle' | sort)
 }
 
+@test "every dotfiles directory is referenced by a bundle stow declaration" {
+  local bundle_file stow_packages package package_dir referenced=$'\n'
+
+  while IFS= read -r bundle_file; do
+    stow_packages=""
+    descriptor_value_from_file "$bundle_file" BUNDLE_STOW_PACKAGES stow_packages || true
+    [[ -n "$stow_packages" ]] || continue
+    while IFS= read -r package; do
+      referenced+="${package}"$'\n'
+    done < <(split_csv "$stow_packages")
+  done < <(find "$ROOT_DIR/bundles" -type f -name '*.bundle' | sort)
+
+  while IFS= read -r package_dir; do
+    package="$(basename "$package_dir")"
+    if [[ "$referenced" != *$'\n'"$package"$'\n'* ]]; then
+      printf 'orphan stow package not referenced by any bundle: dotfiles/%s\n' "$package" >&2
+      return 1
+    fi
+  done < <(find "$ROOT_DIR/dotfiles" -mindepth 1 -maxdepth 1 -type d | sort)
+}
+
 @test "source descriptors include required trust metadata" {
   local source_file
   while IFS= read -r source_file; do
