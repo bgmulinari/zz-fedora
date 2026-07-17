@@ -66,7 +66,7 @@ setup() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
 
   DRY_RUN=1
-  run install_fedora_noctalia_greeter
+  run install_noctalia_greeter
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "install greetd and Noctalia Greeter package noctalia-greeter"
@@ -119,7 +119,7 @@ setup() {
     printf 'cmd:%s\n' "$*"
   }
 
-  run install_fedora_noctalia_greeter
+  run install_noctalia_greeter
 
   [ "$status" -eq 0 ]
   assert_tsv_row "$PLAN_DIR/system-skips.tsv" $'action\tnoctalia-greeter\texisting display manager: gdm.service'

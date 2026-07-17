@@ -334,7 +334,7 @@ Primary files:
 - `packages/copr/lionheartp-hyprland/noctalia.pkgs`
 - `sources/copr/lionheartp-hyprland.source`
 - `lib/fedora.sh`
-- `lib/actions.sh` (Noctalia Greeter and custom action implementations; the thin `modules/35-custom-actions.sh` orchestrates them)
+- `lib/actions/noctalia-greeter.sh` (Noctalia Greeter action; `lib/actions.sh` holds the action registry and the thin `modules/35-custom-actions.sh` orchestrates it)
 - `modules/80-post-actions.sh`
 - `modules/90-doctor.sh`
 - `config/base-responsibility.tsv`

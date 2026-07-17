@@ -8,6 +8,38 @@ setup() {
   source_modules
 }
 
+@test "every manifest action id resolves to a registered installer and verifier" {
+  local manifest action
+  for manifest in "$ROOT_DIR"/packages/actions/*.actions; do
+    while IFS= read -r action; do
+      [[ -n "$action" ]] || continue
+      split_action_id "$action"
+      [[ -n "${ACTION_INSTALL_FN[$ACTION_DISPATCH_ID]:-}" ]] || {
+        printf '%s declares action %s with no registered installer\n' "$manifest" "$action" >&2
+        return 1
+      }
+      [[ -n "${ACTION_VERIFY_FN[$ACTION_DISPATCH_ID]:-}" ]] || {
+        printf '%s declares action %s with no registered verifier\n' "$manifest" "$action" >&2
+        return 1
+      }
+      declare -F "${ACTION_INSTALL_FN[$ACTION_DISPATCH_ID]}" >/dev/null || {
+        printf 'action %s registers undefined install function %s\n' "$action" "${ACTION_INSTALL_FN[$ACTION_DISPATCH_ID]}" >&2
+        return 1
+      }
+      declare -F "${ACTION_VERIFY_FN[$ACTION_DISPATCH_ID]}" >/dev/null || {
+        printf 'action %s registers undefined verify function %s\n' "$action" "${ACTION_VERIFY_FN[$ACTION_DISPATCH_ID]}" >&2
+        return 1
+      }
+    done < <(read_plan_file "$manifest")
+  done
+}
+
+@test "unregistered custom actions fail dispatch with a fatal error" {
+  run run_custom_action no-such-action
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Unknown custom action: no-such-action"
+}
+
 @test "Visual Studio Code extension action installs NoctaliaTheme once for the target user" {
   DRY_RUN=0
   TARGET_USER="code-user"
@@ -124,7 +156,7 @@ setup() {
     printf '%s\n' "$*" >>"$command_log"
   }
 
-  run install_fedora_media_codecs
+  run install_media_codecs
 
   [ "$status" -eq 0 ]
   expected_commands="$(cat <<'EOF'
@@ -144,7 +176,7 @@ EOF
     [[ "$*" != "dnf install -y @multimedia --setopt=install_weak_deps=False --exclude=PackageKit-gstreamer-plugin --exclude=libva-intel-media-driver" ]]
   }
 
-  run install_fedora_media_codecs
+  run install_media_codecs
 
   [ "$status" -eq 1 ]
   assert_equal "$(cat <<'EOF'
@@ -161,7 +193,7 @@ EOF
     [[ "$*" != "dnf -y mark group multimedia pipewire-codec-aptx" ]]
   }
 
-  run install_fedora_media_codecs
+  run install_media_codecs
 
   [ "$status" -eq 1 ]
   assert_equal "$(cat <<'EOF'
@@ -195,7 +227,7 @@ EOF
     printf '%s\n' "$*" >>"$command_log"
   }
 
-  run install_fedora_docker
+  run install_docker
 
   [ "$status" -eq 0 ]
   assert_file_contains "$command_log" "dnf install -y docker-ce docker-buildx-plugin docker-compose-plugin"
