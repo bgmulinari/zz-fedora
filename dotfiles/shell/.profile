@@ -2,15 +2,17 @@
 
 export TERMINAL=kitty
 
-if [ -d "$HOME/.config/environment.d" ]; then
-  for env_file in "$HOME/.config/environment.d"/*.conf; do
-    [ -f "$env_file" ] || continue
-    while IFS='=' read -r key value; do
-      [ -n "${key:-}" ] || continue
-      export "$key=$value"
-    done <"$env_file"
-  done
+zz_environment_d_generator="/usr/lib/systemd/user-environment-generators/30-systemd-environment-d-generator"
+if [ -x "$zz_environment_d_generator" ] && \
+   zz_environment_output="$("$zz_environment_d_generator")"; then
+  while IFS='=' read -r zz_environment_key zz_environment_value; do
+    [ -n "${zz_environment_key:-}" ] || continue
+    export "$zz_environment_key=$zz_environment_value"
+  done <<EOF
+$zz_environment_output
+EOF
 fi
+unset zz_environment_d_generator zz_environment_output zz_environment_key zz_environment_value
 
 if [ -f "$HOME/.cargo/env" ]; then
   . "$HOME/.cargo/env"
