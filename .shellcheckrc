@@ -1,2 +1,5 @@
 external-sources=true
 source-path=SCRIPTDIR
+# Resolve nested lib-to-lib source directives when linting entrypoints and
+# test helpers from the repository root.
+source-path=lib
