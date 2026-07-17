@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Install test dependencies
         run: |
-          dnf install -y bats ShellCheck git python3 findutils diffutils rsync cpio gzip shadow-utils sudo util-linux
+          dnf install -y bats ShellCheck git jq python3 findutils diffutils rsync cpio gzip shadow-utils sudo util-linux
           useradd --create-home zzci
           chown -R zzci:zzci "$GITHUB_WORKSPACE"
           runuser -u zzci -- env HOME=/home/zzci git config --global --add safe.directory "$GITHUB_WORKSPACE"
