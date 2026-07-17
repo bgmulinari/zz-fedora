@@ -131,10 +131,7 @@ doctor_portal_planned() {
 
 doctor_noctalia_planned() {
   local native_plan="$1"
-  local action_plan
-  doctor_plan_has_entry "$native_plan" "noctalia" && return 0
-  action_plan="$(package_file_for_backend action)"
-  doctor_plan_has_entry "$action_plan" "noctalia-v5"
+  doctor_plan_has_entry "$native_plan" "noctalia-git"
 }
 
 doctor_noctalia_greeter_planned() {

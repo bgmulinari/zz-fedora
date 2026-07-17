@@ -367,53 +367,6 @@ EOF
   assert_contains "$output" "systemctl enable --force greetd.service"
 }
 
-@test "Noctalia v5 Fedora action installs official beta2 update" {
-  build_test_plan
-  assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-v5"
-
-  DRY_RUN=1
-  run install_fedora_noctalia_v5
-
-  [ "$status" -eq 0 ]
-  assert_contains "$output" "install Noctalia v5 package noctalia from official Fedora repositories"
-  assert_contains "$output" "allowing updates-testing while beta2 is in testing"
-}
-
-@test "Noctalia v5 Fedora action installs the official package" {
-  DRY_RUN=0
-  run_cmd_as_root() {
-    printf 'root:%s\n' "$*"
-  }
-
-  run install_fedora_noctalia_v5
-
-  [ "$status" -eq 0 ]
-  assert_contains "$output" "root:dnf install -y --allowerasing --enablerepo updates-testing noctalia"
-}
-
-@test "Noctalia v5 Fedora verification rejects beta1" {
-  rpm() {
-    printf '5.0.0~beta1'
-  }
-
-  run noctalia_fedora_package_is_compatible
-
-  [ "$status" -ne 0 ]
-}
-
-@test "Noctalia v5 Fedora verification accepts beta2 and newer" {
-  local version
-  for version in '5.0.0~beta2' '5.0.0~beta3' '5.0.0' '5.0.1'; do
-    rpm() {
-      printf '%s' "$version"
-    }
-
-    run noctalia_fedora_package_is_compatible
-
-    [ "$status" -eq 0 ]
-  done
-}
-
 @test "required base package failure aborts base setup before service work" {
   build_test_plan
   DRY_RUN=0

@@ -2,6 +2,15 @@
 
 This is the living checkpoint for the Noctalia v5 integration. Update it every time this repo changes its Noctalia v5 packages, sources, config, Niri wiring, templates, tests, or assumptions.
 
+## 2026-07-16 beta3 and rolling COPR package
+
+- Upstream `v5.0.0-beta.3` is at `6b363209`. The installed LionHeartP COPR build reports `b86e4a0`, two commits after that tag, and starts successfully from a fresh isolated XDG profile.
+- Beta3 makes plugin API 3 metadata mandatory. The managed `local/niri-outputs` plugin already declares `plugin_api = 3`; the current shell reports no plugin lint errors or warnings, and its focused Bats suite passes.
+- Fedora 44's standard repositories still lag upstream: stable has beta1 and Updates Testing has beta2. The beta2 plugin loader expects the older `min_noctalia` field and rejects the managed API 3 plugin, so the official package is not the current integration target.
+- `base-noctalia` is now a normal DNF bundle containing unpinned `noctalia-git` from `copr:lionheartp/Hyprland`. Installer reruns use the regular DNF transaction, so the package follows the newest build available from that COPR without a beta-specific action, minimum-version check, or `updates-testing` override.
+- Terra excludes both `noctalia-git` and `noctalia-greeter`, keeping the shell and greeter on the intended COPR while Terra remains enabled for Ghostty.
+- Keep this rolling COPR package until upstream v5 stable is available as Fedora's standard `noctalia` package. At that point, switch the manifest back to `noctalia` and remove the shell-specific Terra exclusion.
+
 ## 2026-07-12 native Niri Outputs plugin
 
 - Added the local `local/niri-outputs` Noctalia v5 plugin under the managed `noctalia` Stow package. It provides a lightweight bar launcher, optional Control Center shortcut, and fixed-size panel that attaches to the bar and opens near its launcher by default. The panel queries Niri when opened, refreshed, reset, or reconciled after keep or restore; no plugin process polls in the background.
@@ -278,6 +287,13 @@ Resolution as of 2026-07-11:
 
 No v4 migration or compatibility path exists or should be added. This branch is a clean v5 integration.
 
+Noctalia package:
+
+- `base-noctalia` installs `noctalia-git` through the normal DNF package path from `copr:lionheartp/Hyprland`.
+- The package is intentionally unpinned. Installer reruns and ordinary Fedora upgrades resolve the newest COPR build.
+- Terra excludes `noctalia-git` and `noctalia-greeter` so it cannot replace either COPR package.
+- Replace `noctalia-git` with the official `noctalia` package only after v5 stable reaches Fedora's standard repositories.
+
 Niri:
 
 - Managed autostart remains `spawn-at-startup "noctalia"`.
@@ -291,7 +307,7 @@ Noctalia config:
 - The managed config also declares `[theme.templates.user.icon_theme]` to restore the pre-v5 desktop icon accent sync without reintroducing v4 `user-templates.toml`.
 - GUI/runtime overrides remain app-managed in `~/.local/state/noctalia/settings.toml` and load after the stowed config.
 - Do not put lockscreen widgets, desktop widgets, monitor names, output names, connector lists, resolutions, coordinates, or generated setup state in the stowed config.
-- Local verification of the official Fedora beta2 RPM showed it starts from an isolated empty XDG config/state/cache profile with `no config files found, using defaults` and remains alive until deliberately terminated.
+- Local verification of installed COPR build `b86e4a0` showed it starts from an isolated empty XDG config/state/cache profile and remains alive until deliberately terminated.
 - If future config grows beyond one file, keep extra root files as sorted `*.toml` files or use the documented `[include]` table for subdirectories.
 
 Templates:
@@ -315,7 +331,9 @@ Related managed files:
 Primary files:
 
 - `bundles/base/noctalia.bundle`
-- `packages/actions/base-noctalia.actions`
+- `packages/copr/lionheartp-hyprland/noctalia.pkgs`
+- `sources/copr/lionheartp-hyprland.source`
+- `lib/fedora.sh`
 - `modules/35-custom-actions.sh`
 - `modules/80-post-actions.sh`
 - `modules/90-doctor.sh`
@@ -344,11 +362,11 @@ Last validation run:
 
 ```bash
 noctalia config validate
+noctalia plugins lint dotfiles/noctalia/.local/share/noctalia/plugins/niri-outputs
 ! rg -n 'Virtual-|DP-|HDMI-|output =|cx =|cy =|width =|height =' dotfiles/noctalia/.config/noctalia
 python3 .agents/skills/promote-noctalia-config/scripts/noctalia_override_report.py
-bash -n modules/35-custom-actions.sh modules/90-doctor.sh lib/fedora.sh
+bash -n modules/35-custom-actions.sh modules/90-doctor.sh lib/fedora.sh lib/readiness.sh
 bats tests/fedora_sources.bats
-bats --filter 'Noctalia v5 Fedora action' tests/package_modules.bats
 bats --filter 'Fedora base plan includes protected base desktop bundles and rationale|minimal desktop app profile keeps Niri baseline' tests/planner.bats
 bats --filter 'base responsibility and managed config policy|managed config conflicts and base rationale' tests/doctor_hardening.bats
 bats tests/cli_smoke.bats
@@ -361,8 +379,8 @@ bats tests/noctalia_niri_outputs_plugin.bats
 When revisiting Noctalia v5:
 
 1. Check current upstream state in `~/repos/noctalia` and docs in `~/repos/noctalia-docs`.
-2. Compare changes since official `v5.0.0-beta2` and the previously crashing beta1 commit `ad11b4b`.
-3. Inspect the official Fedora `noctalia` package first. Check the LionHeartP COPR and Terra only for `noctalia-greeter` and `qt6ct-kde` provider changes.
+2. Compare changes since `v5.0.0-beta.3`, including config schema and plugin API changes.
+3. While upstream is in beta, inspect the latest LionHeartP `noctalia-git` build and confirm Terra remains excluded as a shell provider. Also check the official Fedora `noctalia` package for the v5 stable transition.
 4. Test the candidate build in a live Niri session with a fresh isolated profile:
 
    ```bash
@@ -380,14 +398,14 @@ When revisiting Noctalia v5:
      noctalia
    ```
 
-5. Once beta2 is stable in Fedora 44 Updates, remove the temporary `updates-testing` allowance from the shell action. If the greeter or `qt6ct-kde` enters Fedora, narrow or remove the remaining LionHeartP source wiring accordingly.
+5. Once upstream v5 stable is available in Fedora's standard repositories, change the base manifest from `noctalia-git` to `noctalia` and remove Terra's `noctalia-git` exclusion. If the greeter or `qt6ct-kde` also enters Fedora, narrow or remove the remaining LionHeartP source wiring accordingly.
 6. Re-check v5 docs for renamed config fields, template IDs, IPC commands, package names, source recommendations, and setup wizard behavior.
 7. Keep the integration clean v5-only. Do not add v4 compatibility, plugin migration, or QuickShell fallback paths.
 8. Update this file with the new checkpoint, package/build decision, VM/manual test result, and validation commands.
 
 ## Open Questions
 
-- Decide whether the shell can become a plain `dnf` base manifest after beta2 reaches Fedora stable, or whether keeping the action is useful for explicit package verification.
+- Track when upstream v5 stable reaches Fedora's standard repositories so the shell can move from COPR `noctalia-git` to official `noctalia`.
 - Recheck whether Fedora's `noctalia` package gains the `desktop-notification-daemon` and `PolicyKit-authentication-agent` virtual provides that the COPR package declared; remove any resulting Mako fallback if it becomes unnecessary.
 - Re-evaluate the remaining COPR when Fedora gains `noctalia-greeter` or `qt6ct-kde`.
 - Treat future Noctalia config changes, including `setup_wizard_enabled = false`, lockscreen settings, widgets, weather, plugins, browser theming, or community templates, as explicit customization checkpoints.

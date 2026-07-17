@@ -144,7 +144,7 @@ fedora_enable_sources() {
         run_cmd_as_root rpm --import "/etc/pki/rpm-gpg/RPM-GPG-KEY-terra${fedora_release}"
       fi
       run_cmd_as_root dnf config-manager setopt terra.repo_gpgcheck=0
-      run_cmd_as_root dnf config-manager setopt terra.excludepkgs=noctalia-greeter
+      run_cmd_as_root dnf config-manager setopt terra.excludepkgs=noctalia-git,noctalia-greeter
       ;;
     rpmfusion)
       case "$SOURCE_ID" in

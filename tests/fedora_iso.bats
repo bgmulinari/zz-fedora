@@ -588,7 +588,7 @@ PY
   status_file="$(readiness_file)"
   assert_file_contains "$status_file" $'package:dnf\tniri\tplanned\tinfo'
   assert_file_contains "$status_file" $'niri\tcommand:niri\tplanned\tinfo'
-  assert_file_contains "$status_file" $'noctalia-v5\tcommand:noctalia\tplanned\tinfo'
+  assert_file_contains "$status_file" $'noctalia\tcommand:noctalia\tplanned\tinfo'
   assert_file_contains "$status_file" $'portal\tcommand:xdg-desktop-portal\tplanned\tinfo'
   refute_file_contains "$status_file" $'niri\tcommand:niri\tmissing\tfatal'
 }

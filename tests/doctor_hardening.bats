@@ -28,7 +28,7 @@ setup() {
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "Readiness:"
-  assert_contains "$output" "noctalia-v5 command:noctalia"
+  assert_contains "$output" "noctalia command:noctalia"
   assert_contains "$output" "managed-config ~/.config/autostart/zz-first-run.desktop: first-run"
   assert_contains "$output" "Fatal readiness issues:"
   assert_contains "$output" "package-manager "
@@ -91,9 +91,9 @@ setup() {
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\twtype\tnoctalia\tclipboard auto-paste\tProvides the upstream-supported text-injection fallback for clipboard auto-paste.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tddcutil\tnoctalia\texternal display brightness\tProvides Noctalia\'s optional DDC/CI backend for compatible external displays.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tpavucontrol\tdefault-app\taudio mixer\tProvides a GUI mixer fallback for standalone Niri sessions.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tcopr:lionheartp/Hyprland\tdesktop-service\tNoctalia Greeter and Qt theme\tProvides Noctalia Greeter and qt6ct-kde for the required base desktop.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tcopr:lionheartp/Hyprland\tdesktop-service\tNoctalia shell, Greeter, and Qt theme\tProvides noctalia-git, Noctalia Greeter, and qt6ct-kde for the required base desktop.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tnoctalia-greeter\tdesktop-service\tgraphical login\tInstalls Noctalia Greeter from COPR, configures greetd, and enables the fallback graphical login.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tnoctalia-v5\tnoctalia\tNoctalia v5 shell\tInstalls the official Fedora shell package launched by Niri autostart, allowing the beta2 update while it is in testing.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tnoctalia-git\tnoctalia\tNoctalia v5 shell\tInstalls the rolling COPR build launched by Niri autostart until v5 stable reaches Fedora\'s standard repositories.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tterra\tdefault-app\tGhostty\tBootstraps Terra release packages for required Ghostty packages.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tghostty-shell-integration\tdefault-app\tterminal shell integration\tProvides Ghostty shell integration scripts for working-directory reporting, prompt marking, and shell-aware terminal behavior.'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve'
@@ -117,7 +117,7 @@ setup() {
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'flatpak\torg.gtk.Gtk3theme.adw-gtk3\tbase-source-flathub\ttheme-font'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-login-manager\tdesktop-service'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-greeter\tbase-login-manager\tdesktop-service'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-v5\tbase-noctalia\tnoctalia'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnoctalia-git\tbase-noctalia\tnoctalia'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.bashrc\tstow\tbackup-before-stow\tshell'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve\tniri-display'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve\tghostty-theme'

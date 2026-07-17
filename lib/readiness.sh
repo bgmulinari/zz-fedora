@@ -295,7 +295,7 @@ readiness_generate_desktop_files() {
   fi
   severity="info"
   [[ "$status" == "missing" ]] && severity="fatal"
-  readiness_record "noctalia-v5" "command:noctalia" "$status" "$severity" "Expected package: noctalia"
+  readiness_record "noctalia" "command:noctalia" "$status" "$severity" "Expected package: noctalia-git"
 }
 
 readiness_generate_target_home() {

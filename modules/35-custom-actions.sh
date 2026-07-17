@@ -16,9 +16,6 @@ DOTNET_TOOLS=(
   powershell
   volo.abp.studio.cli
 )
-NOCTALIA_FEDORA_PACKAGE="noctalia"
-NOCTALIA_FEDORA_MINIMUM_VERSION="5.0.0~beta2"
-NOCTALIA_FEDORA_TESTING_REPO="updates-testing"
 NOCTALIA_GREETER_FEDORA_COPR_REPO="copr:copr.fedorainfracloud.org:lionheartp:Hyprland"
 NOCTALIA_GREETER_PACKAGE="noctalia-greeter"
 NOCTALIA_GREETER_USER="greeter"
@@ -384,31 +381,6 @@ install_fedora_jetbrains_mono_nerd_font() {
   jetbrains_mono_nerd_font_installed || die "JetBrains Mono Nerd Font action completed but no font files were found in $font_dir."
 }
 
-install_fedora_noctalia_v5() {
-
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: install Noctalia v5 package %s from official Fedora repositories, allowing %s while beta2 is in testing\n' \
-      "$NOCTALIA_FEDORA_PACKAGE" "$NOCTALIA_FEDORA_TESTING_REPO"
-    return 0
-  fi
-
-  log_progress "Installing Noctalia v5 from official Fedora repositories"
-  run_cmd_as_root dnf install -y --allowerasing \
-    --enablerepo "$NOCTALIA_FEDORA_TESTING_REPO" \
-    "$NOCTALIA_FEDORA_PACKAGE"
-}
-
-noctalia_fedora_package_is_compatible() {
-  local installed_version oldest_version
-  installed_version="$(rpm -q --qf '%{VERSION}' "$NOCTALIA_FEDORA_PACKAGE" 2>/dev/null)" || return 1
-  oldest_version="$(
-    printf '%s\n%s\n' "$NOCTALIA_FEDORA_MINIMUM_VERSION" "$installed_version" \
-      | sort -V \
-      | head -n 1
-  )"
-  [[ "$oldest_version" == "$NOCTALIA_FEDORA_MINIMUM_VERSION" ]]
-}
-
 noctalia_greeter_action_skipped() {
   local skip_file="$PLAN_DIR/system-skips.tsv"
   [[ -f "$skip_file" ]] || return 1
@@ -623,7 +595,6 @@ run_custom_action() {
     dotnet-tools) install_dotnet_tools ;;
     jetbrains-mono-nerd-font) install_fedora_jetbrains_mono_nerd_font ;;
     noctalia-greeter) install_fedora_noctalia_greeter ;;
-    noctalia-v5) install_fedora_noctalia_v5 ;;
     media-codecs) install_fedora_media_codecs ;;
     media-hardware-acceleration) install_fedora_media_hardware_acceleration ;;
     *) die "Unknown custom action: $action" ;;
@@ -687,9 +658,6 @@ verify_custom_action() {
         && command -v noctalia-greeter-session >/dev/null 2>&1 \
         && systemctl is-enabled greetd >/dev/null 2>&1 \
         && grep -F "noctalia-greeter-session" "$NOCTALIA_GREETD_CONFIG" >/dev/null 2>&1
-      ;;
-    noctalia-v5)
-      noctalia_fedora_package_is_compatible && command -v noctalia >/dev/null 2>&1
       ;;
     media-codecs)
       rpm -q \

@@ -1,5 +1,6 @@
 BUNDLE_ID="base-noctalia"
-BUNDLE_INSTALLER="action"
-BUNDLE_ITEMS_FILE="packages/actions/base-noctalia.actions"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID="copr:lionheartp/Hyprland"
+BUNDLE_ITEMS_FILE="packages/copr/lionheartp-hyprland/noctalia.pkgs"
 BUNDLE_STOW_PACKAGES="noctalia"
 BUNDLE_DESCRIPTION="Noctalia v5 shell bundle for Fedora"
