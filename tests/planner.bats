@@ -164,7 +164,6 @@ assert_all_bundles_reachable() {
     wlsunset; do
     refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$removed_helper"
   done
-  refute_plan_has "$PLAN_DIR/flatpak/apps.flatpaks" "com.discordapp.Discord"
   refute_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-sdk"
   refute_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-tools"
 }
@@ -334,6 +333,14 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "npm-global:@openai/codex"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:npm"
   [[ "$(join_by $'\n' "${WARNING_MESSAGES[@]}")" == *"artifact:npm"* ]]
+}
+
+@test "Discord selection plans the official RPM action" {
+  build_test_plan "gaming=discord"
+
+  assert_plan_has "$PLAN_DIR/bundles.list" "gaming-discord"
+  assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:discord"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "discord"
 }
 
 @test "Claude Desktop selection plans the exact repository package and architecture" {

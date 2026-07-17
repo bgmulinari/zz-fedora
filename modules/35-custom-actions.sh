@@ -16,6 +16,7 @@ DOTNET_TOOLS=(
   powershell
   volo.abp.studio.cli
 )
+DISCORD_RPM_URL="https://discord.com/api/download?platform=linux&format=rpm"
 NOCTALIA_GREETER_FEDORA_COPR_REPO="copr:copr.fedorainfracloud.org:lionheartp:Hyprland"
 NOCTALIA_GREETER_PACKAGE="noctalia-greeter"
 NOCTALIA_GREETER_USER="greeter"
@@ -204,6 +205,43 @@ install_devtunnel() {
   run_cmd chmod 0644 "$downloaded_bin"
   run_cmd_as_user "$TARGET_USER" install -m 0755 "$downloaded_bin" "$devtunnel_bin"
   rm -f "$downloaded_bin"
+}
+
+discord_official_rpm_installed() {
+  rpm -q discord >/dev/null 2>&1 && [[ -x /usr/bin/discord ]]
+}
+
+install_discord() {
+  if discord_official_rpm_installed; then
+    log_info "Discord RPM is already installed"
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: install official Discord RPM from %s\n' "$DISCORD_RPM_URL"
+    return 0
+  fi
+
+  log_progress "Installing the official Discord RPM"
+  local downloaded_rpm rpm_identity
+  downloaded_rpm="$(mktemp --suffix=.rpm "$CACHE_DIR/discord.XXXXXX")"
+  if ! run_cmd curl -fsSL "$DISCORD_RPM_URL" -o "$downloaded_rpm"; then
+    rm -f "$downloaded_rpm"
+    return 1
+  fi
+
+  rpm_identity="$(rpm -qp --qf $'%{NAME}\t%{ARCH}\n' "$downloaded_rpm" 2>/dev/null || true)"
+  if [[ "$rpm_identity" != $'discord\tx86_64' ]]; then
+    log_warn "Discord download did not contain the expected discord.x86_64 RPM."
+    rm -f "$downloaded_rpm"
+    return 1
+  fi
+
+  if ! run_cmd_as_root dnf install -y "$downloaded_rpm"; then
+    rm -f "$downloaded_rpm"
+    return 1
+  fi
+  rm -f "$downloaded_rpm"
 }
 
 install_fedora_docker() {
@@ -589,6 +627,7 @@ run_custom_action() {
     claude-code) install_claude_code ;;
     jetbrains-toolbox) install_jetbrains_toolbox ;;
     devtunnel) install_devtunnel ;;
+    discord) install_discord ;;
     docker) install_fedora_docker ;;
     docker-post-install) configure_docker_post_install ;;
     dotnet-sdk) install_dotnet_sdks ;;
@@ -623,6 +662,9 @@ verify_custom_action() {
       ;;
     devtunnel)
       [[ -x "$TARGET_HOME/.local/bin/devtunnel" ]]
+      ;;
+    discord)
+      discord_official_rpm_installed
       ;;
     docker)
       rpm -q \

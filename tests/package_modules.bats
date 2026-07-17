@@ -248,6 +248,61 @@ EOF
     "$(<"$rpm_log")"
 }
 
+@test "Discord action installs the validated official x86_64 RPM" {
+  DRY_RUN=0
+  command_log="$TEST_ROOT/discord-commands.log"
+  rpm() {
+    if [[ "${1:-}" == "-q" ]]; then
+      return 1
+    fi
+    if [[ "${1:-}" == "-qp" ]]; then
+      printf 'discord\tx86_64\n'
+      return 0
+    fi
+    return 1
+  }
+  run_cmd() {
+    printf 'download:%s\n' "$*" >>"$command_log"
+    touch "${@: -1}"
+  }
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*" >>"$command_log"
+  }
+
+  run install_discord
+
+  [ "$status" -eq 0 ]
+  assert_file_contains "$command_log" "download:curl -fsSL $DISCORD_RPM_URL -o $CACHE_DIR/discord."
+  assert_file_contains "$command_log" "root:dnf install -y $CACHE_DIR/discord."
+}
+
+@test "Discord action rejects a download with unexpected RPM metadata" {
+  DRY_RUN=0
+  command_log="$TEST_ROOT/discord-invalid-commands.log"
+  rpm() {
+    if [[ "${1:-}" == "-q" ]]; then
+      return 1
+    fi
+    if [[ "${1:-}" == "-qp" ]]; then
+      printf 'unexpected\tx86_64\n'
+      return 0
+    fi
+    return 1
+  }
+  run_cmd() {
+    printf 'download:%s\n' "$*" >>"$command_log"
+    touch "${@: -1}"
+  }
+  run_cmd_as_root() {
+    printf 'unexpected root command: %s\n' "$*" >>"$command_log"
+  }
+
+  run install_discord
+
+  [ "$status" -eq 1 ]
+  assert_contains "$output" "expected discord.x86_64 RPM"
+}
+
 @test "JetBrains Toolbox install removes the vendor login autostart entry" {
   DRY_RUN=0
   command_log="$TEST_ROOT/toolbox-install-command.log"
