@@ -127,7 +127,7 @@ auto_locate = true
 directory = "~/.local/share/backgrounds"
 
 [wallpaper.default]
-path = "~/.local/share/backgrounds/SilentPeaks.jpg"
+path = "~/.local/share/backgrounds/Alpenglow.jpg"
 
 # Idle behavior
 
@@ -154,7 +154,7 @@ timeout = 300.0
 
 [theme]
 mode = "dark"
-source = "builtin"
+source = "custom"
 builtin = "Catppuccin"
 custom_palette = "catppuccin-mocha-blue"
 

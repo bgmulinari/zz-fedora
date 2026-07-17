@@ -91,7 +91,7 @@ Local Settings UI override promotion:
 Custom Catppuccin Mocha palette:
 
 - Added `dotfiles/noctalia/.config/noctalia/palettes/catppuccin-mocha-blue.json` as a managed Noctalia v5 custom palette.
-- The palette follows the local Catppuccin style guide's Mocha mappings for base/surface/text/terminal colors, assigns Catppuccin Blue as Noctalia's primary accent/link color, Catppuccin Green as the secondary/success role, and Catppuccin Yellow as the tertiary/warning/hover role so highlighted surfaces do not collapse into the primary accent color.
+- The dark palette matches Noctalia's built-in Catppuccin palette field-for-field except for `mPrimary`: the built-in Catppuccin Mauve accent is replaced with Catppuccin Blue. Secondary, tertiary, hover, surface, error, outline, and terminal colors remain unchanged from the built-in theme.
 - The managed `[theme]` now uses `source = "custom"` with `custom_palette = "catppuccin-mocha-blue"`, keeping built-in Catppuccin as the fallback palette if the custom JSON is unavailable.
 - Removed the live `[theme]` keys from `~/.local/state/noctalia/settings.toml`; otherwise the app-managed state would continue forcing `source = "builtin"` and hide the managed custom palette.
 
