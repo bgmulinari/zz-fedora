@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# zz-test-tags: smoke
 
 load "helpers/common"
 

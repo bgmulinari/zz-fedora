@@ -35,3 +35,50 @@ setup() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"ZZ_TEST_JOBS must be a positive integer."* ]]
 }
+
+@test "tagged suite selection returns only suites carrying the tag" {
+  local tests_dir="$BATS_TEST_TMPDIR/tests"
+  mkdir -p "$tests_dir"
+  printf '#!/usr/bin/env bats\n# zz-test-tags: smoke\n' >"$tests_dir/alpha.bats"
+  printf '#!/usr/bin/env bats\n' >"$tests_dir/beta.bats"
+  printf '#!/usr/bin/env bats\n# zz-test-tags: smoke slow\n' >"$tests_dir/gamma.bats"
+
+  run list_tagged_bats_suites smoke "$tests_dir"
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "$tests_dir/alpha.bats
+$tests_dir/gamma.bats" ]
+}
+
+@test "tagged suite selection does not match tags as substrings" {
+  local tests_dir="$BATS_TEST_TMPDIR/tests"
+  mkdir -p "$tests_dir"
+  printf '#!/usr/bin/env bats\n# zz-test-tags: smokescreen\n' >"$tests_dir/alpha.bats"
+  printf '#!/usr/bin/env bats\n# zz-test-tags: smoke\n' >"$tests_dir/beta.bats"
+
+  run list_tagged_bats_suites smoke "$tests_dir"
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "$tests_dir/beta.bats" ]
+}
+
+@test "tagged suite selection fails loudly when no suite carries the tag" {
+  local tests_dir="$BATS_TEST_TMPDIR/tests"
+  mkdir -p "$tests_dir"
+  printf '#!/usr/bin/env bats\n' >"$tests_dir/alpha.bats"
+
+  run list_tagged_bats_suites smoke "$tests_dir"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'No bats suites tagged "smoke"'* ]]
+}
+
+@test "repository smoke gate selects at least one tagged suite" {
+  run list_tagged_bats_suites smoke "$ROOT_DIR/tests"
+
+  [ "$status" -eq 0 ]
+  [ -n "$output" ]
+  while IFS= read -r suite; do
+    [ -f "$suite" ]
+  done <<<"$output"
+}

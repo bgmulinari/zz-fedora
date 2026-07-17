@@ -27,11 +27,15 @@ bash -n modules/*.sh
 bash -n tests/*.sh
 bash -n tests/helpers/*.bash
 
-run_bats_suites \
-  tests/manifest_catalog.bats \
-  tests/starship_theme.bats \
-  tests/fedora_iso.bats \
-  tests/cli_smoke.bats
+# Smoke suites are selected by tag: any tests/*.bats file carrying a
+# "# zz-test-tags: smoke" line is part of the pre-PR smoke gate.
+mapfile -t smoke_suites < <(list_tagged_bats_suites smoke tests)
+if [[ "${#smoke_suites[@]}" -eq 0 ]]; then
+  printf 'Smoke gate found no suites tagged "smoke" under tests/. Refusing to pass an empty gate.\n' >&2
+  exit 1
+fi
+
+run_bats_suites "${smoke_suites[@]}"
 
 if [[ "${ZZ_TEST_LINT:-0}" -eq 1 ]]; then
   if command -v shellcheck >/dev/null 2>&1; then

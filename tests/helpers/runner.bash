@@ -23,6 +23,26 @@ bats_parallel_jobs() {
   printf '%s\n' "$processors"
 }
 
+list_tagged_bats_suites() {
+  local tag="$1"
+  local tests_dir="$2"
+  local suite
+  local matched=0
+
+  for suite in "$tests_dir"/*.bats; do
+    [[ -f "$suite" ]] || continue
+    if grep -qE "^# zz-test-tags:.*\\b${tag}\\b" "$suite"; then
+      printf '%s\n' "$suite"
+      matched=1
+    fi
+  done
+
+  if [[ "$matched" -eq 0 ]]; then
+    printf 'No bats suites tagged "%s" found under %s. Tag suites with a "# zz-test-tags: %s" line.\n' "$tag" "$tests_dir" "$tag" >&2
+    return 1
+  fi
+}
+
 run_bats_suites() {
   local jobs
   jobs="$(bats_parallel_jobs)" || return
