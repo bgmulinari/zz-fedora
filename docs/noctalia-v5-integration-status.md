@@ -100,7 +100,7 @@ Starship prompt contrast:
 - The managed Starship template now keeps top-level prompt settings before the fallback `[palettes.noctalia]` table so freshly seeded configs parse with a real top-level `format`.
 - Prompt section text uses the rendered `surface0` token consistently. Section backgrounds use Noctalia Starship palette tokens (`text`, `blue`, `yellow`, `blue`, and `green`) so the prompt follows the active Noctalia theme instead of pinning fixed colors; language modules intentionally reuse the directory section color.
 - Optional git and language separators are rendered through conditional Starship custom modules so empty git/language sections do not leave colored blocks behind.
-- Added `tests/starship_theme.bats` and `tests/helpers/starship_contrast.py`; the test resolves Noctalia's Starship palette aliases against the built-in dark terminal palettes fixture, enforces the theme-token section order, verifies optional separators are conditional, rejects adjacent duplicate section colors, and checks a 4.0:1 minimum text contrast for the managed default palette plus Catppuccin. Adjacent section checks allow separation by either luminance contrast or RGB color distance because prompt block boundaries can be hue-distinct even when their luminance is close.
+- Added `tests/starship_theme.bats` and `tests/support/starship_contrast.py`; the test resolves Noctalia's Starship palette aliases against the built-in dark terminal palettes fixture, enforces the theme-token section order, verifies optional separators are conditional, rejects adjacent duplicate section colors, and checks a 4.0:1 minimum text contrast for the managed default palette plus Catppuccin. Adjacent section checks allow separation by either luminance contrast or RGB color distance because prompt block boundaries can be hue-distinct even when their luminance is close.
 
 ## Checkpoint: 2026-07-03
 
@@ -352,7 +352,9 @@ Primary files:
 Tests covering this checkpoint:
 
 - `tests/planner.bats`
-- `tests/package_modules.bats`
+- `tests/packages_transactions.bats`
+- `tests/packages_actions.bats`
+- `tests/packages_orchestration.bats`
 - `tests/post_actions.bats`
 - `tests/doctor_hardening.bats`
 - `tests/cli_smoke.bats`

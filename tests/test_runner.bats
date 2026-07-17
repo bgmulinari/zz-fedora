@@ -73,6 +73,20 @@ $tests_dir/gamma.bats" ]
   [[ "$output" == *'No bats suites tagged "smoke"'* ]]
 }
 
+@test "tag runner requires exactly one tag argument" {
+  run bash "$ROOT_DIR/tests/run.sh"
+
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Usage: tests/run.sh <tag>"* ]]
+}
+
+@test "tag runner fails loudly for a tag no suite carries" {
+  run bash "$ROOT_DIR/tests/run.sh" no-such-tag
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'No bats suites tagged "no-such-tag"'* ]]
+}
+
 @test "repository smoke gate selects at least one tagged suite" {
   run list_tagged_bats_suites smoke "$ROOT_DIR/tests"
 

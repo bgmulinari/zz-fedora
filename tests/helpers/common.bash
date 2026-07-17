@@ -75,6 +75,37 @@ reset_test_selections() {
   done
 }
 
+# Fake-command scaffolding shared by suites that stub external commands on
+# PATH. setup_fake_bin creates the stub directory and defines the shared
+# COMMAND_LOG path; call it after setup_test_env.
+setup_fake_bin() {
+  FAKE_BIN="$TEST_ROOT/fake-bin"
+  COMMAND_LOG="$TEST_ROOT/commands.log"
+  mkdir -p "$FAKE_BIN"
+}
+
+# make_fake_command <name> [exit-code] writes a stub that appends its
+# invocation to COMMAND_LOG (path baked in, so subprocesses need no
+# environment) and exits with the given code.
+make_fake_command() {
+  local name="$1"
+  local exit_code="${2:-0}"
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf 'printf '\''%s %%s\\n'\'' "$*" >>%q\n' "$name" "$COMMAND_LOG"
+    printf 'exit %s\n' "$exit_code"
+  } >"$FAKE_BIN/$name"
+  chmod +x "$FAKE_BIN/$name"
+}
+
+# write_fake_command <name> installs an executable stub whose body is read
+# from stdin, for fakes that need custom behavior.
+write_fake_command() {
+  local name="$1"
+  cat >"$FAKE_BIN/$name"
+  chmod +x "$FAKE_BIN/$name"
+}
+
 run_without_bats_debug_trap() {
   local saved_debug_trap
   saved_debug_trap="$(trap -p DEBUG)"

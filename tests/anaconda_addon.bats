@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# zz-test-tags: smoke
 
 load "helpers/common"
 
@@ -7,7 +8,7 @@ setup() {
 }
 
 @test "Anaconda GUI and TUI profile controls update and persist selections" {
-  run python3 "$ROOT_DIR/tests/helpers/anaconda_profile_controls.py"
+  run python3 "$ROOT_DIR/tests/support/anaconda_profile_controls.py"
 
   [ "$status" -eq 0 ]
 }
@@ -291,6 +292,139 @@ task._write_runner_script(
 runner_text = (root / module.RUN_SCRIPT_PATH).read_text()
 assert "export DESKTOP_APP_PROFILE=minimal\n" in runner_text
 assert '--desktop-app-profile "$DESKTOP_APP_PROFILE"' in runner_text
+PY
+
+  [ "$status" -eq 0 ]
+}
+
+@test "Fedora Anaconda add-on exposes always-enabled GUI and TUI selection spokes" {
+  addon="$ROOT_DIR/iso/anaconda-addon/org_zz_fedora"
+
+  assert_file_contains "$addon/constants.py" "ZZ_FEDORA_NAMESPACE"
+  assert_file_contains "$addon/constants.py" '(*ADDONS_NAMESPACE, "ZZFedora")'
+  assert_file_contains "$addon/constants.py" 'SELECTION_FILE = "/run/zz-fedora/install-selected"'
+  assert_file_contains "$addon/constants.py" 'DEFAULT_DESKTOP_APP_PROFILE = "full"'
+  assert_file_contains "$addon/constants.py" '"minimal"'
+  assert_file_contains "$addon/constants.py" '"browsers"'
+  assert_file_contains "$addon/service/__main__.py" "org_zz_fedora.service.zz_fedora"
+  assert_file_contains "$addon/service/zz_fedora.py" "def install_with_tasks"
+  assert_file_contains "$addon/service/zz_fedora.py" "ZZFedoraInstallationTask"
+  assert_file_contains "$addon/service/installation.py" "self.report_progress(message)"
+  assert_file_contains "$addon/service/installation.py" "_report_process_line"
+  assert_file_contains "$addon/service/installation.py" "DNF_TRANSACTION_RE"
+  assert_file_contains "$addon/service/installation.py" "chroot"
+  assert_file_contains "$addon/service/installation.py" "ZZ_INSTALL_PROGRESS_FILE"
+  assert_file_contains "$addon/service/installation.py" 'SOURCE_REPO_DIR = Path("/run/zz-fedora/repository")'
+  assert_file_contains "$ROOT_DIR/iso/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZFedora.service" "start-module org_zz_fedora.service"
+  assert_file_contains "$ROOT_DIR/iso/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZFedora.conf" "org.fedoraproject.Anaconda.Addons.ZZFedora"
+  assert_file_contains "$addon/selection.py" "def read_categories"
+  assert_file_contains "$addon/selection.py" "def _category_ids"
+  assert_file_contains "$addon/selection.py" 'REMOTE_RUNTIME_CHOICES_DIR = Path("/run/zz-fedora/repository/choices")'
+  assert_file_contains "$addon/selection.py" "def default_selections"
+  assert_file_contains "$addon/selection.py" "desktop_app_profile == \"minimal\""
+  assert_file_contains "$addon/selection.py" 'parents[3] / "choices"'
+  assert_file_contains "$addon/selection.py" 'root / ("%s.conf" % category_id)'
+  assert_file_contains "$addon/selection.py" "select.%s=%s"
+  assert_file_contains "$addon/runtime.py" "def refresh_runtime"
+  assert_file_contains "$addon/runtime.py" "def payload_proxy_url"
+  assert_file_contains "$addon/runtime.py" "THREAD_RUNTIME_REFRESH"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "class ZZFedoraSpoke"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" 'builderObjects = ["zzFedoraSpokeWindow"]'
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "NormalSpoke"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "from pyanaconda.ui.categories.software import SoftwareCategory"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "category = SoftwareCategory"
+  refute_file_contains "$addon/gui/spokes/zz_fedora.py" "ZZFedoraCategory"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_build_category_rows"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_render_choices"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_update_preferred_browser_combo"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_on_profile_changed"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "write_state("
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "thread_manager.wait(THREAD_PAYLOAD)"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "payload_proxy_url(self.payload)"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "target=self._retry_runtime"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "gtk_call_once(self._finish_runtime_retry)"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "Optional categories"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" 'id="zzFedoraSpokeWindow"'
+  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "categoryListBox"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "choiceListBox"
+  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "desktopAppProfileCombo"
+  refute_file_contains "$addon/gui/spokes/zz_fedora.glade" "Install ZZ Fedora managed desktop"
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "org_zz_fedora/choices"
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "hidden_spokes ="
+  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "SoftwareSelectionSpoke"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "NormalTUISpoke"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "from pyanaconda.ui.categories.software import SoftwareCategory"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "category = SoftwareCategory"
+  refute_file_contains "$addon/tui/spokes/zz_fedora.py" "ZZFedoraCategory"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "CheckboxWidget"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "_toggle_choice"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "_toggle_desktop_app_profile"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "write_state("
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "thread_manager.wait(THREAD_PAYLOAD)"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "payload_proxy_url(self.payload)"
+  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "target=self._retry_runtime"
+  refute_file_contains "$addon/tui/spokes/zz_fedora.py" "_toggle_selection"
+}
+
+@test "Fedora Anaconda add-on reads flattened choice catalogs" {
+  run env ZZ_REPO_ROOT="$ROOT_DIR" python3 - <<'PY'
+import importlib.util
+import os
+import sys
+import types
+from pathlib import Path
+
+repo_root = Path(os.environ["ZZ_REPO_ROOT"])
+package = types.ModuleType("org_zz_fedora")
+package.__path__ = []
+constants = types.ModuleType("org_zz_fedora.constants")
+constants.CATEGORY_ORDER = (
+    "browsers",
+    "desktop",
+    "ai",
+    "dev",
+    "dotnet",
+    "office",
+    "gaming",
+    "media",
+)
+constants.DEFAULT_DESKTOP_APP_PROFILE = "full"
+constants.DESKTOP_APP_PROFILES = ("full", "minimal")
+constants.SELECTION_FILE = "/tmp/zz-fedora-test-selection"
+sys.modules["org_zz_fedora"] = package
+sys.modules["org_zz_fedora.constants"] = constants
+
+selection_file = repo_root / "iso/anaconda-addon/org_zz_fedora/selection.py"
+spec = importlib.util.spec_from_file_location("zz_fedora_selection", selection_file)
+selection = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(selection)
+
+assert selection.SOURCE_TREE_CHOICES_DIR == repo_root / "choices"
+categories = selection.read_categories()
+category_by_id = {category.id: category for category in categories}
+assert [category.id for category in categories] == list(constants.CATEGORY_ORDER)
+assert any(choice.id == "firefox" for choice in category_by_id["browsers"].choices)
+assert category_by_id["desktop"].label == "Desktop apps"
+assert [choice.id for choice in category_by_id["desktop"].choices] == [
+    "calculator",
+    "characters",
+    "text-editor",
+    "disks",
+    "logs",
+    "disk-usage-analyzer",
+    "image-viewer",
+    "document-viewer",
+    "video-player",
+    "audio-player",
+    "camera",
+    "document-scanner",
+    "file-roller",
+    "software",
+    "system-monitor",
+    "boxes",
+    "connections",
+]
+assert any(choice.id == "docker" for choice in category_by_id["dev"].choices)
 PY
 
   [ "$status" -eq 0 ]

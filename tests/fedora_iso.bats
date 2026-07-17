@@ -8,10 +8,9 @@ setup() {
 }
 
 @test "Fedora ISO builder embeds Kickstart, checkout, and Anaconda add-on with mkksiso" {
-  fake_bin="$TEST_ROOT/bin"
-  mkdir -p "$fake_bin"
+  setup_fake_bin
 
-  cat >"$fake_bin/rsync" <<'SH'
+  write_fake_command rsync <<'SH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 printf '%s\n' "$@" >>"$ZZ_TEST_RSYNC_LOG"
@@ -32,18 +31,16 @@ else
   chmod +x "$dest/install.sh"
 fi
 SH
-  chmod +x "$fake_bin/rsync"
 
-  cat >"$fake_bin/xorriso" <<'SH'
+  write_fake_command xorriso <<'SH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 dest=${@: -1}
 mkdir -p "$(dirname "$dest")"
 printf '0\n44\nx86_64\n' >"$dest"
 SH
-  chmod +x "$fake_bin/xorriso"
 
-  cat >"$fake_bin/mkksiso" <<'SH'
+  write_fake_command mkksiso <<'SH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
   ks=
@@ -138,7 +135,6 @@ done
 } >"$ZZ_TEST_MKKSISO_LOG"
 printf 'mock iso\n' >"$output"
 SH
-  chmod +x "$fake_bin/mkksiso"
 
   input_iso="$TEST_ROOT/Fedora-Everything-netinst.iso"
   output_iso="$TEST_ROOT/zz-fedora.iso"
@@ -147,7 +143,7 @@ SH
   export ZZ_TEST_RSYNC_LOG="$TEST_ROOT/rsync.log"
   export ZZ_TEST_MKKSISO_LOG="$TEST_ROOT/mkksiso.log"
 
-  run env PATH="$fake_bin:$PATH" "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" \
+  run env PATH="$FAKE_BIN:$PATH" "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" \
     --input "$input_iso" \
     --input-sha256 "$input_sha256" \
     --output "$output_iso"
@@ -249,19 +245,19 @@ SH
   command -v cp >/dev/null 2>&1 || skip "cp is not installed"
   command -v tar >/dev/null 2>&1 || skip "tar is not installed"
 
-  fake_bin="$TEST_ROOT/clock-bin"
+  setup_fake_bin
   archive_root="$TEST_ROOT/snapshot-c0ffee0"
   archive="$TEST_ROOT/clock-snapshot.tar.gz"
   destination="$TEST_ROOT/clock-runtime"
   paths_file="$TEST_ROOT/clock-runtime-paths.conf"
-  mkdir -p "$fake_bin" "$archive_root/choices"
+  mkdir -p "$archive_root/choices"
   printf '#!/usr/bin/env bash\n' >"$archive_root/install.sh"
   chmod +x "$archive_root/install.sh"
   printf 'firefox\tFirefox\t1\tbrowser-firefox\tFirefox\n' >"$archive_root/choices/browsers.conf"
   printf 'install.sh\nchoices\n' >"$paths_file"
   tar -czf "$archive" -C "$TEST_ROOT" "$(basename "$archive_root")"
 
-  cat >"$fake_bin/curl" <<'SH'
+  write_fake_command curl <<'SH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 count=0
@@ -283,23 +279,20 @@ while (($# > 0)); do
 done
 cp "$ZZ_TEST_ARCHIVE" "$output"
 SH
-  chmod +x "$fake_bin/curl"
 
-  cat >"$fake_bin/chronyd" <<'SH'
+  write_fake_command chronyd <<'SH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 printf '%s\n' "$*" >"$ZZ_TEST_CHRONYD_LOG"
 SH
-  chmod +x "$fake_bin/chronyd"
 
-  cat >"$fake_bin/chronyc" <<'SH'
+  write_fake_command chronyc <<'SH'
 #!/usr/bin/env bash
 exit 1
 SH
-  chmod +x "$fake_bin/chronyc"
 
   run env \
-    PATH="$fake_bin:$PATH" \
+    PATH="$FAKE_BIN:$PATH" \
     ZZ_ISO_RUNTIME_ARCHIVE_URL=https://example.invalid/runtime.tar.gz \
     ZZ_ISO_RUNTIME_PATHS_FILE="$paths_file" \
     ZZ_ISO_RUNTIME_DIR="$destination" \
@@ -318,10 +311,9 @@ SH
 }
 
 @test "Fedora ISO builder forwards development skip-mkefiboot flag" {
-  fake_bin="$TEST_ROOT/skip-bin"
-  mkdir -p "$fake_bin"
+  setup_fake_bin
 
-  cat >"$fake_bin/rsync" <<'SH'
+  write_fake_command rsync <<'SH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 staging_payload=0
@@ -337,32 +329,29 @@ if [[ "$staging_payload" -eq 1 ]]; then
   chmod +x "$dest/install.sh"
 fi
 SH
-  chmod +x "$fake_bin/rsync"
 
-  cat >"$fake_bin/xorriso" <<'SH'
+  write_fake_command xorriso <<'SH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 dest=${@: -1}
 mkdir -p "$(dirname "$dest")"
 printf '0\n44\nx86_64\n' >"$dest"
 SH
-  chmod +x "$fake_bin/xorriso"
 
-  cat >"$fake_bin/mkksiso" <<'SH'
+  write_fake_command mkksiso <<'SH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 printf '%s\n' "$@" >"$ZZ_TEST_MKKSISO_LOG"
 output=${@: -1}
 printf 'mock iso\n' >"$output"
 SH
-  chmod +x "$fake_bin/mkksiso"
 
   input_iso="$TEST_ROOT/Fedora-Everything-netinst.iso"
   output_iso="$TEST_ROOT/zz-fedora.iso"
   touch "$input_iso"
   export ZZ_TEST_MKKSISO_LOG="$TEST_ROOT/mkksiso-skip.log"
 
-  run env PATH="$fake_bin:$PATH" "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" \
+  run env PATH="$FAKE_BIN:$PATH" "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" \
     --input "$input_iso" \
     --output "$output_iso" \
     --skip-mkefiboot
@@ -397,139 +386,6 @@ SH
   refute_file_contains "$ks" "clearpart"
   refute_file_contains "$ks" "autopart"
   refute_file_contains "$ks" "rootpw"
-}
-
-@test "Fedora Anaconda add-on exposes always-enabled GUI and TUI selection spokes" {
-  addon="$ROOT_DIR/iso/anaconda-addon/org_zz_fedora"
-
-  assert_file_contains "$addon/constants.py" "ZZ_FEDORA_NAMESPACE"
-  assert_file_contains "$addon/constants.py" '(*ADDONS_NAMESPACE, "ZZFedora")'
-  assert_file_contains "$addon/constants.py" 'SELECTION_FILE = "/run/zz-fedora/install-selected"'
-  assert_file_contains "$addon/constants.py" 'DEFAULT_DESKTOP_APP_PROFILE = "full"'
-  assert_file_contains "$addon/constants.py" '"minimal"'
-  assert_file_contains "$addon/constants.py" '"browsers"'
-  assert_file_contains "$addon/service/__main__.py" "org_zz_fedora.service.zz_fedora"
-  assert_file_contains "$addon/service/zz_fedora.py" "def install_with_tasks"
-  assert_file_contains "$addon/service/zz_fedora.py" "ZZFedoraInstallationTask"
-  assert_file_contains "$addon/service/installation.py" "self.report_progress(message)"
-  assert_file_contains "$addon/service/installation.py" "_report_process_line"
-  assert_file_contains "$addon/service/installation.py" "DNF_TRANSACTION_RE"
-  assert_file_contains "$addon/service/installation.py" "chroot"
-  assert_file_contains "$addon/service/installation.py" "ZZ_INSTALL_PROGRESS_FILE"
-  assert_file_contains "$addon/service/installation.py" 'SOURCE_REPO_DIR = Path("/run/zz-fedora/repository")'
-  assert_file_contains "$ROOT_DIR/iso/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZFedora.service" "start-module org_zz_fedora.service"
-  assert_file_contains "$ROOT_DIR/iso/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZFedora.conf" "org.fedoraproject.Anaconda.Addons.ZZFedora"
-  assert_file_contains "$addon/selection.py" "def read_categories"
-  assert_file_contains "$addon/selection.py" "def _category_ids"
-  assert_file_contains "$addon/selection.py" 'REMOTE_RUNTIME_CHOICES_DIR = Path("/run/zz-fedora/repository/choices")'
-  assert_file_contains "$addon/selection.py" "def default_selections"
-  assert_file_contains "$addon/selection.py" "desktop_app_profile == \"minimal\""
-  assert_file_contains "$addon/selection.py" 'parents[3] / "choices"'
-  assert_file_contains "$addon/selection.py" 'root / ("%s.conf" % category_id)'
-  assert_file_contains "$addon/selection.py" "select.%s=%s"
-  assert_file_contains "$addon/runtime.py" "def refresh_runtime"
-  assert_file_contains "$addon/runtime.py" "def payload_proxy_url"
-  assert_file_contains "$addon/runtime.py" "THREAD_RUNTIME_REFRESH"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "class ZZFedoraSpoke"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" 'builderObjects = ["zzFedoraSpokeWindow"]'
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "NormalSpoke"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "from pyanaconda.ui.categories.software import SoftwareCategory"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "category = SoftwareCategory"
-  refute_file_contains "$addon/gui/spokes/zz_fedora.py" "ZZFedoraCategory"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_build_category_rows"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_render_choices"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_update_preferred_browser_combo"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_on_profile_changed"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "write_state("
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "thread_manager.wait(THREAD_PAYLOAD)"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "payload_proxy_url(self.payload)"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "target=self._retry_runtime"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.py" "gtk_call_once(self._finish_runtime_retry)"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "Optional categories"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" 'id="zzFedoraSpokeWindow"'
-  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "categoryListBox"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "choiceListBox"
-  assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "desktopAppProfileCombo"
-  refute_file_contains "$addon/gui/spokes/zz_fedora.glade" "Install ZZ Fedora managed desktop"
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "org_zz_fedora/choices"
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "hidden_spokes ="
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "SoftwareSelectionSpoke"
-  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "NormalTUISpoke"
-  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "from pyanaconda.ui.categories.software import SoftwareCategory"
-  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "category = SoftwareCategory"
-  refute_file_contains "$addon/tui/spokes/zz_fedora.py" "ZZFedoraCategory"
-  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "CheckboxWidget"
-  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "_toggle_choice"
-  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "_toggle_desktop_app_profile"
-  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "write_state("
-  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "thread_manager.wait(THREAD_PAYLOAD)"
-  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "payload_proxy_url(self.payload)"
-  assert_file_contains "$addon/tui/spokes/zz_fedora.py" "target=self._retry_runtime"
-  refute_file_contains "$addon/tui/spokes/zz_fedora.py" "_toggle_selection"
-}
-
-@test "Fedora Anaconda add-on reads flattened choice catalogs" {
-  run env ZZ_REPO_ROOT="$ROOT_DIR" python3 - <<'PY'
-import importlib.util
-import os
-import sys
-import types
-from pathlib import Path
-
-repo_root = Path(os.environ["ZZ_REPO_ROOT"])
-package = types.ModuleType("org_zz_fedora")
-package.__path__ = []
-constants = types.ModuleType("org_zz_fedora.constants")
-constants.CATEGORY_ORDER = (
-    "browsers",
-    "desktop",
-    "ai",
-    "dev",
-    "dotnet",
-    "office",
-    "gaming",
-    "media",
-)
-constants.DEFAULT_DESKTOP_APP_PROFILE = "full"
-constants.DESKTOP_APP_PROFILES = ("full", "minimal")
-constants.SELECTION_FILE = "/tmp/zz-fedora-test-selection"
-sys.modules["org_zz_fedora"] = package
-sys.modules["org_zz_fedora.constants"] = constants
-
-selection_file = repo_root / "iso/anaconda-addon/org_zz_fedora/selection.py"
-spec = importlib.util.spec_from_file_location("zz_fedora_selection", selection_file)
-selection = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(selection)
-
-assert selection.SOURCE_TREE_CHOICES_DIR == repo_root / "choices"
-categories = selection.read_categories()
-category_by_id = {category.id: category for category in categories}
-assert [category.id for category in categories] == list(constants.CATEGORY_ORDER)
-assert any(choice.id == "firefox" for choice in category_by_id["browsers"].choices)
-assert category_by_id["desktop"].label == "Desktop apps"
-assert [choice.id for choice in category_by_id["desktop"].choices] == [
-    "calculator",
-    "characters",
-    "text-editor",
-    "disks",
-    "logs",
-    "disk-usage-analyzer",
-    "image-viewer",
-    "document-viewer",
-    "video-player",
-    "audio-player",
-    "camera",
-    "document-scanner",
-    "file-roller",
-    "software",
-    "system-monitor",
-    "boxes",
-    "connections",
-]
-assert any(choice.id == "docker" for choice in category_by_id["dev"].choices)
-PY
-
-  [ "$status" -eq 0 ]
 }
 
 @test "Fedora VM installer test defaults to ISO boot path" {
