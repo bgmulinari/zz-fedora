@@ -183,6 +183,9 @@ build_plan_from_selections() {
   if plan_file_has_entry "$(package_file_for_backend "$(native_backend)")" "ghostty"; then
     append_plan_entries "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
   fi
+  if [[ "${SKIP_DOTFILES:-0}" -ne 1 ]] && plan_file_has_entry "$PLAN_DIR/actions/actions.list" "pywalfox"; then
+    append_plan_entries "$PLAN_DIR/services/user-enable.list" "pywalfox-theme-sync.path"
+  fi
   append_managed_file "~/.local/share/backgrounds"
   append_managed_file "~/.config/niri/cfg/display.kdl"
   append_managed_file "~/.config/niri/noctalia.kdl"

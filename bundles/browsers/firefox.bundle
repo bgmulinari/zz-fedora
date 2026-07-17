@@ -1,6 +1,7 @@
 BUNDLE_ID="browser-firefox"
 BUNDLE_INSTALLER="dnf"
 BUNDLE_SOURCE_ID=""
+BUNDLE_DEPENDENCIES="browser-firefox-pywalfox"
 BUNDLE_ITEMS_FILE="packages/official/browsers/firefox.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Firefox browser bundle for Fedora"

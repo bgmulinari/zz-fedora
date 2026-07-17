@@ -254,6 +254,7 @@ module_90_doctor() {
     doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "ghostty" "+new-window"'
     doctor_check_contains "$niri_config_home/config.kdl" 'include "./noctalia.kdl"'
     doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'TERMINAL=xdg-terminal-exec'
+    doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'PATH=${HOME}/.local/bin:${PATH:-/usr/local/bin:/usr/bin}'
     if doctor_plan_has_entry "$native_plan" "nautilus"; then
       doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "nautilus"'
     fi

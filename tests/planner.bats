@@ -323,16 +323,36 @@ assert_all_bundles_reachable() {
   build_test_plan "browser=brave,firefox" "dev=vscode,lazygit" "ai=codex"
 
   assert_plan_has "$PLAN_DIR/bundles.list" "browser-firefox"
+  assert_plan_has "$PLAN_DIR/bundles.list" "browser-firefox-pywalfox"
+  assert_plan_has "$PLAN_DIR/bundles.list" "browser-firefox-pywalfox-runtime"
+  assert_plan_has "$PLAN_DIR/bundles.list" "dev-vscode-extensions"
   assert_plan_has "$PLAN_DIR/sources/vendor.list" "vendor:brave"
   assert_plan_has "$PLAN_DIR/sources/vendor.list" "vendor:vscode"
+  assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:vscode-marketplace"
+  assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:pywalfox"
   assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:dejan/lazygit"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "brave-browser"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "firefox"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pipx"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "code"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "lazygit"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "vscode-extension:noctalia.noctaliatheme"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "pywalfox"
+  assert_plan_has "$PLAN_DIR/stow/packages.list" "pywalfox"
+  assert_plan_has "$PLAN_DIR/services/user-enable.list" "pywalfox-theme-sync.path"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/systemd/user/pywalfox-theme-sync.path"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/systemd/user/pywalfox-theme-sync.service"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "npm-global:@openai/codex"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:npm"
   [[ "$(join_by $'\n' "${WARNING_MESSAGES[@]}")" == *"artifact:npm"* ]]
+}
+
+@test "skip dotfiles omits the Pywalfox user unit" {
+  SKIP_DOTFILES=1
+  build_test_plan "browser=firefox"
+
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "pywalfox"
+  refute_plan_has "$PLAN_DIR/services/user-enable.list" "pywalfox-theme-sync.path"
 }
 
 @test "Discord selection plans the official RPM action" {

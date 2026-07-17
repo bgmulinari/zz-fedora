@@ -1,6 +1,7 @@
 BUNDLE_ID="dev-vscode"
 BUNDLE_INSTALLER="dnf"
 BUNDLE_SOURCE_ID="vendor:vscode"
+BUNDLE_DEPENDENCIES="dev-vscode-extensions"
 BUNDLE_ITEMS_FILE="packages/vendor/vscode/vscode.pkgs"
 BUNDLE_STOW_PACKAGES="vscode"
 BUNDLE_DESCRIPTION="Visual Studio Code bundle for Fedora"

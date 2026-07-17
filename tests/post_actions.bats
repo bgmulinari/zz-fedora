@@ -397,6 +397,37 @@ EOF
   [[ ! -s "$TEST_ROOT/first-run-commands.log" ]]
 }
 
+@test "managed Noctalia app themes render synchronously and skip without managed config" {
+  build_test_plan "browser=firefox" "dev=vscode"
+  TARGET_USER="theme-user"
+  DRY_RUN=0
+  command_log="$TEST_ROOT/noctalia-app-theme-commands.log"
+  palette_file="$TARGET_HOME/.config/noctalia/palettes/catppuccin-mocha-blue.json"
+  config_file="$TARGET_HOME/.config/noctalia/config.toml"
+  pywalfox_config="$XDG_STATE_HOME/noctalia/community-templates/pywalfox/template.toml"
+  vscode_config="$XDG_STATE_HOME/noctalia/community-templates/vscode/template.toml"
+  mkdir -p "$(dirname "$palette_file")" "$(dirname "$pywalfox_config")" "$(dirname "$vscode_config")"
+  touch "$palette_file" "$config_file" "$pywalfox_config" "$vscode_config"
+
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf '%s:%s\n' "$user" "$*" >>"$command_log"
+  }
+
+  apply_managed_noctalia_app_themes
+
+  assert_file_contains "$command_log" \
+    "theme-user:noctalia theme --theme-json $palette_file --default-mode dark -c $pywalfox_config"
+  assert_file_contains "$command_log" \
+    "theme-user:noctalia theme --theme-json $palette_file --default-mode dark -c $vscode_config"
+
+  rm -f "$config_file"
+  : >"$command_log"
+  apply_managed_noctalia_app_themes
+  [[ ! -s "$command_log" ]]
+}
+
 @test "Flatpak theme access override is applied as user override" {
   build_test_plan
   TARGET_USER="test-user"

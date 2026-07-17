@@ -97,6 +97,92 @@ setup() {
   assert_contains "$output" "LC_ALL=C.UTF-8"
 }
 
+@test "Visual Studio Code extension action installs NoctaliaTheme once for the target user" {
+  DRY_RUN=0
+  TARGET_USER="code-user"
+  extension_marker="$TEST_ROOT/noctalia-extension-installed"
+  command_log="$TEST_ROOT/vscode-extension-commands.log"
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf '%s:%s\n' "$user" "$*" >>"$command_log"
+    case "$*" in
+      "code --list-extensions")
+        [[ -f "$extension_marker" ]] && printf 'noctalia.noctaliatheme\n'
+        ;;
+      "code --install-extension noctalia.noctaliatheme")
+        touch "$extension_marker"
+        ;;
+    esac
+  }
+
+  run run_custom_action vscode-extension:noctalia.noctaliatheme
+  [ "$status" -eq 0 ]
+  run verify_custom_action vscode-extension:noctalia.noctaliatheme
+  [ "$status" -eq 0 ]
+  run run_custom_action vscode-extension:noctalia.noctaliatheme
+  [ "$status" -eq 0 ]
+
+  assert_equal "1" "$(grep -Fc 'code-user:code --install-extension noctalia.noctaliatheme' "$command_log")"
+  assert_file_contains "$command_log" "code-user:code --list-extensions"
+}
+
+@test "Pywalfox action installs native host and user-disableable Firefox extension policy" {
+  DRY_RUN=0
+  TARGET_USER="firefox-user"
+  TARGET_HOME="$TEST_ROOT/firefox-home"
+  FIREFOX_POLICIES_FILE="$TEST_ROOT/firefox-policy/policies.json"
+  command_log="$TEST_ROOT/pywalfox-commands.log"
+  mkdir -p "$TARGET_HOME" "$(dirname "$FIREFOX_POLICIES_FILE")"
+  printf '{"policies":{"DisableTelemetry":true}}\n' >"$FIREFOX_POLICIES_FILE"
+
+  run_user_login_shell() {
+    printf '%s\n' "$1" >>"$command_log"
+    mkdir -p "$TARGET_HOME/.local/bin"
+    printf '#!/usr/bin/env bash\n' >"$TARGET_HOME/.local/bin/pywalfox"
+    chmod +x "$TARGET_HOME/.local/bin/pywalfox"
+  }
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf '%s:%s\n' "$user" "$*" >>"$command_log"
+    if [[ "$*" == "$TARGET_HOME/.local/bin/pywalfox install --executable $TARGET_HOME/.local/bin/pywalfox" ]]; then
+      mkdir -p "$TARGET_HOME/.mozilla/native-messaging-hosts"
+      jq -n \
+        --arg executable "$TARGET_HOME/.local/bin/pywalfox" \
+        --arg extension_id "$PYWALFOX_EXTENSION_ID" \
+        '{path: $executable, allowed_extensions: [$extension_id]}' \
+        >"$TARGET_HOME/.mozilla/native-messaging-hosts/pywalfox.json"
+    fi
+  }
+
+  run install_pywalfox
+  [ "$status" -eq 0 ]
+  run verify_custom_action pywalfox
+  [ "$status" -eq 0 ]
+
+  assert_file_contains "$command_log" "pipx upgrade pywalfox || pipx install --force pywalfox"
+  assert_file_contains "$command_log" "firefox-user:$TARGET_HOME/.local/bin/pywalfox install --executable $TARGET_HOME/.local/bin/pywalfox"
+  jq -e '.policies.DisableTelemetry == true' "$FIREFOX_POLICIES_FILE" >/dev/null
+  jq -e '.policies.ExtensionSettings["pywalfox@frewacom.org"].installation_mode == "normal_installed"' "$FIREFOX_POLICIES_FILE" >/dev/null
+  jq -e '.policies.ExtensionSettings["pywalfox@frewacom.org"].install_url == "https://addons.mozilla.org/firefox/downloads/latest/pywalfox/latest.xpi"' "$FIREFOX_POLICIES_FILE" >/dev/null
+}
+
+@test "Pywalfox theme sync follows native host socket changes" {
+  path_unit="$ROOT_DIR/dotfiles/pywalfox/.config/systemd/user/pywalfox-theme-sync.path"
+  service_unit="$ROOT_DIR/dotfiles/pywalfox/.config/systemd/user/pywalfox-theme-sync.service"
+
+  assert_file_contains "$path_unit" "PathChanged=/tmp/pywalfox_socket_%U"
+  assert_file_contains "$path_unit" "Unit=pywalfox-theme-sync.service"
+  assert_file_contains "$service_unit" "ExecStart=%h/.local/bin/pywalfox update"
+}
+
+@test "managed graphical session exposes pipx-installed Pywalfox to Noctalia" {
+  environment_file="$ROOT_DIR/dotfiles/environment/.config/environment.d/10-niri-gtk.conf"
+
+  assert_file_line "$environment_file" 'PATH=${HOME}/.local/bin:${PATH:-/usr/local/bin:/usr/bin}'
+}
+
 @test "pinned Git checkout is verified as its target user" {
   DRY_RUN=0
   TARGET_USER="checkout-user"

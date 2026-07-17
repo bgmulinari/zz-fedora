@@ -511,6 +511,53 @@ remove_first_run_hook() {
   run_cmd_as_user "$TARGET_USER" rm -f "$desktop_file"
 }
 
+planned_noctalia_app_templates() {
+  local action_plan="$PLAN_DIR/actions/actions.list"
+  plan_file_has_entry "$action_plan" pywalfox && printf 'pywalfox\n'
+  plan_file_has_entry "$action_plan" vscode-extension:noctalia.noctaliatheme && printf 'vscode\n'
+}
+
+apply_managed_noctalia_app_themes() {
+  local config_file="$TARGET_HOME/.config/noctalia/config.toml"
+  local palette_file="$TARGET_HOME/.config/noctalia/palettes/catppuccin-mocha-blue.json"
+  local state_home="${XDG_STATE_HOME:-$TARGET_HOME/.local/state}"
+  local template_id template_config attempt applied
+  local -a template_ids=()
+
+  mapfile -t template_ids < <(planned_noctalia_app_templates)
+  [[ "${#template_ids[@]}" -gt 0 ]] || return 0
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: render managed Noctalia app themes: %s\n' "${template_ids[*]}"
+    return 0
+  fi
+
+  # Missing managed config is expected with --skip-dotfiles.
+  [[ -f "$config_file" && -f "$palette_file" ]] || return 0
+
+  log_progress "Rendering first-launch application themes"
+  for template_id in "${template_ids[@]}"; do
+    template_config="$state_home/noctalia/community-templates/$template_id/template.toml"
+    applied=0
+    for ((attempt = 1; attempt <= 120; attempt++)); do
+      if [[ -f "$template_config" ]] && run_cmd_as_user "$TARGET_USER" \
+        noctalia theme \
+        --theme-json "$palette_file" \
+        --default-mode dark \
+        -c "$template_config" \
+        >/dev/null 2>&1; then
+        applied=1
+        break
+      fi
+      sleep 0.25
+    done
+    if [[ "$applied" -ne 1 ]]; then
+      log_warn "Noctalia template was not ready: $template_id"
+      return 1
+    fi
+  done
+}
+
 module_80_defaults() {
   configure_default_applications
   configure_selected_browser_default
@@ -532,6 +579,7 @@ module_80_first_run() {
     run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface color-scheme prefer-dark || true
   fi
   module_80_defaults
+  apply_managed_noctalia_app_themes || return 1
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: mark first-run complete -> %s\n' "$marker"

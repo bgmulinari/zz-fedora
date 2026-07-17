@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for Pywalfox browser startup
+
+[Path]
+PathChanged=/tmp/pywalfox_socket_%U
+Unit=pywalfox-theme-sync.service
+
+[Install]
+WantedBy=default.target
