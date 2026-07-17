@@ -1,6 +1,5 @@
 BUNDLE_ID="base-source-rpmfusion-free"
 BUNDLE_INSTALLER="dnf"
 BUNDLE_SOURCE_ID="rpmfusion-free"
-BUNDLE_ITEMS_FILE="packages/empty.list"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Always-enabled RPM Fusion Free source for Fedora"

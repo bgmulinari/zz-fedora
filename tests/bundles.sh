@@ -65,4 +65,24 @@ BUNDLE_DESCRIPTION="Missing items file"
 EOF
 ! (validate_bundle_descriptor "$ROOT_DIR/bundles/__test__/missing-items.bundle") >/dev/null 2>&1
 
+cat >"$ROOT_DIR/bundles/__test__/no-items.bundle" <<'EOF'
+BUNDLE_ID="test-no-items"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Source-only bundle without payload items"
+EOF
+validate_bundle_descriptor "$ROOT_DIR/bundles/__test__/no-items.bundle"
+
+printf '\n' >"$ROOT_DIR/packages/__test__/empty.list"
+cat >"$ROOT_DIR/bundles/__test__/bad-suffix.bundle" <<'EOF'
+BUNDLE_ID="test-bad-suffix"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/__test__/empty.list"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Non-manifest payload suffix"
+EOF
+! (validate_bundle_descriptor "$ROOT_DIR/bundles/__test__/bad-suffix.bundle") >/dev/null 2>&1
+
 printf 'bundles ok\n'

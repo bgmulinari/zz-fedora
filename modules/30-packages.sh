@@ -146,7 +146,7 @@ build_base_package_plan_for_backend() {
     esac
     load_bundle_descriptor "$bundle_id" || die "Unknown base bundle: $bundle_id"
     [[ "$BUNDLE_INSTALLER" == "$backend" ]] || continue
-    mapfile -t bundle_items < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
+    mapfile -t bundle_items < <(bundle_manifest_entries)
     append_plan_entries "$base_plan" "${bundle_items[@]:-}"
   done < <(effective_base_bundle_ids)
 }

@@ -104,6 +104,38 @@ BUNDLE_DESCRIPTION="Missing items file"
 EOF
   run validate_bundle_descriptor "$descriptor_dir/missing-items.bundle"
   [ "$status" -ne 0 ]
+
+  cat >"$descriptor_dir/no-items.bundle" <<'EOF'
+BUNDLE_ID="test-no-items"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Source-only bundle without payload items"
+EOF
+  validate_bundle_descriptor "$descriptor_dir/no-items.bundle"
+
+  cat >"$descriptor_dir/bad-suffix.bundle" <<'EOF'
+BUNDLE_ID="test-bad-suffix"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/empty.list"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Non-manifest payload suffix"
+EOF
+  run validate_bundle_descriptor "$descriptor_dir/bad-suffix.bundle"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"must use a manifest suffix"* ]]
+}
+
+@test "every bundle payload file uses a declared manifest suffix and exists" {
+  local bundle_file items_file
+  while IFS= read -r bundle_file; do
+    items_file=""
+    descriptor_value_from_file "$bundle_file" BUNDLE_ITEMS_FILE items_file || true
+    [[ -n "$items_file" ]] || continue
+    [[ "$items_file" =~ \.(pkgs|flatpaks|actions)$ ]]
+    [ -f "$ROOT_DIR/$items_file" ]
+  done < <(find "$ROOT_DIR/bundles" -type f -name '*.bundle' | sort)
 }
 
 @test "source descriptors include required trust metadata" {

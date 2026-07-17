@@ -48,7 +48,7 @@ plan_file_has_entry() {
 append_bundle_payload_to_plan() {
   local destination
   destination="$(package_file_for_backend "$BUNDLE_INSTALLER")"
-  mapfile -t bundle_items < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
+  mapfile -t bundle_items < <(bundle_manifest_entries)
   append_plan_entries "$destination" "${bundle_items[@]:-}"
 }
 
@@ -293,7 +293,7 @@ write_base_rationale_report() {
     while IFS= read -r item; do
       [[ -n "$item" ]] || continue
       write_base_rationale_row "$report" "$BUNDLE_INSTALLER" "$item" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
-    done < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
+    done < <(bundle_manifest_entries)
   done < <(effective_base_bundle_ids)
 
   if [[ "$(resolved_desktop_app_profile)" == "full" ]] && grep -Fx 'base-source-flathub' "$PLAN_DIR/bundles.list" >/dev/null 2>&1; then

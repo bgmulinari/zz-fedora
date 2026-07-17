@@ -262,6 +262,6 @@ assert_base_manifests_in_plan() {
     while IFS= read -r base_item; do
       [[ -n "$base_item" ]] || continue
       assert_plan_has "$plan_file" "$base_item"
-    done < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
+    done < <(bundle_manifest_entries)
   done
 }

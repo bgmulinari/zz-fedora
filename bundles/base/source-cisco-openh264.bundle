@@ -1,6 +1,5 @@
 BUNDLE_ID="base-source-cisco-openh264"
 BUNDLE_INSTALLER="dnf"
 BUNDLE_SOURCE_ID="cisco-openh264"
-BUNDLE_ITEMS_FILE="packages/empty.list"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Always-enabled Fedora Cisco OpenH264 source"

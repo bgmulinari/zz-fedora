@@ -256,6 +256,11 @@ manifest_entries() {
   ' "$file" | sort -u
 }
 
+bundle_manifest_entries() {
+  [[ -n "${BUNDLE_ITEMS_FILE:-}" ]] || return 0
+  manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE"
+}
+
 list_source_files() {
   find "$ROOT_DIR/sources" -type f -name '*.source' | sort
 }
@@ -463,10 +468,12 @@ validate_bundle_descriptor() {
   [[ -n "${BUNDLE_ID:-}" ]] || die "Missing BUNDLE_ID in $bundle_file"
   [[ "$BUNDLE_ID" =~ ^[A-Za-z0-9_.:-]+$ ]] || die "Invalid BUNDLE_ID '$BUNDLE_ID' in $bundle_file"
   [[ -n "${BUNDLE_INSTALLER:-}" ]] || die "Missing BUNDLE_INSTALLER in $bundle_file"
-  [[ -n "${BUNDLE_ITEMS_FILE:-}" ]] || die "Missing BUNDLE_ITEMS_FILE in $bundle_file"
   [[ -n "${BUNDLE_DESCRIPTION:-}" ]] || die "Missing BUNDLE_DESCRIPTION in $bundle_file"
   bundle_installer_supported "$BUNDLE_INSTALLER" || die "Unsupported installer '$BUNDLE_INSTALLER' in $bundle_file"
-  [[ -f "$ROOT_DIR/$BUNDLE_ITEMS_FILE" ]] || die "Missing bundle payload file '$BUNDLE_ITEMS_FILE' in $bundle_file"
+  if [[ -n "${BUNDLE_ITEMS_FILE:-}" ]]; then
+    [[ "$BUNDLE_ITEMS_FILE" =~ \.(pkgs|flatpaks|actions)$ ]] || die "Bundle payload file '$BUNDLE_ITEMS_FILE' must use a manifest suffix (.pkgs, .flatpaks, .actions) in $bundle_file"
+    [[ -f "$ROOT_DIR/$BUNDLE_ITEMS_FILE" ]] || die "Missing bundle payload file '$BUNDLE_ITEMS_FILE' in $bundle_file"
+  fi
 
   if [[ -n "${BUNDLE_SOURCE_ID:-}" ]]; then
     source_file_for_id "$BUNDLE_SOURCE_ID" >/dev/null || die "Unknown source ID '$BUNDLE_SOURCE_ID' in $bundle_file"
