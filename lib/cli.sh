@@ -21,6 +21,7 @@ Common options:
 EOF
 }
 
+# shellcheck disable=SC2034  # CLI globals are consumed by install.sh and the sourced lib/ modules.
 parse_cli() {
   local args=("$@")
   local idx=0

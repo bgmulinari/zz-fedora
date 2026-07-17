@@ -118,6 +118,7 @@ stow_preview_conflict_path() {
   printf '%s/files/config-conflicts.tsv\n' "$PLAN_DIR"
 }
 
+# shellcheck disable=SC2088  # Conflict-preview rows intentionally use literal ~/ keys to match managed-file records.
 stow_preview_record_conflict() {
   local relative_path="$1"
   local package_name="$2"

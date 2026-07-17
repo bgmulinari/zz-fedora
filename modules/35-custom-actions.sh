@@ -427,7 +427,7 @@ install_dotnet_sdks() {
     return 0
   fi
 
-  local metadata install_script floor channel_lines channel release_type failed=0
+  local metadata install_script floor channel_lines channel failed=0
   log_progress "Downloading .NET release metadata and installer"
   metadata="$(mktemp "$CACHE_DIR/dotnet-releases.XXXXXX")"
   install_script="$(mktemp "$CACHE_DIR/dotnet-install.XXXXXX")"
@@ -450,7 +450,7 @@ install_dotnet_sdks() {
   [[ -n "$floor" ]] || floor="$(tail -n1 <<<"$channel_lines" | cut -f1)"
 
   local -a channels=()
-  while IFS=$'\t' read -r channel release_type; do
+  while IFS=$'\t' read -r channel _; do
     [[ -n "$channel" ]] || continue
     if version_ge "$channel" "$floor"; then
       channels+=("$channel")

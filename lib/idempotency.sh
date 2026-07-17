@@ -177,7 +177,8 @@ stop_sudo_keepalive() {
 backup_file_if_needed() {
   local destination="$1"
   [[ -e "$destination" || -L "$destination" ]] || return 0
-  local backup_root="$STATE_DIR/backups/$(timestamp)"
+  local backup_root
+  backup_root="$STATE_DIR/backups/$(timestamp)"
   local backup_path="$backup_root${destination}"
   mkdir -p "$(dirname "$backup_path")"
   cp -a "$destination" "$backup_path"

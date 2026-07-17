@@ -18,16 +18,7 @@ if [[ "${1:-}" == "--timings" ]]; then
   shift
 fi
 
-bash -n bootstrap.sh
-bash -n install.sh
-bash -n bin/zz
-bash -n bin/zz.d/*
-bash -n scripts/*.sh
-bash -n scripts/lib/*.sh
-bash -n lib/*.sh
-bash -n modules/*.sh
-bash -n tests/*.sh
-bash -n tests/helpers/*.bash
+run_bash_syntax_checks
 
 mapfile -t suites < <(find tests -maxdepth 1 -type f -name '*.bats' | sort)
 
@@ -47,7 +38,10 @@ else
 fi
 
 if command -v shellcheck >/dev/null 2>&1; then
-  shellcheck -S error bootstrap.sh install.sh bin/zz bin/zz.d/* scripts/*.sh scripts/lib/*.sh lib/*.sh modules/*.sh tests/*.sh tests/helpers/*.bash
+  run_shellcheck_lint
+elif [[ "${ZZ_TEST_LINT:-0}" -eq 1 ]]; then
+  printf 'ZZ_TEST_LINT=1 was set, but shellcheck is not installed.\n' >&2
+  exit 127
 fi
 
 printf 'full ok\n'

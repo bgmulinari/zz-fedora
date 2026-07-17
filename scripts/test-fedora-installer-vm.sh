@@ -414,10 +414,12 @@ case "$graphics_mode" in
     display_args=(-display none)
     ;;
   egl-headless)
+    # shellcheck disable=SC2054  # Commas are QEMU option syntax, not array separators.
     display_args=(-display egl-headless,gl=on -vga none -device virtio-vga-gl)
     ;;
 esac
 
+# shellcheck disable=SC2054  # Commas are QEMU option syntax, not array separators.
 qemu_args=(
   -enable-kvm
   -m "$memory" \

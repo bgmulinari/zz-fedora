@@ -415,14 +415,14 @@ dotnet_channel_lines() {
 
 dotnet_selected_channels() {
   local metadata_file="$1"
-  local channel_lines floor channel release_type
+  local channel_lines floor channel
   channel_lines="$(dotnet_channel_lines "$metadata_file" || true)"
   [[ -n "$channel_lines" ]] || return 1
 
   floor="$(awk -F'\t' '$2 == "lts" {count++; if (count == 2) {print $1; exit}}' <<<"$channel_lines")"
   [[ -n "$floor" ]] || floor="$(tail -n1 <<<"$channel_lines" | cut -f1)"
 
-  while IFS=$'\t' read -r channel release_type; do
+  while IFS=$'\t' read -r channel _; do
     [[ -n "$channel" ]] || continue
     if version_ge "$channel" "$floor"; then
       printf '%s\n' "$channel"

@@ -43,6 +43,27 @@ list_tagged_bats_suites() {
   fi
 }
 
+# Shell files covered by syntax checks and the ShellCheck lint gate.
+# Callers must run from the repository root.
+shell_lint_targets() {
+  printf '%s\n' bootstrap.sh install.sh bin/zz bin/zz.d/* scripts/*.sh scripts/lib/*.sh lib/*.sh modules/*.sh tests/*.sh tests/helpers/*.bash
+}
+
+run_bash_syntax_checks() {
+  local target
+  while IFS= read -r target; do
+    bash -n "$target"
+  done < <(shell_lint_targets)
+}
+
+# Lint at warning severity so warning-level findings fail the gate; anything
+# reported must be fixed or carry a justified inline "# shellcheck disable".
+run_shellcheck_lint() {
+  local -a targets=()
+  mapfile -t targets < <(shell_lint_targets)
+  shellcheck -S warning "${targets[@]}"
+}
+
 run_bats_suites() {
   local jobs
   jobs="$(bats_parallel_jobs)" || return

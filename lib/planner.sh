@@ -65,18 +65,16 @@ append_bundle_to_plan() {
   local bundle_id="$1"
   local plan_sources_name="$2"
   local plan_backends_name="$3"
-  local -n plan_sources_ref="$plan_sources_name"
-  local -n plan_backends_ref="$plan_backends_name"
 
   load_bundle_descriptor "$bundle_id" || die "Unknown bundle: $bundle_id"
   append_plan_entries "$PLAN_DIR/bundles.list" "$bundle_id"
-  append_unique plan_backends_ref "$BUNDLE_INSTALLER"
+  append_unique "$plan_backends_name" "$BUNDLE_INSTALLER"
   if [[ -n "${BUNDLE_SOURCE_ID:-}" ]]; then
-    append_unique plan_sources_ref "$BUNDLE_SOURCE_ID"
+    append_unique "$plan_sources_name" "$BUNDLE_SOURCE_ID"
   fi
   local source_id
   while IFS= read -r source_id; do
-    [[ -n "$source_id" ]] && append_unique plan_sources_ref "$source_id"
+    [[ -n "$source_id" ]] && append_unique "$plan_sources_name" "$source_id"
   done < <(split_csv "${BUNDLE_SOURCE_IDS:-}")
   append_bundle_payload_to_plan
   append_bundle_stow_plan
@@ -115,7 +113,9 @@ append_dotfiles_prereqs() {
   append_plan_entries "$(prereq_file_for_backend "$(native_backend)")" "stow"
 }
 
+# shellcheck disable=SC2088  # Managed-file records intentionally use literal ~/ keys; expansion happens at apply time.
 build_plan_from_selections() {
+  # shellcheck disable=SC2034  # Read via dynamic scoping by lib/packages.sh plan appenders.
   local DEFER_PLAN_SORT=1
   ensure_state_dirs
   plan_reset

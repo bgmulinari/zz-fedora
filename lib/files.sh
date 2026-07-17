@@ -10,6 +10,7 @@ append_managed_file() {
   append_plan_entries "$PLAN_DIR/files/managed-files.list" "$path"
 }
 
+# shellcheck disable=SC2088  # Managed-file records intentionally use literal ~/ keys; expansion happens at apply time.
 append_managed_files_for_stow_package() {
   local package_name="$1"
   local package_dir="$ROOT_DIR/dotfiles/$package_name"

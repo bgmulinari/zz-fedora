@@ -15,14 +15,18 @@ CONFIG_DIR="${CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zz-fedora}"
 LOG_DIR="${LOG_DIR:-$STATE_DIR/logs}"
 PLAN_DIR="$STATE_DIR/plan"
 SAVED_SELECTIONS="$CONFIG_DIR/selections.conf"
+# shellcheck disable=SC2034  # Consumed by lib/idempotency.sh.
 LOCK_FILE="$STATE_DIR/install.lock"
 LOG_FILE="${LOG_FILE:-}"
 STATE_OWNER_USER="${STATE_OWNER_USER:-}"
 
 mkdir -p "$STATE_DIR" "$CACHE_DIR" "$CONFIG_DIR" "$LOG_DIR"
 
+# shellcheck disable=SC2034  # Populated here, consumed by lib/planner.sh and lib/tui.sh.
 declare -ag WARNING_MESSAGES=()
+# shellcheck disable=SC2034  # Populated here, consumed by lib/planner.sh and lib/tui.sh.
 declare -ag INFO_MESSAGES=()
+# shellcheck disable=SC2034  # Populated here, consumed by lib/planner.sh and lib/tui.sh.
 declare -ag PLAN_MODULES=()
 declare -Ag CATEGORY_OVERRIDES=()
 declare -Ag CATEGORY_ADDITIONS=()
@@ -243,10 +247,9 @@ descriptor_value_from_file() {
   local file="$1"
   local key="$2"
   local result_name="$3"
-  local -n result_ref="$result_name"
   local line value
 
-  result_ref=""
+  printf -v "$result_name" '%s' ""
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ "$line" == "$key="* ]] || continue
     value="${line#*=}"
@@ -254,7 +257,7 @@ descriptor_value_from_file() {
       value="${value#\"}"
       value="${value%\"}"
     fi
-    result_ref="$value"
+    printf -v "$result_name" '%s' "$value"
     return 0
   done <"$file"
   return 1
@@ -299,7 +302,6 @@ load_source_descriptor() {
     SOURCE_REASON
   # shellcheck disable=SC1090
   source "$source_file"
-  SOURCE_FILE="$source_file"
 }
 
 list_source_ids() {
@@ -410,7 +412,6 @@ load_bundle_descriptor() {
     BUNDLE_DESCRIPTION
   # shellcheck disable=SC1090
   source "$bundle_file"
-  BUNDLE_FILE="$bundle_file"
 }
 
 bundle_installer_supported() {

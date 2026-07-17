@@ -82,3 +82,31 @@ $tests_dir/gamma.bats" ]
     [ -f "$suite" ]
   done <<<"$output"
 }
+
+@test "shell lint targets resolve to existing files including CI setup script" {
+  cd "$ROOT_DIR"
+
+  run shell_lint_targets
+
+  [ "$status" -eq 0 ]
+  [ -n "$output" ]
+  local found_ci_setup=0 target
+  while IFS= read -r target; do
+    [ -f "$target" ]
+    [[ "$target" == "scripts/ci-setup.sh" ]] && found_ci_setup=1
+  done <<<"$output"
+  [ "$found_ci_setup" -eq 1 ]
+}
+
+@test "shellcheck lint gate runs at warning severity over the shared target list" {
+  cd "$ROOT_DIR"
+  shellcheck() {
+    printf 'shellcheck:%s\n' "$*"
+  }
+
+  run run_shellcheck_lint
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == shellcheck:-S\ warning\ * ]]
+  [[ "$output" == *"bootstrap.sh install.sh bin/zz"* ]]
+}

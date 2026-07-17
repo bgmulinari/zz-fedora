@@ -91,8 +91,6 @@ capture_without_bats_debug_trap() {
   local output_name="$1"
   local status_name="$2"
   shift 2
-  local -n output_ref="$output_name"
-  local -n status_ref="$status_name"
   local saved_debug_trap captured command_status had_errexit=0
 
   saved_debug_trap="$(trap -p DEBUG)"
@@ -109,8 +107,8 @@ capture_without_bats_debug_trap() {
   if [[ -n "$saved_debug_trap" ]]; then
     eval "$saved_debug_trap"
   fi
-  output_ref="$captured"
-  status_ref="$command_status"
+  printf -v "$output_name" '%s' "$captured"
+  printf -v "$status_name" '%s' "$command_status"
 }
 
 build_test_plan() {

@@ -188,7 +188,7 @@ run_install_step() {
       ACTIVE_STEP_TOTAL=0
       ACTIVE_STEP_STARTED_AT=""
       log_info "Completed step $current/$total: $label (${elapsed}s)"
-      write_install_progress done "$current" "$total" "$label" "Completed in ${elapsed}s"
+      write_install_progress "done" "$current" "$total" "$label" "Completed in ${elapsed}s"
       tui_step_done "$label"
       return 0
     fi
@@ -239,7 +239,7 @@ run_registered_steps() {
   done
   tui_progress_end
   if [[ "$failed" -eq 0 ]]; then
-    write_install_progress done "$total" "$total" "ZZ Fedora" "Installation complete"
+    write_install_progress "done" "$total" "$total" "ZZ Fedora" "Installation complete"
   else
     write_install_progress failed "$total" "$total" "ZZ Fedora" "Installation failed"
   fi

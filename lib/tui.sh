@@ -15,8 +15,6 @@ tui_can_style() {
 
 declare -ag TUI_STEP_ORDER=()
 declare -Ag TUI_STEP_STATUS=()
-TUI_STEP_CURRENT=0
-TUI_STEP_TOTAL=0
 TUI_PROGRESS_RENDER_ACTIVE=0
 TUI_PROGRESS_HEIGHT=0
 TUI_PROGRESS_STEPS_ROW=0
@@ -25,8 +23,6 @@ TUI_BANNER_HEIGHT=0
 tui_reset_steps() {
   TUI_STEP_ORDER=()
   TUI_STEP_STATUS=()
-  TUI_STEP_CURRENT=0
-  TUI_STEP_TOTAL=0
 }
 
 tui_register_steps() {
@@ -36,7 +32,6 @@ tui_register_steps() {
     TUI_STEP_ORDER+=("$title")
     TUI_STEP_STATUS["$title"]="pending"
   done
-  TUI_STEP_TOTAL="${#TUI_STEP_ORDER[@]}"
 }
 
 tui_progress_enabled() {
@@ -194,8 +189,6 @@ tui_step_start() {
   local title="$3"
   local description="${4:-}"
 
-  TUI_STEP_CURRENT="$current"
-  TUI_STEP_TOTAL="$total"
   TUI_STEP_STATUS["$title"]="running"
 
   tui_progress_render_steps
@@ -615,6 +608,7 @@ tui_run_wizard() {
     local index=0
     for index in "${!preferred_browser_options[@]}"; do
       if [[ "${preferred_browser_options[$index]}" == "$preferred_label" ]]; then
+        # shellcheck disable=SC2034  # Consumed by modules/80-post-actions.sh.
         PREFERRED_BROWSER="${browser_choices[$index]}"
         break
       fi
