@@ -1,4 +1,6 @@
 BUNDLE_ID="base-desktop-niri"
+BUNDLE_BASE="1"
+BUNDLE_BASE_ORDER="70"
 BUNDLE_INSTALLER="dnf"
 BUNDLE_SOURCE_ID="copr:yalter/niri"
 BUNDLE_ITEMS_FILE="packages/copr/yalter-niri/desktop-core.pkgs"

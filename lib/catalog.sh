@@ -8,6 +8,16 @@ declare -Ag SOURCE_FILE_CACHE=()
 declare -Ag BUNDLE_FILE_CACHE=()
 declare -Ag SOURCE_FILE_CACHE_LOADED=()
 declare -Ag BUNDLE_FILE_CACHE_LOADED=()
+declare -Ag BASE_BUNDLE_CATALOG_LOADED=()
+
+# Base-install membership is derived from bundle metadata, not hand-kept
+# lists: BUNDLE_BASE=1 marks a base bundle, BUNDLE_BASE_ORDER gives its
+# position in base planning, BUNDLE_BASE_EARLY=1 puts it in the early base
+# set, and BUNDLE_MINIMAL_DESKTOP_SKIP=1 excludes it from the minimal
+# desktop profile.
+declare -ag EARLY_BASE_BUNDLE_IDS=()
+declare -ag BASE_BUNDLE_IDS=()
+declare -ag MINIMAL_DESKTOP_SKIP_BUNDLE_IDS=()
 
 descriptor_value_from_file() {
   local file="$1"
@@ -162,6 +172,56 @@ load_bundle_file_cache() {
   BUNDLE_FILE_CACHE_LOADED[catalog]=1
 }
 
+load_base_bundle_catalog() {
+  [[ -n "${BASE_BUNDLE_CATALOG_LOADED[catalog]:-}" ]] && return 0
+
+  local bundle_file bundle_id base_flag base_order early_flag skip_flag
+  local -a base_rows=()
+  local -A seen_orders=()
+
+  EARLY_BASE_BUNDLE_IDS=()
+  BASE_BUNDLE_IDS=()
+  MINIMAL_DESKTOP_SKIP_BUNDLE_IDS=()
+
+  while IFS= read -r bundle_file; do
+    descriptor_value_from_file "$bundle_file" BUNDLE_ID bundle_id || continue
+    [[ -n "$bundle_id" ]] || continue
+    base_flag=""
+    descriptor_value_from_file "$bundle_file" BUNDLE_BASE base_flag || true
+    if [[ "$bundle_file" == "$ROOT_DIR/bundles/base/"* && "$base_flag" != "1" ]]; then
+      die "Bundle under bundles/base/ must declare BUNDLE_BASE=1 in $bundle_file"
+    fi
+    if [[ "$base_flag" != "1" ]]; then
+      continue
+    fi
+    base_order=""
+    descriptor_value_from_file "$bundle_file" BUNDLE_BASE_ORDER base_order || true
+    [[ "$base_order" =~ ^[0-9]+$ ]] || die "Base bundle '$bundle_id' must declare a numeric BUNDLE_BASE_ORDER in $bundle_file"
+    base_order="$((10#$base_order))"
+    [[ -z "${seen_orders[$base_order]:-}" ]] || die "Duplicate BUNDLE_BASE_ORDER '$base_order': ${seen_orders[$base_order]} and $bundle_file"
+    seen_orders["$base_order"]="$bundle_file"
+    early_flag=""
+    descriptor_value_from_file "$bundle_file" BUNDLE_BASE_EARLY early_flag || true
+    skip_flag=""
+    descriptor_value_from_file "$bundle_file" BUNDLE_MINIMAL_DESKTOP_SKIP skip_flag || true
+    base_rows+=("$(printf '%012d\t%s\t%s\t%s' "$base_order" "$bundle_id" "${early_flag:-0}" "${skip_flag:-0}")")
+  done < <(list_bundle_files)
+
+  if [[ "${#base_rows[@]}" -gt 0 ]]; then
+    while IFS=$'\t' read -r _ bundle_id early_flag skip_flag; do
+      BASE_BUNDLE_IDS+=("$bundle_id")
+      if [[ "$early_flag" == "1" ]]; then
+        EARLY_BASE_BUNDLE_IDS+=("$bundle_id")
+      fi
+      if [[ "$skip_flag" == "1" ]]; then
+        MINIMAL_DESKTOP_SKIP_BUNDLE_IDS+=("$bundle_id")
+      fi
+    done < <(printf '%s\n' "${base_rows[@]}" | LC_ALL=C sort)
+  fi
+
+  BASE_BUNDLE_CATALOG_LOADED[catalog]=1
+}
+
 bundle_file_for_id() {
   local bundle_id="$1"
   load_bundle_file_cache
@@ -178,6 +238,10 @@ load_bundle_descriptor() {
   bundle_file="$(bundle_file_for_id "$bundle_id")" || return 1
   unset \
     BUNDLE_ID \
+    BUNDLE_BASE \
+    BUNDLE_BASE_ORDER \
+    BUNDLE_BASE_EARLY \
+    BUNDLE_MINIMAL_DESKTOP_SKIP \
     BUNDLE_INSTALLER \
     BUNDLE_SOURCE_ID \
     BUNDLE_SOURCE_IDS \
@@ -205,6 +269,10 @@ validate_bundle_descriptor() {
 
   unset \
     BUNDLE_ID \
+    BUNDLE_BASE \
+    BUNDLE_BASE_ORDER \
+    BUNDLE_BASE_EARLY \
+    BUNDLE_MINIMAL_DESKTOP_SKIP \
     BUNDLE_INSTALLER \
     BUNDLE_SOURCE_ID \
     BUNDLE_SOURCE_IDS \
@@ -216,6 +284,22 @@ validate_bundle_descriptor() {
   source "$bundle_file"
 
   [[ -n "${BUNDLE_ID:-}" ]] || die "Missing BUNDLE_ID in $bundle_file"
+  if [[ -n "${BUNDLE_BASE:-}" ]]; then
+    [[ "$BUNDLE_BASE" == "0" || "$BUNDLE_BASE" == "1" ]] || die "Invalid BUNDLE_BASE '$BUNDLE_BASE' in $bundle_file"
+  fi
+  if [[ "${BUNDLE_BASE:-0}" == "1" ]]; then
+    [[ "${BUNDLE_BASE_ORDER:-}" =~ ^[0-9]+$ ]] || die "Base bundle must declare a numeric BUNDLE_BASE_ORDER in $bundle_file"
+  else
+    [[ -z "${BUNDLE_BASE_ORDER:-}" ]] || die "BUNDLE_BASE_ORDER requires BUNDLE_BASE=1 in $bundle_file"
+    [[ -z "${BUNDLE_BASE_EARLY:-}" ]] || die "BUNDLE_BASE_EARLY requires BUNDLE_BASE=1 in $bundle_file"
+    [[ -z "${BUNDLE_MINIMAL_DESKTOP_SKIP:-}" ]] || die "BUNDLE_MINIMAL_DESKTOP_SKIP requires BUNDLE_BASE=1 in $bundle_file"
+  fi
+  if [[ -n "${BUNDLE_BASE_EARLY:-}" ]]; then
+    [[ "$BUNDLE_BASE_EARLY" == "0" || "$BUNDLE_BASE_EARLY" == "1" ]] || die "Invalid BUNDLE_BASE_EARLY '$BUNDLE_BASE_EARLY' in $bundle_file"
+  fi
+  if [[ -n "${BUNDLE_MINIMAL_DESKTOP_SKIP:-}" ]]; then
+    [[ "$BUNDLE_MINIMAL_DESKTOP_SKIP" == "0" || "$BUNDLE_MINIMAL_DESKTOP_SKIP" == "1" ]] || die "Invalid BUNDLE_MINIMAL_DESKTOP_SKIP '$BUNDLE_MINIMAL_DESKTOP_SKIP' in $bundle_file"
+  fi
   [[ "$BUNDLE_ID" =~ ^[A-Za-z0-9_.:-]+$ ]] || die "Invalid BUNDLE_ID '$BUNDLE_ID' in $bundle_file"
   [[ -n "${BUNDLE_INSTALLER:-}" ]] || die "Missing BUNDLE_INSTALLER in $bundle_file"
   [[ -n "${BUNDLE_DESCRIPTION:-}" ]] || die "Missing BUNDLE_DESCRIPTION in $bundle_file"

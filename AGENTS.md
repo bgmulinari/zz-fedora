@@ -21,7 +21,7 @@
 
 - Keep each `choices/*.conf` row tab-separated with exactly five fields: `id`, `label`, `default`, `bundle_ids`, and `description`.
 - Preserve manifest suffixes: `.conf`, `.bundle`, `.pkgs`, `.flatpaks`, `.actions`, and `.source`.
-- Base bundles belong in `BASE_BUNDLE_IDS`, are planned before optional bundles, and must not appear in an optional choice catalog. Use `DEFAULT_BUNDLE_IDS` only for broader defaults outside the choice catalogs.
+- Base bundle membership is declared in the bundle descriptor: `BUNDLE_BASE=1` with a unique numeric `BUNDLE_BASE_ORDER`, plus optional `BUNDLE_BASE_EARLY=1` and `BUNDLE_MINIMAL_DESKTOP_SKIP=1`. Every descriptor under `bundles/base/` must declare `BUNDLE_BASE=1`. Base bundles are planned before optional bundles and must not appear in an optional choice catalog. Use `DEFAULT_BUNDLE_IDS` only for broader defaults outside the choice catalogs.
 - The default install selects every non-browser catalog choice and only Firefox from the browser catalog. Express optional catalog defaults through the third field of each choice row.
 - Give every base-owning bundle a useful `BUNDLE_DESCRIPTION`; base package and action work must remain explainable in the generated `base-rationale.tsv`.
 - Source descriptors must declare trust metadata with `SOURCE_GPG_POLICY`, `SOURCE_BOOTSTRAP_EXCEPTION`, `SOURCE_REQUIRED`, and `SOURCE_REASON`.

@@ -1,4 +1,6 @@
 BUNDLE_ID="base-file-integration"
+BUNDLE_BASE="1"
+BUNDLE_BASE_ORDER="160"
 BUNDLE_INSTALLER="dnf"
 BUNDLE_SOURCE_ID=""
 BUNDLE_ITEMS_FILE="packages/official/file-integration-core.pkgs"

@@ -1,4 +1,6 @@
 BUNDLE_ID="base-desktop-apps"
+BUNDLE_BASE="1"
+BUNDLE_BASE_ORDER="150"
 BUNDLE_INSTALLER="dnf"
 BUNDLE_SOURCE_ID=""
 BUNDLE_ITEMS_FILE="packages/official/desktop-apps.pkgs"

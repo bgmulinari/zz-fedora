@@ -1,4 +1,6 @@
 BUNDLE_ID="shell-starship"
+BUNDLE_BASE="1"
+BUNDLE_BASE_ORDER="230"
 BUNDLE_INSTALLER="dnf"
 BUNDLE_SOURCE_ID="copr:atim/starship"
 BUNDLE_ITEMS_FILE="packages/copr/atim-starship/starship.pkgs"

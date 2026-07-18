@@ -376,3 +376,114 @@ EOF
     done
   done
 }
+
+@test "base bundle membership is derived from bundle metadata" {
+  local bundle_file bundle_id base_flag
+  local -a declared_base_ids=()
+
+  while IFS= read -r bundle_file; do
+    descriptor_value_from_file "$bundle_file" BUNDLE_ID bundle_id
+    base_flag=""
+    descriptor_value_from_file "$bundle_file" BUNDLE_BASE base_flag || true
+    if [[ "$bundle_file" == "$ROOT_DIR/bundles/base/"* ]]; then
+      assert_equal "1" "$base_flag"
+    fi
+    [[ "$base_flag" == "1" ]] && declared_base_ids+=("$bundle_id")
+  done < <(list_bundle_files)
+
+  assert_equal "${#declared_base_ids[@]}" "${#BASE_BUNDLE_IDS[@]}"
+  for bundle_id in "${declared_base_ids[@]}"; do
+    array_contains "$bundle_id" "${BASE_BUNDLE_IDS[@]}"
+  done
+  for bundle_id in "${BASE_BUNDLE_IDS[@]}"; do
+    bundle_file_for_id "$bundle_id" >/dev/null
+  done
+  for bundle_id in "${EARLY_BASE_BUNDLE_IDS[@]}"; do
+    array_contains "$bundle_id" "${BASE_BUNDLE_IDS[@]}"
+  done
+  for bundle_id in "${MINIMAL_DESKTOP_SKIP_BUNDLE_IDS[@]}"; do
+    array_contains "$bundle_id" "${BASE_BUNDLE_IDS[@]}"
+  done
+}
+
+@test "a new bundles/base descriptor joins the derived base set at its declared order" {
+  local sandbox="$TEST_ROOT/sandbox-root"
+  mkdir -p "$sandbox"
+  cp -R "$ROOT_DIR/bundles" "$sandbox/bundles"
+  cat >"$sandbox/bundles/base/zz-test.bundle" <<'BUNDLE'
+BUNDLE_ID="base-zz-test"
+BUNDLE_BASE="1"
+BUNDLE_BASE_ORDER="15"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Sandbox base bundle for derivation tests"
+BUNDLE
+
+  derive_sandbox_base_ids() {
+    ROOT_DIR="$sandbox"
+    BUNDLE_FILE_CACHE=()
+    BUNDLE_FILE_CACHE_LOADED=()
+    BASE_BUNDLE_CATALOG_LOADED=()
+    load_base_bundle_catalog
+    printf '%s\n' "${BASE_BUNDLE_IDS[@]}"
+  }
+
+  run derive_sandbox_base_ids
+  [ "$status" -eq 0 ]
+  assert_equal "base-bootstrap" "${lines[0]}"
+  assert_equal "base-zz-test" "${lines[1]}"
+  assert_equal "base-source-rpmfusion-free" "${lines[2]}"
+}
+
+@test "a bundles/base descriptor without BUNDLE_BASE=1 fails catalog derivation" {
+  local sandbox="$TEST_ROOT/sandbox-root-invalid"
+  mkdir -p "$sandbox"
+  cp -R "$ROOT_DIR/bundles" "$sandbox/bundles"
+  cat >"$sandbox/bundles/base/zz-test.bundle" <<'BUNDLE'
+BUNDLE_ID="base-zz-test"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Sandbox base bundle missing base metadata"
+BUNDLE
+
+  derive_invalid_sandbox_base_ids() {
+    ROOT_DIR="$sandbox"
+    BUNDLE_FILE_CACHE=()
+    BUNDLE_FILE_CACHE_LOADED=()
+    BASE_BUNDLE_CATALOG_LOADED=()
+    load_base_bundle_catalog
+  }
+
+  run derive_invalid_sandbox_base_ids
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "must declare BUNDLE_BASE=1"
+}
+
+@test "duplicate BUNDLE_BASE_ORDER fails catalog derivation" {
+  local sandbox="$TEST_ROOT/sandbox-root-dup-order"
+  mkdir -p "$sandbox"
+  cp -R "$ROOT_DIR/bundles" "$sandbox/bundles"
+  cat >"$sandbox/bundles/base/zz-test.bundle" <<'BUNDLE'
+BUNDLE_ID="base-zz-test"
+BUNDLE_BASE="1"
+BUNDLE_BASE_ORDER="10"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID=""
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Sandbox base bundle with a duplicate order"
+BUNDLE
+
+  derive_dup_order_base_ids() {
+    ROOT_DIR="$sandbox"
+    BUNDLE_FILE_CACHE=()
+    BUNDLE_FILE_CACHE_LOADED=()
+    BASE_BUNDLE_CATALOG_LOADED=()
+    load_base_bundle_catalog
+  }
+
+  run derive_dup_order_base_ids
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Duplicate BUNDLE_BASE_ORDER '10'"
+}

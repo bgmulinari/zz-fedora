@@ -22,6 +22,10 @@ source "$ROOT_DIR/lib/selections.sh"
 # shellcheck source=./desktop-defaults.sh
 source "$ROOT_DIR/lib/desktop-defaults.sh"
 
+# Derive the base-install bundle sets from bundle metadata so every consumer
+# of EARLY_BASE_BUNDLE_IDS/BASE_BUNDLE_IDS sees the catalog-backed values.
+load_base_bundle_catalog
+
 STATE_DIR="${STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/zz-fedora}"
 CACHE_DIR="${CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/zz-fedora}"
 CONFIG_DIR="${CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zz-fedora}"

@@ -1,4 +1,6 @@
 BUNDLE_ID="base-jetbrains-mono-nerd-font"
+BUNDLE_BASE="1"
+BUNDLE_BASE_ORDER="100"
 BUNDLE_INSTALLER="action"
 BUNDLE_SOURCE_ID=""
 BUNDLE_ITEMS_FILE="packages/actions/base-jetbrains-mono-nerd-font.actions"

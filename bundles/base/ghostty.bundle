@@ -1,4 +1,6 @@
 BUNDLE_ID="base-ghostty"
+BUNDLE_BASE="1"
+BUNDLE_BASE_ORDER="90"
 BUNDLE_INSTALLER="dnf"
 BUNDLE_SOURCE_ID="terra"
 BUNDLE_ITEMS_FILE="packages/terra/ghostty.pkgs"
