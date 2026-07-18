@@ -4,6 +4,19 @@
 # zz-usage: zz update <all|dnf|flatpak|brew|npm|dotnet|dotnet-sdk|dotnet-tools|claude|cleanup> [options]
 set -Eeuo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# Shared installer libraries: shell_quote, join_by, run_cmd, root re-exec,
+# and the .NET install pins and channel-selection algorithm.
+# shellcheck source=../../lib/util.sh
+source "$ROOT_DIR/lib/util.sh"
+# shellcheck source=../../lib/log.sh
+source "$ROOT_DIR/lib/log.sh"
+# shellcheck source=../../lib/idempotency.sh
+source "$ROOT_DIR/lib/idempotency.sh"
+# shellcheck source=../../lib/dotnet.sh
+source "$ROOT_DIR/lib/dotnet.sh"
+
 BREW_CANDIDATE="/home/linuxbrew/.linuxbrew/bin/brew"
 RUN_USER="${ZZ_UPDATE_RUN_USER:-${SUDO_USER:-${USER:-$(id -un)}}}"
 RUN_HOME="${HOME:-}"
@@ -13,11 +26,12 @@ elif [[ "$EUID" -eq 0 && -n "${SUDO_USER:-}" && "${SUDO_USER:-}" != "root" ]]; t
   RUN_HOME="$(getent passwd "$RUN_USER" 2>/dev/null | cut -d: -f6)"
 fi
 RUN_HOME="${RUN_HOME:-$HOME}"
-DOTNET_INSTALL_DIR="${DOTNET_INSTALL_DIR:-$RUN_HOME/.dotnet}"
-DOTNET_INSTALL_COMMIT="4a37a9f9d1a061fc389d6515100336db4e51710e"
-DOTNET_INSTALL_SHA256="082f7685e156738a1b2e2ed8381a621870d4ce8e8c59278034556f05c186eb2e"
+DOTNET_INSTALL_DIR="${DOTNET_INSTALL_DIR:-$RUN_HOME/$DOTNET_INSTALL_DIR_NAME}"
 
 DRY_RUN=0
+# The shared run_cmd supports the installer's interactive command preview;
+# zz update never uses it.
+COMMAND_PREVIEW=0
 CLEANUP_AFTER_ALL=0
 DNF_STAGED=0
 DNF_OFFLINE_SCHEDULED=0
@@ -49,30 +63,6 @@ Options:
   --no-cleanup  Deprecated compatibility alias; cleanup is skipped by default.
   -h, --help    Show this help.
 EOF
-}
-
-shell_quote() {
-  local quoted="" arg
-  for arg in "$@"; do
-    printf -v arg "%q" "$arg"
-    [[ -z "$quoted" ]] || quoted+=" "
-    quoted+="$arg"
-  done
-  printf '%s' "$quoted"
-}
-
-join_by() {
-  local delimiter="$1"
-  shift || true
-  local first=1 item
-  for item in "$@"; do
-    if [[ "$first" -eq 1 ]]; then
-      printf '%s' "$item"
-      first=0
-    else
-      printf '%s%s' "$delimiter" "$item"
-    fi
-  done
 }
 
 section() {
@@ -175,14 +165,6 @@ find_command() {
   return 1
 }
 
-run_cmd() {
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: %s\n' "$(shell_quote "$@")"
-    return 0
-  fi
-  "$@"
-}
-
 run_user_cmd() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
     if [[ "$EUID" -eq 0 && "$RUN_USER" != "root" ]]; then
@@ -238,14 +220,7 @@ exec_update_as_root_if_needed() {
   root_required_for_target "$target" || return 0
   [[ "$EUID" -ne 0 && "${ZZ_UPDATE_ROOT_CONTEXT:-0}" -ne 1 ]] || return 0
 
-  command -v sudo >/dev/null 2>&1 || {
-    printf 'sudo is required for zz update %s.\n' "$target" >&2
-    return 1
-  }
-
-  printf 'Root privileges are required for zz update %s. You may be prompted for your password once.\n' "$target"
-  sudo -v
-  exec sudo env \
+  exec_as_root_via_sudo "zz update $target" \
     "ZZ_UPDATE_RUN_USER=$RUN_USER" \
     "ZZ_UPDATE_RUN_HOME=$RUN_HOME" \
     "ZZ_UPDATE_ROOT_CONTEXT=1" \
@@ -397,39 +372,6 @@ update_npm() {
   return 1
 }
 
-version_ge() {
-  local version="$1"
-  local floor="$2"
-  [[ "$(printf '%s\n%s\n' "$floor" "$version" | sort -V | head -n1)" == "$floor" ]]
-}
-
-dotnet_channel_lines() {
-  local metadata_file="$1"
-  jq -r '
-    .["releases-index"][]
-    | select(.["support-phase"] == "active" or .["support-phase"] == "maintenance")
-    | [.["channel-version"], .["release-type"]]
-    | @tsv
-  ' "$metadata_file" | sort -Vr
-}
-
-dotnet_selected_channels() {
-  local metadata_file="$1"
-  local channel_lines floor channel
-  channel_lines="$(dotnet_channel_lines "$metadata_file" || true)"
-  [[ -n "$channel_lines" ]] || return 1
-
-  floor="$(awk -F'\t' '$2 == "lts" {count++; if (count == 2) {print $1; exit}}' <<<"$channel_lines")"
-  [[ -n "$floor" ]] || floor="$(tail -n1 <<<"$channel_lines" | cut -f1)"
-
-  while IFS=$'\t' read -r channel _; do
-    [[ -n "$channel" ]] || continue
-    if version_ge "$channel" "$floor"; then
-      printf '%s\n' "$channel"
-    fi
-  done <<<"$channel_lines"
-}
-
 prune_old_dotnet_sdks() {
   local sdk_dir="$DOTNET_INSTALL_DIR/sdk"
   [[ -d "$sdk_dir" ]] || return 0
@@ -478,12 +420,12 @@ update_dotnet_sdk() {
   metadata="$(mktemp)"
   install_script="$(mktemp)"
 
-  if ! curl -fsSL https://dotnetcli.azureedge.net/dotnet/release-metadata/releases-index.json -o "$metadata"; then
+  if ! curl -fsSL "$DOTNET_RELEASES_INDEX_URL" -o "$metadata"; then
     rm -f "$metadata" "$install_script"
     set_update_summary dotnet-sdk failed "release metadata download failed"
     return 1
   fi
-  if ! curl -fsSL "https://raw.githubusercontent.com/dotnet/install-scripts/$DOTNET_INSTALL_COMMIT/src/dotnet-install.sh" -o "$install_script"; then
+  if ! curl -fsSL "$DOTNET_INSTALL_SCRIPT_URL" -o "$install_script"; then
     rm -f "$metadata" "$install_script"
     set_update_summary dotnet-sdk failed "installer download failed"
     return 1

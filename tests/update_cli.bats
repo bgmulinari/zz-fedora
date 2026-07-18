@@ -151,3 +151,26 @@ EOF
   assert_file_contains "$COMMAND_LOG" "sudo env ZZ_UPDATE_RUN_USER="
   assert_file_contains "$COMMAND_LOG" "sudo -n env LC_ALL=C $FAKE_BIN/dnf upgrade -y --refresh --offline"
 }
+
+@test "shared dotnet channel selection keeps channels down to the second-newest LTS" {
+  command -v jq >/dev/null 2>&1 || skip "jq is not installed"
+  local metadata="$TEST_ROOT/releases-index.json"
+  cat >"$metadata" <<'JSON'
+{
+  "releases-index": [
+    {"channel-version": "10.0", "release-type": "lts", "support-phase": "active"},
+    {"channel-version": "9.0", "release-type": "sts", "support-phase": "maintenance"},
+    {"channel-version": "8.0", "release-type": "lts", "support-phase": "maintenance"},
+    {"channel-version": "7.0", "release-type": "sts", "support-phase": "eol"},
+    {"channel-version": "6.0", "release-type": "lts", "support-phase": "eol"}
+  ]
+}
+JSON
+
+  run bash -c "source '$ROOT_DIR/lib/dotnet.sh' && dotnet_selected_channels '$metadata'"
+
+  [ "$status" -eq 0 ]
+  assert_equal "10.0
+9.0
+8.0" "$output"
+}

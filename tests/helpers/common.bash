@@ -32,6 +32,8 @@ source_core() {
   source "$ROOT_DIR/lib/cli.sh"
   # shellcheck source=../../lib/packages.sh
   source "$ROOT_DIR/lib/packages.sh"
+  # shellcheck source=../../lib/dotnet.sh
+  source "$ROOT_DIR/lib/dotnet.sh"
   # shellcheck source=../../lib/actions.sh
   source "$ROOT_DIR/lib/actions.sh"
   # shellcheck source=../../lib/sources.sh

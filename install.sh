@@ -13,6 +13,8 @@ source "$ROOT_DIR/lib/hardware.sh"
 source "$ROOT_DIR/lib/cli.sh"
 # shellcheck source=./lib/packages.sh
 source "$ROOT_DIR/lib/packages.sh"
+# shellcheck source=./lib/dotnet.sh
+source "$ROOT_DIR/lib/dotnet.sh"
 # shellcheck source=./lib/actions.sh
 source "$ROOT_DIR/lib/actions.sh"
 # shellcheck source=./lib/sources.sh
@@ -154,9 +156,7 @@ exec_setup_as_root_if_needed() {
     [[ -n "${!optional_env:-}" ]] && root_env+=("$optional_env=${!optional_env}")
   done
 
-  printf 'Root privileges are required for setup. You may be prompted for your password once.\n'
-  sudo -v
-  exec sudo env "${root_env[@]}" "$ROOT_DIR/install.sh" "$@"
+  exec_as_root_via_sudo "setup" "${root_env[@]}" "$ROOT_DIR/install.sh" "$@"
 }
 
 run_install_step() {

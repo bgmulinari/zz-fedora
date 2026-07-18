@@ -96,3 +96,17 @@ functions_defined_in() {
     }
   done
 }
+
+@test "dotnet install-script pins are defined only in lib/dotnet.sh" {
+  local pin matches
+  for pin in DOTNET_INSTALL_COMMIT DOTNET_INSTALL_SHA256; do
+    matches="$(grep -rlE "^${pin}=" \
+      "$ROOT_DIR/lib" \
+      "$ROOT_DIR/modules" \
+      "$ROOT_DIR/bin" \
+      "$ROOT_DIR/scripts" \
+      "$ROOT_DIR/install.sh" \
+      "$ROOT_DIR/bootstrap.sh" | sort)"
+    assert_equal "$ROOT_DIR/lib/dotnet.sh" "$matches"
+  done
+}

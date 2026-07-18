@@ -26,6 +26,22 @@ join_by() {
   done
 }
 
+# Print the standard elevation notice, validate sudo once, and replace the
+# current process with `sudo env <assignments...> <command...>`. The caller
+# passes environment assignments and the command in one list, exactly as
+# `env` expects. Returns 1 when sudo is unavailable.
+exec_as_root_via_sudo() {
+  local reason="$1"
+  shift
+  have_cmd sudo || {
+    printf 'sudo is required for %s.\n' "$reason" >&2
+    return 1
+  }
+  printf 'Root privileges are required for %s. You may be prompted for your password once.\n' "$reason"
+  sudo -v
+  exec sudo env "$@"
+}
+
 append_unique() {
   local array_name="$1"
   local value="$2"
