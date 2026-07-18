@@ -95,5 +95,3 @@
 
 - Only create branches or PRs when specifically instructed to.
 - Use a short, imperative commit subject.
-- In a pull request, summarize changed sources, packages, choices, and user-visible behavior; list the exact validation commands run.
-- Include screenshots only for user-facing TUI or generated desktop/session changes.
