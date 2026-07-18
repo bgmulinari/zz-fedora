@@ -6,10 +6,6 @@ set -Eeuo pipefail
 install_npm_global_package() {
   local package="$1"
   log_progress "Installing npm global package: $package"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: npm install -g %s\n' "$package"
-    return 0
-  fi
   run_cmd_as_root npm install -g "$package"
 }
 

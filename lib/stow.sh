@@ -51,7 +51,7 @@ stow_backup_existing_target() {
   [[ -e "$target_path" || -L "$target_path" ]] || return 0
   [[ -L "$target_path" ]] && return 0
 
-  backup_path="$STATE_DIR/backups/$(timestamp)$target_path"
+  backup_path="$(backup_target_path "$target_path")"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: move %s -> %s\n' "$target_path" "$backup_path"
     return 0

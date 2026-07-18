@@ -40,28 +40,8 @@ EOF
 }
 
 install_noctalia_greetd_config() {
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: write %s for %s\n' "$NOCTALIA_GREETD_CONFIG" "$NOCTALIA_GREETER_SESSION_BIN"
-    return 0
-  fi
-
   log_progress "Writing Noctalia Greeter greetd configuration"
-  local config_tmp backup_path
-  config_tmp="$(mktemp "$CACHE_DIR/greetd-config.XXXXXX")"
-  noctalia_greetd_config_content >"$config_tmp"
-
-  run_cmd_as_root mkdir -p "$(dirname "$NOCTALIA_GREETD_CONFIG")"
-  if [[ -f "$NOCTALIA_GREETD_CONFIG" ]] && cmp -s "$config_tmp" "$NOCTALIA_GREETD_CONFIG"; then
-    rm -f "$config_tmp"
-    return 0
-  fi
-  if [[ -f "$NOCTALIA_GREETD_CONFIG" ]]; then
-    backup_path="${NOCTALIA_GREETD_CONFIG}.bak.noctalia.$(date +%Y%m%d%H%M%S)"
-    run_cmd_as_root cp -a "$NOCTALIA_GREETD_CONFIG" "$backup_path"
-  fi
-
-  run_cmd_as_root install -m 0644 "$config_tmp" "$NOCTALIA_GREETD_CONFIG"
-  rm -f "$config_tmp"
+  noctalia_greetd_config_content | write_root_file 0644 "$NOCTALIA_GREETD_CONFIG"
 }
 
 find_noctalia_greeter_pam_runtime_module() {
@@ -79,7 +59,7 @@ find_noctalia_greeter_pam_runtime_module() {
 
 configure_noctalia_greetd_pam() {
   local pam_file="/etc/pam.d/greetd"
-  local pam_module pam_line pam_tmp backup_path last_session
+  local pam_module pam_line pam_tmp last_session
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: ensure %s has a pam_systemd.so or pam_elogind.so session line\n' "$pam_file"
@@ -110,19 +90,13 @@ configure_noctalia_greetd_pam() {
     printf '\n%s\n' "$pam_line" >>"$pam_tmp"
   fi
 
-  backup_path="${pam_file}.bak.noctalia.$(date +%Y%m%d%H%M%S)"
-  run_cmd_as_root cp "$pam_file" "$backup_path"
+  backup_file_if_needed "$pam_file"
   run_cmd_as_root install -m 0644 "$pam_tmp" "$pam_file"
   rm -f "$pam_tmp"
 }
 
 ensure_noctalia_greeter_user() {
   log_progress "Ensuring Noctalia Greeter system user exists"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    run_cmd_as_root useradd -r -s /usr/bin/nologin -d "$NOCTALIA_GREETER_STATE_DIR" "$NOCTALIA_GREETER_USER"
-    return 0
-  fi
-
   id -u "$NOCTALIA_GREETER_USER" >/dev/null 2>&1 && return 0
   run_cmd_as_root useradd -r -s /usr/bin/nologin -d "$NOCTALIA_GREETER_STATE_DIR" "$NOCTALIA_GREETER_USER"
 }

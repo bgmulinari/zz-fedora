@@ -1,36 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# User-context file primitives: install files into the target user's home
-# with backup-before-replace semantics, and edit INI-style config keys.
-
-install_user_file_if_changed() {
-  local source_file="$1"
-  local destination="$2"
-  local mode="${3:-0644}"
-
-  if [[ -f "$destination" ]] && cmp -s "$source_file" "$destination"; then
-    log_info "Unchanged file: $destination"
-    return 0
-  fi
-
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: install %s -> %s (mode %s)\n' "$source_file" "$destination" "$mode"
-    return 0
-  fi
-
-  if [[ -e "$destination" || -L "$destination" ]]; then
-    local backup_root backup_path
-    backup_root="$STATE_DIR/backups/$(timestamp)"
-    backup_path="$backup_root$destination"
-    run_cmd_as_user "$TARGET_USER" mkdir -p "$(dirname "$backup_path")"
-    run_cmd_as_user "$TARGET_USER" cp -a "$destination" "$backup_path"
-    log_info "Backed up $destination to $backup_path"
-  fi
-
-  run_cmd_as_user "$TARGET_USER" mkdir -p "$(dirname "$destination")"
-  run_cmd_as_user "$TARGET_USER" install -m "$mode" "$source_file" "$destination"
-}
+# User-context file helpers built on the shared install_file_if_changed
+# primitive: INI-style config edits and the zz launcher symlink.
 
 set_ini_key_for_user() {
   local file="$1"
@@ -83,7 +55,7 @@ set_ini_key_for_user() {
     }
   ' "$file" >"$temp_file"
   chmod 0644 "$temp_file"
-  install_user_file_if_changed "$temp_file" "$file"
+  install_file_if_changed user "$temp_file" "$file"
   rm -f "$temp_file"
 }
 
@@ -93,11 +65,6 @@ install_zz_launcher() {
   [[ -x "$target" ]] || return 0
 
   log_progress "Installing zz launcher"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: install zz launcher %s -> %s\n' "$target" "$launcher"
-    return 0
-  fi
-
   run_cmd_as_user "$TARGET_USER" mkdir -p "$(dirname "$launcher")"
   run_cmd_as_user "$TARGET_USER" ln -sfn "$target" "$launcher"
 }

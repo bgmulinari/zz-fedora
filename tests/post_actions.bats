@@ -369,7 +369,7 @@ EOF
     shift
     printf 'user:%s:%s\n' "$user" "$*" >>"$TEST_ROOT/first-run-commands.log"
     case "$1" in
-      mkdir|rm|sh)
+      mkdir|rm|sh|install|cp)
         "$@"
         ;;
       *)

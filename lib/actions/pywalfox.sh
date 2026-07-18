@@ -55,12 +55,6 @@ install_firefox_pywalfox_policy() {
       }' >"$temp_file"
   fi
 
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: install Firefox Pywalfox extension policy -> %s\n' "$policies_file"
-    rm -f "$temp_file"
-    return 0
-  fi
-
   if [[ -n "${FIREFOX_POLICIES_FILE:-}" ]]; then
     run_cmd mkdir -p "$(dirname "$policies_file")"
     run_cmd install -m 0644 "$temp_file" "$policies_file"

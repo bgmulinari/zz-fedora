@@ -10,12 +10,6 @@ jetbrains_toolbox_autostart_file() {
 disable_jetbrains_toolbox_autostart() {
   local autostart_file
   autostart_file="$(jetbrains_toolbox_autostart_file)"
-
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: remove JetBrains Toolbox autostart entry -> %s\n' "$autostart_file"
-    return 0
-  fi
-
   run_cmd_as_user "$TARGET_USER" rm -f "$autostart_file"
 }
 

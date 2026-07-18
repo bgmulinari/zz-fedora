@@ -16,13 +16,13 @@ install_bundled_wallpapers() {
       log_info "Preserving existing wallpaper: $destination"
       continue
     fi
-    install_user_file_if_changed "$source_file" "$destination"
+    install_file_if_changed user "$source_file" "$destination"
   done
 
   source_file="$ROOT_DIR/assets/wallpapers/PROVENANCE.md"
   destination="$TARGET_HOME/.local/share/backgrounds/PROVENANCE.md"
   if [[ -f "$source_file" && ! -e "$destination" && ! -L "$destination" ]]; then
-    install_user_file_if_changed "$source_file" "$destination"
+    install_file_if_changed user "$source_file" "$destination"
   fi
 }
 
@@ -40,14 +40,7 @@ install_starship_fallback_palette_if_needed() {
   grep -Eq '^[[:space:]]*palette[[:space:]]*=[[:space:]]*"noctalia"' "$config_file" || return 0
   grep -Eq '^[[:space:]]*\[palettes\.noctalia\]' "$config_file" && return 0
 
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: append fallback Noctalia Starship palette -> %s\n' "$config_file"
-    return 0
-  fi
-
-  local backup_root backup_path palette_file
-  backup_root="$STATE_DIR/backups/$(timestamp)"
-  backup_path="$backup_root$config_file"
+  local palette_file
   palette_file="$(mktemp "$CACHE_DIR/starship-palette.XXXXXX")"
 
   awk '
@@ -63,11 +56,10 @@ install_starship_fallback_palette_if_needed() {
     return 0
   fi
 
-  run_cmd_as_user "$TARGET_USER" mkdir -p "$(dirname "$backup_path")"
-  run_cmd_as_user "$TARGET_USER" cp -a "$config_file" "$backup_path"
+  backup_user_file_if_needed "$config_file"
   run_cmd_as_user "$TARGET_USER" sh -c 'printf "\n" >> "$1"; cat "$2" >> "$1"' sh "$config_file" "$palette_file"
   rm -f "$palette_file"
-  log_info "Added fallback Noctalia Starship palette to $config_file"
+  [[ "$DRY_RUN" -eq 1 ]] || log_info "Added fallback Noctalia Starship palette to $config_file"
 }
 
 install_starship_config() {
@@ -81,7 +73,7 @@ install_starship_config() {
     install_starship_fallback_palette_if_needed "$destination"
     return 0
   fi
-  install_user_file_if_changed "$ROOT_DIR/templates/starship.toml" "$destination"
+  install_file_if_changed user "$ROOT_DIR/templates/starship.toml" "$destination"
 }
 
 install_ghostty_theme_seed_if_missing() {
@@ -92,7 +84,7 @@ install_ghostty_theme_seed_if_missing() {
   plan_has_any_backend_entry "$native_plan" ghostty || return 0
   [[ -e "$destination" || -L "$destination" ]] && return 0
   log_progress "Installing Ghostty Noctalia theme seed"
-  install_user_file_if_changed "$ROOT_DIR/templates/ghostty/noctalia" "$destination"
+  install_file_if_changed user "$ROOT_DIR/templates/ghostty/noctalia" "$destination"
 }
 
 install_niri_noctalia_seed_if_missing() {
@@ -103,7 +95,7 @@ install_niri_noctalia_seed_if_missing() {
   destination="$TARGET_HOME/.config/niri/noctalia.kdl"
   [[ -e "$destination" || -L "$destination" ]] && return 0
   log_progress "Installing Niri Noctalia config seed"
-  install_user_file_if_changed "$ROOT_DIR/templates/niri/noctalia.kdl" "$destination"
+  install_file_if_changed user "$ROOT_DIR/templates/niri/noctalia.kdl" "$destination"
 }
 
 install_niri_display_seed_if_missing() {
@@ -114,7 +106,7 @@ install_niri_display_seed_if_missing() {
   destination="$TARGET_HOME/.config/niri/cfg/display.kdl"
   [[ -e "$destination" || -L "$destination" ]] && return 0
   log_progress "Installing Niri display config seed"
-  install_user_file_if_changed "$ROOT_DIR/templates/niri/display.kdl" "$destination"
+  install_file_if_changed user "$ROOT_DIR/templates/niri/display.kdl" "$destination"
 }
 
 install_qt6ct_config() {
@@ -132,7 +124,7 @@ standard_dialogs=default
 style=Fusion
 EOF
   chmod 0644 "$temp_file"
-  install_user_file_if_changed "$temp_file" "$config_file"
+  install_file_if_changed user "$temp_file" "$config_file"
   rm -f "$temp_file"
 }
 

@@ -30,6 +30,10 @@ action_plan_has() {
 
 run_user_login_shell() {
   local script="$1"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: user login shell: %s\n' "$script"
+    return 0
+  fi
   local local_bin dotnet_root dotnet_tools brew_bin
   printf -v local_bin '%q' "$TARGET_HOME/.local/bin"
   printf -v dotnet_root '%q' "$TARGET_HOME/$DOTNET_INSTALL_DIR_NAME"

@@ -25,15 +25,9 @@ verify_docker() {
 
 configure_docker_post_install() {
   log_progress "Configuring Docker service and user group"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    run_cmd_as_root systemctl enable --now docker
-    run_cmd_as_root usermod -aG docker "$TARGET_USER"
-    return 0
-  fi
-
   run_cmd_as_root systemctl daemon-reload
   run_cmd_as_root systemctl enable --now docker
-  if ! id -nG "$TARGET_USER" | grep -qw docker; then
+  if ! id -nG "$TARGET_USER" 2>/dev/null | grep -qw docker; then
     run_cmd_as_root usermod -aG docker "$TARGET_USER"
   fi
 }
