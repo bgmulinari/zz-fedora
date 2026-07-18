@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Build-time helpers shared by the ISO build and VM test scripts. This library
+# runs on the developer machine only; iso/lib/runtime-loader.sh is the piece
+# that runs inside Anaconda.
 set -Eeuo pipefail
 
 iso_err() {
@@ -56,15 +59,15 @@ iso_verify_sha256() {
 iso_stage_tracked_runtime_payload() {
   local repo_dir="$1"
   local destination="$2"
-  local runtime_paths_file="$repo_dir/config/iso-runtime-paths.conf"
+  local runtime_paths_file="$repo_dir/iso/payload-paths.conf"
   [[ -f "$runtime_paths_file" ]] || {
-    iso_err "missing ISO runtime paths manifest: $runtime_paths_file"
+    iso_err "missing ISO payload paths manifest: $runtime_paths_file"
     return 1
   }
   local -a runtime_paths=()
   mapfile -t runtime_paths < <(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$runtime_paths_file")
   [[ "${#runtime_paths[@]}" -gt 0 ]] || {
-    iso_err "ISO runtime paths manifest is empty: $runtime_paths_file"
+    iso_err "ISO payload paths manifest is empty: $runtime_paths_file"
     return 1
   }
 
@@ -80,6 +83,10 @@ iso_stage_tracked_runtime_payload() {
 
   [[ -x "$destination/install.sh" ]] || {
     iso_err "staged payload is missing executable install.sh"
+    return 1
+  }
+  [[ -x "$destination/iso/lib/runtime-loader.sh" ]] || {
+    iso_err "staged payload is missing executable iso/lib/runtime-loader.sh"
     return 1
   }
   [[ ! -e "$destination/.git" ]] || {

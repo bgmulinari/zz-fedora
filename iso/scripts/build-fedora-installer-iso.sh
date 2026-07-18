@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ISO_TOOL_NAME="build-fedora-installer-iso"
-# shellcheck source=lib/iso-common.sh
-source "$repo_dir/scripts/lib/iso-common.sh"
+# shellcheck source=../lib/build-common.sh
+source "$repo_dir/iso/lib/build-common.sh"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/build-fedora-installer-iso.sh --input ISO --output ISO [--input-sha256 HASH]
+Usage: iso/scripts/build-fedora-installer-iso.sh --input ISO --output ISO [--input-sha256 HASH]
 
 Embed this checkout and the zz-fedora Fedora Kickstart into a Fedora installer
 ISO. The embedded checkout refreshes the remote runtime before Anaconda shows

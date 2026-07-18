@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ISO_TOOL_NAME="test-fedora-installer-vm"
-# shellcheck source=lib/iso-common.sh
-source "$repo_dir/scripts/lib/iso-common.sh"
+# shellcheck source=../lib/build-common.sh
+source "$repo_dir/iso/lib/build-common.sh"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/test-fedora-installer-vm.sh --input ISO [--input-sha256 HASH] [--work-dir DIR] [--boot-mode iso|direct|uefi] [--installer-ui graphical|text] [--graphics vnc|none|egl-headless] [--desktop-app-profile full|minimal]
+Usage: iso/scripts/test-fedora-installer-vm.sh --input ISO [--input-sha256 HASH] [--work-dir DIR] [--boot-mode iso|direct|uefi] [--installer-ui graphical|text] [--graphics vnc|none|egl-headless] [--desktop-app-profile full|minimal]
 
 Run an unattended QEMU install that exercises the Fedora ISO add-on task path.
 The generated test ISO uses the same remote runtime refresh and installer

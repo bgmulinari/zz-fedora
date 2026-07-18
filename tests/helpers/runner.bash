@@ -46,7 +46,7 @@ list_tagged_bats_suites() {
 # Shell files covered by syntax checks and the ShellCheck lint gate.
 # Callers must run from the repository root.
 shell_lint_targets() {
-  printf '%s\n' bootstrap.sh install.sh bin/zz bin/zz.d/* scripts/*.sh scripts/lib/*.sh lib/*.sh lib/actions/*.sh modules/*.sh tests/*.sh tests/helpers/*.bash
+  printf '%s\n' bootstrap.sh install.sh bin/zz bin/zz.d/* scripts/*.sh iso/scripts/*.sh iso/lib/*.sh lib/*.sh lib/actions/*.sh modules/*.sh tests/*.sh tests/helpers/*.bash
 }
 
 run_bash_syntax_checks() {

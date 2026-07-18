@@ -162,7 +162,7 @@ repo = Path(os.environ["ZZ_REPO_ROOT"])
 root = Path(os.environ["ZZ_TEST_ROOT"])
 runtime_dir = root / "run/zz-fedora/repository"
 proxy_log = root / "proxy.log"
-loader = root / "iso-runtime.sh"
+loader = root / "runtime-loader.sh"
 loader.write_text(
     "#!/usr/bin/env bash\n"
     "set -Eeuo pipefail\n"
@@ -349,9 +349,9 @@ PY
   assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "choiceListBox"
   assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "desktopAppProfileCombo"
   refute_file_contains "$addon/gui/spokes/zz_fedora.glade" "Install ZZ Fedora managed desktop"
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "org_zz_fedora/choices"
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "hidden_spokes ="
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "SoftwareSelectionSpoke"
+  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "org_zz_fedora/choices"
+  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "hidden_spokes ="
+  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "SoftwareSelectionSpoke"
   assert_file_contains "$addon/tui/spokes/zz_fedora.py" "NormalTUISpoke"
   assert_file_contains "$addon/tui/spokes/zz_fedora.py" "from pyanaconda.ui.categories.software import SoftwareCategory"
   assert_file_contains "$addon/tui/spokes/zz_fedora.py" "category = SoftwareCategory"

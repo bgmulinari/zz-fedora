@@ -1,6 +1,6 @@
 # Online Fedora installer profile for zz-fedora.
 #
-# Build with scripts/build-fedora-installer-iso.sh so this checkout and the
+# Build with iso/scripts/build-fedora-installer-iso.sh so this checkout and the
 # Anaconda add-on product image are available during installation. Storage,
 # locale, keyboard layout, timezone, hostname, root password, user creation,
 # and optional ZZ Fedora choices remain in the Anaconda UI.

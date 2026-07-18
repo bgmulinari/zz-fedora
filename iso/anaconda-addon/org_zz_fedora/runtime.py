@@ -4,7 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 
-EMBEDDED_RUNTIME_LOADER = Path("/run/install/repo/zz-fedora/lib/iso-runtime.sh")
+EMBEDDED_RUNTIME_LOADER = Path("/run/install/repo/zz-fedora/iso/lib/runtime-loader.sh")
 REMOTE_RUNTIME_DIR = Path("/run/zz-fedora/repository")
 THREAD_RUNTIME_REFRESH = "AnaZZFedoraRuntimeRefresh"
 

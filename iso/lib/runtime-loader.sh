@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
+# Remote runtime loader executed inside Anaconda by the ZZ Fedora add-on
+# (iso/anaconda-addon/org_zz_fedora/runtime.py). It refreshes the repository
+# snapshot used by the ISO install and is not part of the install.sh path.
 set -Eeuo pipefail
 
 ISO_RUNTIME_ARCHIVE_URL="${ZZ_ISO_RUNTIME_ARCHIVE_URL:-https://api.github.com/repos/bgmulinari/zz-fedora/tarball/main}"
 ISO_RUNTIME_REF="${ZZ_ISO_RUNTIME_REF:-main}"
 ISO_RUNTIME_DIR="${ZZ_ISO_RUNTIME_DIR:-/run/zz-fedora/repository}"
-ISO_RUNTIME_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ISO_RUNTIME_PATHS_FILE="${ZZ_ISO_RUNTIME_PATHS_FILE:-$ISO_RUNTIME_ROOT/config/iso-runtime-paths.conf}"
+ISO_RUNTIME_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ISO_RUNTIME_PATHS_FILE="${ZZ_ISO_RUNTIME_PATHS_FILE:-$ISO_RUNTIME_ROOT/iso/payload-paths.conf}"
 
 iso_runtime_err() {
   printf 'zz-fedora-runtime: %s\n' "$*" >&2
@@ -98,29 +101,31 @@ iso_refresh_runtime() (
     --strip-components=1 \
     -C "$archive_dir"
 
-  local runtime_paths_file="$archive_dir/config/iso-runtime-paths.conf"
+  local runtime_paths_file="$archive_dir/iso/payload-paths.conf"
   if [[ ! -f "$runtime_paths_file" ]]; then
     runtime_paths_file="$ISO_RUNTIME_PATHS_FILE"
     iso_runtime_err "remote runtime has no paths manifest; using embedded fallback"
   fi
   [[ -f "$runtime_paths_file" ]] || {
-    iso_runtime_err "missing ISO runtime paths manifest: $runtime_paths_file"
+    iso_runtime_err "missing ISO payload paths manifest: $runtime_paths_file"
     return 1
   }
   local -a runtime_paths=()
   mapfile -t runtime_paths < <(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$runtime_paths_file")
   [[ "${#runtime_paths[@]}" -gt 0 ]] || {
-    iso_runtime_err "ISO runtime paths manifest is empty: $runtime_paths_file"
+    iso_runtime_err "ISO payload paths manifest is empty: $runtime_paths_file"
     return 1
   }
-  local runtime_path
+  local runtime_path staged_parent
   for runtime_path in "${runtime_paths[@]}"; do
     iso_runtime_path_is_safe "$runtime_path" || {
       iso_runtime_err "invalid ISO runtime path: $runtime_path"
       return 1
     }
     [[ -e "$archive_dir/$runtime_path" || -L "$archive_dir/$runtime_path" ]] || continue
-    cp -a "$archive_dir/$runtime_path" "$staged_dir/"
+    staged_parent="$staged_dir/$(dirname "$runtime_path")"
+    mkdir -p "$staged_parent"
+    cp -a "$archive_dir/$runtime_path" "$staged_parent/"
   done
 
   [[ -x "$staged_dir/install.sh" ]] || {

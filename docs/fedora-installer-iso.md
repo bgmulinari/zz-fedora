@@ -47,8 +47,9 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
   archive. This lets users configure Wi-Fi, static networking, or a source
   proxy through Anaconda first. A failed refresh leaves the mandatory spoke
   incomplete and re-entering it retries the download.
-- The loader filters the archive to the runtime paths declared by that revision's
-  `config/iso-runtime-paths.conf`, and stages it at
+- The loader (`iso/lib/runtime-loader.sh`, executed inside Anaconda by the
+  add-on) filters the archive to the runtime paths declared by that revision's
+  `iso/payload-paths.conf`, and stages it at
   `/run/zz-fedora/repository`. Failure to fetch or validate that snapshot stops
   the installation instead of silently using stale catalogs. If TLS validation
   reports an invalid installer clock, the loader uses chronyd to synchronize
@@ -85,7 +86,7 @@ sudo dnf install lorax rsync xorriso
 Build from a Fedora netinst or DVD ISO:
 
 ```bash
-scripts/build-fedora-installer-iso.sh \
+iso/scripts/build-fedora-installer-iso.sh \
   --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
   --input-sha256 <sha256-from-the-signed-fedora-checksum-file> \
   --output release/zz-fedora.iso
@@ -95,7 +96,7 @@ For a fully bootable UEFI USB image, run the builder with privileges when your
 Fedora/Lorax version requires it:
 
 ```bash
-sudo scripts/build-fedora-installer-iso.sh \
+sudo iso/scripts/build-fedora-installer-iso.sh \
   --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
   --output release/zz-fedora.iso
 ```
@@ -151,7 +152,7 @@ Run the unattended VM harness against the same Fedora input ISO before publishin
 changes to the installer path:
 
 ```bash
-scripts/test-fedora-installer-vm.sh \
+iso/scripts/test-fedora-installer-vm.sh \
   --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso
 ```
 

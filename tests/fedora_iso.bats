@@ -29,6 +29,9 @@ else
   printf 'payload\n' >"$dest/payload-marker"
   printf '#!/usr/bin/env bash\n' >"$dest/install.sh"
   chmod +x "$dest/install.sh"
+  mkdir -p "$dest/iso/lib"
+  printf '#!/usr/bin/env bash\n' >"$dest/iso/lib/runtime-loader.sh"
+  chmod +x "$dest/iso/lib/runtime-loader.sh"
 fi
 SH
 
@@ -143,7 +146,7 @@ SH
   export ZZ_TEST_RSYNC_LOG="$TEST_ROOT/rsync.log"
   export ZZ_TEST_MKKSISO_LOG="$TEST_ROOT/mkksiso.log"
 
-  run env PATH="$FAKE_BIN:$PATH" "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" \
+  run env PATH="$FAKE_BIN:$PATH" "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" \
     --input "$input_iso" \
     --input-sha256 "$input_sha256" \
     --output "$output_iso"
@@ -178,30 +181,43 @@ SH
 
   fixture="$TEST_ROOT/payload-repo"
   destination="$TEST_ROOT/payload"
-  mkdir -p "$fixture/config" "$fixture/lib" "$fixture/tests" "$fixture/logs"
+  mkdir -p "$fixture/iso/lib" "$fixture/lib" "$fixture/tests" "$fixture/logs"
   printf '#!/usr/bin/env bash\n' >"$fixture/install.sh"
   chmod +x "$fixture/install.sh"
-  printf 'install.sh\nlib\nconfig\n' >"$fixture/config/iso-runtime-paths.conf"
+  printf 'install.sh\nlib\niso/payload-paths.conf\niso/lib/runtime-loader.sh\n' >"$fixture/iso/payload-paths.conf"
+  printf '#!/usr/bin/env bash\n' >"$fixture/iso/lib/runtime-loader.sh"
+  chmod +x "$fixture/iso/lib/runtime-loader.sh"
   printf 'runtime\n' >"$fixture/lib/runtime.sh"
   printf 'test\n' >"$fixture/tests/not-runtime.bats"
   printf 'secret\n' >"$fixture/.env"
   printf 'log\n' >"$fixture/logs/local.log"
   git -C "$fixture" init -q
-  git -C "$fixture" add config/iso-runtime-paths.conf install.sh lib/runtime.sh tests/not-runtime.bats
+  git -C "$fixture" add iso/payload-paths.conf iso/lib/runtime-loader.sh install.sh lib/runtime.sh tests/not-runtime.bats
 
-  # shellcheck source=../scripts/lib/iso-common.sh
-  source "$ROOT_DIR/scripts/lib/iso-common.sh"
+  # shellcheck source=../iso/lib/build-common.sh
+  source "$ROOT_DIR/iso/lib/build-common.sh"
   ISO_TOOL_NAME="payload-test"
   iso_stage_tracked_runtime_payload "$fixture" "$destination"
 
   [[ -x "$destination/install.sh" ]]
-  [[ -f "$destination/config/iso-runtime-paths.conf" ]]
+  [[ -f "$destination/iso/payload-paths.conf" ]]
+  [[ -x "$destination/iso/lib/runtime-loader.sh" ]]
   [[ -f "$destination/lib/runtime.sh" ]]
   [[ ! -e "$destination/.git" ]]
   [[ ! -e "$destination/.env" ]]
   [[ ! -e "$destination/logs" ]]
   [[ ! -e "$destination/tests" ]]
   assert_file_contains "$destination/config/iso-payload.conf" "format=1"
+}
+
+@test "ISO payload manifest and Anaconda add-on agree on the runtime loader path" {
+  runtime_py="$ROOT_DIR/iso/anaconda-addon/org_zz_fedora/runtime.py"
+  manifest="$ROOT_DIR/iso/payload-paths.conf"
+
+  [[ -x "$ROOT_DIR/iso/lib/runtime-loader.sh" ]]
+  assert_file_contains "$runtime_py" "/run/install/repo/zz-fedora/iso/lib/runtime-loader.sh"
+  assert_file_contains "$manifest" "iso/lib/runtime-loader.sh"
+  assert_file_contains "$manifest" "iso/payload-paths.conf"
 }
 
 @test "ISO runtime refresh stages a remote runtime snapshot" {
@@ -212,28 +228,28 @@ SH
   archive_root="$TEST_ROOT/snapshot-deadbee"
   archive="$TEST_ROOT/snapshot.tar.gz"
   destination="$TEST_ROOT/runtime"
-  mkdir -p "$archive_root/choices" "$archive_root/config" "$archive_root/extra-runtime" "$archive_root/lib" "$archive_root/tests"
+  mkdir -p "$archive_root/choices" "$archive_root/extra-runtime" "$archive_root/iso" "$archive_root/lib" "$archive_root/tests"
   printf '#!/usr/bin/env bash\n' >"$archive_root/install.sh"
   chmod +x "$archive_root/install.sh"
   printf 'firefox\tFirefox\t1\tbrowsers-firefox\tFirefox\n' >"$archive_root/choices/browsers.conf"
   printf 'manifest-driven\n' >"$archive_root/extra-runtime/marker"
   printf 'latest runtime\n' >"$archive_root/lib/latest.sh"
   printf 'not runtime\n' >"$archive_root/tests/not-runtime.bats"
-  printf 'install.sh\nchoices\nconfig\nlib\nextra-runtime\n' >"$archive_root/config/iso-runtime-paths.conf"
+  printf 'install.sh\nchoices\nlib\nextra-runtime\niso/payload-paths.conf\n' >"$archive_root/iso/payload-paths.conf"
   tar -czf "$archive" -C "$TEST_ROOT" "$(basename "$archive_root")"
 
   run env \
     ZZ_ISO_RUNTIME_ARCHIVE_URL="file://$archive" \
     ZZ_ISO_RUNTIME_REF=main \
     ZZ_ISO_RUNTIME_DIR="$destination" \
-    "$ROOT_DIR/lib/iso-runtime.sh"
+    "$ROOT_DIR/iso/lib/runtime-loader.sh"
 
   if [ "$status" -ne 0 ]; then
     printf '%s\n' "$output" >&2
   fi
   [ "$status" -eq 0 ]
   [[ -x "$destination/install.sh" ]]
-  [[ -f "$destination/config/iso-runtime-paths.conf" ]]
+  [[ -f "$destination/iso/payload-paths.conf" ]]
   [[ -f "$destination/extra-runtime/marker" ]]
   [[ -f "$destination/lib/latest.sh" ]]
   [[ ! -e "$destination/tests" ]]
@@ -299,7 +315,7 @@ SH
     ZZ_TEST_ARCHIVE="$archive" \
     ZZ_TEST_CHRONYD_LOG="$TEST_ROOT/chronyd.log" \
     ZZ_TEST_CURL_COUNT="$TEST_ROOT/curl-count" \
-    "$ROOT_DIR/lib/iso-runtime.sh"
+    "$ROOT_DIR/iso/lib/runtime-loader.sh"
 
   if [ "$status" -ne 0 ]; then
     printf '%s\n' "$output" >&2
@@ -327,6 +343,9 @@ mkdir -p "$dest"
 if [[ "$staging_payload" -eq 1 ]]; then
   printf '#!/usr/bin/env bash\n' >"$dest/install.sh"
   chmod +x "$dest/install.sh"
+  mkdir -p "$dest/iso/lib"
+  printf '#!/usr/bin/env bash\n' >"$dest/iso/lib/runtime-loader.sh"
+  chmod +x "$dest/iso/lib/runtime-loader.sh"
 fi
 SH
 
@@ -351,7 +370,7 @@ SH
   touch "$input_iso"
   export ZZ_TEST_MKKSISO_LOG="$TEST_ROOT/mkksiso-skip.log"
 
-  run env PATH="$FAKE_BIN:$PATH" "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" \
+  run env PATH="$FAKE_BIN:$PATH" "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" \
     --input "$input_iso" \
     --output "$output_iso" \
     --skip-mkefiboot
@@ -371,11 +390,11 @@ SH
   assert_file_contains "$ks" "firstboot --disable"
   assert_file_contains "$ks" "url --metalink=\"https://mirrors.fedoraproject.org/metalink?repo=fedora-@FEDORA_RELEASE@&arch=@FEDORA_ARCH@\""
   assert_file_contains "$ks" 'repo --name="updates"'
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "iso_extract_fedora_metadata"
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "render_kickstart_template"
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "addon_data_dir="
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "usr/share/anaconda/dbus/confs"
-  assert_file_contains "$ROOT_DIR/scripts/build-fedora-installer-iso.sh" "org.fedoraproject.Anaconda.Addons.ZZFedora.service"
+  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "iso_extract_fedora_metadata"
+  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "render_kickstart_template"
+  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "addon_data_dir="
+  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "usr/share/anaconda/dbus/confs"
+  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "org.fedoraproject.Anaconda.Addons.ZZFedora.service"
   assert_contains "$package_lines" "dnf5-plugins"
   refute_contains "$package_lines" "bats"
   refute_contains "$package_lines" "dnf-plugins-core"
@@ -389,7 +408,7 @@ SH
 }
 
 @test "Fedora VM installer test defaults to ISO boot path" {
-  script="$ROOT_DIR/scripts/test-fedora-installer-vm.sh"
+  script="$ROOT_DIR/iso/scripts/test-fedora-installer-vm.sh"
 
   assert_file_contains "$script" "--boot-mode iso|direct|uefi"
   assert_file_contains "$script" "--installer-ui graphical|text"
@@ -425,7 +444,7 @@ SH
 }
 
 @test "Fedora VM installer rejects unsupported desktop app profiles" {
-  script="$ROOT_DIR/scripts/test-fedora-installer-vm.sh"
+  script="$ROOT_DIR/iso/scripts/test-fedora-installer-vm.sh"
 
   run "$script" --desktop-app-profile unsupported
 
