@@ -1,4 +1,4 @@
-BUNDLE_ID="browser-chrome"
+BUNDLE_ID="browsers-chrome"
 BUNDLE_INSTALLER="dnf"
 BUNDLE_SOURCE_IDS="vendor:google-chrome"
 BUNDLE_ITEMS_FILE="packages/vendor/google-chrome/browsers-chrome.pkgs"

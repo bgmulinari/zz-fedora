@@ -24,7 +24,7 @@ if [[ "$src" == */anaconda-addon/ ]]; then
   mkdir -p "$dest/org_zz_fedora/service"
   printf 'service\n' >"$dest/org_zz_fedora/service/installation.py"
 elif [[ "$src" == */choices/ ]]; then
-  printf 'firefox\tFirefox\t1\tbrowser-firefox\tFedora official Firefox\n' >"$dest/browsers.conf"
+  printf 'firefox\tFirefox\t1\tbrowsers-firefox\tFedora official Firefox\n' >"$dest/browsers.conf"
 else
   printf 'payload\n' >"$dest/payload-marker"
   printf '#!/usr/bin/env bash\n' >"$dest/install.sh"
@@ -215,7 +215,7 @@ SH
   mkdir -p "$archive_root/choices" "$archive_root/config" "$archive_root/extra-runtime" "$archive_root/lib" "$archive_root/tests"
   printf '#!/usr/bin/env bash\n' >"$archive_root/install.sh"
   chmod +x "$archive_root/install.sh"
-  printf 'firefox\tFirefox\t1\tbrowser-firefox\tFirefox\n' >"$archive_root/choices/browsers.conf"
+  printf 'firefox\tFirefox\t1\tbrowsers-firefox\tFirefox\n' >"$archive_root/choices/browsers.conf"
   printf 'manifest-driven\n' >"$archive_root/extra-runtime/marker"
   printf 'latest runtime\n' >"$archive_root/lib/latest.sh"
   printf 'not runtime\n' >"$archive_root/tests/not-runtime.bats"
@@ -253,7 +253,7 @@ SH
   mkdir -p "$archive_root/choices"
   printf '#!/usr/bin/env bash\n' >"$archive_root/install.sh"
   chmod +x "$archive_root/install.sh"
-  printf 'firefox\tFirefox\t1\tbrowser-firefox\tFirefox\n' >"$archive_root/choices/browsers.conf"
+  printf 'firefox\tFirefox\t1\tbrowsers-firefox\tFirefox\n' >"$archive_root/choices/browsers.conf"
   printf 'install.sh\nchoices\n' >"$paths_file"
   tar -czf "$archive" -C "$TEST_ROOT" "$(basename "$archive_root")"
 

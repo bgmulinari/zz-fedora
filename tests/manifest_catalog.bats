@@ -284,6 +284,17 @@ EOF
   done < <(find "$ROOT_DIR/bundles" -type f -name '*.bundle' | sort)
 }
 
+@test "every bundle ID is its category directory name plus its file basename" {
+  local bundle_file bundle_id category basename
+  while IFS= read -r bundle_file; do
+    bundle_id=""
+    descriptor_value_from_file "$bundle_file" BUNDLE_ID bundle_id
+    category="$(basename "$(dirname "$bundle_file")")"
+    basename="$(basename "$bundle_file" .bundle)"
+    assert_equal "$category-$basename" "$bundle_id"
+  done < <(find "$ROOT_DIR/bundles" -type f -name '*.bundle' | sort)
+}
+
 @test "every dotfiles directory is referenced by a bundle stow declaration" {
   local bundle_file stow_packages package package_dir referenced=$'\n'
 

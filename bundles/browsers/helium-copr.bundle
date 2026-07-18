@@ -1,4 +1,4 @@
-BUNDLE_ID="browser-helium-copr"
+BUNDLE_ID="browsers-helium-copr"
 BUNDLE_INSTALLER="dnf"
 BUNDLE_SOURCE_IDS="copr:imput/helium"
 BUNDLE_ITEMS_FILE="packages/copr/imput-helium/browsers-helium.pkgs"

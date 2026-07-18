@@ -10,8 +10,8 @@ browser_desktop_file() {
     chromium) printf 'chromium.desktop\n' ;;
     chrome) printf 'google-chrome.desktop\n' ;;
     brave) printf 'brave-browser.desktop\n' ;;
-    zen-copr) printf 'zen.desktop\n' ;;
-    helium|helium-copr) printf 'helium.desktop\n' ;;
+    zen) printf 'zen.desktop\n' ;;
+    helium) printf 'helium.desktop\n' ;;
     *) return 1 ;;
   esac
 }

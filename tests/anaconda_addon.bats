@@ -170,7 +170,7 @@ loader.write_text(
     "mkdir -p \"$ZZ_TEST_RUNTIME_DIR/choices\"\n"
     "printf '#!/usr/bin/env bash\\n' >\"$ZZ_TEST_RUNTIME_DIR/install.sh\"\n"
     "chmod +x \"$ZZ_TEST_RUNTIME_DIR/install.sh\"\n"
-    "printf 'firefox\\tFirefox\\t1\\tbrowser-firefox\\tFirefox\\n' "
+    "printf 'firefox\\tFirefox\\t1\\tbrowsers-firefox\\tFirefox\\n' "
     ">\"$ZZ_TEST_RUNTIME_DIR/choices/browsers.conf\"\n"
 )
 loader.chmod(0o755)

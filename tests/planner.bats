@@ -322,9 +322,9 @@ assert_all_bundles_reachable() {
 @test "browser and development selections add their sources and packages" {
   build_test_plan "browser=brave,firefox" "dev=vscode,lazygit" "ai=codex"
 
-  assert_plan_has "$PLAN_DIR/bundles.list" "browser-firefox"
-  assert_plan_has "$PLAN_DIR/bundles.list" "browser-firefox-pywalfox"
-  assert_plan_has "$PLAN_DIR/bundles.list" "browser-firefox-pywalfox-runtime"
+  assert_plan_has "$PLAN_DIR/bundles.list" "browsers-firefox"
+  assert_plan_has "$PLAN_DIR/bundles.list" "browsers-firefox-pywalfox"
+  assert_plan_has "$PLAN_DIR/bundles.list" "browsers-firefox-pywalfox-runtime"
   assert_plan_has "$PLAN_DIR/bundles.list" "dev-vscode-extensions"
   assert_plan_has "$PLAN_DIR/sources/vendor.list" "vendor:brave"
   assert_plan_has "$PLAN_DIR/sources/vendor.list" "vendor:vscode"
@@ -389,7 +389,7 @@ assert_all_bundles_reachable() {
 }
 
 @test "plan files stay unique after repeated overlapping selections" {
-  build_test_plan "browser=zen-copr" "dev=vscode,neovim" "ai=codex,codex" "dotnet=tools"
+  build_test_plan "browser=zen" "dev=vscode,neovim" "ai=codex,codex" "dotnet=tools"
 
   assert_unique_file "$PLAN_DIR/sources/flatpak-remotes.list"
   assert_unique_file "$PLAN_DIR/sources/vendor.list"

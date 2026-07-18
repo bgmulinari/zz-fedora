@@ -1,5 +1,5 @@
-BUNDLE_ID="browser-chromium"
+BUNDLE_ID="browsers-chromium"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_ITEMS_FILE="packages/official/browsers/chromium.pkgs"
+BUNDLE_ITEMS_FILE="packages/official/browsers/browsers-chromium.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Chromium browser bundle for Fedora"
