@@ -16,7 +16,7 @@ setup_test_env() {
   export TARGET_USER="${TARGET_USER:-$current_user}"
   export FLATPAK_REMOTE_WAIT_SECONDS=0
   export FLATPAK_REMOTE_RETRY_SECONDS=0
-  export VERIFY_INSTALLS=0
+  export ZZ_VERIFY_INSTALLS=0
   export DESKTOP_APP_PROFILE=full
   mkdir -p "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$XDG_CONFIG_HOME" "$LOG_DIR" "$TARGET_HOME"
 }

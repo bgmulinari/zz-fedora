@@ -28,6 +28,31 @@ setup() {
   assert_contains "$output" "sudo systemctl enable --force greetd.service"
 }
 
+@test "ZZ_-prefixed environment overrides seed the flag defaults" {
+  run env \
+    ZZ_DRY_RUN=1 ZZ_ASSUME_YES=1 ZZ_NO_TUI=1 \
+    ZZ_INSTALL_WEAK_DEPS=1 ZZ_VERIFY_INSTALLS=0 ZZ_SKIP_DOTFILES=1 \
+    DRY_RUN=0 ASSUME_YES=0 NO_TUI=0 \
+    INSTALL_WEAK_DEPS=0 VERIFY_INSTALLS=1 SKIP_DOTFILES=0 \
+    bash -c 'source "'"$ROOT_DIR"'/lib/common.sh"; printf "dry=%s yes=%s notui=%s weak=%s verify=%s skipdot=%s\n" "$DRY_RUN" "$ASSUME_YES" "$NO_TUI" "$INSTALL_WEAK_DEPS" "$VERIFY_INSTALLS" "$SKIP_DOTFILES"'
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "dry=1 yes=1 notui=1 weak=1 verify=0 skipdot=1"
+}
+
+@test "ZZ_DRY_RUN environment override makes install behave as --dry-run" {
+  run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
+    ZZ_DRY_RUN=1 ZZ_NO_TUI=1 \
+    bash "$ROOT_DIR/install.sh" install --yes
+
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "==> [1/9] Preflight"
+  assert_contains "$output" "DRY-RUN:"
+}
+
 @test "preflight accepts a worktree-style Git checkout" {
   fixture_root="$TEST_ROOT/worktree-checkout"
   mkdir -p "$fixture_root/config" "$fixture_root/home"

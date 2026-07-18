@@ -33,6 +33,7 @@
 
 - Use `#!/usr/bin/env bash` and `set -Eeuo pipefail` in Bash entrypoints.
 - Follow the existing naming style: lowercase function names, uppercase globals and environment flags, and quoted variable expansions.
+- Give every externally-settable environment override the `ZZ_` prefix (for example `ZZ_DRY_RUN`, `ZZ_ASSUME_YES`, `ZZ_NO_TUI`); unprefixed uppercase names are internal runtime globals only and must not be read from the caller's environment as installer knobs.
 - Keep required base actions idempotent and give them explicit verification checks.
 - Keep GUI defaults that require a logged-in user session in the first-run path rather than the system install path.
 - For Noctalia changes, keep portable settings in the managed dotfiles and do not commit generated, monitor-specific, or hardware-specific state from `~/.local/state/noctalia/`.

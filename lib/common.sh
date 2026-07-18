@@ -61,16 +61,28 @@ COMMAND="${COMMAND:-$DEFAULT_COMMAND}"
 TARGET_USER="${TARGET_USER:-$DEFAULT_TARGET_USER}"
 TARGET_HOME="${TARGET_HOME:-}"
 MODE="${MODE:-$DEFAULT_COMMAND}"
-DRY_RUN="${DRY_RUN:-0}"
-ASSUME_YES="${ASSUME_YES:-0}"
-USE_SAVED_SELECTIONS="${USE_SAVED_SELECTIONS:-0}"
-SKIP_DOTFILES="${SKIP_DOTFILES:-0}"
-STOW_ADOPT="${STOW_ADOPT:-0}"
-NO_TUI="${NO_TUI:-0}"
-INSTALL_WEAK_DEPS="${INSTALL_WEAK_DEPS:-0}"
-VERIFY_INSTALLS="${VERIFY_INSTALLS:-1}"
-PLAN_FORMAT="${PLAN_FORMAT:-text}"
-COMMAND_PREVIEW="${COMMAND_PREVIEW:-0}"
+# Externally-settable overrides carry the ZZ_ prefix; the short names below
+# are the internal working globals, seeded here from the ZZ_* environment and
+# then updated by CLI flag parsing. The unprefixed names are not read from the
+# caller's environment. Several are consumed only by later-sourced libraries
+# and modules, hence the SC2034 suppressions.
+DRY_RUN="${ZZ_DRY_RUN:-0}"
+# shellcheck disable=SC2034
+ASSUME_YES="${ZZ_ASSUME_YES:-0}"
+# shellcheck disable=SC2034
+USE_SAVED_SELECTIONS=0
+# shellcheck disable=SC2034
+SKIP_DOTFILES="${ZZ_SKIP_DOTFILES:-0}"
+# shellcheck disable=SC2034
+STOW_ADOPT=0
+NO_TUI="${ZZ_NO_TUI:-0}"
+# shellcheck disable=SC2034
+INSTALL_WEAK_DEPS="${ZZ_INSTALL_WEAK_DEPS:-0}"
+# shellcheck disable=SC2034
+VERIFY_INSTALLS="${ZZ_VERIFY_INSTALLS:-1}"
+PLAN_FORMAT=text
+# shellcheck disable=SC2034
+COMMAND_PREVIEW=0
 DESKTOP_APP_PROFILE="${DESKTOP_APP_PROFILE:-$DEFAULT_DESKTOP_APP_PROFILE}"
 PREFERRED_BROWSER="${PREFERRED_BROWSER:-}"
 LOCK_ACQUIRED="${LOCK_ACQUIRED:-0}"

@@ -141,6 +141,14 @@ exec_setup_as_root_if_needed() {
     "TARGET_USER=$TARGET_USER"
     "TARGET_HOME=$TARGET_HOME"
     "DESKTOP_APP_PROFILE=$DESKTOP_APP_PROFILE"
+    # Forward the resolved flag state under the external ZZ_ names so
+    # env-only overrides survive the sudo elevation boundary alongside the
+    # re-parsed CLI arguments.
+    "ZZ_ASSUME_YES=$ASSUME_YES"
+    "ZZ_NO_TUI=$NO_TUI"
+    "ZZ_INSTALL_WEAK_DEPS=$INSTALL_WEAK_DEPS"
+    "ZZ_VERIFY_INSTALLS=$VERIFY_INSTALLS"
+    "ZZ_SKIP_DOTFILES=$SKIP_DOTFILES"
   )
   local optional_env
   for optional_env in \
