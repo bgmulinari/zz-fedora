@@ -3,6 +3,8 @@ set -Eeuo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ISO_TOOL_NAME="test-fedora-installer-vm"
+# shellcheck source=../../config/defaults.sh
+source "$repo_dir/config/defaults.sh"
 # shellcheck source=../lib/build-common.sh
 source "$repo_dir/iso/lib/build-common.sh"
 
@@ -237,7 +239,7 @@ for command in cpio gzip mkksiso qemu-img qemu-system-x86_64 rsync timeout xorri
 done
 
 iso_extract_fedora_metadata "$input_iso"
-iso_validate_supported_platform "$fedora_release" "$fedora_arch"
+iso_validate_supported_platform "$fedora_release" "$fedora_arch" "$MINIMUM_FEDORA_RELEASE"
 addon_dir="$repo_dir/iso/anaconda-addon"
 addon_data_dir="$repo_dir/iso/anaconda-addon-data"
 if [[ ! -d "$addon_dir/org_zz_fedora" ]]; then

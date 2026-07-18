@@ -5,6 +5,10 @@ load "helpers/common"
 
 setup() {
   setup_test_env
+  # shellcheck source=../config/defaults.sh
+  source "$ROOT_DIR/config/defaults.sh"
+  export ZZ_TEST_FEDORA_RELEASE="$((MINIMUM_FEDORA_RELEASE + 1))"
+  export ZZ_TEST_BETA_RELEASE="$((ZZ_TEST_FEDORA_RELEASE + 1))"
 }
 
 @test "Fedora ISO builder embeds Kickstart, checkout, and Anaconda add-on with mkksiso" {
@@ -40,7 +44,7 @@ SH
 set -Eeuo pipefail
 dest=${@: -1}
 mkdir -p "$(dirname "$dest")"
-printf '0\n44\nx86_64\n' >"$dest"
+printf '0\n%s\nx86_64\n' "$ZZ_TEST_FEDORA_RELEASE" >"$dest"
 SH
 
   write_fake_command mkksiso <<'SH'
@@ -74,7 +78,7 @@ input=${args[0]:-}
 output=${args[1]:-}
 [[ -f "$ks" ]]
 ks_has_release=no
-if grep -F 'repo=fedora-44&arch=x86_64' "$ks" >/dev/null &&
+if grep -F "repo=fedora-$ZZ_TEST_FEDORA_RELEASE&arch=x86_64" "$ks" >/dev/null &&
   grep -Fx 'repo --name="updates"' "$ks" >/dev/null; then
   ks_has_release=yes
 fi
@@ -120,7 +124,7 @@ for add in "${adds[@]}"; do
     fi
     buildstamp="$(gzip -dc "$add/product.img" | cpio -i --to-stdout --quiet '*buildstamp' 2>/dev/null || true)"
     if grep -Fx 'Product=ZZ Fedora' <<<"$buildstamp" >/dev/null &&
-      grep -Fx 'Version=44' <<<"$buildstamp" >/dev/null; then
+      grep -Fx "Version=$ZZ_TEST_FEDORA_RELEASE" <<<"$buildstamp" >/dev/null; then
       buildstamp_version_in_product=yes
     fi
   fi
@@ -181,6 +185,481 @@ SH
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "buildstamp_version_in_product=yes"
   assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--from0"
   assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--files-from=-"
+}
+
+@test "Fedora ISO builder downloads and reuses its default input cache" {
+  setup_fake_bin
+
+  write_fake_command curl <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+destination=
+while (($# > 0)); do
+  case "$1" in
+    --output)
+      destination=$2
+      shift 2
+      ;;
+    *)
+      printf '%s\n' "$1" >>"$ZZ_TEST_CURL_LOG"
+      shift
+      ;;
+  esac
+done
+[[ -n "$destination" ]]
+mkdir -p "$(dirname "$destination")"
+printf 'downloaded ISO\n' >"$destination"
+SH
+
+  input_url="https://download.fedoraproject.org/pub/fedora/linux/releases/$ZZ_TEST_FEDORA_RELEASE/Everything/x86_64/iso/Fedora-Everything-netinst-x86_64-$ZZ_TEST_FEDORA_RELEASE-1.7.iso"
+  input_iso="$TEST_ROOT/release/input/Fedora-Everything-netinst-x86_64-$ZZ_TEST_FEDORA_RELEASE-1.7.iso"
+  export ZZ_TEST_CURL_LOG="$TEST_ROOT/curl.log"
+
+  run env PATH="$FAKE_BIN:$PATH" bash -c '
+    source "$1"
+    ISO_TOOL_NAME=default-input-test
+    iso_download_cached_input "$2" "$3"
+    iso_download_cached_input "$2" "$3"
+  ' _ "$ROOT_DIR/iso/lib/build-common.sh" "$input_url" "$input_iso"
+
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Downloading input ISO to $input_iso"
+  assert_contains "$output" "Downloaded input ISO: $input_iso"
+  assert_contains "$output" "Using cached input ISO: $input_iso"
+  assert_file_contains "$input_iso" "downloaded ISO"
+  [ ! -e "${input_iso}.part" ]
+  [ "$(grep -Fxc -- "$input_url" "$ZZ_TEST_CURL_LOG")" -eq 1 ]
+
+  run "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" --help
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "[--input ISO] [--output ISO]"
+  assert_contains "$output" "latest stable Fedora"
+  assert_contains "$output" "downloaded to release/input"
+  assert_contains "$output" "output filename is derived from the input ISO metadata"
+  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" \
+    'iso_prepare_default_input'
+}
+
+@test "Fedora ISO builder rejects empty option values" {
+  local option
+  for option in --input --output --input-sha256; do
+    run "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "$option" ""
+    [ "$status" -ne 0 ]
+    assert_contains "$output" "$option requires a value."
+
+    run "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "$option="
+    [ "$status" -ne 0 ]
+    assert_contains "$output" "$option requires a value."
+  done
+}
+
+@test "Fedora ISO builder derives its default output and verifies automatic input" {
+  setup_fake_bin
+
+  fixture_repo="$TEST_ROOT/builder-repo"
+  release_key_dir="$TEST_ROOT/fedora-release-keys"
+  mkdir -p "$fixture_repo/iso/scripts" "$fixture_repo/iso/lib" "$fixture_repo/config" "$release_key_dir"
+  cp "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "$fixture_repo/iso/scripts/"
+  cp "$ROOT_DIR/iso/lib/build-common.sh" "$fixture_repo/iso/lib/"
+  cp "$ROOT_DIR/config/defaults.sh" "$fixture_repo/config/"
+  cp "$ROOT_DIR/iso/zz-fedora.ks" "$ROOT_DIR/iso/payload-paths.conf" "$fixture_repo/iso/"
+  cp -a "$ROOT_DIR/iso/anaconda-addon" "$ROOT_DIR/iso/anaconda-addon-data" "$fixture_repo/iso/"
+  cp -a "$ROOT_DIR/choices" "$fixture_repo/"
+  cp "$ROOT_DIR/install.sh" "$fixture_repo/"
+  git -C "$fixture_repo" init -q
+  git -C "$fixture_repo" add .
+
+  write_fake_command rsync <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+staging_payload=0
+if [[ " $* " == *" --files-from=- "* ]]; then
+  staging_payload=1
+  cat >/dev/null
+fi
+destination=${@: -1}
+mkdir -p "$destination"
+if [[ "$staging_payload" -eq 1 ]]; then
+  printf '#!/usr/bin/env bash\n' >"$destination/install.sh"
+  chmod +x "$destination/install.sh"
+  mkdir -p "$destination/iso/lib"
+  printf '#!/usr/bin/env bash\n' >"$destination/iso/lib/runtime-loader.sh"
+  chmod +x "$destination/iso/lib/runtime-loader.sh"
+fi
+SH
+
+  write_fake_command curl <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+destination=
+url=
+while (($# > 0)); do
+  case "$1" in
+    --output)
+      destination=$2
+      shift 2
+      ;;
+    --retry)
+      shift 2
+      ;;
+    --fail|--location)
+      shift
+      ;;
+    *)
+      url=$1
+      shift
+      ;;
+  esac
+done
+[[ -n "$destination" && -n "$url" ]]
+printf '%s\n' "$url" >>"$ZZ_TEST_CURL_LOG"
+case "$url" in
+  */releases.json)
+    printf '[{"version":"%s","arch":"x86_64","link":"https://download.fedoraproject.org/pub/fedora/linux/releases/test/%s_Beta/Everything/x86_64/iso/Fedora-Everything-netinst-x86_64-%s-1.1.iso","variant":"Everything","subvariant":"Everything","sha256":"%064d","size":"1234567890"},{"version":"%s","arch":"x86_64","link":"https://download.fedoraproject.org/pub/fedora/linux/releases/%s/Everything/x86_64/iso/Fedora-Everything-netinst-x86_64-%s-1.7.iso","variant":"Everything","subvariant":"Everything","sha256":"%s","size":"1217329152"}]\n' \
+      "$ZZ_TEST_BETA_RELEASE" \
+      "$ZZ_TEST_BETA_RELEASE" \
+      "$ZZ_TEST_BETA_RELEASE" \
+      0 \
+      "$ZZ_TEST_FEDORA_RELEASE" \
+      "$ZZ_TEST_FEDORA_RELEASE" \
+      "$ZZ_TEST_FEDORA_RELEASE" \
+      "$ZZ_TEST_INPUT_SHA256" >"$destination"
+    ;;
+  *-CHECKSUM)
+    printf 'signed checksum fixture\n' >"$destination"
+    ;;
+  */fedora.gpg)
+    printf 'Fedora keyring fixture\n' >"$destination"
+    ;;
+  *.iso)
+    printf 'mock Fedora input ISO\n' >"$destination"
+    ;;
+  *)
+    exit 1
+    ;;
+esac
+SH
+
+  write_fake_command gpg <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf 'pub:-:4096:1:DBFCF71C6D9F90A6:0:0::-:::scESC::::::23::0:\n'
+printf 'fpr:::::::::36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6:\n'
+SH
+
+  write_fake_command gpgv <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+verified_output=
+checksum_file=
+while (($# > 0)); do
+  case "$1" in
+    --keyring|--status-fd)
+      shift 2
+      ;;
+    --output)
+      verified_output=$2
+      shift 2
+      ;;
+    *)
+      checksum_file=$1
+      shift
+      ;;
+  esac
+done
+[[ -n "$verified_output" && -n "$checksum_file" ]]
+if ! grep -q 'signed checksum fixture' "$checksum_file"; then
+  exit 2
+fi
+printf '[GNUPG:] VALIDSIG 36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6 2026-04-24 0 0 4 0 1 8 01 36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6\n' >&3
+printf 'SHA256 (Fedora-Everything-netinst-x86_64-%s-1.7.iso) = %s\n' \
+  "$ZZ_TEST_FEDORA_RELEASE" \
+  "$ZZ_TEST_INPUT_SHA256" >"$verified_output"
+printf 'verified\n' >>"$ZZ_TEST_GPGV_LOG"
+SH
+
+  write_fake_command xorriso <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+destination=${@: -1}
+mkdir -p "$(dirname "$destination")"
+printf '0\n%s\nx86_64\n' "$ZZ_TEST_FEDORA_RELEASE" >"$destination"
+SH
+
+  write_fake_command mkksiso <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+output=${@: -1}
+printf 'mock ISO\n' >"$output"
+SH
+
+  input_url="https://download.fedoraproject.org/pub/fedora/linux/releases/$ZZ_TEST_FEDORA_RELEASE/Everything/x86_64/iso/Fedora-Everything-netinst-x86_64-$ZZ_TEST_FEDORA_RELEASE-1.7.iso"
+  input_iso="$fixture_repo/release/input/Fedora-Everything-netinst-x86_64-$ZZ_TEST_FEDORA_RELEASE-1.7.iso"
+  expected_output="$fixture_repo/release/zz-fedora-x86_64-$ZZ_TEST_FEDORA_RELEASE.iso"
+  export ZZ_TEST_CURL_LOG="$TEST_ROOT/default-input-curl.log"
+  export ZZ_TEST_GPGV_LOG="$TEST_ROOT/default-input-gpgv.log"
+  export ZZ_FEDORA_RELEASE_KEY_DIR="$release_key_dir"
+  export ZZ_TEST_INPUT_SHA256
+  ZZ_TEST_INPUT_SHA256="$(printf 'mock Fedora input ISO\n' | sha256sum | awk '{print $1}')"
+  printf 'Fedora release certificate fixture\n' >"$release_key_dir/RPM-GPG-KEY-fedora-$ZZ_TEST_FEDORA_RELEASE-primary"
+
+  run env PATH="$FAKE_BIN:$PATH" "$fixture_repo/iso/scripts/build-fedora-installer-iso.sh"
+
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Resolved latest Fedora Everything release: $ZZ_TEST_FEDORA_RELEASE x86_64"
+  assert_contains "$output" "Created $expected_output"
+  assert_contains "$output" "Verified Fedora checksum signature: 36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6"
+  assert_contains "$output" "Verified input SHA-256: $ZZ_TEST_INPUT_SHA256"
+  assert_file_contains "$input_iso" "mock Fedora input ISO"
+  assert_file_contains "$expected_output" "mock ISO"
+
+  run env PATH="$FAKE_BIN:$PATH" "$fixture_repo/iso/scripts/build-fedora-installer-iso.sh"
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Using cached input ISO: $input_iso"
+  [ "$(grep -Fxc -- "$input_url" "$ZZ_TEST_CURL_LOG")" -eq 1 ]
+  [ "$(grep -Fxc -- "verified" "$ZZ_TEST_GPGV_LOG")" -eq 2 ]
+
+  printf 'corrupt cached ISO\n' >"$input_iso"
+  run env PATH="$FAKE_BIN:$PATH" "$fixture_repo/iso/scripts/build-fedora-installer-iso.sh"
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "cached input ISO failed verification; downloading a replacement"
+  assert_contains "$output" "Downloading input ISO to $input_iso"
+  assert_file_contains "$input_iso" "mock Fedora input ISO"
+  [ "$(grep -Fxc -- "$input_url" "$ZZ_TEST_CURL_LOG")" -eq 2 ]
+  [ "$(grep -Fxc -- "verified" "$ZZ_TEST_GPGV_LOG")" -eq 3 ]
+
+  checksum_url="${input_url%/*}/Fedora-Everything-$ZZ_TEST_FEDORA_RELEASE-1.7-x86_64-CHECKSUM"
+  checksum_file="$fixture_repo/release/input/Fedora-Everything-$ZZ_TEST_FEDORA_RELEASE-1.7-x86_64-CHECKSUM"
+  [ "$(grep -Fxc -- "$checksum_url" "$ZZ_TEST_CURL_LOG")" -eq 1 ]
+  printf 'tampered checksum\n' >"$checksum_file"
+  run env PATH="$FAKE_BIN:$PATH" "$fixture_repo/iso/scripts/build-fedora-installer-iso.sh"
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "cached Fedora checksum failed verification; downloading a replacement"
+  assert_file_contains "$checksum_file" "signed checksum fixture"
+  [ "$(grep -Fxc -- "$checksum_url" "$ZZ_TEST_CURL_LOG")" -eq 2 ]
+  [ "$(grep -Fxc -- "verified" "$ZZ_TEST_GPGV_LOG")" -eq 4 ]
+}
+
+@test "Fedora ISO platform validation uses the repository minimum release" {
+  source "$ROOT_DIR/iso/lib/build-common.sh"
+  ISO_TOOL_NAME=platform-test
+  previous_release="$((MINIMUM_FEDORA_RELEASE - 1))"
+  next_release="$((MINIMUM_FEDORA_RELEASE + 1))"
+
+  run iso_validate_supported_platform "$previous_release" x86_64 "$MINIMUM_FEDORA_RELEASE"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "minimum: $MINIMUM_FEDORA_RELEASE"
+
+  run iso_validate_supported_platform "$MINIMUM_FEDORA_RELEASE" x86_64 "$MINIMUM_FEDORA_RELEASE"
+  [ "$status" -eq 0 ]
+
+  run iso_validate_supported_platform "$next_release" x86_64 "$MINIMUM_FEDORA_RELEASE"
+  [ "$status" -eq 0 ]
+
+  run iso_validate_supported_platform "$next_release" x86_64 ""
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "invalid MINIMUM_FEDORA_RELEASE configuration"
+  refute_contains "$output" "input ISO"
+}
+
+@test "Fedora ISO builder rejects a checksum signed by an unexpected key" {
+  setup_fake_bin
+
+  write_fake_command gpgv <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+verified_output=
+while (($# > 0)); do
+  case "$1" in
+    --keyring|--status-fd)
+      shift 2
+      ;;
+    --output)
+      verified_output=$2
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+printf '[GNUPG:] VALIDSIG 0000000000000000000000000000000000000000 2026-04-24 0 0 4 0 1 8 01 0000000000000000000000000000000000000000\n' >&3
+printf 'SHA256 (input.iso) = %064d\n' 0 >"$verified_output"
+SH
+
+  checksum_file="$TEST_ROOT/Fedora-Everything-CHECKSUM"
+  keyring_file="$TEST_ROOT/fedora.gpg"
+  touch "$checksum_file" "$keyring_file"
+  run env PATH="$FAKE_BIN:$PATH" bash -c '
+    source "$1"
+    ISO_TOOL_NAME=checksum-test
+    iso_verified_sha256_from_checksum \
+      "$2" "$3" 36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6 input.iso
+  ' _ "$ROOT_DIR/iso/lib/build-common.sh" "$checksum_file" "$keyring_file"
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "checksum signature is not from expected Fedora signer"
+}
+
+@test "Fedora ISO checksum verification accepts a signature from a subkey of the expected key" {
+  setup_fake_bin
+
+  write_fake_command gpgv <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+verified_output=
+while (($# > 0)); do
+  case "$1" in
+    --keyring|--status-fd)
+      shift 2
+      ;;
+    --output)
+      verified_output=$2
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+[[ -n "$verified_output" ]]
+printf '[GNUPG:] VALIDSIG 1111111111111111111111111111111111111111 2026-04-24 0 0 4 0 1 8 01 36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6\n' >&3
+printf 'SHA256 (input.iso) = %064d\n' 0 >"$verified_output"
+SH
+
+  checksum_file="$TEST_ROOT/Fedora-Everything-CHECKSUM"
+  keyring_file="$TEST_ROOT/fedora.gpg"
+  touch "$checksum_file" "$keyring_file"
+  run env PATH="$FAKE_BIN:$PATH" bash -c '
+    source "$1"
+    ISO_TOOL_NAME=checksum-test
+    iso_verified_sha256_from_checksum \
+      "$2" "$3" 36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6 input.iso
+  ' _ "$ROOT_DIR/iso/lib/build-common.sh" "$checksum_file" "$keyring_file"
+
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "$(printf '%064d' 0)"
+}
+
+@test "Fedora ISO certificate fingerprint requires exactly one primary key" {
+  setup_fake_bin
+
+  certificate="$TEST_ROOT/release-certificate"
+  touch "$certificate"
+
+  write_fake_command gpg <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf 'pub:-:4096:1:DBFCF71C6D9F90A6:0:0::-:::scESC::::::23::0:\n'
+printf 'fpr:::::::::36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6:\n'
+printf 'sub:-:4096:1:AAAAAAAAAAAAAAAA:0:0:::::s::::::23:\n'
+printf 'fpr:::::::::4444444444444444444444444444444444444444:\n'
+SH
+
+  run env PATH="$FAKE_BIN:$PATH" bash -c '
+    source "$1"
+    ISO_TOOL_NAME=certificate-test
+    iso_certificate_fingerprint "$2"
+  ' _ "$ROOT_DIR/iso/lib/build-common.sh" "$certificate"
+
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6"
+  refute_contains "$output" "4444444444444444444444444444444444444444"
+
+  write_fake_command gpg <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf 'pub:-:4096:1:DBFCF71C6D9F90A6:0:0::-:::scESC::::::23::0:\n'
+printf 'fpr:::::::::36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6:\n'
+printf 'pub:-:4096:1:BBBBBBBBBBBBBBBB:0:0::-:::scESC::::::23::0:\n'
+printf 'fpr:::::::::5555555555555555555555555555555555555555:\n'
+SH
+
+  run env PATH="$FAKE_BIN:$PATH" bash -c '
+    source "$1"
+    ISO_TOOL_NAME=certificate-test
+    iso_certificate_fingerprint "$2"
+  ' _ "$ROOT_DIR/iso/lib/build-common.sh" "$certificate"
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "contains more than one key"
+}
+
+@test "Fedora ISO builder checks local build inputs before downloading" {
+  setup_fake_bin
+
+  fixture_repo="$TEST_ROOT/precondition-repo"
+  mkdir -p "$fixture_repo/iso/scripts" "$fixture_repo/iso/lib" "$fixture_repo/config"
+  cp "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "$fixture_repo/iso/scripts/"
+  cp "$ROOT_DIR/iso/lib/build-common.sh" "$fixture_repo/iso/lib/"
+  cp "$ROOT_DIR/config/defaults.sh" "$fixture_repo/config/"
+
+  write_fake_command curl <<'SH'
+#!/usr/bin/env bash
+touch "$ZZ_TEST_CURL_CALLED"
+exit 1
+SH
+  local command_name
+  for command_name in cpio gzip mkksiso rsync xorriso gpg gpgv jq sha256sum; do
+    write_fake_command "$command_name" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+  done
+
+  export ZZ_TEST_CURL_CALLED="$TEST_ROOT/curl-called"
+  run env PATH="$FAKE_BIN:$PATH" "$fixture_repo/iso/scripts/build-fedora-installer-iso.sh"
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "missing Kickstart file"
+  [ ! -e "$ZZ_TEST_CURL_CALLED" ]
+}
+
+@test "Fedora ISO input download does not publish a failed partial file" {
+  setup_fake_bin
+
+  write_fake_command curl <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+while (($# > 0)); do
+  if [[ "$1" == "--output" ]]; then
+    printf 'partial ISO\n' >"$2"
+    exit 22
+  fi
+  shift
+done
+exit 22
+SH
+
+  input_iso="$TEST_ROOT/release/input/Fedora-Everything-netinst-x86_64-$ZZ_TEST_FEDORA_RELEASE-1.7.iso"
+  run env PATH="$FAKE_BIN:$PATH" bash -c '
+    source "$1"
+    ISO_TOOL_NAME=default-input-test
+    iso_download_cached_input https://example.invalid/input.iso "$2"
+  ' _ "$ROOT_DIR/iso/lib/build-common.sh" "$input_iso"
+
+  [ "$status" -eq 22 ]
+  assert_contains "$output" "failed to download input ISO"
+  [ ! -e "$input_iso" ]
+  [ ! -e "${input_iso}.part" ]
 }
 
 @test "ISO runtime payload contains only tracked allowlisted files" {
@@ -362,7 +841,7 @@ SH
 set -Eeuo pipefail
 dest=${@: -1}
 mkdir -p "$(dirname "$dest")"
-printf '0\n44\nx86_64\n' >"$dest"
+printf '0\n%s\nx86_64\n' "$ZZ_TEST_FEDORA_RELEASE" >"$dest"
 SH
 
   write_fake_command mkksiso <<'SH'

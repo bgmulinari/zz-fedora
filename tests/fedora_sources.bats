@@ -17,7 +17,7 @@ setup() {
     printf 'root:%s\n' "$*"
   }
   rpm() {
-    [[ "$*" == "-E %fedora" ]] && printf '44\n'
+    [[ "$*" == "-E %fedora" ]] && printf '%s\n' "$MINIMUM_FEDORA_RELEASE"
   }
 
   run fedora_enable_sources terra

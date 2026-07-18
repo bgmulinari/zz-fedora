@@ -45,15 +45,16 @@ setup() {
 }
 
 @test "Fedora release support uses a minimum version floor" {
-  MINIMUM_FEDORA_RELEASE=44
+  previous_release="$((MINIMUM_FEDORA_RELEASE - 1))"
+  next_release="$((MINIMUM_FEDORA_RELEASE + 1))"
 
-  run fedora_release_is_supported 43
+  run fedora_release_is_supported "$previous_release"
   [ "$status" -ne 0 ]
 
-  run fedora_release_is_supported 44
+  run fedora_release_is_supported "$MINIMUM_FEDORA_RELEASE"
   [ "$status" -eq 0 ]
 
-  run fedora_release_is_supported 45
+  run fedora_release_is_supported "$next_release"
   [ "$status" -eq 0 ]
 
   run fedora_release_is_supported rawhide

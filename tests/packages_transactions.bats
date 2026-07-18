@@ -89,7 +89,7 @@ if [[ "$1" == "-q" && "$2" == "nodejs" ]]; then
   exit 1
 fi
 if [[ "$1" == "-q" && "$2" == "--whatprovides" && "$3" == "nodejs" ]]; then
-  printf 'nodejs22-22.22.2-3.fc44.x86_64\n'
+  printf 'nodejs22-22.22.2-3.fc99.x86_64\n'
   exit 0
 fi
 exit 1

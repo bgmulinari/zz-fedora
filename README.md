@@ -1,15 +1,13 @@
 # ZZ Fedora
 
-A Fedora post-install bootstrapper for a Niri and Noctalia v5 desktop.
-
-Supports Fedora 44 on x86_64.
+A Fedora x86_64 post-install bootstrapper for a [Niri](https://github.com/niri-wm/niri) and [Noctalia](https://github.com/noctalia-dev/noctalia) desktop.
 
 ## Install
 
 The easiest way to get started is the bootstrap script:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bgmulinari/zz-fedora/main/bootstrap.sh | bash
+curl -fsSL https://zz.036477.xyz | bash
 ```
 
 To install from a local checkout instead:

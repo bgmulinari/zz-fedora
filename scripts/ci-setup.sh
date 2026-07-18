@@ -6,7 +6,7 @@ set -Eeuo pipefail
 # - create an unprivileged runner user that owns the checkout
 # - make the checkout a usable Git work tree for that user
 #
-# Run as root from any directory inside a fedora:44 container, locally or in CI:
+# Run as root from any directory inside the latest stable Fedora container, locally or in CI:
 #   bash scripts/ci-setup.sh
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

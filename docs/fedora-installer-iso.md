@@ -19,7 +19,8 @@ catalog defaults and full-profile desktop integration bundles, and still
 allows individual desktop apps to be selected explicitly. Other optional
 catalogs keep their normal defaults in both profiles.
 
-The supported build and installation target is Fedora 44 x86_64.
+The supported build and installation target is Fedora x86_64 at or above the
+repository's configured minimum release.
 
 For the design rationale — the Lorax/`mkksiso` approach, `product.img`
 contents, the Anaconda D-Bus add-on wiring, and the remote runtime refresh —
@@ -31,35 +32,65 @@ see
 On Fedora, install the builder tools:
 
 ```bash
-sudo dnf install lorax rsync xorriso
+sudo dnf install curl gnupg2 jq lorax rsync xorriso
 ```
 
-Build from a Fedora netinst or DVD ISO:
+Build with the latest stable Fedora Everything x86_64 netinst ISO:
+
+```bash
+iso/scripts/build-fedora-installer-iso.sh
+```
+
+When `--input` is omitted, the builder refreshes Fedora's machine-readable
+`releases.json`, selects the highest stable numeric Everything release for
+x86_64, and downloads that ISO to `release/input/`. Later builds reuse the ISO
+as long as it remains the latest release. Downloads are written to `.part`
+files and moved into place only after they complete.
+
+The builder also caches Fedora's clear-signed checksum file and refreshes its
+OpenPGP keyring in `release/input/`. On every build, it verifies the checksum
+document with `gpgv`, derives the expected signer fingerprint from the installed
+Fedora release certificate under `/etc/pki/rpm-gpg/` (set
+`ZZ_FEDORA_RELEASE_KEY_DIR` to read the release certificates from another
+directory), and checks the ISO's
+SHA-256 against both the authenticated checksum and release metadata. This
+verification also runs for a cached ISO. If the cached ISO or the cached
+checksum document fails verification, the builder removes it, downloads a
+replacement, and verifies the replacement before continuing; a downloaded
+checksum that still fails verification is removed rather than left in the
+cache. Keep the host's `fedora-repos` package current so the next
+stable release's certificate is present when Fedora publishes that release.
+
+When `--output` is omitted, the builder reads the release and architecture
+from the input ISO and writes `release/zz-fedora-<architecture>-<release>.iso`.
+Pass `--output` to override that path.
+
+To build from another local Fedora installer ISO, pass it explicitly and
+verify it with the digest from Fedora's signed checksum file:
 
 ```bash
 iso/scripts/build-fedora-installer-iso.sh \
-  --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
-  --input-sha256 <sha256-from-the-signed-fedora-checksum-file> \
-  --output release/zz-fedora.iso
+  --input /path/to/Fedora-Everything-netinst-x86_64-<release>-<compose>.iso \
+  --input-sha256 <sha256-from-the-signed-fedora-checksum-file>
 ```
 
 For a fully bootable UEFI USB image, run the builder with privileges when your
 Fedora/Lorax version requires it:
 
 ```bash
-sudo iso/scripts/build-fedora-installer-iso.sh \
-  --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
-  --input-sha256 <sha256-from-the-signed-fedora-checksum-file> \
-  --output release/zz-fedora.iso
+sudo iso/scripts/build-fedora-installer-iso.sh
 ```
 
 `--skip-mkefiboot` is available for development-only builds where you do not
 need `mkksiso` to update the embedded EFI boot image. Validate publishable
 media without that flag.
 
-The builder supports Fedora 44 x86_64 input media. Always pass
-`--input-sha256` using the digest from Fedora's signed checksum file. Input
-and output paths must differ, and generated images belong under the ignored
+The builder supports x86_64 input media at or above `MINIMUM_FEDORA_RELEASE`
+from `config/defaults.sh`. When supplying `--input`, pass `--input-sha256`
+using the digest from Fedora's signed checksum file. The automatic input is
+always checked against Fedora's signed checksum; supplying `--input-sha256`
+with it adds a consistency check against that authenticated digest. Input and
+output paths must differ, and generated images belong under the ignored
 `release/` directory rather than in Git. The
 embedded repository payload is assembled only from Git-tracked runtime files;
 `.git`, tests, local logs, caches, ignored files, and unrelated untracked files

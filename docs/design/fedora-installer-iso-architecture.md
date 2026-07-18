@@ -6,6 +6,19 @@ the user-facing build, install-flow, and VM-validation procedure, see
 
 The implementation follows Fedora/Lorax's Kickstart ISO approach:
 
+- When no input path is supplied, the build-time tooling refreshes Fedora's
+  official `releases.json`, selects the highest stable numeric Everything
+  release for x86_64, and caches that netinst image under the ignored
+  `release/input/` directory. The matching checksum document is cached
+  alongside it, while Fedora's aggregate OpenPGP keyring is refreshed on each
+  build. The builder authenticates the checksum document with `gpgv`, derives
+  the expected signer from the locally installed certificate for the resolved
+  release, and compares the input SHA-256 with both signed and release-metadata
+  values; an invalid cached input or checksum document is replaced and
+  rechecked. When no output
+  path is supplied, the builder derives
+  `release/zz-fedora-<architecture>-<release>.iso` from the validated input ISO
+  metadata.
 - `mkksiso` adds a Kickstart and extra files to an existing installer ISO and
   updates the boot configuration to run that Kickstart.
 - A generated `images/product.img` contains the Anaconda add-on payload under

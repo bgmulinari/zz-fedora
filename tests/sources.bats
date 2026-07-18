@@ -41,7 +41,7 @@ setup() {
     printf 'root:%s\n' "$*"
   }
   rpm() {
-    [[ "$*" == "-E %fedora" ]] && printf '44\n'
+    [[ "$*" == "-E %fedora" ]] && printf '%s\n' "$MINIMUM_FEDORA_RELEASE"
   }
 
   set +e
@@ -56,9 +56,9 @@ setup() {
   [ "$status" -eq 0 ]
   assert_contains "$output" "root:bash -c rpm --import https://dl.google.com/linux/linux_signing_key.pub 2>/dev/null"
   assert_contains "$output" "root:rpm --import https://download1.rpmfusion.org/free/fedora/RPM-GPG-KEY-rpmfusion-free-fedora-2020"
-  assert_contains "$output" "root:dnf install -y --setopt=localpkg_gpgcheck=1 https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-44.noarch.rpm"
+  assert_contains "$output" "root:dnf install -y --setopt=localpkg_gpgcheck=1 https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-${MINIMUM_FEDORA_RELEASE}.noarch.rpm"
   assert_contains "$output" "root:rpm --import https://download1.rpmfusion.org/nonfree/fedora/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020"
-  assert_contains "$output" "root:dnf install -y --setopt=localpkg_gpgcheck=1 https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-44.noarch.rpm"
+  assert_contains "$output" "root:dnf install -y --setopt=localpkg_gpgcheck=1 https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${MINIMUM_FEDORA_RELEASE}.noarch.rpm"
 }
 
 @test "Claude Desktop preflight uses an ephemeral signed repository" {

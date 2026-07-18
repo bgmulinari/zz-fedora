@@ -1,4 +1,4 @@
-# Packages installed into the fedora:44 CI container before the test run.
+# Packages installed into the latest stable Fedora CI container before the test run.
 # One package per line; blank lines and # comments are ignored.
 # Consumed by scripts/ci-setup.sh.
 bats

@@ -3,17 +3,23 @@ set -Eeuo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ISO_TOOL_NAME="build-fedora-installer-iso"
+# shellcheck source=../../config/defaults.sh
+source "$repo_dir/config/defaults.sh"
 # shellcheck source=../lib/build-common.sh
 source "$repo_dir/iso/lib/build-common.sh"
 
 usage() {
   cat <<'EOF'
-Usage: iso/scripts/build-fedora-installer-iso.sh --input ISO --output ISO [--input-sha256 HASH]
+Usage: iso/scripts/build-fedora-installer-iso.sh [--input ISO] [--output ISO] [--input-sha256 HASH]
 
 Embed this checkout and the zz-fedora Fedora Kickstart into a Fedora installer
 ISO. The embedded checkout refreshes the remote runtime before Anaconda shows
 its choices. An Anaconda add-on D-Bus task runs the normal installer from that
-refreshed snapshot.
+refreshed snapshot. When --input is omitted, the latest stable Fedora
+Everything x86_64 netinst ISO is resolved from Fedora's release metadata,
+downloaded to release/input, and reused by later builds. When --output is
+omitted, the output filename is derived from the input ISO metadata. The
+automatic input is verified against Fedora's signed checksum on every build.
 EOF
 }
 
@@ -25,13 +31,20 @@ input_iso=
 input_sha256=
 output_iso=
 skip_mkefiboot=0
+use_default_input=0
 fedora_release=
 fedora_arch=
+resolved_release=
+resolved_arch=
+default_input_iso=
+default_input_sha256=
+default_arch="x86_64"
+release_key_dir="${ZZ_FEDORA_RELEASE_KEY_DIR:-/etc/pki/rpm-gpg}"
 
 while (($# > 0)); do
   case "$1" in
     --input)
-      if (($# < 2)); then
+      if (($# < 2)) || [[ -z "$2" ]]; then
         err "--input requires a value."
         exit 1
       fi
@@ -40,10 +53,14 @@ while (($# > 0)); do
       ;;
     --input=*)
       input_iso=${1#*=}
+      if [[ -z "$input_iso" ]]; then
+        err "--input requires a value."
+        exit 1
+      fi
       shift
       ;;
     --output)
-      if (($# < 2)); then
+      if (($# < 2)) || [[ -z "$2" ]]; then
         err "--output requires a value."
         exit 1
       fi
@@ -52,10 +69,14 @@ while (($# > 0)); do
       ;;
     --output=*)
       output_iso=${1#*=}
+      if [[ -z "$output_iso" ]]; then
+        err "--output requires a value."
+        exit 1
+      fi
       shift
       ;;
     --input-sha256)
-      if (($# < 2)); then
+      if (($# < 2)) || [[ -z "$2" ]]; then
         err "--input-sha256 requires a value."
         exit 1
       fi
@@ -64,6 +85,10 @@ while (($# > 0)); do
       ;;
     --input-sha256=*)
       input_sha256=${1#*=}
+      if [[ -z "$input_sha256" ]]; then
+        err "--input-sha256 requires a value."
+        exit 1
+      fi
       shift
       ;;
     --skip-mkefiboot)
@@ -82,26 +107,22 @@ while (($# > 0)); do
   esac
 done
 
-if [[ -z "$input_iso" || -z "$output_iso" ]]; then
-  usage >&2
-  exit 1
+if [[ -z "$input_iso" ]]; then
+  use_default_input=1
 fi
 
-if [[ "$input_iso" == "$output_iso" ]]; then
-  err "input and output ISO paths must differ."
-  exit 1
-fi
-
-if [[ ! -f "$input_iso" ]]; then
+if [[ "$use_default_input" -eq 0 && ! -f "$input_iso" ]]; then
   err "input ISO not found: $input_iso"
   exit 1
 fi
 
-if [[ -n "$input_sha256" ]]; then
-  iso_verify_sha256 "$input_iso" "$input_sha256"
+required_commands=(cpio gzip mkksiso rsync xorriso)
+if [[ "$use_default_input" -eq 1 ]]; then
+  required_commands+=(curl gpg gpgv jq sha256sum)
+elif [[ -n "$input_sha256" ]]; then
+  required_commands+=(sha256sum)
 fi
-
-for command in cpio gzip mkksiso rsync xorriso; do
+for command in "${required_commands[@]}"; do
   if ! command -v "$command" >/dev/null 2>&1; then
     err "missing required command: $command"
     exit 1
@@ -125,6 +146,35 @@ if [[ ! -d "$addon_data_dir" ]]; then
   exit 1
 fi
 
+if [[ "$use_default_input" -eq 1 ]]; then
+  iso_prepare_default_input \
+    "$repo_dir/release/input" \
+    "$default_arch" \
+    "$MINIMUM_FEDORA_RELEASE" \
+    "$release_key_dir" \
+    "$input_sha256"
+  input_iso="$default_input_iso"
+elif [[ -n "$input_sha256" ]]; then
+  iso_verify_sha256 "$input_iso" "$input_sha256"
+fi
+
+iso_extract_fedora_metadata "$input_iso"
+iso_validate_supported_platform "$fedora_release" "$fedora_arch" "$MINIMUM_FEDORA_RELEASE"
+if [[ "$use_default_input" -eq 1 ]] &&
+  [[ "$fedora_release" != "$resolved_release" || "$fedora_arch" != "$resolved_arch" ]]; then
+  err "downloaded ISO metadata does not match the resolved Fedora release"
+  exit 1
+fi
+
+if [[ -z "$output_iso" ]]; then
+  output_iso="$repo_dir/release/zz-fedora-${fedora_arch}-${fedora_release}.iso"
+fi
+
+if [[ "$input_iso" == "$output_iso" ]]; then
+  err "input and output ISO paths must differ."
+  exit 1
+fi
+
 work_dir="$(mktemp -d)"
 payload_dir="$work_dir/zz-fedora"
 product_root="$work_dir/product"
@@ -138,8 +188,6 @@ tmp_output="$(mktemp "$output_dir/.$output_base.tmp.XXXXXX")"
 rm -f "$tmp_output"
 trap 'rm -rf "$work_dir"; rm -f "$tmp_output"' EXIT
 
-iso_extract_fedora_metadata "$input_iso"
-iso_validate_supported_platform "$fedora_release" "$fedora_arch"
 iso_stage_tracked_runtime_payload "$repo_dir" "$payload_dir"
 iso_render_release_template "$ks_file" "$rendered_ks_file"
 

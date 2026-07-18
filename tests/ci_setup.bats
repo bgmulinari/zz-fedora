@@ -36,6 +36,16 @@ ci_package_list() {
   [ "$status" -eq 0 ]
 }
 
+@test "CI workflow tests the minimum supported and latest Fedora containers" {
+  source "$ROOT_DIR/config/defaults.sh"
+
+  run grep -E "^[[:space:]]*fedora: \[\"$MINIMUM_FEDORA_RELEASE\", \"latest\"\]$" "$ROOT_DIR/.github/workflows/ci.yml"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'container: fedora:${{ matrix.fedora }}' "$ROOT_DIR/.github/workflows/ci.yml"
+  [ "$status" -eq 0 ]
+}
+
 @test "CI workflow runs the full suite once with lint enabled" {
   run grep -E 'ZZ_TEST_LINT=1 .*\./tests/full\.sh' "$ROOT_DIR/.github/workflows/ci.yml"
 
