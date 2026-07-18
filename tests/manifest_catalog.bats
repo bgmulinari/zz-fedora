@@ -600,3 +600,34 @@ BUNDLE
   [ "$status" -ne 0 ]
   assert_contains "$output" "Duplicate BUNDLE_BASE_ORDER '10'"
 }
+
+@test "dotfiles layering doc references only existing repository paths" {
+  local doc="$ROOT_DIR/docs/dotfiles-layering.md"
+  [ -f "$doc" ]
+
+  local path
+  while IFS= read -r path; do
+    [[ "$path" == *'<'* || "$path" == *'*'* ]] && continue
+    if [[ ! -e "$ROOT_DIR/$path" ]]; then
+      printf 'docs/dotfiles-layering.md references missing path: %s\n' "$path" >&2
+      return 1
+    fi
+  done < <(grep -oE '`(dotfiles|templates|config|bundles|lib|modules)/[^`]*`' "$doc" | tr -d '`' | sort -u)
+}
+
+@test "dotfiles layering doc seed rows exist in managed-config.tsv" {
+  local policy="$ROOT_DIR/config/managed-config.tsv"
+  local path
+  for path in \
+    '~/.config/ghostty/themes/noctalia' \
+    '~/.config/niri/cfg/display.kdl' \
+    '~/.config/niri/noctalia.kdl' \
+    '~/.config/starship.toml'; do
+    if ! awk -F'\t' -v p="$path" '$1==p && $2=="seed-if-missing" && $3=="preserve" {found=1} END {exit !found}' "$policy"; then
+      printf 'missing seed-if-missing/preserve row for %s\n' "$path" >&2
+      return 1
+    fi
+  done
+
+  awk -F'\t' -v p='~/.config/noctalia/config.toml' '$1==p && $2=="stow" {found=1} END {exit !found}' "$policy"
+}
