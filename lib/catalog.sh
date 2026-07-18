@@ -243,7 +243,6 @@ load_bundle_descriptor() {
     BUNDLE_BASE_EARLY \
     BUNDLE_MINIMAL_DESKTOP_SKIP \
     BUNDLE_INSTALLER \
-    BUNDLE_SOURCE_ID \
     BUNDLE_SOURCE_IDS \
     BUNDLE_DEPENDENCIES \
     BUNDLE_ITEMS_FILE \
@@ -251,6 +250,32 @@ load_bundle_descriptor() {
     BUNDLE_DESCRIPTION
   # shellcheck disable=SC1090
   source "$bundle_file"
+}
+
+bundle_descriptor_key_supported() {
+  case "$1" in
+    BUNDLE_ID|BUNDLE_BASE|BUNDLE_BASE_ORDER|BUNDLE_BASE_EARLY|BUNDLE_MINIMAL_DESKTOP_SKIP|BUNDLE_INSTALLER|BUNDLE_SOURCE_IDS|BUNDLE_DEPENDENCIES|BUNDLE_ITEMS_FILE|BUNDLE_STOW_PACKAGES|BUNDLE_DESCRIPTION)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+validate_bundle_descriptor_keys() {
+  local bundle_file="$1"
+  local line key
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      ''|'#'*)
+        continue
+        ;;
+    esac
+    [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]] || die "Invalid bundle descriptor line '$line' in $bundle_file"
+    key="${BASH_REMATCH[1]}"
+    bundle_descriptor_key_supported "$key" || die "Unknown bundle descriptor key '$key' in $bundle_file"
+  done <"$bundle_file"
 }
 
 bundle_installer_supported() {
@@ -267,6 +292,8 @@ bundle_installer_supported() {
 validate_bundle_descriptor() {
   local bundle_file="$1"
 
+  validate_bundle_descriptor_keys "$bundle_file"
+
   unset \
     BUNDLE_ID \
     BUNDLE_BASE \
@@ -274,7 +301,6 @@ validate_bundle_descriptor() {
     BUNDLE_BASE_EARLY \
     BUNDLE_MINIMAL_DESKTOP_SKIP \
     BUNDLE_INSTALLER \
-    BUNDLE_SOURCE_ID \
     BUNDLE_SOURCE_IDS \
     BUNDLE_DEPENDENCIES \
     BUNDLE_ITEMS_FILE \
@@ -312,9 +338,6 @@ validate_bundle_descriptor() {
     fi
   fi
 
-  if [[ -n "${BUNDLE_SOURCE_ID:-}" ]]; then
-    source_file_for_id "$BUNDLE_SOURCE_ID" >/dev/null || die "Unknown source ID '$BUNDLE_SOURCE_ID' in $bundle_file"
-  fi
   local source_id
   while IFS= read -r source_id; do
     [[ -n "$source_id" ]] || continue

@@ -1,6 +1,5 @@
 BUNDLE_ID="dev-devtunnel"
 BUNDLE_INSTALLER="action"
-BUNDLE_SOURCE_ID=""
 BUNDLE_SOURCE_IDS="artifact:devtunnel"
 BUNDLE_ITEMS_FILE="packages/actions/dev-devtunnel.actions"
 BUNDLE_STOW_PACKAGES=""

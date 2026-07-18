@@ -69,9 +69,6 @@ append_bundle_to_plan() {
   load_bundle_descriptor "$bundle_id" || die "Unknown bundle: $bundle_id"
   append_plan_entries "$PLAN_DIR/bundles.list" "$bundle_id"
   append_unique "$plan_backends_name" "$BUNDLE_INSTALLER"
-  if [[ -n "${BUNDLE_SOURCE_ID:-}" ]]; then
-    append_unique "$plan_sources_name" "$BUNDLE_SOURCE_ID"
-  fi
   local source_id
   while IFS= read -r source_id; do
     [[ -n "$source_id" ]] && append_unique "$plan_sources_name" "$source_id"
@@ -281,15 +278,19 @@ write_base_rationale_report() {
   printf 'backend\titem\towner_bundle\tclassification\tconsumer\treason\n' >"$report"
   load_base_responsibility_cache
 
-  local bundle_id item
+  local bundle_id item source_id
   local -A seen_base_sources=()
   while IFS= read -r bundle_id; do
     [[ -n "$bundle_id" ]] || continue
     load_bundle_descriptor "$bundle_id" || die "Unknown base bundle: $bundle_id"
-    if [[ -n "${BUNDLE_SOURCE_ID:-}" && -z "${seen_base_sources[$BUNDLE_SOURCE_ID]:-}" ]]; then
-      write_base_rationale_row "$report" source "$BUNDLE_SOURCE_ID" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
-      seen_base_sources["$BUNDLE_SOURCE_ID"]=1
-    fi
+    while IFS= read -r source_id; do
+      [[ -n "$source_id" && -z "${seen_base_sources[$source_id]:-}" ]] || continue
+      # Pinned artifact sources carry their own trust policy and are not
+      # system package repositories, so they stay out of the source rationale.
+      [[ "$source_id" == artifact:* ]] && continue
+      write_base_rationale_row "$report" source "$source_id" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
+      seen_base_sources["$source_id"]=1
+    done < <(split_csv "${BUNDLE_SOURCE_IDS:-}")
     while IFS= read -r item; do
       [[ -n "$item" ]] || continue
       write_base_rationale_row "$report" "$BUNDLE_INSTALLER" "$item" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"

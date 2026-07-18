@@ -1,6 +1,5 @@
 BUNDLE_ID="browser-firefox-pywalfox"
 BUNDLE_INSTALLER="action"
-BUNDLE_SOURCE_ID=""
 BUNDLE_SOURCE_IDS="artifact:pywalfox"
 BUNDLE_DEPENDENCIES="browser-firefox-pywalfox-runtime"
 BUNDLE_ITEMS_FILE="packages/actions/browser-firefox-pywalfox.actions"

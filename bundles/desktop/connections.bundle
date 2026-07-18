@@ -1,6 +1,5 @@
 BUNDLE_ID="desktop-connections"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
 BUNDLE_ITEMS_FILE="packages/official/desktop/connections.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Remote desktop client"

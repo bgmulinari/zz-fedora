@@ -67,7 +67,7 @@ setup() {
   cat >"$descriptor_dir/valid.bundle" <<'EOF'
 BUNDLE_ID="test-valid"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_ITEMS_FILE="packages/official/bootstrap.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Valid test bundle"
@@ -76,7 +76,7 @@ EOF
 
   cat >"$descriptor_dir/missing-id.bundle" <<'EOF'
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_ITEMS_FILE="packages/official/bootstrap.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Missing id"
@@ -87,7 +87,7 @@ EOF
   cat >"$descriptor_dir/bad-installer.bundle" <<'EOF'
 BUNDLE_ID="test-bad-installer"
 BUNDLE_INSTALLER="brew"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_ITEMS_FILE="packages/official/bootstrap.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Bad installer"
@@ -98,7 +98,7 @@ EOF
   cat >"$descriptor_dir/bad-source.bundle" <<'EOF'
 BUNDLE_ID="test-bad-source"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID="missing-source"
+BUNDLE_SOURCE_IDS="missing-source"
 BUNDLE_ITEMS_FILE="packages/official/bootstrap.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Bad source"
@@ -109,7 +109,7 @@ EOF
   cat >"$descriptor_dir/missing-items.bundle" <<'EOF'
 BUNDLE_ID="test-missing-items"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_ITEMS_FILE="packages/__test__/missing.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Missing items file"
@@ -120,7 +120,7 @@ EOF
   cat >"$descriptor_dir/no-items.bundle" <<'EOF'
 BUNDLE_ID="test-no-items"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Source-only bundle without payload items"
 EOF
@@ -129,7 +129,7 @@ EOF
   cat >"$descriptor_dir/bad-suffix.bundle" <<'EOF'
 BUNDLE_ID="test-bad-suffix"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_ITEMS_FILE="packages/empty.list"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Non-manifest payload suffix"
@@ -137,6 +137,42 @@ EOF
   run validate_bundle_descriptor "$descriptor_dir/bad-suffix.bundle"
   [ "$status" -ne 0 ]
   [[ "$output" == *"must use a manifest suffix"* ]]
+}
+
+@test "bundle descriptor validation rejects unknown keys" {
+  local descriptor_dir="$TEST_ROOT/bundles"
+  mkdir -p "$descriptor_dir"
+
+  cat >"$descriptor_dir/legacy-source-key.bundle" <<'EOF'
+BUNDLE_ID="test-legacy-source-key"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID="rpmfusion-free"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Bundle using the retired singular source key"
+EOF
+  run validate_bundle_descriptor "$descriptor_dir/legacy-source-key.bundle"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Unknown bundle descriptor key 'BUNDLE_SOURCE_ID'"
+
+  cat >"$descriptor_dir/unknown-key.bundle" <<'EOF'
+BUNDLE_ID="test-unknown-key"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_FROBNICATE="1"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Bundle with a made-up key"
+EOF
+  run validate_bundle_descriptor "$descriptor_dir/unknown-key.bundle"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Unknown bundle descriptor key 'BUNDLE_FROBNICATE'"
+
+  cat >"$descriptor_dir/multi-source.bundle" <<'EOF'
+BUNDLE_ID="test-multi-source"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_IDS="rpmfusion-free,rpmfusion-nonfree"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Bundle with a comma-separated source list"
+EOF
+  validate_bundle_descriptor "$descriptor_dir/multi-source.bundle"
 }
 
 @test "action manifest validation accepts registered ids and rejects unknown ids" {
@@ -157,7 +193,7 @@ EOF
   cat >"$TEST_ROOT/bad-actions.bundle" <<'EOF'
 BUNDLE_ID="test-bad-actions"
 BUNDLE_INSTALLER="action"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_ITEMS_FILE="packages/actions/bad.actions"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Payload referencing an unregistered action"
@@ -415,7 +451,7 @@ BUNDLE_ID="base-zz-test"
 BUNDLE_BASE="1"
 BUNDLE_BASE_ORDER="15"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Sandbox base bundle for derivation tests"
 BUNDLE
@@ -443,7 +479,7 @@ BUNDLE
   cat >"$sandbox/bundles/base/zz-test.bundle" <<'BUNDLE'
 BUNDLE_ID="base-zz-test"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Sandbox base bundle missing base metadata"
 BUNDLE
@@ -470,7 +506,7 @@ BUNDLE_ID="base-zz-test"
 BUNDLE_BASE="1"
 BUNDLE_BASE_ORDER="10"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Sandbox base bundle with a duplicate order"
 BUNDLE

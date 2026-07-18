@@ -1,6 +1,5 @@
 BUNDLE_ID="browser-firefox-pywalfox-runtime"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
 BUNDLE_ITEMS_FILE="packages/official/browsers/pywalfox.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Isolated Python application runtime for Firefox theme synchronization"

@@ -25,6 +25,7 @@
 - The default install selects every non-browser catalog choice and only Firefox from the browser catalog. Express optional catalog defaults through the third field of each choice row.
 - Give every base-owning bundle a useful `BUNDLE_DESCRIPTION`; base package and action work must remain explainable in the generated `base-rationale.tsv`.
 - Source descriptors must declare trust metadata with `SOURCE_GPG_POLICY`, `SOURCE_BOOTSTRAP_EXCEPTION`, `SOURCE_REQUIRED`, and `SOURCE_REASON`.
+- Bundles reference sources only through the comma-separated `BUNDLE_SOURCE_IDS` key; unknown descriptor keys fail catalog validation. Dedicated `source-*` base bundles own base-required sources; optional bundles declare their own source needs inline via `BUNDLE_SOURCE_IDS` (source enablement is idempotent, so overlap with base sources is fine).
 
 ## Bash and installer behavior
 
