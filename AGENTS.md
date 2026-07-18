@@ -8,6 +8,28 @@
 - The installer is under active development. Do not add migrations, compatibility shims, existing-install preservation, or regression guards for previous behavior unless the user explicitly requests them.
 - Keep new repository-facing identifiers and documentation generic. Do not introduce third-party branding into bundle IDs, manifest names, Stow package names, or docs unless the user explicitly requests it.
 
+## Repository layout
+
+```
+install.sh    Installer entry point and orchestrator
+bootstrap.sh  Installs prerequisites, clones the repo, hands off to install.sh
+modules/      Ordered install steps (preflight, sources, plan, packages, ...)
+lib/          Shared Bash logic used by the installer and modules
+choices/      Wizard choice catalogs; each choice maps to bundle IDs
+bundles/      Bundle composition; bundles reference package lists and sources
+packages/     Package lists (.pkgs, .flatpaks) and direct actions (.actions)
+sources/      Repository definitions with trust metadata (.source)
+dotfiles/     Portable user configuration deployed as Stow packages
+templates/    Files rendered by the installer rather than deployed via Stow
+bin/          The installed zz post-install launcher and its subcommands
+iso/          Fedora installer ISO integration (Kickstart, Anaconda add-on)
+tests/        Bats regression suites
+```
+
+The data layer chains choices → bundles → packages and sources: the wizard
+resolves selected choices to bundles, and each bundle declares the package
+lists, actions, and repositories it needs.
+
 ## Put changes in the right place
 
 - Keep ordered install orchestration in `modules/NN-name.sh`; put reusable Bash logic in `lib/` and keep modules thin.
