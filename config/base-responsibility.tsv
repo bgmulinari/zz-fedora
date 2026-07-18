@@ -22,6 +22,10 @@ dnf	bats	development-tool	repository regression suite	Keeps the repository's Bat
 dnf	dnf5-plugins	installer-bootstrap	Fedora source setup and installer reruns	Provides the DNF5 COPR and config-manager commands used during source setup.
 dnf	niri	niri	Niri session	Provides the compositor and Wayland session entry.
 action	noctalia-greeter	desktop-service	graphical login	Installs Noctalia Greeter from COPR, configures greetd, and enables the fallback graphical login.
+action	boot-splash	desktop-service	graphical boot and disk unlock	Ensures the rhgb and quiet kernel arguments and rebuilds the initramfs so the boot splash and LUKS passphrase prompt are graphical.
+dnf	plymouth	desktop-service	graphical boot and disk unlock	Provides the Plymouth splash daemon shown during boot, shutdown, and LUKS passphrase entry.
+dnf	plymouth-system-theme	desktop-service	graphical boot and disk unlock	Provides Fedora's default bgrt and spinner splash themes and their render plugins.
+dnf	grubby	desktop-service	graphical boot and disk unlock	Adds the rhgb and quiet kernel arguments that enable the graphical boot splash.
 dnf	noctalia-git	noctalia	Noctalia v5 shell	Installs the rolling COPR build launched by Niri autostart until v5 stable reaches Fedora's standard repositories.
 dnf	ghostty	default-app	default terminal	Provides the default terminal used by keybindings and xdg-terminal-exec.
 dnf	ghostty-shell-integration	default-app	terminal shell integration	Provides Ghostty shell integration scripts for working-directory reporting, prompt marking, and shell-aware terminal behavior.

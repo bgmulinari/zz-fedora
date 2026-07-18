@@ -883,6 +883,8 @@ SH
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "usr/share/anaconda/dbus/confs"
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "org.fedoraproject.Anaconda.Addons.ZZFedora.service"
   assert_contains "$package_lines" "dnf5-plugins"
+  assert_contains "$package_lines" "plymouth-system-theme"
+  assert_file_contains "$ROOT_DIR/packages/official/boot-splash.pkgs" "plymouth-system-theme"
   refute_contains "$package_lines" "bats"
   refute_contains "$package_lines" "dnf-plugins-core"
   refute_contains "$package_lines" "rsync"

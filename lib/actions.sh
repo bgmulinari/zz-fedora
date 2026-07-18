@@ -68,6 +68,8 @@ source "$ROOT_DIR/lib/actions/fonts.sh"
 source "$ROOT_DIR/lib/actions/noctalia-greeter.sh"
 # shellcheck source=./actions/media.sh
 source "$ROOT_DIR/lib/actions/media.sh"
+# shellcheck source=./actions/boot-splash.sh
+source "$ROOT_DIR/lib/actions/boot-splash.sh"
 
 # split_action_id <action> stores the registry key in ACTION_DISPATCH_ID and
 # the prefixed-action argument (empty for plain actions) in ACTION_DISPATCH_ARG.

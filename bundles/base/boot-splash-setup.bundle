@@ -1,0 +1,8 @@
+BUNDLE_ID="base-boot-splash-setup"
+BUNDLE_BASE="1"
+BUNDLE_BASE_ORDER="136"
+BUNDLE_MINIMAL_DESKTOP_SKIP="1"
+BUNDLE_INSTALLER="action"
+BUNDLE_ITEMS_FILE="packages/actions/base-boot-splash-setup.actions"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Kernel arguments and initramfs rebuild for the graphical boot splash and LUKS prompt"

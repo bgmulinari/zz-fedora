@@ -363,3 +363,217 @@ EOF
   [[ ! -e "$autostart_file" ]]
   refute_contains "$output" "unexpected Toolbox relaunch"
 }
+
+# Boot splash fixtures: point the action's path globals at TEST_ROOT so the
+# real probe logic runs against synthetic kernels, images, and dracut config.
+boot_splash_test_fixture() {
+  BOOT_SPLASH_MODULES_ROOT="$TEST_ROOT/lib-modules"
+  BOOT_SPLASH_BOOT_DIR="$TEST_ROOT/boot"
+  BOOT_SPLASH_DRACUT_CONF="$TEST_ROOT/dracut.conf"
+  BOOT_SPLASH_DRACUT_CONF_DIR="$TEST_ROOT/dracut.conf.d"
+  BOOT_SPLASH_INITRAMFS_STATE=""
+  PLAN_DIR="$TEST_ROOT/plan"
+  mkdir -p "$BOOT_SPLASH_MODULES_ROOT" "$BOOT_SPLASH_BOOT_DIR" \
+    "$BOOT_SPLASH_DRACUT_CONF_DIR" "$PLAN_DIR"
+}
+
+boot_splash_test_add_kernel() {
+  local version="$1"
+  local with_image="${2:-1}"
+  mkdir -p "$BOOT_SPLASH_MODULES_ROOT/$version"
+  touch "$BOOT_SPLASH_BOOT_DIR/vmlinuz-$version"
+  if [[ "$with_image" -eq 1 ]]; then
+    touch "$BOOT_SPLASH_BOOT_DIR/initramfs-$version.img"
+  fi
+}
+
+# Emits a listing large enough to overflow a pipe buffer with the plymouthd
+# match near the top — the shape that used to SIGPIPE a grep -q consumer.
+boot_splash_test_lsinitrd_with_plymouth() {
+  lsinitrd() {
+    printf 'usr/sbin/plymouthd\n'
+    seq 1 100000
+  }
+}
+
+boot_splash_test_lsinitrd_without_plymouth() {
+  lsinitrd() {
+    seq 1 100000
+  }
+}
+
+@test "boot splash initramfs state detects ready, stale, and unsupported layouts" {
+  boot_splash_test_fixture
+
+  boot_splash_refresh_initramfs_state
+  assert_equal "unsupported" "$BOOT_SPLASH_INITRAMFS_STATE"
+
+  boot_splash_test_add_kernel "6.1.0-100.fc44.x86_64"
+  boot_splash_test_lsinitrd_with_plymouth
+  boot_splash_refresh_initramfs_state
+  assert_equal "ready" "$BOOT_SPLASH_INITRAMFS_STATE"
+
+  boot_splash_test_lsinitrd_without_plymouth
+  boot_splash_refresh_initramfs_state
+  assert_equal "stale" "$BOOT_SPLASH_INITRAMFS_STATE"
+
+  boot_splash_test_lsinitrd_with_plymouth
+  boot_splash_test_add_kernel "6.2.0-200.fc44.x86_64" 0
+  boot_splash_refresh_initramfs_state
+  assert_equal "stale" "$BOOT_SPLASH_INITRAMFS_STATE"
+
+  mkdir -p "$BOOT_SPLASH_MODULES_ROOT/5.9.9-leftover-no-vmlinuz"
+  touch "$BOOT_SPLASH_BOOT_DIR/initramfs-6.2.0-200.fc44.x86_64.img"
+  boot_splash_refresh_initramfs_state
+  assert_equal "ready" "$BOOT_SPLASH_INITRAMFS_STATE"
+}
+
+@test "boot splash kernel argument check requires rhgb and quiet on every kernel entry" {
+  grubby_fixture="$TEST_ROOT/grubby-info"
+  grubby() {
+    cat "$grubby_fixture"
+  }
+
+  cat >"$grubby_fixture" <<'EOF'
+index=0
+kernel="/boot/vmlinuz-6.1.0-100.fc44.x86_64"
+args="ro rootflags=subvol=root rhgb quiet"
+index=1
+kernel="/boot/vmlinuz-0-rescue"
+args="ro rootflags=subvol=root rhgb quiet"
+EOF
+  run boot_splash_kernel_args_configured
+  [ "$status" -eq 0 ]
+
+  cat >"$grubby_fixture" <<'EOF'
+index=0
+kernel="/boot/vmlinuz-6.1.0-100.fc44.x86_64"
+args="ro rootflags=subvol=root rhgb quiet"
+index=1
+kernel="/boot/vmlinuz-0-rescue"
+args="ro rootflags=subvol=root"
+EOF
+  run boot_splash_kernel_args_configured
+  [ "$status" -ne 0 ]
+
+  : >"$grubby_fixture"
+  run boot_splash_kernel_args_configured
+  [ "$status" -ne 0 ]
+}
+
+@test "boot splash install adds kernel arguments and rebuilds the initramfs when needed" {
+  DRY_RUN=0
+  boot_splash_test_fixture
+  boot_splash_test_add_kernel "6.1.0-100.fc44.x86_64"
+  lsinitrd() {
+    if [[ -f "$TEST_ROOT/initramfs-has-plymouth" ]]; then
+      printf 'usr/sbin/plymouthd\n'
+    fi
+    seq 1 50000
+  }
+  have_cmd() { return 0; }
+  boot_splash_kernel_args_configured() { [[ -f "$TEST_ROOT/args-configured" ]]; }
+  command_log="$TEST_ROOT/boot-splash-commands.log"
+  : >"$command_log"
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*" >>"$command_log"
+    if [[ "$1" == "grubby" ]]; then
+      touch "$TEST_ROOT/args-configured"
+    fi
+    if [[ "$1" == "dracut" ]]; then
+      touch "$TEST_ROOT/initramfs-has-plymouth"
+    fi
+    return 0
+  }
+
+  run install_boot_splash
+  [ "$status" -eq 0 ]
+
+  assert_file_contains "$command_log" "root:grubby --update-kernel=ALL --args=rhgb quiet"
+  assert_file_contains "$command_log" "root:dracut -f --regenerate-all"
+  [[ ! -f "$PLAN_DIR/system-skips.tsv" ]]
+}
+
+@test "boot splash install changes nothing when the system is already configured" {
+  DRY_RUN=0
+  boot_splash_test_fixture
+  boot_splash_test_add_kernel "6.1.0-100.fc44.x86_64"
+  boot_splash_test_lsinitrd_with_plymouth
+  have_cmd() { return 0; }
+  boot_splash_kernel_args_configured() { return 0; }
+  command_log="$TEST_ROOT/boot-splash-commands.log"
+  : >"$command_log"
+  run_cmd_as_root() { printf 'root:%s\n' "$*" >>"$command_log"; }
+
+  run install_boot_splash
+  [ "$status" -eq 0 ]
+
+  [[ ! -s "$command_log" ]]
+}
+
+@test "boot splash install records a system skip when dracut omits plymouth" {
+  DRY_RUN=0
+  boot_splash_test_fixture
+  printf 'omit_dracutmodules+=" plymouth "\n' >"$BOOT_SPLASH_DRACUT_CONF_DIR/90-no-splash.conf"
+  run_cmd_as_root() {
+    printf 'unexpected root command: %s\n' "$*" >&2
+    return 1
+  }
+
+  run install_boot_splash
+  [ "$status" -eq 0 ]
+
+  assert_file_contains "$PLAN_DIR/system-skips.tsv" "dracut configuration omits the plymouth module"
+
+  run verify_boot_splash
+  [ "$status" -eq 0 ]
+}
+
+@test "boot splash install records a system skip when no initramfs layout exists" {
+  DRY_RUN=0
+  boot_splash_test_fixture
+  have_cmd() { return 0; }
+  run_cmd_as_root() {
+    printf 'unexpected root command: %s\n' "$*" >&2
+    return 1
+  }
+
+  run install_boot_splash
+  [ "$status" -eq 0 ]
+
+  assert_file_contains "$PLAN_DIR/system-skips.tsv" "no standard initramfs layout"
+}
+
+@test "boot splash install dry-run reports planned work without touching the system" {
+  DRY_RUN=1
+  boot_splash_test_fixture
+  run_cmd_as_root() {
+    printf 'unexpected root command: %s\n' "$*" >&2
+    return 1
+  }
+
+  run install_boot_splash
+  [ "$status" -eq 0 ]
+
+  assert_contains "$output" "DRY-RUN: ensure boot splash kernel arguments: rhgb quiet"
+  assert_contains "$output" "DRY-RUN: rebuild the initramfs when it lacks the Plymouth boot splash"
+}
+
+@test "boot splash verify requires kernel arguments and a Plymouth initramfs" {
+  boot_splash_test_fixture
+  boot_splash_test_add_kernel "6.1.0-100.fc44.x86_64"
+  boot_splash_test_lsinitrd_with_plymouth
+  boot_splash_kernel_args_configured() { return 0; }
+
+  run verify_boot_splash
+  [ "$status" -eq 0 ]
+
+  boot_splash_kernel_args_configured() { return 1; }
+  run verify_boot_splash
+  [ "$status" -ne 0 ]
+
+  boot_splash_kernel_args_configured() { return 0; }
+  boot_splash_test_lsinitrd_without_plymouth
+  run verify_boot_splash
+  [ "$status" -ne 0 ]
+}

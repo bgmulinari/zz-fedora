@@ -77,6 +77,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:zsh-syntax-highlighting"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "jetbrains-mono-nerd-font"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "boot-splash"
   assert_plan_has "$PLAN_DIR/stow/packages.list" "noctalia"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "zsh"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "bash-completion"
@@ -90,6 +91,8 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-nautilus"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "plymouth"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "plymouth-system-theme"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "wtype"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ddcutil"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
@@ -116,6 +119,8 @@ assert_all_bundles_reachable() {
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tpavucontrol\tbase-desktop-controls\tdefault-app\taudio mixer'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tsystem-config-printer\tbase-desktop-controls\tdefault-app\tprint UI'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tjetbrains-mono-nerd-font\tbase-jetbrains-mono-nerd-font'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tboot-splash\tbase-boot-splash-setup\tdesktop-service\tgraphical boot and disk unlock'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tplymouth\tbase-boot-splash\tdesktop-service\tgraphical boot and disk unlock'
   refute_plan_has "$PLAN_DIR/sources/vendor.list" "vendor:vscode"
   refute_plan_has "$PLAN_DIR/sources/vendor.list" "vendor:claude-desktop"
   refute_plan_has "$PLAN_DIR/sources/copr.list" "copr:dejan/lazygit"
@@ -289,6 +294,10 @@ assert_all_bundles_reachable() {
   refute_plan_has "$PLAN_DIR/bundles.list" "base-gtk-portals"
   refute_plan_has "$PLAN_DIR/bundles.list" "base-gtk-look"
   refute_plan_has "$PLAN_DIR/bundles.list" "base-file-integration-gtk"
+  refute_plan_has "$PLAN_DIR/bundles.list" "base-boot-splash"
+  refute_plan_has "$PLAN_DIR/bundles.list" "base-boot-splash-setup"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "plymouth"
+  refute_plan_has "$PLAN_DIR/actions/actions.list" "boot-splash"
   refute_plan_has "$PLAN_DIR/sources/rpmfusion.list" "rpmfusion-free"
   refute_plan_has "$PLAN_DIR/sources/flatpak-remotes.list" "flathub"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"

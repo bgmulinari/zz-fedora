@@ -25,4 +25,9 @@ sudo
 ca-certificates
 curl
 dnf5-plugins
+# Present during the payload transaction so the kernel's initramfs build picks
+# up the graphical boot splash and LUKS prompt without a post-install rebuild,
+# and so Anaconda adds the rhgb/quiet kernel arguments. Mirrors
+# packages/official/boot-splash.pkgs; keep the two in sync.
+plymouth-system-theme
 %end
