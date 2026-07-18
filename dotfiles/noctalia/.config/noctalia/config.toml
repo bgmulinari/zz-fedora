@@ -14,6 +14,7 @@ telemetry_enabled = false
 auto_sync = false
 
 [shell.panel]
+open_near_click_control_center = true
 open_near_click_session = true
 
 [[shell.session.actions]]
@@ -54,7 +55,7 @@ variant = "destructive"
 # Bar, dock, and widgets
 
 [bar.default]
-start = [ "launcher", "wallpaper", "workspaces", "default-spacer", "taskbar" ]
+start = [ "launcher", "workspaces", "default-spacer", "taskbar" ]
 center = [ "default-spacer", "clock", "default-spacer", "weather", "default-spacer" ]
 end = [
   "media",
@@ -67,9 +68,9 @@ end = [
   "brightness",
   "battery",
   "default-spacer",
+  "wallpaper",
   "niri-outputs",
   "settings",
-  "control-center",
   "session",
 ]
 margin_edge = 0
@@ -107,6 +108,9 @@ show_condition = false
 
 # Local plugins
 
+[plugin_settings."local/niri-outputs"]
+manager_placement = "floating"
+
 [plugins]
 enabled = [ "local/niri-outputs" ]
 
@@ -125,6 +129,7 @@ auto_locate = true
 
 [wallpaper]
 directory = "~/.local/share/backgrounds"
+transition_on_startup = true
 
 [wallpaper.default]
 path = "~/.local/share/backgrounds/Alpenglow.jpg"
@@ -156,7 +161,9 @@ timeout = 300.0
 mode = "dark"
 source = "custom"
 builtin = "Catppuccin"
+community_palette = "Oxocarbon"
 custom_palette = "catppuccin-mocha-blue"
+wallpaper_scheme = "m3-content"
 
 [theme.templates]
 enable_builtin_templates = true
