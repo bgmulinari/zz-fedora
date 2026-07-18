@@ -223,6 +223,9 @@ validate_bundle_descriptor() {
   if [[ -n "${BUNDLE_ITEMS_FILE:-}" ]]; then
     [[ "$BUNDLE_ITEMS_FILE" =~ \.(pkgs|flatpaks|actions)$ ]] || die "Bundle payload file '$BUNDLE_ITEMS_FILE' must use a manifest suffix (.pkgs, .flatpaks, .actions) in $bundle_file"
     [[ -f "$ROOT_DIR/$BUNDLE_ITEMS_FILE" ]] || die "Missing bundle payload file '$BUNDLE_ITEMS_FILE' in $bundle_file"
+    if [[ "$BUNDLE_INSTALLER" == "action" ]]; then
+      validate_action_manifest "$ROOT_DIR/$BUNDLE_ITEMS_FILE"
+    fi
   fi
 
   if [[ -n "${BUNDLE_SOURCE_ID:-}" ]]; then

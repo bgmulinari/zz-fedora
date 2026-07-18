@@ -77,6 +77,24 @@ split_action_id() {
   fi
 }
 
+# action_registered <action> succeeds when the action id (or the bare prefix
+# for prefixed actions such as brew:<package>) has a registered installer.
+action_registered() {
+  split_action_id "$1"
+  [[ -n "${ACTION_INSTALL_FN[$ACTION_DISPATCH_ID]:-}" ]]
+}
+
+# validate_action_manifest <manifest_file> fails fast when a .actions manifest
+# references an action id that no lib/actions/*.sh file registered.
+validate_action_manifest() {
+  local manifest_file="$1"
+  local action
+  while IFS= read -r action; do
+    [[ -n "$action" ]] || continue
+    action_registered "$action" || die "Unknown custom action '$action' in $manifest_file: no register_action row declares it (see lib/actions/*.sh)"
+  done < <(manifest_entries "$manifest_file")
+}
+
 run_custom_action() {
   local action="$1" install_fn
   split_action_id "$action"

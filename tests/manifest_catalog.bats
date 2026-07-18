@@ -139,6 +139,38 @@ EOF
   [[ "$output" == *"must use a manifest suffix"* ]]
 }
 
+@test "action manifest validation accepts registered ids and rejects unknown ids" {
+  manifest="$TEST_ROOT/test.actions"
+  printf '%s\n' 'docker' 'brew:lazydocker' 'vscode-extension:noctalia.noctaliatheme' >"$manifest"
+  validate_action_manifest "$manifest"
+
+  printf '%s\n' 'docker' 'not-a-registered-action' >"$manifest"
+  run validate_action_manifest "$manifest"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Unknown custom action 'not-a-registered-action' in $manifest"
+}
+
+@test "action bundle payload referencing an unregistered id fails descriptor validation" {
+  fixture_root="$TEST_ROOT/fixture-root"
+  mkdir -p "$fixture_root/packages/actions"
+  printf 'not-a-registered-action\n' >"$fixture_root/packages/actions/bad.actions"
+  cat >"$TEST_ROOT/bad-actions.bundle" <<'EOF'
+BUNDLE_ID="test-bad-actions"
+BUNDLE_INSTALLER="action"
+BUNDLE_SOURCE_ID=""
+BUNDLE_ITEMS_FILE="packages/actions/bad.actions"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Payload referencing an unregistered action"
+EOF
+  validate_fixture_bundle() {
+    ROOT_DIR="$fixture_root" validate_bundle_descriptor "$TEST_ROOT/bad-actions.bundle"
+  }
+
+  run validate_fixture_bundle
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Unknown custom action 'not-a-registered-action'"
+}
+
 @test "every bundle payload file uses a declared manifest suffix and exists" {
   local bundle_file items_file
   while IFS= read -r bundle_file; do

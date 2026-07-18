@@ -34,6 +34,25 @@ setup() {
   done
 }
 
+@test "every base-planned action registers a non-empty verifier" {
+  local base_action_plan="$TEST_ROOT/base-actions.list"
+  build_base_package_plan_for_backend action "$base_action_plan"
+
+  [[ -s "$base_action_plan" ]] || {
+    printf 'expected base bundles to plan at least one custom action\n' >&2
+    return 1
+  }
+  local action
+  while IFS= read -r action; do
+    [[ -n "$action" ]] || continue
+    split_action_id "$action"
+    [[ -n "${ACTION_VERIFY_FN[$ACTION_DISPATCH_ID]:-}" ]] || {
+      printf 'base-planned action %s has no registered verify function\n' "$action" >&2
+      return 1
+    }
+  done < <(read_plan_file "$base_action_plan")
+}
+
 @test "unregistered custom actions fail dispatch with a fatal error" {
   run run_custom_action no-such-action
   [ "$status" -ne 0 ]
