@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Lets the release workflow reuse this test matrix as its gate.
+  workflow_call:
 
 permissions:
   contents: read

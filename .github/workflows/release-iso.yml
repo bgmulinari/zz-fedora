@@ -1,0 +1,72 @@
+name: Release ISO
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# The rolling release is replaced in place; never let two runs race it.
+concurrency:
+  group: release-iso
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  build-and-release:
+    needs: test
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+      # mkksiso refreshes the embedded EFI boot image through loop mounts,
+      # which need a privileged container.
+      options: --privileged
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: latest
+    steps:
+      # Without git in the container, checkout falls back to a REST tarball
+      # with no .git, leaving the ISO build-info stamp without a HEAD revision.
+      - name: Install git for checkout
+        run: dnf install -y git
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Install ISO build tools
+        # fedora-gpg-keys is upgraded so a just-published Fedora release's
+        # certificate is present before the container image catches up.
+        run: |
+          dnf install -y cpio curl gh gnupg2 gzip jq lorax rsync xorriso
+          dnf upgrade -y fedora-gpg-keys
+      - name: Build the installer ISO
+        run: iso/scripts/build-fedora-installer-iso.sh
+      - name: Replace the rolling release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -Eeuo pipefail
+          shopt -s nullglob
+          isos=(release/zz-fedora-*.iso)
+          if (( ${#isos[@]} != 1 )); then
+            printf 'expected exactly one built ISO under release/, found %d\n' "${#isos[@]}" >&2
+            exit 1
+          fi
+          iso_name="$(basename "${isos[0]}")"
+          (cd release && sha256sum "$iso_name" >"$iso_name.sha256")
+          {
+            printf 'Rolling build of the zz-fedora installer ISO from %s.\n\n' "$GITHUB_SHA"
+            printf 'Verify the download with: `sha256sum -c %s.sha256`\n' "$iso_name"
+          } >"$RUNNER_TEMP/release-notes.md"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release delete "$RELEASE_TAG" --yes --cleanup-tag
+          fi
+          gh release create "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --title "zz-fedora installer ISO" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --latest \
+            "release/$iso_name" "release/$iso_name.sha256"

@@ -57,3 +57,31 @@ ci_package_list() {
 
   [ "$status" -eq 0 ]
 }
+
+@test "release workflow is manually triggered and gated on the CI tests" {
+  run grep -F 'workflow_dispatch:' "$ROOT_DIR/.github/workflows/release-iso.yml"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'workflow_call:' "$ROOT_DIR/.github/workflows/ci.yml"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'uses: ./.github/workflows/ci.yml' "$ROOT_DIR/.github/workflows/release-iso.yml"
+  [ "$status" -eq 0 ]
+
+  run grep -E '^[[:space:]]*needs: test$' "$ROOT_DIR/.github/workflows/release-iso.yml"
+  [ "$status" -eq 0 ]
+}
+
+@test "release workflow builds through the tracked ISO builder" {
+  run grep -F 'iso/scripts/build-fedora-installer-iso.sh' "$ROOT_DIR/.github/workflows/release-iso.yml"
+
+  [ "$status" -eq 0 ]
+}
+
+@test "release workflow replaces one rolling release" {
+  run grep -F 'gh release delete "$RELEASE_TAG" --yes --cleanup-tag' "$ROOT_DIR/.github/workflows/release-iso.yml"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'gh release create "$RELEASE_TAG"' "$ROOT_DIR/.github/workflows/release-iso.yml"
+  [ "$status" -eq 0 ]
+}

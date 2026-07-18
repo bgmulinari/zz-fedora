@@ -96,6 +96,16 @@ embedded repository payload is assembled only from Git-tracked runtime files;
 `.git`, tests, local logs, caches, ignored files, and unrelated untracked files
 are never copied into the ISO.
 
+### CI release build
+
+The manually triggered `Release ISO` GitHub Actions workflow
+(`.github/workflows/release-iso.yml`) first runs the full CI test matrix,
+then builds the ISO with the verified automatic Fedora input and replaces the
+repository's single rolling GitHub release (tag `latest`) with the fresh ISO
+and its SHA-256 checksum file. Start it from the repository's Actions tab.
+The workflow does not run the VM validation below; run that locally before
+triggering a release build for installer-path changes.
+
 The ISO must still be rebuilt for changes to the Kickstart, Anaconda add-on,
 base installer packages, boot integration, or remote-runtime loader. Changes
 to installer modules, manifests, package choices, bundles, sources, dotfiles,
