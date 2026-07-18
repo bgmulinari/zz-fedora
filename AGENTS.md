@@ -37,7 +37,7 @@ lists, actions, and repositories it needs.
 - Put optional wizard choices in `choices/*.conf`, bundle composition in `bundles/**/*.bundle`, package lists in `packages/**/*.pkgs` or `*.flatpaks`, direct installer actions in `packages/actions/*.actions`, and repository definitions in `sources/**/*.source`.
 - Put portable user configuration in `dotfiles/<stow-package>/`. Reserve `templates/` for files rendered or seeded by the installer rather than deployed through Stow; `config/managed-config.tsv` is the authoritative map of managed paths and their seed/preserve behavior. See `docs/dotfiles-layering.md` for the layering rules, including the `shell-*` Stow package prefix convention.
 - Put regression tests in `tests/`; share Bash test helpers through `tests/helpers/` and put non-Bash test harnesses in `tests/support/`.
-- When upstream reference code or docs are needed, prefer the read-only checkouts under `/files/Dev/ref_repos` when available instead of package decompilation or ad hoc reverse engineering.
+- When upstream reference code or docs are needed, consult the upstream project's repository or documentation instead of package decompilation or ad hoc reverse engineering.
 
 ## Preserve manifest contracts
 
