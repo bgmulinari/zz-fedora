@@ -86,6 +86,7 @@ config_in_product=no
 service_task_in_product=no
 dbus_conf_in_product=no
 dbus_service_in_product=no
+addon_build_info_in_product=no
 buildstamp_version_in_product=no
 for add in "${adds[@]}"; do
   [[ -d "$add" ]]
@@ -100,7 +101,8 @@ for add in "${adds[@]}"; do
     if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_fedora/choices/browsers\.conf$' >/dev/null; then
       choices_in_product=yes
     fi
-    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?etc/anaconda/conf\.d/100-zz-fedora\.conf$' >/dev/null; then
+    product_conf="$(gzip -dc "$add/product.img" | cpio -i --to-stdout --quiet '*100-zz-fedora.conf' 2>/dev/null || true)"
+    if grep -F 'SoftwareSelectionSpoke' <<<"$product_conf" >/dev/null; then
       config_in_product=yes
     fi
     if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_fedora/service/installation\.py$' >/dev/null; then
@@ -111,6 +113,10 @@ for add in "${adds[@]}"; do
     fi
     if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/dbus/services/org\.fedoraproject\.Anaconda\.Addons\.ZZFedora\.service$' >/dev/null; then
       dbus_service_in_product=yes
+    fi
+    addon_build_info="$(gzip -dc "$add/product.img" | cpio -i --to-stdout --quiet '*org_zz_fedora/build-info.conf' 2>/dev/null || true)"
+    if grep -E '^git_revision=[0-9a-f]{40}$' <<<"$addon_build_info" >/dev/null; then
+      addon_build_info_in_product=yes
     fi
     buildstamp="$(gzip -dc "$add/product.img" | cpio -i --to-stdout --quiet '*buildstamp' 2>/dev/null || true)"
     if grep -Fx 'Product=ZZ Fedora' <<<"$buildstamp" >/dev/null &&
@@ -131,6 +137,7 @@ done
   printf 'service_task_in_product=%s\n' "$service_task_in_product"
   printf 'dbus_conf_in_product=%s\n' "$dbus_conf_in_product"
   printf 'dbus_service_in_product=%s\n' "$dbus_service_in_product"
+  printf 'addon_build_info_in_product=%s\n' "$addon_build_info_in_product"
   printf 'buildstamp_version_in_product=%s\n' "$buildstamp_version_in_product"
   printf 'input=%s\n' "$input"
   printf 'output=%s\n' "$output"
@@ -170,6 +177,7 @@ SH
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "service_task_in_product=yes"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "dbus_conf_in_product=yes"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "dbus_service_in_product=yes"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "addon_build_info_in_product=yes"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "buildstamp_version_in_product=yes"
   assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--from0"
   assert_file_contains "$ZZ_TEST_RSYNC_LOG" "--files-from=-"
@@ -391,7 +399,7 @@ SH
   assert_file_contains "$ks" "url --metalink=\"https://mirrors.fedoraproject.org/metalink?repo=fedora-@FEDORA_RELEASE@&arch=@FEDORA_ARCH@\""
   assert_file_contains "$ks" 'repo --name="updates"'
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "iso_extract_fedora_metadata"
-  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "render_kickstart_template"
+  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "iso_render_release_template"
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "addon_data_dir="
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "usr/share/anaconda/dbus/confs"
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "org.fedoraproject.Anaconda.Addons.ZZFedora.service"
@@ -405,6 +413,22 @@ SH
   refute_file_contains "$ks" "clearpart"
   refute_file_contains "$ks" "autopart"
   refute_file_contains "$ks" "rootpw"
+}
+
+@test "Anaconda product-image data lives in tracked files rendered by the build scripts" {
+  data_dir="$ROOT_DIR/iso/anaconda-addon-data"
+  build_script="$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh"
+  vm_script="$ROOT_DIR/iso/scripts/test-fedora-installer-vm.sh"
+
+  assert_file_contains "$data_dir/conf.d/100-zz-fedora.conf" "hidden_spokes ="
+  assert_file_contains "$data_dir/conf.d/100-zz-fedora.conf" "SoftwareSelectionSpoke"
+  assert_file_contains "$data_dir/buildstamp.in" "Product=ZZ Fedora"
+  assert_file_contains "$data_dir/buildstamp.in" "Version=@FEDORA_RELEASE@"
+  for script in "$build_script" "$vm_script"; do
+    assert_file_contains "$script" 'conf.d/100-zz-fedora.conf'
+    assert_file_contains "$script" 'buildstamp.in'
+    assert_file_contains "$script" 'iso_write_checkout_stamp'
+  done
 }
 
 @test "Fedora VM installer test defaults to ISO boot path" {
@@ -437,7 +461,9 @@ SH
   assert_file_contains "$script" "%pre --interpreter=/usr/bin/bash"
   assert_file_contains "$script" "addon_data_dir="
   assert_file_contains "$script" "usr/share/anaconda/dbus/services"
-  assert_file_contains "$script" "SoftwareSelectionSpoke"
+  assert_file_contains "$script" "conf.d/100-zz-fedora.conf"
+  assert_file_contains "$script" "buildstamp.in"
+  assert_file_contains "$script" "iso_write_checkout_stamp"
   assert_file_contains "$script" "--add \"\$images_dir\""
   refute_file_contains "$script" "Bootstrap failed with exit code %s"
   refute_file_contains "$script" "cp -a /run/install/repo/zz-fedora /mnt/sysimage/opt/zz-fedora"

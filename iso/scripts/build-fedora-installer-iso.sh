@@ -21,15 +21,6 @@ err() {
   iso_err "$@"
 }
 
-render_kickstart_template() {
-  local template="$1"
-  local destination="$2"
-  sed \
-    -e "s/@FEDORA_RELEASE@/$fedora_release/g" \
-    -e "s/@FEDORA_ARCH@/$fedora_arch/g" \
-    "$template" >"$destination"
-}
-
 input_iso=
 input_sha256=
 output_iso=
@@ -150,7 +141,7 @@ trap 'rm -rf "$work_dir"; rm -f "$tmp_output"' EXIT
 iso_extract_fedora_metadata "$input_iso"
 iso_validate_supported_platform "$fedora_release" "$fedora_arch"
 iso_stage_tracked_runtime_payload "$repo_dir" "$payload_dir"
-render_kickstart_template "$ks_file" "$rendered_ks_file"
+iso_render_release_template "$ks_file" "$rendered_ks_file"
 
 mkdir -p \
   "$product_root/etc/anaconda/conf.d" \
@@ -169,21 +160,14 @@ install -m 0644 \
 install -m 0644 \
   "$addon_data_dir/org.fedoraproject.Anaconda.Addons.ZZFedora.service" \
   "$product_root/usr/share/anaconda/dbus/services/"
-cat >"$product_root/etc/anaconda/conf.d/100-zz-fedora.conf" <<'EOF'
-[User Interface]
-hidden_spokes =
-    SoftwareSelectionSpoke
-EOF
-cat >"$product_root/.buildstamp" <<EOF
-[Main]
-Product=ZZ Fedora
-Version=$fedora_release
-BugURL=https://github.com/bgmulinari/zz-fedora
-IsFinal=True
-
-[Compose]
-Lorax=zz-fedora
-EOF
+install -m 0644 \
+  "$addon_data_dir/conf.d/100-zz-fedora.conf" \
+  "$product_root/etc/anaconda/conf.d/"
+iso_render_release_template \
+  "$addon_data_dir/buildstamp.in" \
+  "$product_root/.buildstamp"
+iso_write_checkout_stamp "$repo_dir" \
+  "$product_root/usr/share/anaconda/addons/org_zz_fedora/build-info.conf"
 (
   cd "$product_root"
   find . -print | sort | cpio --quiet -c -o | gzip -9c >"$product_img"

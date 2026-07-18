@@ -40,6 +40,31 @@ iso_validate_supported_platform() {
   }
 }
 
+iso_render_release_template() {
+  local template="$1"
+  local destination="$2"
+  sed \
+    -e "s/@FEDORA_RELEASE@/$fedora_release/g" \
+    -e "s/@FEDORA_ARCH@/$fedora_arch/g" \
+    "$template" >"$destination"
+}
+
+iso_write_checkout_stamp() {
+  local repo_dir="$1"
+  local destination_file="$2"
+  local revision dirty
+  revision="$(git -C "$repo_dir" rev-parse HEAD 2>/dev/null || printf 'unknown')"
+  dirty=0
+  git -C "$repo_dir" diff --quiet --ignore-submodules -- 2>/dev/null || dirty=1
+  git -C "$repo_dir" diff --cached --quiet --ignore-submodules -- 2>/dev/null || dirty=1
+  mkdir -p "$(dirname "$destination_file")"
+  {
+    printf 'format=1\n'
+    printf 'git_revision=%s\n' "$revision"
+    printf 'worktree_changes=%s\n' "$dirty"
+  } >"$destination_file"
+}
+
 iso_verify_sha256() {
   local input_iso="$1"
   local expected="$2"
@@ -94,15 +119,5 @@ iso_stage_tracked_runtime_payload() {
     return 1
   }
 
-  local revision dirty
-  revision="$(git -C "$repo_dir" rev-parse HEAD 2>/dev/null || printf 'unknown')"
-  dirty=0
-  git -C "$repo_dir" diff --quiet --ignore-submodules -- 2>/dev/null || dirty=1
-  git -C "$repo_dir" diff --cached --quiet --ignore-submodules -- 2>/dev/null || dirty=1
-  mkdir -p "$destination/config"
-  {
-    printf 'format=1\n'
-    printf 'git_revision=%s\n' "$revision"
-    printf 'worktree_changes=%s\n' "$dirty"
-  } >"$destination/config/iso-payload.conf"
+  iso_write_checkout_stamp "$repo_dir" "$destination/config/iso-payload.conf"
 }

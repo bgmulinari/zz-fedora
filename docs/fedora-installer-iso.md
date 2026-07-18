@@ -37,6 +37,15 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
   `org.fedoraproject.Anaconda.Addons.ZZFedora`. Anaconda starts that module
   with its other add-ons, collects its `install_with_tasks()` task, and displays
   the task's `report_progress()` messages in the normal installer progress UI.
+- Product-image content is split by kind: `iso/anaconda-addon/` holds the
+  Python add-on payload, and `iso/anaconda-addon-data/` holds every non-Python
+  file staged into the product image — the D-Bus policy and activation files,
+  the `conf.d` snippet, and the `.buildstamp` template. The build scripts only
+  stage these tracked files and substitute release-derived values such as
+  `@FEDORA_RELEASE@`; they do not embed product-image content inline. The
+  staged add-on additionally carries a generated `build-info.conf` stamp
+  recording the Git revision (and dirty state) of the checkout that produced
+  the image, so an installed ISO can be correlated with repository state.
 - The Kickstart leaves disk partitioning, locale, timezone, hostname, root
   password, user creation, and ZZ Fedora execution to Anaconda.
 - The embedded checkout is a tracked runtime snapshot, not a copy of the
