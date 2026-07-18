@@ -58,7 +58,3 @@ installer path; see [Fedora installer ISO](docs/fedora-installer-iso.md).
 - [ZZ command-line utility](docs/zz-cli.md)
 - [Fedora installer ISO](docs/fedora-installer-iso.md)
 - [Dotfiles and templates layering](docs/dotfiles-layering.md)
-
-## Contributing
-
-Repository conventions and contracts live in [AGENTS.md](AGENTS.md).
