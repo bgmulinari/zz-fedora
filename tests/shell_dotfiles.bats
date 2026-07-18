@@ -17,23 +17,24 @@ setup() {
 }
 
 @test "profile resolves environment.d expansions without corrupting PATH" {
+  setup_fake_bin
   local home_dir="$TEST_ROOT/profile-home"
-  local fake_bin="$TEST_ROOT/profile-bin"
-  mkdir -p "$home_dir/.config/environment.d" "$home_dir/.local/bin" "$fake_bin"
+  mkdir -p "$home_dir/.config/environment.d" "$home_dir/.local/bin"
   cp "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-niri-gtk.conf" \
     "$home_dir/.config/environment.d/10-niri-gtk.conf"
-  printf '#!/usr/bin/env sh\n' >"$fake_bin/niri-session"
-  chmod +x "$fake_bin/niri-session"
+  write_fake_command niri-session <<'EOF'
+#!/usr/bin/env sh
+EOF
 
   run env -u XDG_CONFIG_HOME \
     HOME="$home_dir" \
-    PATH="$fake_bin:/usr/bin" \
+    PATH="$FAKE_BIN:/usr/bin" \
     /bin/sh -c '. "$1"; printf "PATH=%s\nNIRI=%s\n" "$PATH" "$(command -v niri-session)"' \
     sh "$ROOT_DIR/dotfiles/shell/.profile"
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" "PATH=$home_dir/.local/bin:$fake_bin:/usr/bin"
-  assert_contains "$output" "NIRI=$fake_bin/niri-session"
+  assert_contains "$output" "PATH=$home_dir/.local/bin:$FAKE_BIN:/usr/bin"
+  assert_contains "$output" "NIRI=$FAKE_BIN/niri-session"
   refute_contains "$output" '${HOME}'
   refute_contains "$output" '${PATH:-'
 }

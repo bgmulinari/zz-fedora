@@ -1,0 +1,8 @@
+[Main]
+Product=ZZ Fedora
+Version=@FEDORA_RELEASE@
+BugURL=https://github.com/bgmulinari/zz-fedora
+IsFinal=True
+
+[Compose]
+Lorax=zz-fedora

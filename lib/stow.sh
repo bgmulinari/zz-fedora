@@ -51,7 +51,7 @@ stow_backup_existing_target() {
   [[ -e "$target_path" || -L "$target_path" ]] || return 0
   [[ -L "$target_path" ]] && return 0
 
-  backup_path="$STATE_DIR/backups/$(timestamp)$target_path"
+  backup_path="$(backup_target_path "$target_path")"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: move %s -> %s\n' "$target_path" "$backup_path"
     return 0
@@ -118,6 +118,7 @@ stow_preview_conflict_path() {
   printf '%s/files/config-conflicts.tsv\n' "$PLAN_DIR"
 }
 
+# shellcheck disable=SC2088  # Conflict-preview rows intentionally use literal ~/ keys to match managed-file records.
 stow_preview_record_conflict() {
   local relative_path="$1"
   local package_name="$2"

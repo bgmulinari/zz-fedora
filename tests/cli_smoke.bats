@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# zz-test-tags: smoke
 
 load "helpers/common"
 
@@ -24,15 +25,15 @@ setup() {
   assert_contains "$output" '"noctalia-greeter"'
   assert_contains "$output" '"noctalia-git"'
   assert_contains "$output" '"copr:lionheartp/Hyprland"'
-  assert_contains "$output" '"browser-firefox"'
+  assert_contains "$output" '"browsers-firefox"'
   assert_contains "$output" '"code"'
   assert_contains "$output" '"artifact:discord"'
   assert_contains "$output" '"discord"'
-  refute_contains "$output" '"browser-chromium"'
-  refute_contains "$output" '"browser-chrome"'
-  refute_contains "$output" '"browser-brave"'
-  refute_contains "$output" '"browser-zen-copr"'
-  refute_contains "$output" '"browser-helium-copr"'
+  refute_contains "$output" '"browsers-chromium"'
+  refute_contains "$output" '"browsers-chrome"'
+  refute_contains "$output" '"browsers-brave"'
+  refute_contains "$output" '"browsers-zen-copr"'
+  refute_contains "$output" '"browsers-helium-copr"'
   refute_contains "$output" "Log file:"
   [[ ! -e "$XDG_CONFIG_HOME/zz-fedora/selections.conf" ]]
 }

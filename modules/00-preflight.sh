@@ -41,7 +41,9 @@ module_00_preflight() {
   printf 'Selected profiles: base\n'
   printf 'Selected choices:\n'
   local category
+  local -a choice_ids=()
   for category in $(category_names); do
-    printf '  %s=%s\n' "$category" "$(join_by , $(effective_choice_ids "$category"))"
+    mapfile -t choice_ids < <(effective_choice_ids "$category")
+    printf '  %s=%s\n' "$category" "$(join_by , "${choice_ids[@]:-}")"
   done
 }

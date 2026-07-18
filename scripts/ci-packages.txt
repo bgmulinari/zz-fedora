@@ -1,0 +1,17 @@
+# Packages installed into the fedora:44 CI container before the test run.
+# One package per line; blank lines and # comments are ignored.
+# Consumed by scripts/ci-setup.sh.
+bats
+ShellCheck
+git
+jq
+python3
+findutils
+diffutils
+rsync
+cpio
+gzip
+shadow-utils
+sudo
+util-linux
+systemd

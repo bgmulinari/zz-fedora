@@ -1,6 +1,6 @@
 BUNDLE_ID="gaming-steam-nonfree"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID="rpmfusion-nonfree"
+BUNDLE_SOURCE_IDS="rpmfusion-nonfree"
 BUNDLE_ITEMS_FILE="packages/rpmfusion/steam-nonfree.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Steam package bundle from RPM Fusion Nonfree for Fedora"

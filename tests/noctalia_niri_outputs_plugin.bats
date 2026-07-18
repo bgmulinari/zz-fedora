@@ -4,9 +4,9 @@ load "helpers/common"
 
 setup() {
   setup_test_env
+  setup_fake_bin
   PLUGIN_DIR="$ROOT_DIR/dotfiles/noctalia/.local/share/noctalia/plugins/niri-outputs"
   BACKEND="$PLUGIN_DIR/backend.py"
-  FAKE_BIN="$TEST_ROOT/bin"
   NIRI_LOG="$TEST_ROOT/niri.log"
   NIRI_STATE="$TEST_ROOT/niri-outputs.json"
   NIRI_FAIL_FILE="$TEST_ROOT/reject-config-load"
@@ -18,7 +18,7 @@ setup() {
   DRAFT="$TEST_ROOT/draft.json"
   export NIRI_LOG NIRI_STATE NIRI_FAIL_FILE NIRI_OUTPUTS_READY NIRI_OUTPUTS_RELEASE
   export XDG_RUNTIME_DIR="$TEST_ROOT/runtime"
-  mkdir -p "$FAKE_BIN" "$XDG_RUNTIME_DIR" "$(dirname "$DISPLAY_CONFIG")" "$(dirname "$MAIN_SOURCE")"
+  mkdir -p "$XDG_RUNTIME_DIR" "$(dirname "$DISPLAY_CONFIG")" "$(dirname "$MAIN_SOURCE")"
 
   printf '%s\n' 'include "./cfg/input.kdl"' 'include "./cfg/display.kdl"' >"$MAIN_SOURCE"
   ln -s "$MAIN_SOURCE" "$MAIN_CONFIG"
@@ -27,7 +27,7 @@ setup() {
   printf '%s\n' '{"HDMI-A-1":{"name":"HDMI-A-1","make":"Acme","model":"Panel","serial":"42","physical_size":[600,340],"modes":[{"width":2560,"height":1440,"refresh_rate":59950,"is_preferred":false},{"width":2560,"height":1440,"refresh_rate":143912,"is_preferred":true}],"current_mode":1,"is_custom_mode":true,"vrr_supported":true,"vrr_enabled":true,"logical":{"x":1920,"y":0,"width":1707,"height":960,"scale":1.5,"transform":"Normal"}},"DP-2":{"name":"DP-2","make":"Acme","model":"Standby","serial":null,"physical_size":[520,320],"modes":[{"width":1920,"height":1080,"refresh_rate":60000,"is_preferred":true}],"current_mode":null,"is_custom_mode":false,"vrr_supported":false,"vrr_enabled":false,"logical":null}}' >"$NIRI_STATE"
   printf '%s\n' '{"outputs":[{"name":"DP-2","enabled":false,"mode":"1920x1080@60.000","custom_mode":false,"scale":1,"transform":"normal","x":0,"y":0,"vrr_supported":false,"vrr_enabled":false},{"name":"HDMI-A-1","enabled":true,"mode":"2560x1440@143.912","custom_mode":true,"scale":1.25,"transform":"normal","x":1920,"y":0,"vrr_supported":true,"vrr_enabled":false}]}' >"$DRAFT"
 
-  cat >"$FAKE_BIN/niri" <<'EOF'
+  write_fake_command niri <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 printf '%s\n' "$*" >>"$NIRI_LOG"
@@ -74,7 +74,6 @@ fi
 
 exit 0
 EOF
-  chmod +x "$FAKE_BIN/niri"
 }
 
 preview() {

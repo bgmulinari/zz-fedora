@@ -1,6 +1,7 @@
 BUNDLE_ID="base-desktop-core"
+BUNDLE_BASE="1"
+BUNDLE_BASE_ORDER="110"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
 BUNDLE_ITEMS_FILE="packages/official/desktop-core.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Core desktop integration packages for Fedora"

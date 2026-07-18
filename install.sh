@@ -13,6 +13,10 @@ source "$ROOT_DIR/lib/hardware.sh"
 source "$ROOT_DIR/lib/cli.sh"
 # shellcheck source=./lib/packages.sh
 source "$ROOT_DIR/lib/packages.sh"
+# shellcheck source=./lib/dotnet.sh
+source "$ROOT_DIR/lib/dotnet.sh"
+# shellcheck source=./lib/actions.sh
+source "$ROOT_DIR/lib/actions.sh"
 # shellcheck source=./lib/sources.sh
 source "$ROOT_DIR/lib/sources.sh"
 # shellcheck source=./lib/systemd.sh
@@ -21,6 +25,12 @@ source "$ROOT_DIR/lib/systemd.sh"
 source "$ROOT_DIR/lib/stow.sh"
 # shellcheck source=./lib/files.sh
 source "$ROOT_DIR/lib/files.sh"
+# shellcheck source=./lib/files-user.sh
+source "$ROOT_DIR/lib/files-user.sh"
+# shellcheck source=./lib/theme-seeds.sh
+source "$ROOT_DIR/lib/theme-seeds.sh"
+# shellcheck source=./lib/first-run.sh
+source "$ROOT_DIR/lib/first-run.sh"
 # shellcheck source=./lib/tui.sh
 source "$ROOT_DIR/lib/tui.sh"
 # shellcheck source=./lib/planner.sh
@@ -86,21 +96,35 @@ reset_step_registry() {
   STEP_FAILURE_POLICIES=()
 }
 
+# Declarative install pipeline: one tab-separated row per step with the
+# fields id, label, module entrypoint, predicate, failure policy, and
+# description. Each entrypoint is a module_NN_* function defined in the
+# matching modules/NN-*.sh file. The planning row is included only when the
+# registry is built with include_planning=1.
+declare -ag INSTALL_STEP_TABLE=(
+  $'preflight\tPreflight\tmodule_00_preflight\tstep_should_run_always\tfatal\tValidate the environment, target user, and install prerequisites.'
+  $'planning\tPlanning\tmodule_20_plan\tstep_should_run_always\tfatal\tBuild and review the final install plan from defaults and selected bundles.'
+  $'bootstrap-tools\tBootstrap Tools\tmodule_05_bootstrap_tools\tstep_should_run_always\tfatal\tInstall the Fedora package-manager helpers needed by the plan.'
+  $'sources\tSoftware Sources\tmodule_10_sources\tstep_should_run_always\tfatal\tEnable repositories and remotes required by the current plan.'
+  $'base-setup\tBase Setup\tmodule_30_packages\tstep_should_run_always\tfatal\tInstall non-optional base packages and configure the base shell before optional selections.'
+  $'optional-packages\tOptional Packages\tmodule_32_optional_packages\tstep_should_run_always\tcontinue\tInstall optional Fedora and Flatpak packages from the generated plan.'
+  $'custom-actions\tCustom Actions\tmodule_35_custom_actions\tstep_should_run_always\tcontinue\tRun selected direct installers and package-manager actions.'
+  $'dotfiles\tDotfiles\tmodule_60_dotfiles\tstep_should_run_dotfiles\tfatal\tStow managed configuration into the target home directory.'
+  $'post-actions\tPost Actions\tmodule_80_post_actions\tstep_should_run_always\tcontinue\tApply defaults, desktop associations, and final user/system tweaks.'
+  $'doctor\tDoctor\tmodule_90_doctor\tstep_should_run_doctor\tfatal\tRun the final verification checks and environment summary.'
+)
+
 build_step_registry() {
   local include_planning="${1:-0}"
   reset_step_registry
-  register_step preflight "Preflight" "Validate the environment, target user, and install prerequisites." module_00_preflight step_should_run_always fatal
-  if [[ "$include_planning" -eq 1 ]]; then
-    register_step planning "Planning" "Build and review the final install plan from defaults and selected bundles." module_20_plan step_should_run_always fatal
-  fi
-  register_step bootstrap-tools "Bootstrap Tools" "Install the Fedora package-manager helpers needed by the plan." module_05_bootstrap_tools step_should_run_always fatal
-  register_step sources "Software Sources" "Enable repositories and remotes required by the current plan." module_10_sources step_should_run_always fatal
-  register_step base-setup "Base Setup" "Install non-optional base packages and configure the base shell before optional selections." module_30_packages step_should_run_always fatal
-  register_step optional-packages "Optional Packages" "Install optional Fedora and Flatpak packages from the generated plan." module_32_optional_packages step_should_run_always continue
-  register_step custom-actions "Custom Actions" "Run selected direct installers and package-manager actions." module_35_custom_actions step_should_run_always continue
-  register_step dotfiles "Dotfiles" "Stow managed configuration into the target home directory." module_60_dotfiles step_should_run_dotfiles fatal
-  register_step post-actions "Post Actions" "Apply defaults, desktop associations, and final user/system tweaks." module_80_post_actions step_should_run_always continue
-  register_step doctor "Doctor" "Run the final verification checks and environment summary." module_90_doctor step_should_run_doctor fatal
+  local row step_id label function_name predicate failure_policy description
+  for row in "${INSTALL_STEP_TABLE[@]}"; do
+    IFS=$'\t' read -r step_id label function_name predicate failure_policy description <<<"$row"
+    if [[ "$step_id" == "planning" && "$include_planning" -ne 1 ]]; then
+      continue
+    fi
+    register_step "$step_id" "$label" "$description" "$function_name" "$predicate" "$failure_policy"
+  done
 }
 
 exec_setup_as_root_if_needed() {
@@ -117,6 +141,14 @@ exec_setup_as_root_if_needed() {
     "TARGET_USER=$TARGET_USER"
     "TARGET_HOME=$TARGET_HOME"
     "DESKTOP_APP_PROFILE=$DESKTOP_APP_PROFILE"
+    # Forward the resolved flag state under the external ZZ_ names so
+    # env-only overrides survive the sudo elevation boundary alongside the
+    # re-parsed CLI arguments.
+    "ZZ_ASSUME_YES=$ASSUME_YES"
+    "ZZ_NO_TUI=$NO_TUI"
+    "ZZ_INSTALL_WEAK_DEPS=$INSTALL_WEAK_DEPS"
+    "ZZ_VERIFY_INSTALLS=$VERIFY_INSTALLS"
+    "ZZ_SKIP_DOTFILES=$SKIP_DOTFILES"
   )
   local optional_env
   for optional_env in \
@@ -132,9 +164,7 @@ exec_setup_as_root_if_needed() {
     [[ -n "${!optional_env:-}" ]] && root_env+=("$optional_env=${!optional_env}")
   done
 
-  printf 'Root privileges are required for setup. You may be prompted for your password once.\n'
-  sudo -v
-  exec sudo env "${root_env[@]}" "$ROOT_DIR/install.sh" "$@"
+  exec_as_root_via_sudo "setup" "${root_env[@]}" "$ROOT_DIR/install.sh" "$@"
 }
 
 run_install_step() {
@@ -188,7 +218,7 @@ run_install_step() {
       ACTIVE_STEP_TOTAL=0
       ACTIVE_STEP_STARTED_AT=""
       log_info "Completed step $current/$total: $label (${elapsed}s)"
-      write_install_progress done "$current" "$total" "$label" "Completed in ${elapsed}s"
+      write_install_progress "done" "$current" "$total" "$label" "Completed in ${elapsed}s"
       tui_step_done "$label"
       return 0
     fi
@@ -239,7 +269,7 @@ run_registered_steps() {
   done
   tui_progress_end
   if [[ "$failed" -eq 0 ]]; then
-    write_install_progress done "$total" "$total" "ZZ Fedora" "Installation complete"
+    write_install_progress "done" "$total" "$total" "ZZ Fedora" "Installation complete"
   else
     write_install_progress failed "$total" "$total" "ZZ Fedora" "Installation failed"
   fi
@@ -327,17 +357,14 @@ main() {
       ;;
     first-run)
       [[ -f "$PLAN_DIR/bundles.list" ]] || build_plan_from_selections
-      module_80_first_run
+      module_85_first_run
       ;;
     defaults)
       [[ -f "$PLAN_DIR/bundles.list" ]] || build_plan_from_selections
       module_80_defaults
       ;;
     list-profiles)
-      printf 'base\n'
-      printf 'desktop-app:auto\n'
-      printf 'desktop-app:full\n'
-      printf 'desktop-app:minimal\n'
+      list_install_profiles
       ;;
     list-choices)
       local category file
@@ -352,8 +379,9 @@ main() {
       list_sources_pretty
       ;;
     *)
-      usage
-      exit 1
+      # parse_cli validates COMMAND against the command catalog, so reaching
+      # this arm means a cataloged command has no dispatch case.
+      die "Command is in the catalog but has no dispatch arm: $COMMAND"
       ;;
   esac
 }

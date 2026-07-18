@@ -1,6 +1,5 @@
 BUNDLE_ID="desktop-video-player"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
 BUNDLE_ITEMS_FILE="packages/official/desktop/video-player.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Video player"

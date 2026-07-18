@@ -79,9 +79,16 @@ verify_claude_desktop_repository_package() {
 }
 
 configure_claude_desktop_repository() {
-  local repo_file
-  repo_file="$(mktemp "$CACHE_DIR/claude-desktop-unofficial.repo.XXXXXX")"
-  cat >"$repo_file" <<'EOF'
+  run_cmd_as_root rpm --import "$CLAUDE_DESKTOP_GPG_KEY_URL" || return 1
+  if ! verify_claude_desktop_repository_package; then
+    if [[ "$DRY_RUN" -eq 0 ]]; then
+      run_cmd_as_root rm -f "$CLAUDE_DESKTOP_REPOSITORY_FILE" || return 1
+    fi
+    return 1
+  fi
+
+  log_progress "Adding Claude Desktop repository"
+  write_root_file 0644 "$CLAUDE_DESKTOP_REPOSITORY_FILE" <<'EOF'
 [claude-desktop-unofficial]
 name=Claude Desktop (unofficial packaging) for Fedora/RHEL
 baseurl=https://pkg.claude-desktop-debian.dev/rpm/$basearch
@@ -91,29 +98,6 @@ repo_gpgcheck=1
 gpgkey=https://pkg.claude-desktop-debian.dev/KEY.gpg
 metadata_expire=1h
 EOF
-
-  if ! run_cmd_as_root rpm --import "$CLAUDE_DESKTOP_GPG_KEY_URL"; then
-    rm -f "$repo_file"
-    return 1
-  fi
-  if ! verify_claude_desktop_repository_package; then
-    rm -f "$repo_file"
-    if [[ "$DRY_RUN" -eq 0 ]]; then
-      run_cmd_as_root rm -f "$CLAUDE_DESKTOP_REPOSITORY_FILE" || return 1
-    fi
-    return 1
-  fi
-
-  log_progress "Adding Claude Desktop repository"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: install %s -> %s\n' "$repo_file" "$CLAUDE_DESKTOP_REPOSITORY_FILE"
-  else
-    run_cmd_as_root install -Dm0644 "$repo_file" "$CLAUDE_DESKTOP_REPOSITORY_FILE" || {
-      rm -f "$repo_file"
-      return 1
-    }
-  fi
-  rm -f "$repo_file"
 }
 
 fedora_enable_sources() {
@@ -181,13 +165,12 @@ fedora_enable_sources() {
               run_cmd_as_root dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
               ;;
             vendor:google-chrome)
-              local defaults_file repo_file
-              defaults_file="$(mktemp "$CACHE_DIR/google-chrome-defaults.XXXXXX")"
-              repo_file="$(mktemp "$CACHE_DIR/google-chrome.repo.XXXXXX")"
-              cat >"$defaults_file" <<'EOF'
+              run_cmd_as_root bash -c 'rpm --import https://dl.google.com/linux/linux_signing_key.pub 2>/dev/null'
+              log_progress "Adding Google Chrome repository"
+              write_root_file 0644 /etc/default/google-chrome <<'EOF'
 repo_add_once="false"
 EOF
-              cat >"$repo_file" <<'EOF'
+              write_root_file 0644 /etc/yum.repos.d/google-chrome.repo <<'EOF'
 [google-chrome]
 name=google-chrome
 baseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64
@@ -195,22 +178,10 @@ enabled=1
 gpgcheck=1
 gpgkey=https://dl.google.com/linux/linux_signing_key.pub
 EOF
-              run_cmd_as_root bash -c 'rpm --import https://dl.google.com/linux/linux_signing_key.pub 2>/dev/null'
-              log_progress "Adding Google Chrome repository"
-              if [[ "$DRY_RUN" -eq 1 ]]; then
-                printf 'DRY-RUN: install %s -> /etc/default/google-chrome\n' "$defaults_file"
-                printf 'DRY-RUN: install %s -> /etc/yum.repos.d/google-chrome.repo\n' "$repo_file"
-              else
-                run_cmd_as_root install -Dm0644 "$defaults_file" /etc/default/google-chrome
-                run_cmd_as_root install -Dm0644 "$repo_file" /etc/yum.repos.d/google-chrome.repo
-              fi
-              rm -f "$defaults_file" "$repo_file"
               ;;
             vendor:vscode)
-              local repo_file
-              repo_file="$(mktemp "$CACHE_DIR/vscode.repo.XXXXXX")"
               log_progress "Adding Visual Studio Code repository"
-              cat >"$repo_file" <<'EOF'
+              write_root_file 0644 /etc/yum.repos.d/vscode.repo <<'EOF'
 [code]
 name=Visual Studio Code
 baseurl=https://packages.microsoft.com/yumrepos/vscode
@@ -218,12 +189,6 @@ enabled=1
 gpgcheck=1
 gpgkey=https://packages.microsoft.com/keys/microsoft.asc
 EOF
-              if [[ "$DRY_RUN" -eq 1 ]]; then
-                printf 'DRY-RUN: install %s -> /etc/yum.repos.d/vscode.repo\n' "$repo_file"
-              else
-                run_cmd_as_root install -Dm0644 "$repo_file" /etc/yum.repos.d/vscode.repo
-              fi
-              rm -f "$repo_file"
               ;;
           esac
           ;;
@@ -272,16 +237,6 @@ fedora_install_flatpaks() {
   done
 }
 
-fedora_preview_plan() {
-  local -a packages=("$@")
-  [[ "${#packages[@]}" -gt 0 ]] || return 0
-  if [[ "$INSTALL_WEAK_DEPS" -eq 1 ]]; then
-    run_cmd_as_root dnf install --assumeno "${packages[@]}"
-  else
-    run_cmd_as_root dnf install --assumeno --setopt=install_weak_deps=False "${packages[@]}"
-  fi
-}
-
 fedora_package_installed() {
   local package_spec="$1"
   case "$package_spec" in
@@ -294,21 +249,8 @@ fedora_package_installed() {
   esac
 }
 
-fedora_command_exists() {
-  command -v "$1" >/dev/null 2>&1
-}
-
 fedora_service_exists() {
   systemd_unit_file_exists "$1"
-}
-
-fedora_enable_service() {
-  log_progress "Enabling system service: $1"
-  run_cmd_as_root systemctl enable "$1"
-}
-
-fedora_enable_service_now() {
-  fedora_enable_services_now "$1"
 }
 
 fedora_enable_services_now() {
@@ -363,12 +305,4 @@ fedora_repo_enabled() {
       return 1
       ;;
   esac
-}
-
-fedora_repoquery_provides() {
-  run_cmd_as_root dnf repoquery --whatprovides "$1"
-}
-
-fedora_post_install_notes() {
-  printf 'Reboot, open Noctalia Greeter, and choose the Niri session.\n'
 }

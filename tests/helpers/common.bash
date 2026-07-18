@@ -16,7 +16,7 @@ setup_test_env() {
   export TARGET_USER="${TARGET_USER:-$current_user}"
   export FLATPAK_REMOTE_WAIT_SECONDS=0
   export FLATPAK_REMOTE_RETRY_SECONDS=0
-  export VERIFY_INSTALLS=0
+  export ZZ_VERIFY_INSTALLS=0
   export DESKTOP_APP_PROFILE=full
   mkdir -p "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$XDG_CONFIG_HOME" "$LOG_DIR" "$TARGET_HOME"
 }
@@ -32,6 +32,10 @@ source_core() {
   source "$ROOT_DIR/lib/cli.sh"
   # shellcheck source=../../lib/packages.sh
   source "$ROOT_DIR/lib/packages.sh"
+  # shellcheck source=../../lib/dotnet.sh
+  source "$ROOT_DIR/lib/dotnet.sh"
+  # shellcheck source=../../lib/actions.sh
+  source "$ROOT_DIR/lib/actions.sh"
   # shellcheck source=../../lib/sources.sh
   source "$ROOT_DIR/lib/sources.sh"
   # shellcheck source=../../lib/systemd.sh
@@ -40,6 +44,12 @@ source_core() {
   source "$ROOT_DIR/lib/stow.sh"
   # shellcheck source=../../lib/files.sh
   source "$ROOT_DIR/lib/files.sh"
+  # shellcheck source=../../lib/files-user.sh
+  source "$ROOT_DIR/lib/files-user.sh"
+  # shellcheck source=../../lib/theme-seeds.sh
+  source "$ROOT_DIR/lib/theme-seeds.sh"
+  # shellcheck source=../../lib/first-run.sh
+  source "$ROOT_DIR/lib/first-run.sh"
   # shellcheck source=../../lib/tui.sh
   source "$ROOT_DIR/lib/tui.sh"
   # shellcheck source=../../lib/planner.sh
@@ -75,6 +85,37 @@ reset_test_selections() {
   done
 }
 
+# Fake-command scaffolding shared by suites that stub external commands on
+# PATH. setup_fake_bin creates the stub directory and defines the shared
+# COMMAND_LOG path; call it after setup_test_env.
+setup_fake_bin() {
+  FAKE_BIN="$TEST_ROOT/fake-bin"
+  COMMAND_LOG="$TEST_ROOT/commands.log"
+  mkdir -p "$FAKE_BIN"
+}
+
+# make_fake_command <name> [exit-code] writes a stub that appends its
+# invocation to COMMAND_LOG (path baked in, so subprocesses need no
+# environment) and exits with the given code.
+make_fake_command() {
+  local name="$1"
+  local exit_code="${2:-0}"
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf 'printf '\''%s %%s\\n'\'' "$*" >>%q\n' "$name" "$COMMAND_LOG"
+    printf 'exit %s\n' "$exit_code"
+  } >"$FAKE_BIN/$name"
+  chmod +x "$FAKE_BIN/$name"
+}
+
+# write_fake_command <name> installs an executable stub whose body is read
+# from stdin, for fakes that need custom behavior.
+write_fake_command() {
+  local name="$1"
+  cat >"$FAKE_BIN/$name"
+  chmod +x "$FAKE_BIN/$name"
+}
+
 run_without_bats_debug_trap() {
   local saved_debug_trap
   saved_debug_trap="$(trap -p DEBUG)"
@@ -91,8 +132,6 @@ capture_without_bats_debug_trap() {
   local output_name="$1"
   local status_name="$2"
   shift 2
-  local -n output_ref="$output_name"
-  local -n status_ref="$status_name"
   local saved_debug_trap captured command_status had_errexit=0
 
   saved_debug_trap="$(trap -p DEBUG)"
@@ -109,8 +148,8 @@ capture_without_bats_debug_trap() {
   if [[ -n "$saved_debug_trap" ]]; then
     eval "$saved_debug_trap"
   fi
-  output_ref="$captured"
-  status_ref="$command_status"
+  printf -v "$output_name" '%s' "$captured"
+  printf -v "$status_name" '%s' "$command_status"
 }
 
 build_test_plan() {
@@ -262,6 +301,6 @@ assert_base_manifests_in_plan() {
     while IFS= read -r base_item; do
       [[ -n "$base_item" ]] || continue
       assert_plan_has "$plan_file" "$base_item"
-    done < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
+    done < <(bundle_manifest_entries)
   done
 }

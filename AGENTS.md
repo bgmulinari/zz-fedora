@@ -13,41 +13,45 @@
 - Keep ordered install orchestration in `modules/NN-name.sh`; put reusable Bash logic in `lib/` and keep modules thin.
 - Treat `choices/`, `bundles/`, `packages/`, and `sources/` as the data-driven installer API.
 - Put optional wizard choices in `choices/*.conf`, bundle composition in `bundles/**/*.bundle`, package lists in `packages/**/*.pkgs` or `*.flatpaks`, direct installer actions in `packages/actions/*.actions`, and repository definitions in `sources/**/*.source`.
-- Put portable user configuration in `dotfiles/<stow-package>/`. Reserve `templates/` for files rendered by the installer rather than deployed through Stow.
-- Put regression tests in `tests/`; share test helpers through `tests/helpers/`.
+- Put portable user configuration in `dotfiles/<stow-package>/`. Reserve `templates/` for files rendered or seeded by the installer rather than deployed through Stow; `config/managed-config.tsv` is the authoritative map of managed paths and their seed/preserve behavior. See `docs/dotfiles-layering.md` for the layering rules, including the `shell-*` Stow package prefix convention.
+- Put regression tests in `tests/`; share Bash test helpers through `tests/helpers/` and put non-Bash test harnesses in `tests/support/`.
 - When upstream reference code or docs are needed, prefer the read-only checkouts under `/files/Dev/ref_repos` when available instead of package decompilation or ad hoc reverse engineering.
 
 ## Preserve manifest contracts
 
 - Keep each `choices/*.conf` row tab-separated with exactly five fields: `id`, `label`, `default`, `bundle_ids`, and `description`.
 - Preserve manifest suffixes: `.conf`, `.bundle`, `.pkgs`, `.flatpaks`, `.actions`, and `.source`.
-- Base bundles belong in `BASE_BUNDLE_IDS`, are planned before optional bundles, and must not appear in an optional choice catalog. Use `DEFAULT_BUNDLE_IDS` only for broader defaults outside the choice catalogs.
+- Base bundle membership is declared in the bundle descriptor: `BUNDLE_BASE=1` with a unique numeric `BUNDLE_BASE_ORDER`, plus optional `BUNDLE_BASE_EARLY=1` and `BUNDLE_MINIMAL_DESKTOP_SKIP=1`. Every descriptor under `bundles/base/` must declare `BUNDLE_BASE=1`. Base bundles are planned before optional bundles and must not appear in an optional choice catalog. Use `DEFAULT_BUNDLE_IDS` only for broader defaults outside the choice catalogs.
 - The default install selects every non-browser catalog choice and only Firefox from the browser catalog. Express optional catalog defaults through the third field of each choice row.
 - Give every base-owning bundle a useful `BUNDLE_DESCRIPTION`; base package and action work must remain explainable in the generated `base-rationale.tsv`.
-- Source descriptors must declare trust metadata with `SOURCE_GPG_POLICY`, `SOURCE_BOOTSTRAP_EXCEPTION`, `SOURCE_REQUIRED`, and `SOURCE_REASON`.
+- Source descriptors must declare trust metadata with `SOURCE_GPG_POLICY`, `SOURCE_BOOTSTRAP_EXCEPTION`, `SOURCE_REQUIRED`, and `SOURCE_REASON`. The full key set is `SOURCE_ID`, `SOURCE_KIND`, `SOURCE_LABEL`, `SOURCE_PROJECT`, `SOURCE_REQUIRED`, `SOURCE_DESCRIPTION`, `SOURCE_GPG_POLICY`, `SOURCE_BOOTSTRAP_EXCEPTION`, and `SOURCE_REASON`; unknown keys fail catalog validation.
+- `SOURCE_PROJECT` is kind-scoped: required for `copr` sources (the COPR project to enable) and `artifact` sources (the fetch origin, optionally pinned as `url@commit`), and disallowed for every other kind.
+- `packages/<kind>/` mirrors `sources/<kind>/` for repo-backed kinds (`copr`, `flatpak`, `rpmfusion`, `terra`, `vendor`). Three intentional divergences: `sources/artifacts/` descriptors are consumed by `packages/actions/` manifests (two halves of one pipeline), `sources/cisco-openh264/` is delivered through an action manifest and has no `packages/` directory, and `packages/official/` installs from Fedora's preconfigured base repos and needs no source descriptor.
+- Bundles reference sources only through the comma-separated `BUNDLE_SOURCE_IDS` key; unknown descriptor keys fail catalog validation. Dedicated `source-*` base bundles own base-required sources; optional bundles declare their own source needs inline via `BUNDLE_SOURCE_IDS` (source enablement is idempotent, so overlap with base sources is fine).
 
 ## Bash and installer behavior
 
 - Use `#!/usr/bin/env bash` and `set -Eeuo pipefail` in Bash entrypoints.
 - Follow the existing naming style: lowercase function names, uppercase globals and environment flags, and quoted variable expansions.
+- Give every externally-settable environment override the `ZZ_` prefix (for example `ZZ_DRY_RUN`, `ZZ_ASSUME_YES`, `ZZ_NO_TUI`); unprefixed uppercase names are internal runtime globals only and must not be read from the caller's environment as installer knobs.
 - Keep required base actions idempotent and give them explicit verification checks.
 - Keep GUI defaults that require a logged-in user session in the first-run path rather than the system install path.
 - For Noctalia changes, keep portable settings in the managed dotfiles and do not commit generated, monitor-specific, or hardware-specific state from `~/.local/state/noctalia/`.
 
 ## Fedora installer ISO
 
-- Treat `iso/zz-fedora.ks`, `iso/anaconda-addon/`, `iso/anaconda-addon-data/`, `scripts/build-fedora-installer-iso.sh`, `scripts/lib/iso-common.sh`, and `scripts/test-fedora-installer-vm.sh` as one installer path. Keep `docs/fedora-installer-iso.md` synchronized with behavior and CLI changes.
-- Keep the ISO online: it embeds the current checkout and installer integration, not package mirrors. Stage only Git-tracked runtime files; never include `.git`, tests, logs, caches, ignored files, or unrelated untracked files.
-- Keep disk layout, locale, timezone, hostname, credentials, and user creation under Anaconda. Run repository setup through the add-on service and normal `install.sh` path; do not duplicate it in Kickstart `%post` logic.
-- Build only from a supported Fedora x86_64 installer ISO and pass `--input-sha256` from Fedora's signed checksum file. Input and output paths must differ, and generated images belong under ignored `release/` rather than in Git.
-- Use `--skip-mkefiboot` only for development builds that do not need a refreshed EFI boot image. Validate publishable media without that flag.
+- The installer-ISO path lives entirely under `iso/`: the Kickstart, Anaconda add-on, build and VM test scripts (`iso/scripts/`), build-time helpers (`iso/lib/build-common.sh`), the payload manifest (`iso/payload-paths.conf`), and the runtime loader (`iso/lib/runtime-loader.sh`).
+- `docs/fedora-installer-iso.md` is the single expanded source for build, install-flow, and pre-publish VM validation procedure (verified input media, dev-only build shortcuts, harness modes); `docs/design/fedora-installer-iso-architecture.md` holds the design rationale. Keep both synchronized with behavior and CLI changes instead of restating their detail here.
+- `iso/lib/build-common.sh` runs only at build time on the developer machine; `iso/lib/runtime-loader.sh` runs only inside Anaconda via the add-on and is never sourced by the normal `install.sh` path. Keep those lifecycles separate.
+- Keep the ISO online: it embeds the current checkout and installer integration, not package mirrors, and stages only Git-tracked runtime files.
+- Keep system configuration (disk layout, locale, timezone, hostname, credentials, user creation) under Anaconda. Run repository setup through the add-on service and normal `install.sh` path; do not duplicate it in Kickstart `%post` logic.
 - For ISO changes, run the focused suites:
 
   ```bash
   bats tests/fedora_iso.bats tests/anaconda_addon.bats tests/post_actions_installer_iso.bats
   ```
 
-- Before publishing installer-path changes, run `scripts/test-fedora-installer-vm.sh --input <fedora-installer.iso> --input-sha256 <sha256>`. Use its direct/text/headless modes for iteration, but validate the generated ISO boot path for release work.
+- Before publishing installer-path changes, run the VM validation documented in `docs/fedora-installer-iso.md`.
 
 ## Safe development commands
 

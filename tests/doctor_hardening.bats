@@ -75,10 +75,26 @@ setup() {
   refute_contains "$output" "unexpected-confirm"
 }
 
+step_table_failure_policy() {
+  local wanted_step_id="$1"
+  local raw row step_id label function_name predicate failure_policy description
+  local -a rows=()
+  mapfile -t rows < <(sed -n '/^declare -ag INSTALL_STEP_TABLE=(/,/^)/p' "$ROOT_DIR/install.sh" | sed '1d;$d')
+  for raw in "${rows[@]}"; do
+    raw="${raw#"${raw%%[![:space:]]*}"}"
+    eval "row=${raw}"
+    IFS=$'\t' read -r step_id label function_name predicate failure_policy description <<<"$row"
+    if [[ "$step_id" == "$wanted_step_id" ]]; then
+      printf '%s\n' "$failure_policy"
+      return 0
+    fi
+  done
+  return 1
+}
+
 @test "installer step registry marks base fatal and optional package failures continuable" {
-  assert_file_contains "$ROOT_DIR/install.sh" "register_step base-setup"
-  grep -F "register_step base-setup" "$ROOT_DIR/install.sh" | grep -F " fatal" >/dev/null
-  grep -F "register_step optional-packages" "$ROOT_DIR/install.sh" | grep -F " continue" >/dev/null
+  assert_equal "fatal" "$(step_table_failure_policy base-setup)"
+  assert_equal "continue" "$(step_table_failure_policy optional-packages)"
   assert_file_contains "$ROOT_DIR/install.sh" 'root_env+=("$optional_env=${!optional_env}")'
   refute_file_contains "$ROOT_DIR/install.sh" '"DISPLAY=${DISPLAY:-}"'
 }

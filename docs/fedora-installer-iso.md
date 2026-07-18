@@ -21,58 +21,10 @@ catalogs keep their normal defaults in both profiles.
 
 The supported build and installation target is Fedora 44 x86_64.
 
-The implementation follows Fedora/Lorax's Kickstart ISO approach:
-
-- `mkksiso` adds a Kickstart and extra files to an existing installer ISO and
-  updates the boot configuration to run that Kickstart.
-- A generated `images/product.img` contains the Anaconda add-on payload under
-  `/usr/share/anaconda/addons/`, matching Red Hat's documented installer
-  customization layout. The product image also includes a fallback snapshot of
-  `choices/` for add-on development and diagnostics. During an ISO install, the
-  spoke renders the catalogs from the refreshed remote runtime instead.
-  It also installs an Anaconda configuration snippet that hides the built-in
-  `SoftwareSelectionSpoke`; all optional setup choices are made in the
-  `ZZ Fedora` spoke under Anaconda's existing Software section.
-- The product image installs D-Bus policy and service activation files for
-  `org.fedoraproject.Anaconda.Addons.ZZFedora`. Anaconda starts that module
-  with its other add-ons, collects its `install_with_tasks()` task, and displays
-  the task's `report_progress()` messages in the normal installer progress UI.
-- The Kickstart leaves disk partitioning, locale, timezone, hostname, root
-  password, user creation, and ZZ Fedora execution to Anaconda.
-- The embedded checkout is a tracked runtime snapshot, not a copy of the
-  developer repository's `.git` directory. It provides the stable loader that
-  refreshes `main` before the ZZ Fedora choices become available.
-- The graphical and text add-on spokes wait for Anaconda's installation-source
-  setup to reach a terminal state before downloading the current remote
-  archive. This lets users configure Wi-Fi, static networking, or a source
-  proxy through Anaconda first. A failed refresh leaves the mandatory spoke
-  incomplete and re-entering it retries the download.
-- The loader filters the archive to the runtime paths declared by that revision's
-  `config/iso-runtime-paths.conf`, and stages it at
-  `/run/zz-fedora/repository`. Failure to fetch or validate that snapshot stops
-  the installation instead of silently using stale catalogs. If TLS validation
-  reports an invalid installer clock, the loader uses chronyd to synchronize
-  time and retries the download once. The embedded manifest is used only when
-  refreshing from an older revision that predates the manifest.
-- Both the graphical and text spokes read `choices/` from that refreshed
-  snapshot. New rows and new `choices/*.conf` catalogs are discovered without
-  rebuilding the ISO. The add-on later copies the exact same snapshot to
-  `~/zz-fedora` for the first regular user created in Anaconda and runs the
-  installer from it. The generated payload marker records the resolved archive
-  revision and remote ref. A later bootstrap run backs up the snapshot and
-  replaces it with a normal Git clone before updating.
-- The add-on writes the chosen desktop app profile and optional packages to
-  the normal saved selection format. The installer is invoked with
-  `--use-saved`, the selected `--desktop-app-profile full|minimal`, and
-  user-scoped state paths so the result matches the selected baseline plus the
-  Anaconda choices.
-- The Kickstart enables Anaconda's built-in `updates` repository by name. This
-  makes Anaconda resolve its original package transaction against both the
-  Fedora release and current updates repositories, matching the online
-  Everything installer without a second full-system upgrade transaction.
-  The repository is intentionally not redefined with `--metalink`: Anaconda
-  disables built-in repositories while loading an explicit URL source, and a
-  URL redefinition of the existing `updates` repository does not re-enable it.
+For the design rationale — the Lorax/`mkksiso` approach, `product.img`
+contents, the Anaconda D-Bus add-on wiring, and the remote runtime refresh —
+see
+[docs/design/fedora-installer-iso-architecture.md](design/fedora-installer-iso-architecture.md).
 
 ## Build
 
@@ -85,7 +37,7 @@ sudo dnf install lorax rsync xorriso
 Build from a Fedora netinst or DVD ISO:
 
 ```bash
-scripts/build-fedora-installer-iso.sh \
+iso/scripts/build-fedora-installer-iso.sh \
   --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
   --input-sha256 <sha256-from-the-signed-fedora-checksum-file> \
   --output release/zz-fedora.iso
@@ -95,16 +47,20 @@ For a fully bootable UEFI USB image, run the builder with privileges when your
 Fedora/Lorax version requires it:
 
 ```bash
-sudo scripts/build-fedora-installer-iso.sh \
+sudo iso/scripts/build-fedora-installer-iso.sh \
   --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
+  --input-sha256 <sha256-from-the-signed-fedora-checksum-file> \
   --output release/zz-fedora.iso
 ```
 
 `--skip-mkefiboot` is available for development-only builds where you do not
-need `mkksiso` to update the embedded EFI boot image.
+need `mkksiso` to update the embedded EFI boot image. Validate publishable
+media without that flag.
 
 The builder supports Fedora 44 x86_64 input media. Always pass
-`--input-sha256` using the digest from Fedora's signed checksum file. The
+`--input-sha256` using the digest from Fedora's signed checksum file. Input
+and output paths must differ, and generated images belong under the ignored
+`release/` directory rather than in Git. The
 embedded repository payload is assembled only from Git-tracked runtime files;
 `.git`, tests, local logs, caches, ignored files, and unrelated untracked files
 are never copied into the ISO.
@@ -151,9 +107,13 @@ Run the unattended VM harness against the same Fedora input ISO before publishin
 changes to the installer path:
 
 ```bash
-scripts/test-fedora-installer-vm.sh \
-  --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso
+iso/scripts/test-fedora-installer-vm.sh \
+  --input ~/Downloads/Fedora-Everything-netinst-x86_64-<release>.iso \
+  --input-sha256 <sha256-from-the-signed-fedora-checksum-file>
 ```
+
+Use its direct/text/headless modes below for iteration, but validate the
+generated ISO boot path for release work.
 
 The VM harness defaults to the full profile. Pass
 `--desktop-app-profile minimal` to persist a minimal selection through the
@@ -188,12 +148,5 @@ numbered package operations. When debugging, inspect
 `~/.local/state/zz-fedora/logs/latest.log`, and
 `~/.local/state/zz-fedora/logs/install-progress.tsv`.
 
-## References
-
-- Lorax `mkksiso`: https://weldr.io/lorax/mkksiso.html
-- Lorax `livemedia-creator`: https://weldr.io/lorax/livemedia-creator.html
-- Fedora live media compose notes: https://fedoraproject.org/wiki/Livemedia-creator-_How_to_create_and_use_a_Live_CD
-- Red Hat Customizing Anaconda, developing installer add-ons: https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/customizing_anaconda/developing-installer-add-ons_customizing-anaconda
-- Red Hat Customizing Anaconda, creating `product.img`: https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/customizing_anaconda/completing-post-customization-tasks_customizing-anaconda
-- Red Hat Customizing Anaconda, installer configuration files: https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/customizing_anaconda/branding-and-chroming-the-graphical-user-interface_customizing-anaconda#customizing-the-default-configuration_branding-and-chroming-the-graphical-user-interface
-- Fedora Remix secondary trademark guidance: https://fedoraproject.org/wiki/Legal%3ASecondary_trademark_usage_guidelines
+Upstream Lorax, Anaconda, and Fedora references are listed in the
+[architecture design note](design/fedora-installer-iso-architecture.md#references).

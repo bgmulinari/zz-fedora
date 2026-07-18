@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# zz-test-tags: smoke
 
 load "helpers/common"
 
@@ -66,7 +67,7 @@ setup() {
   cat >"$descriptor_dir/valid.bundle" <<'EOF'
 BUNDLE_ID="test-valid"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_ITEMS_FILE="packages/official/bootstrap.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Valid test bundle"
@@ -75,7 +76,7 @@ EOF
 
   cat >"$descriptor_dir/missing-id.bundle" <<'EOF'
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_ITEMS_FILE="packages/official/bootstrap.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Missing id"
@@ -86,7 +87,7 @@ EOF
   cat >"$descriptor_dir/bad-installer.bundle" <<'EOF'
 BUNDLE_ID="test-bad-installer"
 BUNDLE_INSTALLER="brew"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_ITEMS_FILE="packages/official/bootstrap.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Bad installer"
@@ -94,16 +95,225 @@ EOF
   run validate_bundle_descriptor "$descriptor_dir/bad-installer.bundle"
   [ "$status" -ne 0 ]
 
+  cat >"$descriptor_dir/bad-source.bundle" <<'EOF'
+BUNDLE_ID="test-bad-source"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_IDS="missing-source"
+BUNDLE_ITEMS_FILE="packages/official/bootstrap.pkgs"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Bad source"
+EOF
+  run validate_bundle_descriptor "$descriptor_dir/bad-source.bundle"
+  [ "$status" -ne 0 ]
+
   cat >"$descriptor_dir/missing-items.bundle" <<'EOF'
 BUNDLE_ID="test-missing-items"
 BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_ID=""
+BUNDLE_SOURCE_IDS=""
 BUNDLE_ITEMS_FILE="packages/__test__/missing.pkgs"
 BUNDLE_STOW_PACKAGES=""
 BUNDLE_DESCRIPTION="Missing items file"
 EOF
   run validate_bundle_descriptor "$descriptor_dir/missing-items.bundle"
   [ "$status" -ne 0 ]
+
+  cat >"$descriptor_dir/no-items.bundle" <<'EOF'
+BUNDLE_ID="test-no-items"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_IDS=""
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Source-only bundle without payload items"
+EOF
+  validate_bundle_descriptor "$descriptor_dir/no-items.bundle"
+
+  cat >"$descriptor_dir/bad-suffix.bundle" <<'EOF'
+BUNDLE_ID="test-bad-suffix"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_IDS=""
+BUNDLE_ITEMS_FILE="packages/empty.list"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Non-manifest payload suffix"
+EOF
+  run validate_bundle_descriptor "$descriptor_dir/bad-suffix.bundle"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"must use a manifest suffix"* ]]
+}
+
+@test "bundle descriptor validation rejects unknown keys" {
+  local descriptor_dir="$TEST_ROOT/bundles"
+  mkdir -p "$descriptor_dir"
+
+  cat >"$descriptor_dir/legacy-source-key.bundle" <<'EOF'
+BUNDLE_ID="test-legacy-source-key"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_ID="rpmfusion-free"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Bundle using the retired singular source key"
+EOF
+  run validate_bundle_descriptor "$descriptor_dir/legacy-source-key.bundle"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Unknown bundle descriptor key 'BUNDLE_SOURCE_ID'"
+
+  cat >"$descriptor_dir/unknown-key.bundle" <<'EOF'
+BUNDLE_ID="test-unknown-key"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_FROBNICATE="1"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Bundle with a made-up key"
+EOF
+  run validate_bundle_descriptor "$descriptor_dir/unknown-key.bundle"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Unknown bundle descriptor key 'BUNDLE_FROBNICATE'"
+
+  cat >"$descriptor_dir/multi-source.bundle" <<'EOF'
+BUNDLE_ID="test-multi-source"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_IDS="rpmfusion-free,rpmfusion-nonfree"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Bundle with a comma-separated source list"
+EOF
+  validate_bundle_descriptor "$descriptor_dir/multi-source.bundle"
+}
+
+@test "source descriptor validation rejects unknown keys" {
+  local descriptor_dir="$TEST_ROOT/sources"
+  mkdir -p "$descriptor_dir"
+
+  cat >"$descriptor_dir/unknown-key.source" <<'EOF'
+SOURCE_ID="vendor:test-unknown-key"
+SOURCE_KIND="vendor"
+SOURCE_LABEL="Test vendor repository"
+SOURCE_FROBNICATE="1"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="Source with a made-up key"
+SOURCE_GPG_POLICY="repo-gpg-key"
+SOURCE_BOOTSTRAP_EXCEPTION=0
+SOURCE_REASON="Test fixture"
+EOF
+  run validate_source_descriptor "$descriptor_dir/unknown-key.source"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Unknown source descriptor key 'SOURCE_FROBNICATE'"
+}
+
+@test "source descriptor validation scopes SOURCE_PROJECT by kind" {
+  local descriptor_dir="$TEST_ROOT/sources"
+  mkdir -p "$descriptor_dir"
+
+  cat >"$descriptor_dir/copr-no-project.source" <<'EOF'
+SOURCE_ID="copr:test/no-project"
+SOURCE_KIND="copr"
+SOURCE_LABEL="COPR without a project"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="COPR source missing SOURCE_PROJECT"
+SOURCE_GPG_POLICY="copr-plugin"
+SOURCE_BOOTSTRAP_EXCEPTION=0
+SOURCE_REASON="Test fixture"
+EOF
+  run validate_source_descriptor "$descriptor_dir/copr-no-project.source"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Missing SOURCE_PROJECT for copr source"
+
+  cat >"$descriptor_dir/vendor-with-project.source" <<'EOF'
+SOURCE_ID="vendor:test-with-project"
+SOURCE_KIND="vendor"
+SOURCE_LABEL="Vendor with a stray project"
+SOURCE_PROJECT="acme/stray"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="Vendor source declaring SOURCE_PROJECT"
+SOURCE_GPG_POLICY="repo-gpg-key"
+SOURCE_BOOTSTRAP_EXCEPTION=0
+SOURCE_REASON="Test fixture"
+EOF
+  run validate_source_descriptor "$descriptor_dir/vendor-with-project.source"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "SOURCE_PROJECT is only valid for artifact and copr sources"
+
+  cat >"$descriptor_dir/vendor-plain.source" <<'EOF'
+SOURCE_ID="vendor:test-plain"
+SOURCE_KIND="vendor"
+SOURCE_LABEL="Vendor without a project"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="Vendor source omitting SOURCE_PROJECT"
+SOURCE_GPG_POLICY="repo-gpg-key"
+SOURCE_BOOTSTRAP_EXCEPTION=0
+SOURCE_REASON="Test fixture"
+EOF
+  validate_source_descriptor "$descriptor_dir/vendor-plain.source"
+}
+
+@test "action manifest validation accepts registered ids and rejects unknown ids" {
+  manifest="$TEST_ROOT/test.actions"
+  printf '%s\n' 'docker' 'brew:lazydocker' 'vscode-extension:noctalia.noctaliatheme' >"$manifest"
+  validate_action_manifest "$manifest"
+
+  printf '%s\n' 'docker' 'not-a-registered-action' >"$manifest"
+  run validate_action_manifest "$manifest"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Unknown custom action 'not-a-registered-action' in $manifest"
+}
+
+@test "action bundle payload referencing an unregistered id fails descriptor validation" {
+  fixture_root="$TEST_ROOT/fixture-root"
+  mkdir -p "$fixture_root/packages/actions"
+  printf 'not-a-registered-action\n' >"$fixture_root/packages/actions/bad.actions"
+  cat >"$TEST_ROOT/bad-actions.bundle" <<'EOF'
+BUNDLE_ID="test-bad-actions"
+BUNDLE_INSTALLER="action"
+BUNDLE_SOURCE_IDS=""
+BUNDLE_ITEMS_FILE="packages/actions/bad.actions"
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Payload referencing an unregistered action"
+EOF
+  validate_fixture_bundle() {
+    ROOT_DIR="$fixture_root" validate_bundle_descriptor "$TEST_ROOT/bad-actions.bundle"
+  }
+
+  run validate_fixture_bundle
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Unknown custom action 'not-a-registered-action'"
+}
+
+@test "every bundle payload file uses a declared manifest suffix and exists" {
+  local bundle_file items_file
+  while IFS= read -r bundle_file; do
+    items_file=""
+    descriptor_value_from_file "$bundle_file" BUNDLE_ITEMS_FILE items_file || true
+    [[ -n "$items_file" ]] || continue
+    [[ "$items_file" =~ \.(pkgs|flatpaks|actions)$ ]]
+    [ -f "$ROOT_DIR/$items_file" ]
+  done < <(find "$ROOT_DIR/bundles" -type f -name '*.bundle' | sort)
+}
+
+@test "every bundle ID is its category directory name plus its file basename" {
+  local bundle_file bundle_id category basename
+  while IFS= read -r bundle_file; do
+    bundle_id=""
+    descriptor_value_from_file "$bundle_file" BUNDLE_ID bundle_id
+    category="$(basename "$(dirname "$bundle_file")")"
+    basename="$(basename "$bundle_file" .bundle)"
+    assert_equal "$category-$basename" "$bundle_id"
+  done < <(find "$ROOT_DIR/bundles" -type f -name '*.bundle' | sort)
+}
+
+@test "every dotfiles directory is referenced by a bundle stow declaration" {
+  local bundle_file stow_packages package package_dir referenced=$'\n'
+
+  while IFS= read -r bundle_file; do
+    stow_packages=""
+    descriptor_value_from_file "$bundle_file" BUNDLE_STOW_PACKAGES stow_packages || true
+    [[ -n "$stow_packages" ]] || continue
+    while IFS= read -r package; do
+      referenced+="${package}"$'\n'
+    done < <(split_csv "$stow_packages")
+  done < <(find "$ROOT_DIR/bundles" -type f -name '*.bundle' | sort)
+
+  while IFS= read -r package_dir; do
+    package="$(basename "$package_dir")"
+    if [[ "$referenced" != *$'\n'"$package"$'\n'* ]]; then
+      printf 'orphan stow package not referenced by any bundle: dotfiles/%s\n' "$package" >&2
+      return 1
+    fi
+  done < <(find "$ROOT_DIR/dotfiles" -mindepth 1 -maxdepth 1 -type d | sort)
 }
 
 @test "source descriptors include required trust metadata" {
@@ -278,4 +488,146 @@ EOF
       ! awk -F'\t' -v id="$base_id" 'NF==5 && $1 == id {found=1} END {exit found ? 0 : 1}' "$choice_file"
     done
   done
+}
+
+@test "base bundle membership is derived from bundle metadata" {
+  local bundle_file bundle_id base_flag
+  local -a declared_base_ids=()
+
+  while IFS= read -r bundle_file; do
+    descriptor_value_from_file "$bundle_file" BUNDLE_ID bundle_id
+    base_flag=""
+    descriptor_value_from_file "$bundle_file" BUNDLE_BASE base_flag || true
+    if [[ "$bundle_file" == "$ROOT_DIR/bundles/base/"* ]]; then
+      assert_equal "1" "$base_flag"
+    fi
+    [[ "$base_flag" == "1" ]] && declared_base_ids+=("$bundle_id")
+  done < <(list_bundle_files)
+
+  assert_equal "${#declared_base_ids[@]}" "${#BASE_BUNDLE_IDS[@]}"
+  for bundle_id in "${declared_base_ids[@]}"; do
+    array_contains "$bundle_id" "${BASE_BUNDLE_IDS[@]}"
+  done
+  for bundle_id in "${BASE_BUNDLE_IDS[@]}"; do
+    bundle_file_for_id "$bundle_id" >/dev/null
+  done
+  for bundle_id in "${EARLY_BASE_BUNDLE_IDS[@]}"; do
+    array_contains "$bundle_id" "${BASE_BUNDLE_IDS[@]}"
+  done
+  for bundle_id in "${MINIMAL_DESKTOP_SKIP_BUNDLE_IDS[@]}"; do
+    array_contains "$bundle_id" "${BASE_BUNDLE_IDS[@]}"
+  done
+}
+
+@test "a new bundles/base descriptor joins the derived base set at its declared order" {
+  local sandbox="$TEST_ROOT/sandbox-root"
+  mkdir -p "$sandbox"
+  cp -R "$ROOT_DIR/bundles" "$sandbox/bundles"
+  cat >"$sandbox/bundles/base/zz-test.bundle" <<'BUNDLE'
+BUNDLE_ID="base-zz-test"
+BUNDLE_BASE="1"
+BUNDLE_BASE_ORDER="15"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_IDS=""
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Sandbox base bundle for derivation tests"
+BUNDLE
+
+  derive_sandbox_base_ids() {
+    ROOT_DIR="$sandbox"
+    BUNDLE_FILE_CACHE=()
+    BUNDLE_FILE_CACHE_LOADED=()
+    BASE_BUNDLE_CATALOG_LOADED=()
+    load_base_bundle_catalog
+    printf '%s\n' "${BASE_BUNDLE_IDS[@]}"
+  }
+
+  run derive_sandbox_base_ids
+  [ "$status" -eq 0 ]
+  assert_equal "base-bootstrap" "${lines[0]}"
+  assert_equal "base-zz-test" "${lines[1]}"
+  assert_equal "base-source-rpmfusion-free" "${lines[2]}"
+}
+
+@test "a bundles/base descriptor without BUNDLE_BASE=1 fails catalog derivation" {
+  local sandbox="$TEST_ROOT/sandbox-root-invalid"
+  mkdir -p "$sandbox"
+  cp -R "$ROOT_DIR/bundles" "$sandbox/bundles"
+  cat >"$sandbox/bundles/base/zz-test.bundle" <<'BUNDLE'
+BUNDLE_ID="base-zz-test"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_IDS=""
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Sandbox base bundle missing base metadata"
+BUNDLE
+
+  derive_invalid_sandbox_base_ids() {
+    ROOT_DIR="$sandbox"
+    BUNDLE_FILE_CACHE=()
+    BUNDLE_FILE_CACHE_LOADED=()
+    BASE_BUNDLE_CATALOG_LOADED=()
+    load_base_bundle_catalog
+  }
+
+  run derive_invalid_sandbox_base_ids
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "must declare BUNDLE_BASE=1"
+}
+
+@test "duplicate BUNDLE_BASE_ORDER fails catalog derivation" {
+  local sandbox="$TEST_ROOT/sandbox-root-dup-order"
+  mkdir -p "$sandbox"
+  cp -R "$ROOT_DIR/bundles" "$sandbox/bundles"
+  cat >"$sandbox/bundles/base/zz-test.bundle" <<'BUNDLE'
+BUNDLE_ID="base-zz-test"
+BUNDLE_BASE="1"
+BUNDLE_BASE_ORDER="10"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_IDS=""
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Sandbox base bundle with a duplicate order"
+BUNDLE
+
+  derive_dup_order_base_ids() {
+    ROOT_DIR="$sandbox"
+    BUNDLE_FILE_CACHE=()
+    BUNDLE_FILE_CACHE_LOADED=()
+    BASE_BUNDLE_CATALOG_LOADED=()
+    load_base_bundle_catalog
+  }
+
+  run derive_dup_order_base_ids
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Duplicate BUNDLE_BASE_ORDER '10'"
+}
+
+@test "dotfiles layering doc references only existing repository paths" {
+  local doc="$ROOT_DIR/docs/dotfiles-layering.md"
+  [ -f "$doc" ]
+
+  local path
+  while IFS= read -r path; do
+    [[ "$path" == *'<'* || "$path" == *'*'* ]] && continue
+    if [[ ! -e "$ROOT_DIR/$path" ]]; then
+      printf 'docs/dotfiles-layering.md references missing path: %s\n' "$path" >&2
+      return 1
+    fi
+  done < <(grep -oE '`(dotfiles|templates|config|bundles|lib|modules)/[^`]*`' "$doc" | tr -d '`' | sort -u)
+}
+
+@test "dotfiles layering doc seed rows exist in managed-config.tsv" {
+  local policy="$ROOT_DIR/config/managed-config.tsv"
+  local path
+  for path in \
+    '~/.config/ghostty/themes/noctalia' \
+    '~/.config/niri/cfg/display.kdl' \
+    '~/.config/niri/noctalia.kdl' \
+    '~/.config/starship.toml'; do
+    if ! awk -F'\t' -v p="$path" '$1==p && $2=="seed-if-missing" && $3=="preserve" {found=1} END {exit !found}' "$policy"; then
+      printf 'missing seed-if-missing/preserve row for %s\n' "$path" >&2
+      return 1
+    fi
+  done
+
+  awk -F'\t' -v p='~/.config/noctalia/config.toml' '$1==p && $2=="stow" {found=1} END {exit !found}' "$policy"
 }

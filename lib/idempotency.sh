@@ -100,19 +100,6 @@ run_cmd_as_root() {
   fi
 }
 
-run_cmd_as_clean_root() {
-  local -a clean_env=(
-    env -i
-    "HOME=/root"
-    "PATH=/usr/sbin:/usr/bin:/sbin:/bin"
-  )
-  if [[ "$EUID" -eq 0 ]]; then
-    run_cmd "${clean_env[@]}" "$@"
-  else
-    run_cmd sudo "${clean_env[@]}" "$@"
-  fi
-}
-
 run_cmd_as_user() {
   local user="$1"
   shift
@@ -187,63 +174,75 @@ stop_sudo_keepalive() {
   SUDO_KEEPALIVE_PID=""
 }
 
+# All pre-replace backups share one layout: the original absolute path
+# mirrored under $STATE_DIR/backups/<timestamp>.
+backup_target_path() {
+  local destination="$1"
+  printf '%s/backups/%s%s\n' "$STATE_DIR" "$(timestamp)" "$destination"
+}
+
 backup_file_if_needed() {
   local destination="$1"
   [[ -e "$destination" || -L "$destination" ]] || return 0
-  local backup_root="$STATE_DIR/backups/$(timestamp)"
-  local backup_path="$backup_root${destination}"
-  mkdir -p "$(dirname "$backup_path")"
-  cp -a "$destination" "$backup_path"
-  log_info "Backed up $destination to $backup_path"
+  local backup_path
+  backup_path="$(backup_target_path "$destination")"
+  run_cmd mkdir -p "$(dirname "$backup_path")"
+  run_cmd cp -a "$destination" "$backup_path"
+  [[ "$DRY_RUN" -eq 1 ]] || log_info "Backed up $destination to $backup_path"
 }
 
-file_install_if_changed() {
-  local source_file="$1"
-  local destination="$2"
-  local mode="${3:-0644}"
+backup_user_file_if_needed() {
+  local destination="$1"
+  [[ -e "$destination" || -L "$destination" ]] || return 0
+  local backup_path
+  backup_path="$(backup_target_path "$destination")"
+  run_cmd_as_user "$TARGET_USER" mkdir -p "$(dirname "$backup_path")"
+  run_cmd_as_user "$TARGET_USER" cp -a "$destination" "$backup_path"
+  [[ "$DRY_RUN" -eq 1 ]] || log_info "Backed up $destination to $backup_path"
+}
+
+# Single file-install primitive shared by root- and user-context callers:
+# skip when unchanged, back up an existing destination, then install with
+# the requested mode. Context selects the execution identity.
+install_file_if_changed() {
+  local context="$1"
+  local source_file="$2"
+  local destination="$3"
+  local mode="${4:-0644}"
   [[ -f "$source_file" ]] || die "Managed source file not found: $source_file"
   if [[ -f "$destination" ]] && cmp -s "$source_file" "$destination"; then
     log_info "Unchanged file: $destination"
     return 0
   fi
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: install %s -> %s (mode %s)\n' "$source_file" "$destination" "$mode"
-    return 0
-  fi
-  local temp_file
-  mkdir -p "$(dirname "$destination")"
-  temp_file="$(mktemp "$(dirname "$destination")/.zz-fedora.XXXXXX")"
-  cp "$source_file" "$temp_file"
-  chmod "$mode" "$temp_file"
-  if [[ -e "$destination" || -L "$destination" ]]; then
-    backup_file_if_needed "$destination"
-  fi
-  mv -f "$temp_file" "$destination"
+  case "$context" in
+    root)
+      backup_file_if_needed "$destination"
+      run_cmd_as_root install -D -m "$mode" "$source_file" "$destination"
+      ;;
+    user)
+      backup_user_file_if_needed "$destination"
+      run_cmd_as_user "$TARGET_USER" install -D -m "$mode" "$source_file" "$destination"
+      ;;
+    *)
+      die "Unsupported install context: $context"
+      ;;
+  esac
 }
 
-file_template_if_changed() {
-  local template_file="$1"
+# Write stdin to a root-owned destination: stage in CACHE_DIR, then install
+# through install_file_if_changed so cmp/backup/dry-run behavior is shared.
+write_root_file() {
+  local mode="$1"
   local destination="$2"
-  local mode="${3:-0644}"
-  file_install_if_changed "$template_file" "$destination" "$mode"
-}
-
-service_enable_if_exists() {
-  local service_name="$1"
-  if fedora_service_exists "$service_name"; then
-    fedora_enable_service "$service_name"
-  else
-    log_warn "Skipping missing service: $service_name"
+  local temp_file
+  temp_file="$(mktemp "$CACHE_DIR/root-file.XXXXXX")"
+  cat >"$temp_file"
+  chmod 0644 "$temp_file"
+  if ! install_file_if_changed root "$temp_file" "$destination" "$mode"; then
+    rm -f "$temp_file"
+    return 1
   fi
-}
-
-systemctl_enable_now_if_exists() {
-  local service_name="$1"
-  if fedora_service_exists "$service_name"; then
-    fedora_enable_service_now "$service_name"
-  else
-    log_warn "Skipping missing service: $service_name"
-  fi
+  rm -f "$temp_file"
 }
 
 flatpak_remote_usable() {
@@ -407,16 +406,6 @@ flatpak_install_or_update() {
     return 0
   fi
   run_cmd_as_root flatpak install -y --or-update "$remote" "$app_id"
-}
-
-repo_enable_if_missing() {
-  local repo_id="$1"
-  shift
-  if fedora_repo_enabled "$repo_id"; then
-    log_info "Source already enabled: $repo_id"
-    return 0
-  fi
-  run_cmd "$@"
 }
 
 package_install_idempotent() {

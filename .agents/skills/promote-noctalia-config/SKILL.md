@@ -31,7 +31,7 @@ Do not manage or stow `settings.toml` directly. It may contain generated, host-s
 
    ```bash
    git status --short
-   git diff -- dotfiles/noctalia dotfiles/niri docs/noctalia-v5-integration-status.md
+   git diff -- dotfiles/noctalia dotfiles/niri docs/design/noctalia-v5-integration-status.md
    ```
 
    Direct repo changes may be unrelated user edits. Do not attribute them to Noctalia unless there is direct evidence. Treat them as separate from `settings.toml` overrides and confirm whether they should be kept.
@@ -51,10 +51,10 @@ Do not manage or stow `settings.toml` directly. It may contain generated, host-s
    ```bash
    noctalia config validate
    noctalia config export | sed -n '1,220p'
-   git diff -- dotfiles/noctalia/.config/noctalia/config.toml docs/noctalia-v5-integration-status.md
+   git diff -- dotfiles/noctalia/.config/noctalia/config.toml docs/design/noctalia-v5-integration-status.md
    ```
 
-7. Update `docs/noctalia-v5-integration-status.md` whenever the managed Noctalia baseline changes.
+7. Update `docs/design/noctalia-v5-integration-status.md` whenever the managed Noctalia baseline changes.
 
 Do not commit unless the user asks.
 

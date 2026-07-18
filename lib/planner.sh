@@ -48,7 +48,7 @@ plan_file_has_entry() {
 append_bundle_payload_to_plan() {
   local destination
   destination="$(package_file_for_backend "$BUNDLE_INSTALLER")"
-  mapfile -t bundle_items < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
+  mapfile -t bundle_items < <(bundle_manifest_entries)
   append_plan_entries "$destination" "${bundle_items[@]:-}"
 }
 
@@ -65,18 +65,13 @@ append_bundle_to_plan() {
   local bundle_id="$1"
   local plan_sources_name="$2"
   local plan_backends_name="$3"
-  local -n plan_sources_ref="$plan_sources_name"
-  local -n plan_backends_ref="$plan_backends_name"
 
   load_bundle_descriptor "$bundle_id" || die "Unknown bundle: $bundle_id"
   append_plan_entries "$PLAN_DIR/bundles.list" "$bundle_id"
-  append_unique plan_backends_ref "$BUNDLE_INSTALLER"
-  if [[ -n "${BUNDLE_SOURCE_ID:-}" ]]; then
-    append_unique plan_sources_ref "$BUNDLE_SOURCE_ID"
-  fi
+  append_unique "$plan_backends_name" "$BUNDLE_INSTALLER"
   local source_id
   while IFS= read -r source_id; do
-    [[ -n "$source_id" ]] && append_unique plan_sources_ref "$source_id"
+    [[ -n "$source_id" ]] && append_unique "$plan_sources_name" "$source_id"
   done < <(split_csv "${BUNDLE_SOURCE_IDS:-}")
   append_bundle_payload_to_plan
   append_bundle_stow_plan
@@ -115,7 +110,9 @@ append_dotfiles_prereqs() {
   append_plan_entries "$(prereq_file_for_backend "$(native_backend)")" "stow"
 }
 
+# shellcheck disable=SC2088  # Managed-file records intentionally use literal ~/ keys; expansion happens at apply time.
 build_plan_from_selections() {
+  # shellcheck disable=SC2034  # Read via dynamic scoping by lib/packages.sh plan appenders.
   local DEFER_PLAN_SORT=1
   ensure_state_dirs
   plan_reset
@@ -281,19 +278,23 @@ write_base_rationale_report() {
   printf 'backend\titem\towner_bundle\tclassification\tconsumer\treason\n' >"$report"
   load_base_responsibility_cache
 
-  local bundle_id item
+  local bundle_id item source_id
   local -A seen_base_sources=()
   while IFS= read -r bundle_id; do
     [[ -n "$bundle_id" ]] || continue
     load_bundle_descriptor "$bundle_id" || die "Unknown base bundle: $bundle_id"
-    if [[ -n "${BUNDLE_SOURCE_ID:-}" && -z "${seen_base_sources[$BUNDLE_SOURCE_ID]:-}" ]]; then
-      write_base_rationale_row "$report" source "$BUNDLE_SOURCE_ID" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
-      seen_base_sources["$BUNDLE_SOURCE_ID"]=1
-    fi
+    while IFS= read -r source_id; do
+      [[ -n "$source_id" && -z "${seen_base_sources[$source_id]:-}" ]] || continue
+      # Pinned artifact sources carry their own trust policy and are not
+      # system package repositories, so they stay out of the source rationale.
+      [[ "$source_id" == artifact:* ]] && continue
+      write_base_rationale_row "$report" source "$source_id" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
+      seen_base_sources["$source_id"]=1
+    done < <(split_csv "${BUNDLE_SOURCE_IDS:-}")
     while IFS= read -r item; do
       [[ -n "$item" ]] || continue
       write_base_rationale_row "$report" "$BUNDLE_INSTALLER" "$item" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
-    done < <(manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE")
+    done < <(bundle_manifest_entries)
   done < <(effective_base_bundle_ids)
 
   if [[ "$(resolved_desktop_app_profile)" == "full" ]] && grep -Fx 'base-source-flathub' "$PLAN_DIR/bundles.list" >/dev/null 2>&1; then

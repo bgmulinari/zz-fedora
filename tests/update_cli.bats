@@ -4,20 +4,7 @@ load "helpers/common"
 
 setup() {
   setup_test_env
-  FAKE_BIN="$TEST_ROOT/fake-bin"
-  COMMAND_LOG="$TEST_ROOT/update-commands.log"
-  mkdir -p "$FAKE_BIN"
-}
-
-make_fake_command() {
-  local name="$1"
-  local exit_code="${2:-0}"
-  {
-    printf '#!/usr/bin/env bash\n'
-    printf 'printf '\''%s %%s\\n'\'' "$*" >>%q\n' "$name" "$COMMAND_LOG"
-    printf 'exit %s\n' "$exit_code"
-  } >"$FAKE_BIN/$name"
-  chmod +x "$FAKE_BIN/$name"
+  setup_fake_bin
 }
 
 make_fake_sudo_passthrough() {
@@ -96,24 +83,22 @@ make_fake_sudo_passthrough() {
   make_fake_command claude
   make_fake_sudo_passthrough
 
-  {
-    printf '#!/usr/bin/env bash\n'
-    printf 'printf '\''flatpak %%s\\n'\'' "$*" >>%q\n' "$COMMAND_LOG"
-    printf 'printf '\'' 1. [✗] com.discordapp.Discord stable u flathub 109 MB / 223 MB\\n'\''\n'
-    printf 'exit 23\n'
-  } >"$FAKE_BIN/flatpak"
-  chmod +x "$FAKE_BIN/flatpak"
+  write_fake_command flatpak <<EOF
+#!/usr/bin/env bash
+printf 'flatpak %s\n' "\$*" >>"$COMMAND_LOG"
+printf ' 1. [✗] com.discordapp.Discord stable u flathub 109 MB / 223 MB\n'
+exit 23
+EOF
 
-  {
-    printf '#!/usr/bin/env bash\n'
-    printf 'printf '\''dotnet %%s\\n'\'' "$*" >>%q\n' "$COMMAND_LOG"
-    printf 'if [[ "$1 $2 $3" == "tool list -g" ]]; then\n'
-    printf '  printf '\''Package Id      Version      Commands\\n'\''\n'
-    printf '  printf '\''-------------------------------------\\n'\''\n'
-    printf '  printf '\''csharp-ls       1.0.0        csharp-ls\\n'\''\n'
-    printf 'fi\n'
-  } >"$FAKE_BIN/dotnet"
-  chmod +x "$FAKE_BIN/dotnet"
+  write_fake_command dotnet <<EOF
+#!/usr/bin/env bash
+printf 'dotnet %s\n' "\$*" >>"$COMMAND_LOG"
+if [[ "\$1 \$2 \$3" == "tool list -g" ]]; then
+  printf 'Package Id      Version      Commands\n'
+  printf -- '-------------------------------------\n'
+  printf 'csharp-ls       1.0.0        csharp-ls\n'
+fi
+EOF
 
   run env PATH="$FAKE_BIN:$PATH" DOTNET_INSTALL_DIR="$TEST_ROOT/missing-dotnet" ZZ_UPDATE_ROOT_CONTEXT=1 \
     bash "$ROOT_DIR/bin/zz" update all --no-cleanup
@@ -165,4 +150,27 @@ make_fake_sudo_passthrough() {
   assert_file_contains "$COMMAND_LOG" "sudo -v"
   assert_file_contains "$COMMAND_LOG" "sudo env ZZ_UPDATE_RUN_USER="
   assert_file_contains "$COMMAND_LOG" "sudo -n env LC_ALL=C $FAKE_BIN/dnf upgrade -y --refresh --offline"
+}
+
+@test "shared dotnet channel selection keeps channels down to the second-newest LTS" {
+  command -v jq >/dev/null 2>&1 || skip "jq is not installed"
+  local metadata="$TEST_ROOT/releases-index.json"
+  cat >"$metadata" <<'JSON'
+{
+  "releases-index": [
+    {"channel-version": "10.0", "release-type": "lts", "support-phase": "active"},
+    {"channel-version": "9.0", "release-type": "sts", "support-phase": "maintenance"},
+    {"channel-version": "8.0", "release-type": "lts", "support-phase": "maintenance"},
+    {"channel-version": "7.0", "release-type": "sts", "support-phase": "eol"},
+    {"channel-version": "6.0", "release-type": "lts", "support-phase": "eol"}
+  ]
+}
+JSON
+
+  run bash -c "source '$ROOT_DIR/lib/dotnet.sh' && dotnet_selected_channels '$metadata'"
+
+  [ "$status" -eq 0 ]
+  assert_equal "10.0
+9.0
+8.0" "$output"
 }

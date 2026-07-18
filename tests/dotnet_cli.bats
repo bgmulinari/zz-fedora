@@ -4,14 +4,13 @@ load "helpers/common"
 
 setup() {
   setup_test_env
-  FAKE_BIN="$TEST_ROOT/fake-bin"
-  COMMAND_LOG="$TEST_ROOT/commands.log"
-  mkdir -p "$FAKE_BIN" "$TARGET_HOME/.mozilla/firefox/dev.default"
+  setup_fake_bin
+  mkdir -p "$TARGET_HOME/.mozilla/firefox/dev.default"
   touch "$TARGET_HOME/.mozilla/firefox/dev.default/cert9.db"
 }
 
 write_fake_dotnet() {
-  cat >"$FAKE_BIN/dotnet" <<'EOF'
+  write_fake_command dotnet <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 printf 'dotnet %s\n' "$*" >>"$COMMAND_LOG"
@@ -43,11 +42,10 @@ case "$*" in
     ;;
 esac
 EOF
-  chmod +x "$FAKE_BIN/dotnet"
 }
 
 write_fake_certutil() {
-  cat >"$FAKE_BIN/certutil" <<'EOF'
+  write_fake_command certutil <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 printf 'certutil %s\n' "$*" >>"$COMMAND_LOG"
@@ -60,12 +58,13 @@ case "$1" in
     ;;
 esac
 EOF
-  chmod +x "$FAKE_BIN/certutil"
 }
 
 write_fake_firefox() {
-  printf '#!/usr/bin/env sh\nexit 0\n' >"$FAKE_BIN/firefox"
-  chmod +x "$FAKE_BIN/firefox"
+  write_fake_command firefox <<'EOF'
+#!/usr/bin/env sh
+exit 0
+EOF
 }
 
 @test "zz dotnet exposes devcert help" {

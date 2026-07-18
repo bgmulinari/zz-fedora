@@ -218,32 +218,30 @@ PY
 }
 
 @test "Noctalia icon theme sync maps accent to closest installed Yaru theme" {
+  setup_fake_bin
   TARGET_HOME="$TEST_ROOT/icon-theme-home"
-  fake_bin="$TEST_ROOT/icon-theme-bin"
-  command_log="$TEST_ROOT/icon-theme-commands.log"
   mkdir -p \
     "$TARGET_HOME/.cache/noctalia" \
     "$TARGET_HOME/.local/share/icons/Yaru-blue" \
-    "$TARGET_HOME/.local/share/icons/Yaru-red" \
-    "$fake_bin"
+    "$TARGET_HOME/.local/share/icons/Yaru-red"
   printf '#f85149\n' >"$TARGET_HOME/.cache/noctalia/icon-theme-accent"
 
-  cat >"$fake_bin/gsettings" <<'EOF'
+  write_fake_command gsettings <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 printf 'gsettings:%s\n' "$*" >>"$ICON_THEME_COMMAND_LOG"
 EOF
-  cat >"$fake_bin/systemctl" <<'EOF'
+  write_fake_command systemctl <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 printf 'systemctl:%s\n' "$*" >>"$ICON_THEME_COMMAND_LOG"
 EOF
-  cat >"$fake_bin/dbus-update-activation-environment" <<'EOF'
+  write_fake_command dbus-update-activation-environment <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 printf 'dbus:%s:%s\n' "${QS_ICON_THEME:-}" "$*" >>"$ICON_THEME_COMMAND_LOG"
 EOF
-  cat >"$fake_bin/kwriteconfig6" <<'EOF'
+  write_fake_command kwriteconfig6 <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 file=""
@@ -276,45 +274,42 @@ mkdir -p "$HOME/.config"
 } >"$HOME/.config/$file"
 printf 'kwriteconfig6:%s:%s:%s:%s\n' "$file" "$group" "$key" "$value" >>"$ICON_THEME_COMMAND_LOG"
 EOF
-  chmod +x "$fake_bin/gsettings" "$fake_bin/systemctl" "$fake_bin/dbus-update-activation-environment" "$fake_bin/kwriteconfig6"
 
   HOME="$TARGET_HOME" \
     XDG_CACHE_HOME="$TARGET_HOME/.cache" \
-    ICON_THEME_COMMAND_LOG="$command_log" \
-    PATH="$fake_bin:$PATH" \
+    ICON_THEME_COMMAND_LOG="$COMMAND_LOG" \
+    PATH="$FAKE_BIN:$PATH" \
     "$ROOT_DIR/dotfiles/noctalia/.local/bin/noctalia-sync-icon-theme"
 
-  assert_file_contains "$command_log" 'gsettings:set org.gnome.desktop.interface icon-theme Yaru-red'
-  assert_file_contains "$command_log" 'systemctl:--user set-environment QS_ICON_THEME=Yaru-red'
-  assert_file_contains "$command_log" 'dbus:Yaru-red:--systemd QS_ICON_THEME'
+  assert_file_contains "$COMMAND_LOG" 'gsettings:set org.gnome.desktop.interface icon-theme Yaru-red'
+  assert_file_contains "$COMMAND_LOG" 'systemctl:--user set-environment QS_ICON_THEME=Yaru-red'
+  assert_file_contains "$COMMAND_LOG" 'dbus:Yaru-red:--systemd QS_ICON_THEME'
   assert_file_contains "$TARGET_HOME/.config/qt6ct/qt6ct.conf" 'icon_theme=Yaru-red'
   assert_file_contains "$TARGET_HOME/.config/kdeglobals" 'Theme=Yaru-red'
 }
 
 @test "Noctalia icon theme sync leaves settings unchanged when no Yaru theme is installed" {
+  setup_fake_bin
   TARGET_HOME="$TEST_ROOT/icon-theme-missing-home"
-  fake_bin="$TEST_ROOT/icon-theme-missing-bin"
-  command_log="$TEST_ROOT/icon-theme-missing-commands.log"
-  mkdir -p "$TARGET_HOME/.cache/noctalia" "$fake_bin"
+  mkdir -p "$TARGET_HOME/.cache/noctalia"
   printf '#f85149\n' >"$TARGET_HOME/.cache/noctalia/icon-theme-accent"
 
   for cmd in gsettings systemctl dbus-update-activation-environment kwriteconfig6; do
-    cat >"$fake_bin/$cmd" <<'EOF'
+    write_fake_command "$cmd" <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 printf '%s\n' "$0 $*" >>"$ICON_THEME_COMMAND_LOG"
 EOF
-    chmod +x "$fake_bin/$cmd"
   done
 
   HOME="$TARGET_HOME" \
     XDG_CACHE_HOME="$TARGET_HOME/.cache" \
     XDG_DATA_DIRS="$TEST_ROOT/icon-theme-missing-data" \
-    ICON_THEME_COMMAND_LOG="$command_log" \
-    PATH="$fake_bin:$PATH" \
+    ICON_THEME_COMMAND_LOG="$COMMAND_LOG" \
+    PATH="$FAKE_BIN:$PATH" \
     "$ROOT_DIR/dotfiles/noctalia/.local/bin/noctalia-sync-icon-theme"
 
-  [[ ! -e "$command_log" ]]
+  [[ ! -e "$COMMAND_LOG" ]]
   [[ ! -e "$TARGET_HOME/.config/qt6ct/qt6ct.conf" ]]
   [[ ! -e "$TARGET_HOME/.config/kdeglobals" ]]
 }
@@ -374,7 +369,7 @@ EOF
     shift
     printf 'user:%s:%s\n' "$user" "$*" >>"$TEST_ROOT/first-run-commands.log"
     case "$1" in
-      mkdir|rm|sh)
+      mkdir|rm|sh|install|cp)
         "$@"
         ;;
       *)
@@ -386,14 +381,14 @@ EOF
   register_first_run_hook
   assert_file_contains "$TARGET_HOME/.config/autostart/zz-first-run.desktop" "Exec=$TARGET_HOME/.local/bin/zz first-run"
 
-  run_without_bats_debug_trap module_80_first_run
+  run_without_bats_debug_trap module_85_first_run
   [[ -f "$(first_run_marker)" ]]
   [[ ! -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user daemon-reload"
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user enable --now app-com.mitchellh.ghostty.service"
 
   : >"$TEST_ROOT/first-run-commands.log"
-  run_without_bats_debug_trap module_80_first_run
+  run_without_bats_debug_trap module_85_first_run
   [[ ! -s "$TEST_ROOT/first-run-commands.log" ]]
 }
 
@@ -430,35 +425,33 @@ EOF
 
 @test "Flatpak theme access override is applied as user override" {
   build_test_plan
+  setup_fake_bin
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/flatpak-theme-home"
   DRY_RUN=0
-  fake_bin="$TEST_ROOT/flatpak-theme-bin"
-  command_log="$TEST_ROOT/flatpak-theme-commands.log"
-  mkdir -p "$TARGET_HOME" "$fake_bin"
+  mkdir -p "$TARGET_HOME"
 
-  cat >"$fake_bin/flatpak" <<'EOF'
+  write_fake_command flatpak <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 printf '%s\n' "$*" >>"$FLATPAK_COMMAND_LOG"
 EOF
-  chmod +x "$fake_bin/flatpak"
-  PATH="$fake_bin:$PATH"
-  export FLATPAK_COMMAND_LOG="$command_log"
+  PATH="$FAKE_BIN:$PATH"
+  export FLATPAK_COMMAND_LOG="$COMMAND_LOG"
 
   run_cmd_as_user() {
     local user="$1"
     shift
-    printf 'user:%s:%s\n' "$user" "$*" >>"$command_log"
+    printf 'user:%s:%s\n' "$user" "$*" >>"$COMMAND_LOG"
     "$@"
   }
 
   configure_flatpak_theme_access
 
-  assert_file_contains "$command_log" "user:test-user:flatpak override --user"
-  assert_file_contains "$command_log" "--filesystem=xdg-config/gtk-3.0:ro"
-  assert_file_contains "$command_log" "--filesystem=xdg-config/gtk-4.0:ro"
-  assert_file_contains "$command_log" "--filesystem=xdg-config/qt6ct:ro"
-  assert_file_contains "$command_log" "--filesystem=xdg-config/kdeglobals:ro"
-  assert_file_contains "$command_log" "--filesystem=xdg-data/color-schemes:ro"
+  assert_file_contains "$COMMAND_LOG" "user:test-user:flatpak override --user"
+  assert_file_contains "$COMMAND_LOG" "--filesystem=xdg-config/gtk-3.0:ro"
+  assert_file_contains "$COMMAND_LOG" "--filesystem=xdg-config/gtk-4.0:ro"
+  assert_file_contains "$COMMAND_LOG" "--filesystem=xdg-config/qt6ct:ro"
+  assert_file_contains "$COMMAND_LOG" "--filesystem=xdg-config/kdeglobals:ro"
+  assert_file_contains "$COMMAND_LOG" "--filesystem=xdg-data/color-schemes:ro"
 }

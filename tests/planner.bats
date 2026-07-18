@@ -322,9 +322,9 @@ assert_all_bundles_reachable() {
 @test "browser and development selections add their sources and packages" {
   build_test_plan "browser=brave,firefox" "dev=vscode,lazygit" "ai=codex"
 
-  assert_plan_has "$PLAN_DIR/bundles.list" "browser-firefox"
-  assert_plan_has "$PLAN_DIR/bundles.list" "browser-firefox-pywalfox"
-  assert_plan_has "$PLAN_DIR/bundles.list" "browser-firefox-pywalfox-runtime"
+  assert_plan_has "$PLAN_DIR/bundles.list" "browsers-firefox"
+  assert_plan_has "$PLAN_DIR/bundles.list" "browsers-firefox-pywalfox"
+  assert_plan_has "$PLAN_DIR/bundles.list" "browsers-firefox-pywalfox-runtime"
   assert_plan_has "$PLAN_DIR/bundles.list" "dev-vscode-extensions"
   assert_plan_has "$PLAN_DIR/sources/vendor.list" "vendor:brave"
   assert_plan_has "$PLAN_DIR/sources/vendor.list" "vendor:vscode"
@@ -389,7 +389,7 @@ assert_all_bundles_reachable() {
 }
 
 @test "plan files stay unique after repeated overlapping selections" {
-  build_test_plan "browser=zen-copr" "dev=vscode,neovim" "ai=codex,codex" "dotnet=tools"
+  build_test_plan "browser=zen" "dev=vscode,neovim" "ai=codex,codex" "dotnet=tools"
 
   assert_unique_file "$PLAN_DIR/sources/flatpak-remotes.list"
   assert_unique_file "$PLAN_DIR/sources/vendor.list"
@@ -406,4 +406,41 @@ assert_all_bundles_reachable() {
   build_test_plan
   run_without_bats_debug_trap assert_base_manifests_in_plan
   run_without_bats_debug_trap assert_all_bundles_reachable
+}
+
+@test "a new bundles/base descriptor is planned into the effective base set" {
+  local sandbox="$TEST_ROOT/base-derivation-root"
+  mkdir -p "$sandbox"
+  cp -R "$ROOT_DIR/bundles" "$sandbox/bundles"
+  cat >"$sandbox/bundles/base/zz-test.bundle" <<'BUNDLE'
+BUNDLE_ID="base-zz-test"
+BUNDLE_BASE="1"
+BUNDLE_BASE_ORDER="15"
+BUNDLE_MINIMAL_DESKTOP_SKIP="1"
+BUNDLE_INSTALLER="dnf"
+BUNDLE_SOURCE_IDS=""
+BUNDLE_STOW_PACKAGES=""
+BUNDLE_DESCRIPTION="Sandbox base bundle for planner derivation tests"
+BUNDLE
+
+  effective_ids_for_profile() {
+    local profile="$1"
+    ROOT_DIR="$sandbox"
+    DESKTOP_APP_PROFILE="$profile"
+    BUNDLE_FILE_CACHE=()
+    BUNDLE_FILE_CACHE_LOADED=()
+    BASE_BUNDLE_CATALOG_LOADED=()
+    load_base_bundle_catalog
+    effective_base_bundle_ids
+  }
+
+  run effective_ids_for_profile full
+  [ "$status" -eq 0 ]
+  assert_equal "base-bootstrap" "${lines[0]}"
+  assert_equal "base-zz-test" "${lines[1]}"
+  assert_equal "base-source-rpmfusion-free" "${lines[2]}"
+
+  run effective_ids_for_profile minimal
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"base-zz-test"* ]]
 }
