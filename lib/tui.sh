@@ -608,7 +608,7 @@ tui_run_wizard() {
     local index=0
     for index in "${!preferred_browser_options[@]}"; do
       if [[ "${preferred_browser_options[$index]}" == "$preferred_label" ]]; then
-        # shellcheck disable=SC2034  # Consumed by modules/80-post-actions.sh.
+        # shellcheck disable=SC2034  # Consumed by lib/desktop-defaults.sh.
         PREFERRED_BROWSER="${browser_choices[$index]}"
         break
       fi

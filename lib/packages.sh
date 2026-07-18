@@ -78,6 +78,19 @@ read_plan_file() {
   read_clean_lines "$plan_file" | sort -u
 }
 
+plan_has_any_backend_entry() {
+  local plan_file="$1"
+  shift
+  local entry
+  for entry in "$@"; do
+    [[ -f "$plan_file" ]] || continue
+    if grep -Fx "$entry" "$plan_file" >/dev/null 2>&1; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 remove_plan_entries() {
   local plan_file="$1"
   shift

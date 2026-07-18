@@ -42,6 +42,12 @@ source_core() {
   source "$ROOT_DIR/lib/stow.sh"
   # shellcheck source=../../lib/files.sh
   source "$ROOT_DIR/lib/files.sh"
+  # shellcheck source=../../lib/files-user.sh
+  source "$ROOT_DIR/lib/files-user.sh"
+  # shellcheck source=../../lib/theme-seeds.sh
+  source "$ROOT_DIR/lib/theme-seeds.sh"
+  # shellcheck source=../../lib/first-run.sh
+  source "$ROOT_DIR/lib/first-run.sh"
   # shellcheck source=../../lib/tui.sh
   source "$ROOT_DIR/lib/tui.sh"
   # shellcheck source=../../lib/planner.sh

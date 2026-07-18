@@ -13,6 +13,39 @@ user_services_from_plan() {
   read_plan_file "$PLAN_DIR/services/user-enable.list"
 }
 
+enable_user_service() {
+  local service_name="$1"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    if [[ "${ZZ_INSTALLER_DEFER_START_SERVICES:-0}" -eq 1 ]]; then
+      printf 'DRY-RUN: systemctl --global enable %s\n' "$service_name"
+    else
+      printf 'DRY-RUN: systemctl --user enable --now %s\n' "$service_name"
+    fi
+    return 0
+  fi
+
+  if [[ "${ZZ_INSTALLER_DEFER_START_SERVICES:-0}" -eq 1 ]]; then
+    run_cmd_as_root systemctl --global enable "$service_name"
+    return $?
+  fi
+
+  if run_cmd_as_user "$TARGET_USER" systemctl --user enable --now "$service_name"; then
+    return 0
+  fi
+
+  [[ "$EUID" -eq 0 ]] || return 1
+  run_cmd_as_root systemctl --global enable "$service_name"
+}
+
+enable_user_services() {
+  local service_name
+  while IFS= read -r service_name; do
+    [[ -n "$service_name" ]] || continue
+    log_progress "Enabling user service: $service_name"
+    enable_user_service "$service_name" || log_warn "Could not enable user service: $service_name"
+  done < <(user_services_from_plan)
+}
+
 systemd_unit_file_exists() {
   local service_name="$1"
   local unit_name="${service_name%.service}.service"

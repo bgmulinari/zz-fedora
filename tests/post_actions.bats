@@ -381,14 +381,14 @@ EOF
   register_first_run_hook
   assert_file_contains "$TARGET_HOME/.config/autostart/zz-first-run.desktop" "Exec=$TARGET_HOME/.local/bin/zz first-run"
 
-  run_without_bats_debug_trap module_80_first_run
+  run_without_bats_debug_trap module_85_first_run
   [[ -f "$(first_run_marker)" ]]
   [[ ! -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user daemon-reload"
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user enable --now app-com.mitchellh.ghostty.service"
 
   : >"$TEST_ROOT/first-run-commands.log"
-  run_without_bats_debug_trap module_80_first_run
+  run_without_bats_debug_trap module_85_first_run
   [[ ! -s "$TEST_ROOT/first-run-commands.log" ]]
 }
 
