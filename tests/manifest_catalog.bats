@@ -175,6 +175,72 @@ EOF
   validate_bundle_descriptor "$descriptor_dir/multi-source.bundle"
 }
 
+@test "source descriptor validation rejects unknown keys" {
+  local descriptor_dir="$TEST_ROOT/sources"
+  mkdir -p "$descriptor_dir"
+
+  cat >"$descriptor_dir/unknown-key.source" <<'EOF'
+SOURCE_ID="vendor:test-unknown-key"
+SOURCE_KIND="vendor"
+SOURCE_LABEL="Test vendor repository"
+SOURCE_FROBNICATE="1"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="Source with a made-up key"
+SOURCE_GPG_POLICY="repo-gpg-key"
+SOURCE_BOOTSTRAP_EXCEPTION=0
+SOURCE_REASON="Test fixture"
+EOF
+  run validate_source_descriptor "$descriptor_dir/unknown-key.source"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Unknown source descriptor key 'SOURCE_FROBNICATE'"
+}
+
+@test "source descriptor validation scopes SOURCE_PROJECT by kind" {
+  local descriptor_dir="$TEST_ROOT/sources"
+  mkdir -p "$descriptor_dir"
+
+  cat >"$descriptor_dir/copr-no-project.source" <<'EOF'
+SOURCE_ID="copr:test/no-project"
+SOURCE_KIND="copr"
+SOURCE_LABEL="COPR without a project"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="COPR source missing SOURCE_PROJECT"
+SOURCE_GPG_POLICY="copr-plugin"
+SOURCE_BOOTSTRAP_EXCEPTION=0
+SOURCE_REASON="Test fixture"
+EOF
+  run validate_source_descriptor "$descriptor_dir/copr-no-project.source"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Missing SOURCE_PROJECT for copr source"
+
+  cat >"$descriptor_dir/vendor-with-project.source" <<'EOF'
+SOURCE_ID="vendor:test-with-project"
+SOURCE_KIND="vendor"
+SOURCE_LABEL="Vendor with a stray project"
+SOURCE_PROJECT="acme/stray"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="Vendor source declaring SOURCE_PROJECT"
+SOURCE_GPG_POLICY="repo-gpg-key"
+SOURCE_BOOTSTRAP_EXCEPTION=0
+SOURCE_REASON="Test fixture"
+EOF
+  run validate_source_descriptor "$descriptor_dir/vendor-with-project.source"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "SOURCE_PROJECT is only valid for artifact and copr sources"
+
+  cat >"$descriptor_dir/vendor-plain.source" <<'EOF'
+SOURCE_ID="vendor:test-plain"
+SOURCE_KIND="vendor"
+SOURCE_LABEL="Vendor without a project"
+SOURCE_REQUIRED=0
+SOURCE_DESCRIPTION="Vendor source omitting SOURCE_PROJECT"
+SOURCE_GPG_POLICY="repo-gpg-key"
+SOURCE_BOOTSTRAP_EXCEPTION=0
+SOURCE_REASON="Test fixture"
+EOF
+  validate_source_descriptor "$descriptor_dir/vendor-plain.source"
+}
+
 @test "action manifest validation accepts registered ids and rejects unknown ids" {
   manifest="$TEST_ROOT/test.actions"
   printf '%s\n' 'docker' 'brew:lazydocker' 'vscode-extension:noctalia.noctaliatheme' >"$manifest"

@@ -97,8 +97,37 @@ list_source_ids() {
   done < <(list_source_files)
 }
 
+source_descriptor_key_supported() {
+  case "$1" in
+    SOURCE_ID|SOURCE_KIND|SOURCE_LABEL|SOURCE_PROJECT|SOURCE_REQUIRED|SOURCE_DESCRIPTION|SOURCE_GPG_POLICY|SOURCE_BOOTSTRAP_EXCEPTION|SOURCE_REASON)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+validate_source_descriptor_keys() {
+  local source_file="$1"
+  local line key
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      ''|'#'*)
+        continue
+        ;;
+    esac
+    [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]] || die "Invalid source descriptor line '$line' in $source_file"
+    key="${BASH_REMATCH[1]}"
+    source_descriptor_key_supported "$key" || die "Unknown source descriptor key '$key' in $source_file"
+  done <"$source_file"
+}
+
 validate_source_descriptor() {
   local source_file="$1"
+
+  validate_source_descriptor_keys "$source_file"
+
   unset \
     SOURCE_ID \
     SOURCE_KIND \
@@ -143,6 +172,9 @@ validate_source_descriptor() {
   case "$SOURCE_KIND" in
     artifact|copr)
       [[ -n "${SOURCE_PROJECT:-}" ]] || die "Missing SOURCE_PROJECT for $SOURCE_KIND source in $source_file"
+      ;;
+    *)
+      [[ -z "${SOURCE_PROJECT:-}" ]] || die "SOURCE_PROJECT is only valid for artifact and copr sources in $source_file"
       ;;
   esac
 }
