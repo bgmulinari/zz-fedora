@@ -21,7 +21,9 @@ jobs:
     container:
       image: fedora:latest
       # mkksiso refreshes the embedded EFI boot image through loop mounts,
-      # which need a privileged container.
+      # which need a privileged container. Steps in this container run as
+      # root, which the builder's root-privileges check relies on; it fails
+      # fast with a clear error if that ever changes.
       options: --privileged
     timeout-minutes: 60
     permissions:

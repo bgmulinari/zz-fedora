@@ -62,10 +62,12 @@ iso_write_checkout_stamp() {
   local repo_dir="$1"
   local destination_file="$2"
   local revision dirty
-  revision="$(git -C "$repo_dir" rev-parse HEAD 2>/dev/null || printf 'unknown')"
+  # safe.directory keeps git reading the invoking user's checkout when the
+  # build runs as root without sudo's SUDO_UID ownership exception.
+  revision="$(git -C "$repo_dir" -c safe.directory="$repo_dir" rev-parse HEAD 2>/dev/null || printf 'unknown')"
   dirty=0
-  git -C "$repo_dir" diff --quiet --ignore-submodules -- 2>/dev/null || dirty=1
-  git -C "$repo_dir" diff --cached --quiet --ignore-submodules -- 2>/dev/null || dirty=1
+  git -C "$repo_dir" -c safe.directory="$repo_dir" diff --quiet --ignore-submodules -- 2>/dev/null || dirty=1
+  git -C "$repo_dir" -c safe.directory="$repo_dir" diff --cached --quiet --ignore-submodules -- 2>/dev/null || dirty=1
   mkdir -p "$(dirname "$destination_file")"
   {
     printf 'format=1\n'
@@ -434,13 +436,21 @@ iso_stage_tracked_runtime_payload() {
 
   rm -rf "$destination"
   mkdir -p "$destination"
+  # git feeds the pipeline directly (not a process substitution) so pipefail
+  # surfaces its failure instead of silently staging an empty payload;
+  # safe.directory keeps git reading the invoking user's checkout when the
+  # build runs as root without sudo's SUDO_UID ownership exception.
   (
     cd "$repo_dir"
-    while IFS= read -r -d '' tracked_path; do
-      [[ -e "$tracked_path" || -L "$tracked_path" ]] || continue
-      printf '%s\0' "$tracked_path"
-    done < <(git ls-files -z -- "${runtime_paths[@]}")
-  ) | rsync -a --from0 --files-from=- "$repo_dir/" "$destination/"
+    git -c safe.directory="$repo_dir" ls-files -z -- "${runtime_paths[@]}" |
+      while IFS= read -r -d '' tracked_path; do
+        [[ -e "$tracked_path" || -L "$tracked_path" ]] || continue
+        printf '%s\0' "$tracked_path"
+      done
+  ) | rsync -a --from0 --files-from=- "$repo_dir/" "$destination/" || {
+    iso_err "failed to stage tracked runtime files from: $repo_dir"
+    return 1
+  }
 
   [[ -x "$destination/install.sh" ]] || {
     iso_err "staged payload is missing executable install.sh"

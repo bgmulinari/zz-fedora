@@ -15,11 +15,13 @@ Usage: iso/scripts/build-fedora-installer-iso.sh [--input ISO] [--output ISO] [-
 Embed this checkout and the zz-fedora Fedora Kickstart into a Fedora installer
 ISO. The embedded checkout refreshes the remote runtime before Anaconda shows
 its choices. An Anaconda add-on D-Bus task runs the normal installer from that
-refreshed snapshot. When --input is omitted, the latest stable Fedora
-Everything x86_64 netinst ISO is resolved from Fedora's release metadata,
-downloaded to release/input, and reused by later builds. When --output is
-omitted, the output filename is derived from the input ISO metadata. The
-automatic input is verified against Fedora's signed checksum on every build.
+refreshed snapshot. Publishable builds require root privileges; development
+builds with --skip-mkefiboot do not need them. When --input is omitted, the
+latest stable Fedora Everything x86_64 netinst ISO is resolved from Fedora's
+release metadata, downloaded to release/input, and reused by later builds.
+The output filename is derived from the input ISO metadata when --output
+is omitted. The automatic input is verified against Fedora's signed checksum
+on every build.
 EOF
 }
 
@@ -107,6 +109,28 @@ while (($# > 0)); do
   esac
 done
 
+# Root is needed only for mkksiso's EFI boot image refresh, which
+# --skip-mkefiboot development builds omit. Unlike $EUID, id resolves through
+# PATH so the Bats suite can fake a privileged run; the string comparison
+# refuses the build if id itself fails.
+if [[ "$skip_mkefiboot" -eq 0 && "$(id -u)" != "0" ]]; then
+  err "root privileges are required; rerun this command with sudo, or pass --skip-mkefiboot for a development build."
+  exit 1
+fi
+
+# A sudo build must not leave root-owned files in the invoking user's
+# checkout: hand the release outputs and download cache back on every exit,
+# including failures that already populated release/input.
+restore_invoker_ownership() {
+  [[ "$EUID" -eq 0 && -n "${SUDO_UID:-}" && -n "${SUDO_GID:-}" ]] || return 0
+  local path
+  for path in "$repo_dir/release" "$output_iso"; do
+    [[ -n "$path" && -e "$path" ]] || continue
+    chown -R "$SUDO_UID:$SUDO_GID" "$path"
+  done
+}
+trap 'restore_invoker_ownership' EXIT
+
 if [[ -z "$input_iso" ]]; then
   use_default_input=1
 fi
@@ -186,7 +210,7 @@ output_base="$(basename "$output_iso")"
 mkdir -p "$output_dir"
 tmp_output="$(mktemp "$output_dir/.$output_base.tmp.XXXXXX")"
 rm -f "$tmp_output"
-trap 'rm -rf "$work_dir"; rm -f "$tmp_output"' EXIT
+trap 'rm -rf "$work_dir"; rm -f "$tmp_output"; restore_invoker_ownership' EXIT
 
 iso_stage_tracked_runtime_payload "$repo_dir" "$payload_dir"
 iso_render_release_template "$ks_file" "$rendered_ks_file"

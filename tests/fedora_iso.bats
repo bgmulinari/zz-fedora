@@ -11,8 +11,22 @@ setup() {
   export ZZ_TEST_BETA_RELEASE="$((ZZ_TEST_FEDORA_RELEASE + 1))"
 }
 
+make_fake_identity() {
+  local uid="${1:-0}"
+  write_fake_command id <<SH
+#!/usr/bin/env bash
+set -Eeuo pipefail
+if [[ "\$#" -eq 1 && "\$1" == "-u" ]]; then
+  printf '%s\n' "$uid"
+else
+  command -p id "\$@"
+fi
+SH
+}
+
 @test "Fedora ISO builder embeds Kickstart, checkout, and Anaconda add-on with mkksiso" {
   setup_fake_bin
+  make_fake_identity
 
   write_fake_command rsync <<'SH'
 #!/usr/bin/env bash
@@ -236,6 +250,7 @@ SH
   run "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" --help
   [ "$status" -eq 0 ]
   assert_contains "$output" "[--input ISO] [--output ISO]"
+  assert_contains "$output" "Publishable builds require root privileges"
   assert_contains "$output" "latest stable Fedora"
   assert_contains "$output" "downloaded to release/input"
   assert_contains "$output" "output filename is derived from the input ISO metadata"
@@ -256,8 +271,38 @@ SH
   done
 }
 
+@test "Fedora ISO builder requires root before resolving or downloading its input" {
+  setup_fake_bin
+  make_fake_identity 1000
+
+  write_fake_command curl <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+touch "$ZZ_TEST_CURL_CALLED"
+SH
+
+  export ZZ_TEST_CURL_CALLED="$TEST_ROOT/curl-called"
+  run env PATH="$FAKE_BIN:$PATH" "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh"
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "root privileges are required; rerun this command with sudo, or pass --skip-mkefiboot for a development build."
+  [ ! -e "$ZZ_TEST_CURL_CALLED" ]
+}
+
+@test "Fedora ISO builder exempts skip-mkefiboot development builds from the root requirement" {
+  setup_fake_bin
+  make_fake_identity 1000
+
+  run env PATH="$FAKE_BIN:$PATH" "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" \
+    --skip-mkefiboot --input "$TEST_ROOT/missing.iso"
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "input ISO not found: $TEST_ROOT/missing.iso"
+}
+
 @test "Fedora ISO builder derives its default output and verifies automatic input" {
   setup_fake_bin
+  make_fake_identity
 
   fixture_repo="$TEST_ROOT/builder-repo"
   release_key_dir="$TEST_ROOT/fedora-release-keys"
@@ -605,6 +650,7 @@ SH
 
 @test "Fedora ISO builder checks local build inputs before downloading" {
   setup_fake_bin
+  make_fake_identity
 
   fixture_repo="$TEST_ROOT/precondition-repo"
   mkdir -p "$fixture_repo/iso/scripts" "$fixture_repo/iso/lib" "$fixture_repo/config"

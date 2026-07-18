@@ -38,8 +38,16 @@ sudo dnf install curl gnupg2 jq lorax rsync xorriso
 Build with the latest stable Fedora Everything x86_64 netinst ISO:
 
 ```bash
-iso/scripts/build-fedora-installer-iso.sh
+sudo iso/scripts/build-fedora-installer-iso.sh
 ```
+
+Publishable builds require root privileges because `mkksiso` refreshes the
+embedded EFI boot image through loop mounts; development builds that pass
+`--skip-mkefiboot` skip that refresh and run unprivileged. The builder checks
+for the privileges before it resolves or downloads the input ISO, so a build
+cannot do the large download and then fail for lack of access. A `sudo` build
+restores ownership of the `release/` outputs and download cache to the
+invoking user on exit.
 
 When `--input` is omitted, the builder refreshes Fedora's machine-readable
 `releases.json`, selects the highest stable numeric Everything release for
@@ -49,17 +57,19 @@ files and moved into place only after they complete.
 
 The builder also caches Fedora's clear-signed checksum file and refreshes its
 OpenPGP keyring in `release/input/`. On every build, it verifies the checksum
-document with `gpgv`, derives the expected signer fingerprint from the installed
-Fedora release certificate under `/etc/pki/rpm-gpg/` (set
-`ZZ_FEDORA_RELEASE_KEY_DIR` to read the release certificates from another
-directory), and checks the ISO's
-SHA-256 against both the authenticated checksum and release metadata. This
-verification also runs for a cached ISO. If the cached ISO or the cached
+document with `gpgv`, derives the expected signer fingerprint from the
+installed Fedora release certificate under `/etc/pki/rpm-gpg/`, and checks the
+ISO's SHA-256 against both the authenticated checksum and release metadata.
+This verification also runs for a cached ISO. If the cached ISO or the cached
 checksum document fails verification, the builder removes it, downloads a
 replacement, and verifies the replacement before continuing; a downloaded
 checksum that still fails verification is removed rather than left in the
 cache. Keep the host's `fedora-repos` package current so the next
 stable release's certificate is present when Fedora publishes that release.
+Set `ZZ_FEDORA_RELEASE_KEY_DIR` to read the release certificates from another
+directory; pass it on the `sudo` command line, as in
+`sudo ZZ_FEDORA_RELEASE_KEY_DIR=<dir> iso/scripts/build-fedora-installer-iso.sh`,
+because `sudo` strips exported environment variables by default.
 
 When `--output` is omitted, the builder reads the release and architecture
 from the input ISO and writes `release/zz-fedora-<architecture>-<release>.iso`.
@@ -69,21 +79,14 @@ To build from another local Fedora installer ISO, pass it explicitly and
 verify it with the digest from Fedora's signed checksum file:
 
 ```bash
-iso/scripts/build-fedora-installer-iso.sh \
+sudo iso/scripts/build-fedora-installer-iso.sh \
   --input /path/to/Fedora-Everything-netinst-x86_64-<release>-<compose>.iso \
   --input-sha256 <sha256-from-the-signed-fedora-checksum-file>
 ```
 
-For a fully bootable UEFI USB image, run the builder with privileges when your
-Fedora/Lorax version requires it:
-
-```bash
-sudo iso/scripts/build-fedora-installer-iso.sh
-```
-
 `--skip-mkefiboot` is available for development-only builds where you do not
-need `mkksiso` to update the embedded EFI boot image. Validate publishable
-media without that flag.
+need `mkksiso` to update the embedded EFI boot image; those builds do not
+require root privileges. Validate publishable media without that flag.
 
 The builder supports x86_64 input media at or above `MINIMUM_FEDORA_RELEASE`
 from `config/defaults.sh`. When supplying `--input`, pass `--input-sha256`
