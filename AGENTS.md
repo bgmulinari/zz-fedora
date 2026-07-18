@@ -40,19 +40,18 @@
 
 ## Fedora installer ISO
 
-- The installer-ISO path lives entirely under `iso/`: the Kickstart, Anaconda add-on, build and VM test scripts (`iso/scripts/`), build-time helpers (`iso/lib/build-common.sh`), the payload manifest (`iso/payload-paths.conf`), and the runtime loader (`iso/lib/runtime-loader.sh`). Keep `docs/fedora-installer-iso.md` synchronized with behavior and CLI changes.
+- The installer-ISO path lives entirely under `iso/`: the Kickstart, Anaconda add-on, build and VM test scripts (`iso/scripts/`), build-time helpers (`iso/lib/build-common.sh`), the payload manifest (`iso/payload-paths.conf`), and the runtime loader (`iso/lib/runtime-loader.sh`).
+- `docs/fedora-installer-iso.md` is the single expanded source for build, install-flow, and pre-publish VM validation procedure (verified input media, dev-only build shortcuts, harness modes); `docs/design/fedora-installer-iso-architecture.md` holds the design rationale. Keep both synchronized with behavior and CLI changes instead of restating their detail here.
 - `iso/lib/build-common.sh` runs only at build time on the developer machine; `iso/lib/runtime-loader.sh` runs only inside Anaconda via the add-on and is never sourced by the normal `install.sh` path. Keep those lifecycles separate.
-- Keep the ISO online: it embeds the current checkout and installer integration, not package mirrors. Stage only Git-tracked runtime files; never include `.git`, tests, logs, caches, ignored files, or unrelated untracked files.
-- Keep disk layout, locale, timezone, hostname, credentials, and user creation under Anaconda. Run repository setup through the add-on service and normal `install.sh` path; do not duplicate it in Kickstart `%post` logic.
-- Build only from a supported Fedora x86_64 installer ISO and pass `--input-sha256` from Fedora's signed checksum file. Input and output paths must differ, and generated images belong under ignored `release/` rather than in Git.
-- Use `--skip-mkefiboot` only for development builds that do not need a refreshed EFI boot image. Validate publishable media without that flag.
+- Keep the ISO online: it embeds the current checkout and installer integration, not package mirrors, and stages only Git-tracked runtime files.
+- Keep system configuration (disk layout, locale, timezone, hostname, credentials, user creation) under Anaconda. Run repository setup through the add-on service and normal `install.sh` path; do not duplicate it in Kickstart `%post` logic.
 - For ISO changes, run the focused suites:
 
   ```bash
   bats tests/fedora_iso.bats tests/anaconda_addon.bats tests/post_actions_installer_iso.bats
   ```
 
-- Before publishing installer-path changes, run `iso/scripts/test-fedora-installer-vm.sh --input <fedora-installer.iso> --input-sha256 <sha256>`. Use its direct/text/headless modes for iteration, but validate the generated ISO boot path for release work.
+- Before publishing installer-path changes, run the VM validation documented in `docs/fedora-installer-iso.md`.
 
 ## Safe development commands
 
