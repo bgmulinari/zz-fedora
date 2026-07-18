@@ -99,7 +99,9 @@ are never copied into the ISO.
 ### CI release build
 
 The manually triggered `Release ISO` GitHub Actions workflow
-(`.github/workflows/release-iso.yml`) first runs the full CI test matrix,
+(`.github/workflows/release-iso.yml`) first runs the CI test gate — the
+Fedora container matrix, which deduplicates to a single leg while
+`fedora:latest` is the same image as the minimum supported release — and
 then builds the ISO with the verified automatic Fedora input and replaces the
 repository's single rolling GitHub release (tag `latest`) with the fresh ISO
 and its SHA-256 checksum file. Start it from the repository's Actions tab.

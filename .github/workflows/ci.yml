@@ -11,14 +11,37 @@ permissions:
   contents: read
 
 jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      fedora: ${{ steps.resolve.outputs.fedora }}
+    steps:
+      # The resolver needs only these two files; a default checkout would
+      # pull the ~190 MB asset tree into this serial gate on every run.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          sparse-checkout: |
+            /scripts/ci-fedora-matrix.sh
+            /config/defaults.sh
+          sparse-checkout-cone-mode: false
+      # The script reads MINIMUM_FEDORA_RELEASE from config/defaults.sh and
+      # drops the fedora:latest leg while it is the same image as the minimum
+      # supported release, so the identical suite is not run twice.
+      # shell: bash enables pipefail, so a resolver failure fails this step
+      # instead of being masked by tee's exit status.
+      - name: Resolve the Fedora container matrix
+        id: resolve
+        shell: bash
+        run: bash scripts/ci-fedora-matrix.sh | tee -a "$GITHUB_OUTPUT"
+
   test:
+    needs: matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # "44" must stay aligned with MINIMUM_FEDORA_RELEASE in
-        # config/defaults.sh; tests/ci_setup.bats checks the pairing.
-        fedora: ["44", "latest"]
+        fedora: ${{ fromJSON(needs.matrix.outputs.fedora) }}
     container: fedora:${{ matrix.fedora }}
     timeout-minutes: 30
     steps:
