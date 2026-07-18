@@ -103,8 +103,10 @@ json_field() {
 
   assert_file_contains "$manifest" 'id = "local/niri-outputs"'
   assert_file_contains "$manifest" 'name = "Niri Outputs"'
+  assert_file_contains "$manifest" 'version = "0.1.2"'
   assert_file_contains "$manifest" 'plugin_api = 3'
   assert_file_contains "$manifest" '[[panel]]'
+  assert_file_contains "$manifest" 'height = 736'
   assert_file_contains "$manifest" '[[widget]]'
   assert_file_contains "$manifest" '[[shortcut]]'
   assert_file_contains "$manifest" 'label_key = "settings.confirm_timeout.label"'
