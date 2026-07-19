@@ -25,12 +25,10 @@ cleanup_on_exit() {
 }
 
 restore_state_ownership() {
-  [[ "$EUID" -eq 0 ]] || return 0
-  [[ -n "${STATE_OWNER_USER:-}" && "$STATE_OWNER_USER" != "root" ]] || return 0
-  id "$STATE_OWNER_USER" >/dev/null 2>&1 || return 0
+  state_owner_fixup_required || return 0
 
   local owner_group dir
-  owner_group="$(id -gn "$STATE_OWNER_USER" 2>/dev/null)" || return 0
+  owner_group="$(state_owner_group)" || return 0
   for dir in "$STATE_DIR" "$CACHE_DIR" "$CONFIG_DIR" "$LOG_DIR"; do
     [[ -d "$dir" && "$dir" == */zz-fedora ]] || continue
     chown -R "$STATE_OWNER_USER:$owner_group" "$dir" 2>/dev/null || true
@@ -175,29 +173,58 @@ stop_sudo_keepalive() {
 }
 
 # All pre-replace backups share one layout: the original absolute path
-# mirrored under $STATE_DIR/backups/<timestamp>.
+# mirrored under $STATE_DIR/backups/<timestamp>. timestamp() has second
+# granularity, so when the same destination is backed up more than once in
+# one second an incrementing suffix keeps every copy instead of letting the
+# later backup overwrite the true original.
 backup_target_path() {
   local destination="$1"
-  printf '%s/backups/%s%s\n' "$STATE_DIR" "$(timestamp)" "$destination"
+  local backup_path candidate suffix
+  backup_path="$(printf '%s/backups/%s%s' "$STATE_DIR" "$(timestamp)" "$destination")"
+  candidate="$backup_path"
+  suffix=1
+  while [[ -e "$candidate" || -L "$candidate" ]]; do
+    candidate="$backup_path.$suffix"
+    suffix=$((suffix + 1))
+  done
+  printf '%s\n' "$candidate"
 }
 
 backup_file_if_needed() {
   local destination="$1"
   [[ -e "$destination" || -L "$destination" ]] || return 0
-  local backup_path
+  local backup_path backup_dir
   backup_path="$(backup_target_path "$destination")"
-  run_cmd mkdir -p "$(dirname "$backup_path")"
-  run_cmd cp -a "$destination" "$backup_path"
-  [[ "$DRY_RUN" -eq 1 ]] || log_info "Backed up $destination to $backup_path"
+  backup_dir="$(dirname "$backup_path")"
+  # A failed backup must fail the running step immediately with the real
+  # cause: step functions run with errexit suppressed, so a plain failure
+  # status would be swallowed and the caller would replace $destination
+  # without any backup.
+  run_cmd mkdir -p "$backup_dir" ||
+    die "Could not create backup directory $backup_dir before replacing $destination"
+  run_cmd cp -a "$destination" "$backup_path" ||
+    die "Could not back up $destination to $backup_path before replacing it"
+  [[ "$DRY_RUN" -eq 1 ]] && return 0
+  chown_state_path_to_owner "$backup_path"
+  log_info "Backed up $destination to $backup_path"
 }
 
 backup_user_file_if_needed() {
   local destination="$1"
   [[ -e "$destination" || -L "$destination" ]] || return 0
-  local backup_path
+  local backup_path backup_dir
   backup_path="$(backup_target_path "$destination")"
-  run_cmd_as_user "$TARGET_USER" mkdir -p "$(dirname "$backup_path")"
-  run_cmd_as_user "$TARGET_USER" cp -a "$destination" "$backup_path"
+  backup_dir="$(dirname "$backup_path")"
+  # A failed backup must fail the running step immediately with the real
+  # cause: step functions run with errexit suppressed, so a plain failure
+  # status would be swallowed and the caller would replace $destination
+  # without any backup. In a continue-policy step the installer carries on
+  # after the step is marked failed, so anything this step must guarantee
+  # has to run before its first failable seed.
+  run_cmd_as_user "$TARGET_USER" mkdir -p "$backup_dir" ||
+    die "Could not create backup directory $backup_dir before replacing $destination"
+  run_cmd_as_user "$TARGET_USER" cp -a "$destination" "$backup_path" ||
+    die "Could not back up $destination to $backup_path before replacing it"
   [[ "$DRY_RUN" -eq 1 ]] || log_info "Backed up $destination to $backup_path"
 }
 

@@ -45,7 +45,7 @@ stow_package_is_applicable() {
 
 stow_backup_existing_target() {
   local relative_path="$1"
-  local target_path backup_path
+  local target_path backup_path backup_dir
 
   target_path="$TARGET_HOME/$relative_path"
   [[ -e "$target_path" || -L "$target_path" ]] || return 0
@@ -57,8 +57,13 @@ stow_backup_existing_target() {
     return 0
   fi
 
-  run_cmd_as_user "$TARGET_USER" mkdir -p "$(dirname "$backup_path")"
-  run_cmd_as_user "$TARGET_USER" mv "$target_path" "$backup_path" || return 1
+  # A failed backup must fail the Dotfiles step here with the real cause;
+  # letting it slide would surface later as a misleading stow conflict.
+  backup_dir="$(dirname "$backup_path")"
+  run_cmd_as_user "$TARGET_USER" mkdir -p "$backup_dir" ||
+    die "Could not create dotfile backup directory $backup_dir before stowing over $target_path"
+  run_cmd_as_user "$TARGET_USER" mv "$target_path" "$backup_path" ||
+    die "Could not back up $target_path to $backup_path before stowing managed config"
   log_info "Moved existing $target_path to $backup_path before stowing managed config"
 }
 

@@ -76,6 +76,16 @@ split_csv() {
   done
 }
 
+# Strip every trailing slash from the named path variable in place, keeping
+# the filesystem root "/" intact. Nameref assignment avoids a subshell fork,
+# so this is safe to call from source-time bootstrap code.
+normalize_dir_var() {
+  local -n dir_ref="$1"
+  while [[ "$dir_ref" == */ && "$dir_ref" != "/" ]]; do
+    dir_ref="${dir_ref%/}"
+  done
+}
+
 resolve_target_home() {
   local user="$1"
   local entry

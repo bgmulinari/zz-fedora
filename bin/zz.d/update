@@ -6,12 +6,11 @@ set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-# Shared installer libraries: shell_quote, join_by, run_cmd, root re-exec,
-# and the .NET install pins and channel-selection algorithm.
-# shellcheck source=../../lib/util.sh
-source "$ROOT_DIR/lib/util.sh"
-# shellcheck source=../../lib/log.sh
-source "$ROOT_DIR/lib/log.sh"
+# Shared installer libraries: common.sh is the runtime bootstrap that carries
+# util.sh, log.sh, and the state/owner helpers idempotency.sh depends on;
+# dotnet.sh adds the .NET install pins and channel-selection algorithm.
+# shellcheck source=../../lib/common.sh
+source "$ROOT_DIR/lib/common.sh"
 # shellcheck source=../../lib/idempotency.sh
 source "$ROOT_DIR/lib/idempotency.sh"
 # shellcheck source=../../lib/dotnet.sh

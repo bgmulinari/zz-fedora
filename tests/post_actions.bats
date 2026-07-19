@@ -8,6 +8,32 @@ setup() {
   source_modules
 }
 
+@test "post-actions registers the first-run hook and report before any failable seed" {
+  for fn in install_zz_launcher configure_default_applications \
+    install_bundled_wallpapers install_starship_config \
+    install_ghostty_theme_seed_if_missing install_niri_display_seed_if_missing \
+    install_niri_noctalia_seed_if_missing configure_flatpak_theme_access \
+    enable_user_services register_first_run_hook write_managed_files_report; do
+    eval "$fn() { printf '$fn\n' >>'$TEST_ROOT/order.log'; }"
+  done
+  install_qt_theme_config() {
+    printf 'install_qt_theme_config\n' >>"$TEST_ROOT/order.log"
+    die "Could not back up example before replacing it"
+  }
+
+  run module_80_post_actions
+
+  [ "$status" -ne 0 ]
+  assert_file_line "$TEST_ROOT/order.log" "register_first_run_hook"
+  assert_file_line "$TEST_ROOT/order.log" "write_managed_files_report"
+  hook_line="$(grep -n '^register_first_run_hook$' "$TEST_ROOT/order.log" | cut -d: -f1)"
+  seed_line="$(grep -n '^install_qt_theme_config$' "$TEST_ROOT/order.log" | cut -d: -f1)"
+  [ "$hook_line" -lt "$seed_line" ]
+  # The die really cut the step short: nothing after the failing seed ran.
+  refute_file_line "$TEST_ROOT/order.log" "configure_flatpak_theme_access"
+  refute_file_line "$TEST_ROOT/order.log" "enable_user_services"
+}
+
 @test "default application setup applies selected MIME defaults" {
   build_test_plan "desktop=audio-player,text-editor,video-player"
   run_cmd_as_user() {
