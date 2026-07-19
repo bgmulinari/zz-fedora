@@ -9,7 +9,13 @@ install_claude_code() {
   log_progress "Installing Claude Code"
   local install_script
   install_script="$(mktemp "$CACHE_DIR/claude-install.XXXXXX")"
-  if ! run_cmd curl -fsSL https://claude.ai/install.sh -o "$install_script"; then
+  if ! run_cmd curl -fsSL \
+    --retry 5 \
+    --retry-delay 2 \
+    --retry-all-errors \
+    --connect-timeout 15 \
+    https://claude.ai/install.sh \
+    -o "$install_script"; then
     rm -f "$install_script"
     return 1
   fi

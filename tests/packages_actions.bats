@@ -59,6 +59,40 @@ setup() {
   assert_contains "$output" "Unknown custom action: no-such-action"
 }
 
+@test "Claude Code installer retries transient download failures" {
+  DRY_RUN=0
+  TARGET_USER="claude-user"
+  command_log="$TEST_ROOT/claude-code-commands.log"
+  run_cmd() {
+    printf '%s\n' "$*" >>"$command_log"
+    case "$1" in
+      curl)
+        touch "${@: -1}"
+        ;;
+      chmod)
+        "$@"
+        ;;
+    esac
+  }
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf '%s:%s\n' "$user" "$*" >>"$command_log"
+    mkdir -p "$TARGET_HOME/.local/bin"
+    touch "$TARGET_HOME/.local/bin/claude"
+    chmod +x "$TARGET_HOME/.local/bin/claude"
+  }
+
+  run install_claude_code
+
+  [ "$status" -eq 0 ]
+  run verify_claude_code
+  [ "$status" -eq 0 ]
+  assert_file_contains "$command_log" \
+    "curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors --connect-timeout 15 https://claude.ai/install.sh -o $CACHE_DIR/claude-install."
+  assert_file_contains "$command_log" "claude-user:bash $CACHE_DIR/claude-install."
+}
+
 @test "Visual Studio Code extension action installs NoctaliaTheme once for the target user" {
   DRY_RUN=0
   TARGET_USER="code-user"
