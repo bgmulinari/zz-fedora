@@ -24,6 +24,7 @@ services --enabled=NetworkManager
 sudo
 ca-certificates
 curl
+git
 dnf5-plugins
 # Present during the payload transaction so the kernel's initramfs build picks
 # up the graphical boot splash and LUKS prompt without a post-install rebuild,

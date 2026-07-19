@@ -13,8 +13,8 @@ curl -fsSL https://zz.036477.xyz | bash
 To install from a local checkout instead:
 
 ```bash
-git clone --filter=blob:none https://github.com/bgmulinari/zz-fedora.git
-cd zz-fedora
+git clone --filter=blob:none --depth=1 https://github.com/bgmulinari/zz-fedora.git ~/.zz
+cd ~/.zz
 ./install.sh wizard
 ```
 

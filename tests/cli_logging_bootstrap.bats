@@ -6,6 +6,12 @@ setup() {
   setup_test_env
 }
 
+@test "bootstrap defaults to a shallow hidden checkout" {
+  assert_file_contains "$ROOT_DIR/bootstrap.sh" 'INSTALL_DIR="${HOME}/.zz"'
+  assert_file_contains "$ROOT_DIR/bootstrap.sh" \
+    'git clone --filter=blob:none --depth=1 "$REPO_URL" "$INSTALL_DIR"'
+}
+
 @test "install dry-run keeps base setup before optional work" {
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
     bash "$ROOT_DIR/install.sh" install --dry-run --no-tui

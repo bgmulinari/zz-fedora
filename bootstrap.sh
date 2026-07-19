@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 REPO_URL="https://github.com/bgmulinari/zz-fedora.git"
 REF=""
-INSTALL_DIR="${HOME}/zz-fedora"
+INSTALL_DIR="${HOME}/.zz"
 FORWARD_ARGS=()
 DRY_RUN=0
 ASSUME_YES=0
@@ -157,7 +157,7 @@ clone_or_update_repo() {
     fi
   fi
   if [[ ! -d "$INSTALL_DIR/.git" ]]; then
-    run git clone --filter=blob:none "$REPO_URL" "$INSTALL_DIR"
+    run git clone --filter=blob:none --depth=1 "$REPO_URL" "$INSTALL_DIR"
   else
     local existing_origin
     existing_origin="$(git -C "$INSTALL_DIR" remote get-url origin 2>/dev/null || true)"

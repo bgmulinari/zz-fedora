@@ -133,8 +133,8 @@ can resolve different repository revisions.
    components, office apps, gaming apps, or multimedia packages you do not
    want, or change the Firefox browser selection.
 5. Start installation.
-6. The add-on task copies that same refreshed runtime to the installed system
-   and runs:
+6. The add-on task creates a depth-1 clone in `~/.zz`, verifies the checkout
+   against the exact revision recorded by that refreshed runtime, and runs:
 
 ```bash
 ./install.sh install --yes --use-saved --desktop-app-profile "$desktop_app_profile" --no-tui --target-user "$target_user"

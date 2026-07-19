@@ -21,12 +21,15 @@ from org_zz_fedora.constants import (
 log = logging.getLogger(__name__)
 
 SOURCE_REPO_DIR = Path("/run/zz-fedora/repository")
+REPOSITORY_URL = "https://github.com/bgmulinari/zz-fedora.git"
 TARGET_SELECTION_PATH = Path("root/zz-fedora-install-selected")
 TASK_LOG_PATH = Path("root/zz-fedora-kickstart.log")
 RUN_SCRIPT_PATH = Path("root/zz-fedora-run-install.sh")
 
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 SAFE_LIST_RE = re.compile(r"^[A-Za-z0-9_.-]*(,[A-Za-z0-9_.-]+)*$")
+SAFE_GIT_REVISION_RE = re.compile(r"^[0-9A-Fa-f]{7,40}$")
+SAFE_GIT_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 DNF_TRANSACTION_RE = re.compile(
     r"^\[\s*[0-9]+/[0-9]+\]\s+"
@@ -53,7 +56,7 @@ class ZZFedoraInstallationTask(Task):
         return "Install ZZ Fedora"
 
     def run(self):
-        """Copy the repo into the target system and run the installer."""
+        """Clone the repo into the target system and run the installer."""
 
         self._report("Preparing ZZ Fedora")
         if not SOURCE_REPO_DIR.is_dir():
@@ -64,8 +67,7 @@ class ZZFedoraInstallationTask(Task):
         user = self._find_target_user()
         target_home = Path(user["home"])
         target_home_path = self._target_path(target_home)
-        target_repo_dir = target_home / "zz-fedora"
-        target_repo_path = self._target_path(target_repo_dir)
+        target_repo_dir = target_home / ".zz"
         state_dir = target_home / ".local/state/zz-fedora"
         cache_dir = target_home / ".cache/zz-fedora"
         config_dir = target_home / ".config/zz-fedora"
@@ -73,7 +75,8 @@ class ZZFedoraInstallationTask(Task):
         progress_file = log_dir / "install-progress.tsv"
         progress_path = self._target_path(progress_file)
 
-        self._copy_repo(target_repo_path, user["uid"], user["gid"])
+        remote_ref, revision = self._read_runtime_checkout()
+        self._clone_repo(target_repo_dir, user, remote_ref, revision)
         self._prepare_state_dirs(target_home_path, user["uid"], user["gid"])
         selection_lines = self._read_selection_lines()
         desktop_app_profile = self._read_desktop_app_profile(selection_lines)
@@ -158,16 +161,117 @@ class ZZFedoraInstallationTask(Task):
             "user in Anaconda before starting installation."
         )
 
-    def _copy_repo(self, target_repo_path, uid, gid):
-        self._report("Copying ZZ Fedora into the target system")
+    def _read_runtime_checkout(self):
+        marker = SOURCE_REPO_DIR / "config/iso-payload.conf"
+        values = {}
+        try:
+            with open(marker, "r", encoding="utf-8") as marker_file:
+                for raw_line in marker_file:
+                    key, separator, value = raw_line.strip().partition("=")
+                    if separator:
+                        values[key] = value
+        except OSError as error:
+            raise RuntimeError(
+                "Could not read runtime revision marker {}: {}".format(
+                    marker,
+                    error,
+                )
+            ) from error
+
+        revision = values.get("git_revision", "")
+        remote_ref = values.get("remote_ref", "")
+        if not SAFE_GIT_REVISION_RE.fullmatch(revision):
+            raise RuntimeError(
+                "Runtime marker has an invalid Git revision: {}".format(
+                    revision or "missing"
+                )
+            )
+        if (
+            not SAFE_GIT_REF_RE.fullmatch(remote_ref)
+            or ".." in remote_ref
+            or "//" in remote_ref
+            or remote_ref.endswith("/")
+        ):
+            raise RuntimeError(
+                "Runtime marker has an invalid remote ref: {}".format(
+                    remote_ref or "missing"
+                )
+            )
+        return remote_ref, revision
+
+    def _clone_repo(self, target_repo_dir, user, remote_ref, revision):
+        self._report("Cloning ZZ Fedora into the target system")
+        target_repo_path = self._target_path(target_repo_dir)
         target_repo_path.parent.mkdir(parents=True, exist_ok=True)
         if target_repo_path.exists() or target_repo_path.is_symlink():
             if target_repo_path.is_dir() and not target_repo_path.is_symlink():
                 shutil.rmtree(target_repo_path)
             else:
                 target_repo_path.unlink()
-        shutil.copytree(SOURCE_REPO_DIR, target_repo_path, symlinks=True)
-        self._chown_tree(target_repo_path, uid, gid)
+
+        try:
+            self._run_target_git(
+                [
+                    "clone",
+                    "--filter=blob:none",
+                    "--depth",
+                    "1",
+                    "--branch",
+                    remote_ref,
+                    REPOSITORY_URL,
+                    str(target_repo_dir),
+                ],
+                "clone the repository",
+            )
+            self._run_target_git(
+                [
+                    "-C",
+                    str(target_repo_dir),
+                    "reset",
+                    "--hard",
+                    revision,
+                ],
+                "check out runtime revision {}".format(revision),
+            )
+        except RuntimeError:
+            if target_repo_path.is_dir() and not target_repo_path.is_symlink():
+                shutil.rmtree(target_repo_path)
+            elif target_repo_path.exists() or target_repo_path.is_symlink():
+                target_repo_path.unlink()
+            raise
+
+        if not (target_repo_path / ".git").is_dir():
+            raise RuntimeError(
+                "Git clone completed without checkout metadata at {}".format(
+                    target_repo_dir
+                )
+            )
+        self._chown_tree(target_repo_path, user["uid"], user["gid"])
+
+    def _run_target_git(self, arguments, operation):
+        command = [
+            "chroot",
+            str(self._sysroot),
+            "/usr/bin/git",
+        ] + list(arguments)
+        try:
+            subprocess.run(
+                command,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=600,
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            detail = getattr(error, "stdout", "") or str(error)
+            if isinstance(detail, bytes):
+                detail = detail.decode("utf-8", errors="replace")
+            detail_lines = detail.strip().splitlines()
+            detail = detail_lines[-1] if detail_lines else str(error)
+            raise RuntimeError(
+                "Could not {}: {}".format(operation, detail)
+            ) from error
 
     def _prepare_state_dirs(self, target_home_path, uid, gid):
         for rel_path in (

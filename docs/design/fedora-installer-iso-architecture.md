@@ -62,11 +62,11 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
   refreshing from an older revision that predates the manifest.
 - Both the graphical and text spokes read `choices/` from that refreshed
   snapshot. New rows and new `choices/*.conf` catalogs are discovered without
-  rebuilding the ISO. The add-on later copies the exact same snapshot to
-  `~/zz-fedora` for the first regular user created in Anaconda and runs the
-  installer from it. The generated payload marker records the resolved archive
-  revision and remote ref. A later bootstrap run backs up the snapshot and
-  replaces it with a normal Git clone before updating.
+  rebuilding the ISO. The add-on later creates a depth-1 clone at `~/.zz` for
+  the first regular user created in Anaconda, verifies it against the exact
+  revision recorded by the refreshed payload, and runs the installer from that
+  full Git checkout. Git is part of the initial Kickstart package set so the
+  checkout is available before the add-on task starts.
 - The add-on writes the chosen desktop app profile and optional packages to
   the normal saved selection format. The installer is invoked with
   `--use-saved`, the selected `--desktop-app-profile full|minimal`, and

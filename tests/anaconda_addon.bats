@@ -243,12 +243,51 @@ spec.loader.exec_module(module)
 
 task = module.ZZFedoraInstallationTask(root)
 assert module.SOURCE_REPO_DIR == Path("/run/zz-fedora/repository")
+assert module.REPOSITORY_URL == "https://github.com/bgmulinari/zz-fedora.git"
 user = task._find_target_user()
 assert user["name"] == "zztest"
 assert task._target_path("etc/passwd") == root / "etc/passwd"
 assert task._progress_detail_from_output("Dependencies resolved.") == "Resolved package dependencies"
 assert task._progress_detail_from_output("irrelevant output") == ""
 assert task._format_progress("done", "9", "9", "ZZ Fedora", "") == "ZZ Fedora complete"
+
+runtime_dir = root / "run/zz-fedora/repository"
+(runtime_dir / "config").mkdir(parents=True)
+(runtime_dir / "config/iso-payload.conf").write_text(
+    "format=1\n"
+    "git_revision=0123456789abcdef\n"
+    "remote_ref=main\n"
+)
+module.SOURCE_REPO_DIR = runtime_dir
+remote_ref, revision = task._read_runtime_checkout()
+assert remote_ref == "main"
+assert revision == "0123456789abcdef"
+
+git_commands = []
+def fake_target_git(arguments, operation):
+    git_commands.append((arguments, operation))
+    if arguments[0] == "clone":
+        (root / "home/zztest/.zz/.git").mkdir(parents=True)
+task._run_target_git = fake_target_git
+task._chown_tree = lambda *_args: None
+task._clone_repo(Path("/home/zztest/.zz"), user, remote_ref, revision)
+assert git_commands[0][0] == [
+    "clone",
+    "--filter=blob:none",
+    "--depth",
+    "1",
+    "--branch",
+    "main",
+    module.REPOSITORY_URL,
+    "/home/zztest/.zz",
+]
+assert git_commands[1][0] == [
+    "-C",
+    "/home/zztest/.zz",
+    "reset",
+    "--hard",
+    "0123456789abcdef",
+]
 
 selection_lines = [
     "selected=1\n",
@@ -278,7 +317,7 @@ assert "desktop_app_profile=minimal\n" in selection_text
 assert "select.desktop=boxes\n" in selection_text
 
 task._write_runner_script(
-    target_repo_dir=Path("/home/zztest/zz-fedora"),
+    target_repo_dir=Path("/home/zztest/.zz"),
     state_dir=Path("/home/zztest/.local/state/zz-fedora"),
     cache_dir=Path("/home/zztest/.cache/zz-fedora"),
     config_dir=Path("/home/zztest/.config/zz-fedora"),
