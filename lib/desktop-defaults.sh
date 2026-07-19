@@ -80,11 +80,9 @@ configure_default_applications_from_tsv() {
 
 configure_xdg_terminal_defaults() {
   local terminals_file="$TARGET_HOME/.config/xdg-terminals.list"
-  local temp_file
 
   log_progress "Configuring default terminal preference"
-  temp_file="$(mktemp "$CACHE_DIR/xdg-terminals.XXXXXX")"
-  cat >"$temp_file" <<'EOF'
+  write_user_file 0644 "$terminals_file" <<'EOF'
 # Terminal emulator preference order for xdg-terminal-exec
 # The first found and valid terminal will be used
 com.mitchellh.ghostty.desktop
@@ -93,9 +91,6 @@ kitty.desktop
 org.gnome.Console.desktop
 org.gnome.Terminal.desktop
 EOF
-  chmod 0644 "$temp_file"
-  install_file_if_changed user "$temp_file" "$terminals_file"
-  rm -f "$temp_file"
 }
 
 configure_default_applications() {

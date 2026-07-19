@@ -8,6 +8,7 @@
 
 [shell]
 polkit_agent = true
+setup_wizard_enabled = false
 telemetry_enabled = false
 
 [shell.greeter_sync]

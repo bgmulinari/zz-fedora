@@ -10,10 +10,13 @@ module_80_post_actions() {
   install_zz_launcher
   # This step runs under the continue-policy: a die in any later seed fails
   # the step but the install carries on and reports success. First-run
-  # registration and the managed-files report must already be in place by
-  # then, so they run before the failable user-file seeds below.
+  # registration, the managed-files report, and the Noctalia state seeds
+  # (which keep first login on the managed theme and wallpaper) must already
+  # be in place by then, so they run before the failable user-file seeds
+  # below.
   register_first_run_hook
   write_managed_files_report
+  install_noctalia_state_seeds_if_missing
   log_progress "Applying desktop defaults"
   configure_default_applications
   log_progress "Installing desktop assets and theme seeds"

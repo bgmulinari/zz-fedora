@@ -16,6 +16,146 @@ noctalia_greeter_action_skipped() {
   awk -F'\t' '$1 == "action" && $2 == "noctalia-greeter" { found = 1 } END { exit !found }' "$skip_file"
 }
 
+# The appearance seed is best-effort: when the managed config cannot be
+# rendered into a greeter appearance (non-custom theme source, missing
+# palette or wallpaper, --skip-dotfiles), the greeter keeps its own
+# defaults rather than failing the whole install. Skips are recorded so
+# verification accepts the absent manifest.
+noctalia_greeter_appearance_seed_skipped() {
+  local skip_file="$PLAN_DIR/system-skips.tsv"
+  [[ -f "$skip_file" ]] || return 1
+  awk -F'\t' '$1 == "action" && $2 == "noctalia-greeter-appearance" { found = 1 } END { exit !found }' "$skip_file"
+}
+
+noctalia_greeter_skip_appearance_seed() {
+  record_system_skip action noctalia-greeter-appearance "$1"
+}
+
+# Render the greeter appearance manifest from a Noctalia palette JSON.
+# The greeter requires all sixteen snake_case palette keys; jq fails the
+# render when the palette is missing any of them.
+noctalia_greeter_appearance_manifest() {
+  local mode="$1" palette_file="$2" installed_wallpaper="$3"
+  jq -n \
+    --arg mode "$mode" \
+    --arg wallpaper_path "$NOCTALIA_GREETER_STATE_DIR/$installed_wallpaper" \
+    --slurpfile palette_doc "$palette_file" '
+    ($palette_doc[0][$mode]) as $p
+    | {
+        version: 1,
+        theme_mode: $mode,
+        palette: {
+          primary: $p.mPrimary,
+          on_primary: $p.mOnPrimary,
+          secondary: $p.mSecondary,
+          on_secondary: $p.mOnSecondary,
+          tertiary: $p.mTertiary,
+          on_tertiary: $p.mOnTertiary,
+          error: $p.mError,
+          on_error: $p.mOnError,
+          surface: $p.mSurface,
+          on_surface: $p.mOnSurface,
+          surface_variant: $p.mSurfaceVariant,
+          on_surface_variant: $p.mOnSurfaceVariant,
+          outline: $p.mOutline,
+          shadow: $p.mShadow,
+          hover: $p.mHover,
+          on_hover: $p.mOnHover
+        },
+        wallpaper: { path: $wallpaper_path, fill_mode: "crop" },
+        corner_radius_scale: 1.0
+      }
+    | if ([.palette[]] | any(. == null)) then
+        error("palette \($mode) is missing required keys")
+      else . end
+  '
+}
+
+# Seed /var/lib/noctalia-greeter with the managed theme and default
+# wallpaper so a fresh install boots into a greeter that already matches
+# the Noctalia session; apply-appearance also flips greeter.toml to the
+# Synced scheme. A later in-session sync simply overwrites this seed.
+seed_noctalia_greeter_appearance() {
+  local theme_source mode palette_name palette_file wallpaper_path
+  local wallpaper_file asset_candidate expanded_path wallpaper_name
+  local extension staging installed_name failure=""
+
+  if [[ "$SKIP_DOTFILES" -eq 1 ]]; then
+    log_info "Skipping Noctalia Greeter appearance seed: dotfiles are skipped, keeping the greeter defaults."
+    noctalia_greeter_skip_appearance_seed "dotfiles skipped"
+    return 0
+  fi
+
+  theme_source="$(noctalia_managed_theme_source)"
+  if [[ "$theme_source" != "custom" ]]; then
+    log_info "Skipping Noctalia Greeter appearance seed: managed theme source is '${theme_source:-unset}', not a seedable custom palette."
+    noctalia_greeter_skip_appearance_seed "theme source ${theme_source:-unset} is not custom"
+    return 0
+  fi
+
+  palette_name="$(noctalia_managed_custom_palette_name)"
+  if [[ -z "$palette_name" ]]; then
+    log_warn "Skipping Noctalia Greeter appearance seed: managed config declares theme source custom but no theme.custom_palette."
+    noctalia_greeter_skip_appearance_seed "no custom_palette declared"
+    return 0
+  fi
+
+  palette_file="$(noctalia_managed_palettes_dir)/$palette_name.json"
+  if [[ ! -f "$palette_file" ]]; then
+    log_warn "Skipping Noctalia Greeter appearance seed: managed palette not found: $palette_file"
+    noctalia_greeter_skip_appearance_seed "palette file missing: $palette_name"
+    return 0
+  fi
+
+  mode="$(noctalia_managed_theme_mode)"
+  if ! jq -e --arg mode "$mode" 'has($mode)' "$palette_file" >/dev/null 2>&1; then
+    log_warn "Skipping Noctalia Greeter appearance seed: palette $palette_name defines no '$mode' palette."
+    noctalia_greeter_skip_appearance_seed "palette $palette_name lacks mode $mode"
+    return 0
+  fi
+
+  wallpaper_path="$(noctalia_managed_default_wallpaper)"
+  if [[ -z "$wallpaper_path" ]]; then
+    log_warn "Skipping Noctalia Greeter appearance seed: managed config declares no wallpaper.default.path."
+    noctalia_greeter_skip_appearance_seed "no default wallpaper declared"
+    return 0
+  fi
+
+  # Prefer the bundled asset (the deployed copy does not exist yet at base
+  # action time), then fall back to the configured path itself.
+  asset_candidate="$ROOT_DIR/assets/wallpapers/$(basename "$wallpaper_path")"
+  expanded_path="${wallpaper_path/#~\//$TARGET_HOME/}"
+  if [[ -f "$asset_candidate" ]]; then
+    wallpaper_file="$asset_candidate"
+  elif [[ -f "$expanded_path" ]]; then
+    wallpaper_file="$expanded_path"
+  else
+    log_warn "Skipping Noctalia Greeter appearance seed: managed default wallpaper not found as a bundled asset ($asset_candidate) or on disk ($expanded_path)."
+    noctalia_greeter_skip_appearance_seed "wallpaper not found: $wallpaper_path"
+    return 0
+  fi
+
+  log_progress "Seeding Noctalia Greeter appearance"
+  wallpaper_name="$(basename "$wallpaper_file")"
+  extension="${wallpaper_name##*.}"
+  if [[ "$extension" == "$wallpaper_name" ]]; then
+    installed_name="wallpaper"
+  else
+    installed_name="wallpaper.$extension"
+  fi
+  staging="$(mktemp -d "$CACHE_DIR/noctalia-greeter-appearance.XXXXXX")" ||
+    die "Could not create a Noctalia Greeter staging directory under $CACHE_DIR"
+  if ! cp -- "$wallpaper_file" "$staging/$installed_name"; then
+    failure="Could not stage the greeter wallpaper from $wallpaper_file"
+  elif ! noctalia_greeter_appearance_manifest "$mode" "$palette_file" "$installed_name" >"$staging/appearance.json"; then
+    failure="Could not render the Noctalia Greeter appearance manifest from $palette_file"
+  elif ! run_cmd_as_root env "GREETER_USER=$NOCTALIA_GREETER_USER" noctalia-greeter-apply-appearance "$staging"; then
+    failure="Could not apply the staged Noctalia Greeter appearance"
+  fi
+  rm -rf "$staging"
+  [[ -z "$failure" ]] || die "$failure"
+}
+
 install_noctalia_greeter_package() {
   log_progress "Installing greetd for Noctalia Greeter"
   package_install_idempotent "$(native_backend)" greetd || return 1
@@ -136,6 +276,7 @@ install_noctalia_greeter() {
     configure_noctalia_greetd_pam
     prepare_noctalia_greeter_paths
     printf 'DRY-RUN: initialize %s/greeter.toml with noctalia-greeter-apply-appearance --setup-system\n' "$NOCTALIA_GREETER_STATE_DIR"
+    printf 'DRY-RUN: seed Noctalia Greeter appearance from the managed Noctalia theme and default wallpaper\n'
     run_cmd_as_root systemctl daemon-reload
     run_cmd_as_root systemctl set-default graphical.target
     run_cmd_as_root systemctl enable --force greetd.service
@@ -164,6 +305,7 @@ install_noctalia_greeter() {
   prepare_noctalia_greeter_paths
   log_progress "Initializing Noctalia Greeter appearance"
   run_cmd_as_root env "GREETER_USER=$NOCTALIA_GREETER_USER" noctalia-greeter-apply-appearance --setup-system || return 1
+  seed_noctalia_greeter_appearance || return 1
 
   log_progress "Enabling graphical login through greetd"
   run_cmd_as_root systemctl set-default graphical.target || return 1
@@ -177,7 +319,8 @@ verify_noctalia_greeter() {
     && command -v noctalia-greeter >/dev/null 2>&1 \
     && command -v noctalia-greeter-session >/dev/null 2>&1 \
     && systemctl is-enabled greetd >/dev/null 2>&1 \
-    && grep -F "noctalia-greeter-session" "$NOCTALIA_GREETD_CONFIG" >/dev/null 2>&1
+    && grep -F "noctalia-greeter-session" "$NOCTALIA_GREETD_CONFIG" >/dev/null 2>&1 \
+    && { [[ -s "$NOCTALIA_GREETER_STATE_DIR/appearance.json" ]] || noctalia_greeter_appearance_seed_skipped; }
 }
 
 register_action "noctalia-greeter" install_noctalia_greeter verify_noctalia_greeter

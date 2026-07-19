@@ -272,6 +272,21 @@ write_root_file() {
   rm -f "$temp_file"
 }
 
+# User-context mirror of write_root_file.
+write_user_file() {
+  local mode="$1"
+  local destination="$2"
+  local temp_file
+  temp_file="$(mktemp "$CACHE_DIR/user-file.XXXXXX")"
+  cat >"$temp_file"
+  chmod 0644 "$temp_file"
+  if ! install_file_if_changed user "$temp_file" "$destination" "$mode"; then
+    rm -f "$temp_file"
+    return 1
+  fi
+  rm -f "$temp_file"
+}
+
 flatpak_remote_usable() {
   local name="$1"
   have_cmd flatpak || return 1

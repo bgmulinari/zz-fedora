@@ -72,7 +72,63 @@ setup() {
   assert_contains "$output" "install greetd and Noctalia Greeter package noctalia-greeter"
   assert_contains "$output" "/etc/greetd/config.toml"
   assert_contains "$output" "noctalia-greeter-apply-appearance --setup-system"
+  assert_contains "$output" "seed Noctalia Greeter appearance"
   assert_contains "$output" "systemctl enable --force greetd.service"
+}
+@test "Noctalia Greeter appearance seed stages the managed palette and wallpaper" {
+  build_test_plan
+  DRY_RUN=0
+  run_cmd_as_root() {
+    if [[ "$1" == "env" ]]; then
+      shift
+      while [[ "$1" == *=* ]]; do shift; done
+    fi
+    printf 'root:%s\n' "$*" >>"$TEST_ROOT/root.log"
+    if [[ "$1" == "noctalia-greeter-apply-appearance" && -d "${2:-}" ]]; then
+      cp "$2/appearance.json" "$TEST_ROOT/appearance.json"
+      cp "$2"/wallpaper.* "$TEST_ROOT/"
+    fi
+  }
+
+  run_without_bats_debug_trap seed_noctalia_greeter_appearance
+
+  assert_file_contains "$TEST_ROOT/root.log" "noctalia-greeter-apply-appearance"
+  [ -s "$TEST_ROOT/appearance.json" ]
+
+  # The staged manifest mirrors the managed palette exactly and satisfies the
+  # greeter contract: version 1 and sixteen non-null snake_case palette keys.
+  local palette_file="$ROOT_DIR/dotfiles/noctalia/.config/noctalia/palettes/catppuccin-mocha-blue.json"
+  assert_equal "1" "$(jq -r '.version' "$TEST_ROOT/appearance.json")"
+  assert_equal "dark" "$(jq -r '.theme_mode' "$TEST_ROOT/appearance.json")"
+  assert_equal "16" "$(jq -r '[.palette | to_entries[] | select(.value | type == "string")] | length' "$TEST_ROOT/appearance.json")"
+  assert_equal "$(jq -r '.dark.mPrimary' "$palette_file")" "$(jq -r '.palette.primary' "$TEST_ROOT/appearance.json")"
+  assert_equal "$(jq -r '.dark.mSurface' "$palette_file")" "$(jq -r '.palette.surface' "$TEST_ROOT/appearance.json")"
+  assert_equal "$(jq -r '.dark.mOnSurfaceVariant' "$palette_file")" "$(jq -r '.palette.on_surface_variant' "$TEST_ROOT/appearance.json")"
+
+  # The wallpaper is staged from the bundled assets and referenced at its
+  # installed location inside the greeter state directory.
+  local wallpaper_path
+  wallpaper_path="$(jq -r '.wallpaper.path' "$TEST_ROOT/appearance.json")"
+  assert_equal "/var/lib/noctalia-greeter" "$(dirname "$wallpaper_path")"
+  [ -s "$TEST_ROOT/$(basename "$wallpaper_path")" ]
+}
+@test "Noctalia Greeter appearance seed skips gracefully instead of failing the install" {
+  build_test_plan
+  DRY_RUN=0
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*" >>"$TEST_ROOT/root.log"
+  }
+
+  # --skip-dotfiles keeps the greeter's own defaults and records the skip.
+  SKIP_DOTFILES=1
+  run_without_bats_debug_trap seed_noctalia_greeter_appearance
+  SKIP_DOTFILES=0
+
+  [ ! -f "$TEST_ROOT/root.log" ]
+  # The skip is recorded, which is what verification accepts in place of
+  # the manifest.
+  noctalia_greeter_appearance_seed_skipped
+  assert_file_contains "$PLAN_DIR/system-skips.tsv" 'noctalia-greeter-appearance'
 }
 @test "required base package failure aborts base setup before service work" {
   build_test_plan

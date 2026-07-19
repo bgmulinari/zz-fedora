@@ -9,8 +9,8 @@ planned_noctalia_app_templates() {
 
 apply_managed_noctalia_app_themes() {
   local config_file="$TARGET_HOME/.config/noctalia/config.toml"
-  local palette_file="$TARGET_HOME/.config/noctalia/palettes/catppuccin-mocha-blue.json"
   local state_home="${XDG_STATE_HOME:-$TARGET_HOME/.local/state}"
+  local palette_name palette_file mode
   local template_id template_config attempt applied
   local -a template_ids=()
 
@@ -21,6 +21,14 @@ apply_managed_noctalia_app_themes() {
     printf 'DRY-RUN: render managed Noctalia app themes: %s\n' "${template_ids[*]}"
     return 0
   fi
+
+  # App themes are rendered from the managed custom palette; other theme
+  # sources are managed by the running shell itself.
+  [[ "$(noctalia_managed_theme_source)" == "custom" ]] || return 0
+  palette_name="$(noctalia_managed_custom_palette_name)"
+  [[ -n "$palette_name" ]] || return 0
+  palette_file="$TARGET_HOME/.config/noctalia/palettes/$palette_name.json"
+  mode="$(noctalia_managed_theme_mode)"
 
   # Missing managed config is expected with --skip-dotfiles.
   [[ -f "$config_file" && -f "$palette_file" ]] || return 0
@@ -33,7 +41,7 @@ apply_managed_noctalia_app_themes() {
       if [[ -f "$template_config" ]] && run_cmd_as_user "$TARGET_USER" \
         noctalia theme \
         --theme-json "$palette_file" \
-        --default-mode dark \
+        --default-mode "$mode" \
         -c "$template_config" \
         >/dev/null 2>&1; then
         applied=1

@@ -184,6 +184,8 @@ build_plan_from_selections() {
     append_plan_entries "$PLAN_DIR/services/user-enable.list" "pywalfox-theme-sync.path"
   fi
   append_managed_file "~/.local/share/backgrounds"
+  append_managed_file "~/.local/state/noctalia/.setup-complete"
+  append_managed_file "~/.local/state/noctalia/settings.toml"
   append_managed_file "~/.config/niri/cfg/display.kdl"
   append_managed_file "~/.config/niri/noctalia.kdl"
   append_managed_file "~/.config/starship.toml"

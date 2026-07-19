@@ -79,7 +79,7 @@ when missing and then preserves.
 | Ghostty | `dotfiles/ghostty/.config/ghostty/config` | `templates/ghostty/noctalia` → `~/.config/ghostty/themes/noctalia` (fallback theme until Noctalia regenerates it) |
 | Niri | `dotfiles/niri/.config/niri/config.kdl` and `dotfiles/niri/.config/niri/cfg/` | `templates/niri/display.kdl` → `~/.config/niri/cfg/display.kdl` (hardware-specific); `templates/niri/noctalia.kdl` → `~/.config/niri/noctalia.kdl` |
 | Starship | `dotfiles/shell-starship/.shellrc.d/starship` (shell hook only) | `templates/starship.toml` → `~/.config/starship.toml` (seeded only when the user has no config) |
-| Noctalia | `dotfiles/noctalia/.config/noctalia/config.toml` (stowed) | No `templates/` entry; Noctalia's managed paths use `stow` mode. `dotfiles/noctalia/.config/noctalia/templates/` is a Noctalia app asset, not an installer template. |
+| Noctalia | `dotfiles/noctalia/.config/noctalia/config.toml` (stowed) | No `templates/` entry; Noctalia's managed paths use `stow` mode, plus two state seeds installed before first login: an empty `~/.local/state/noctalia/.setup-complete` marker (skips the shell's own setup wizard and its bundled first-run wallpaper) and a `~/.local/state/noctalia/settings.toml` carrying `config_version = 2` plus the managed `[wallpaper.default]` (prevents the shell's sidecar migrations — including future upstream version bumps — from dropping the managed wallpaper). `dotfiles/noctalia/.config/noctalia/templates/` is a Noctalia app asset, not an installer template. |
 
 To change an app's day-to-day configuration, edit the Stow package. Edit the
 `templates/` file only when changing what a fresh machine gets seeded with;

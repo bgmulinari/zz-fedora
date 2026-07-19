@@ -13,7 +13,8 @@ setup() {
     install_bundled_wallpapers install_starship_config \
     install_ghostty_theme_seed_if_missing install_niri_display_seed_if_missing \
     install_niri_noctalia_seed_if_missing configure_flatpak_theme_access \
-    enable_user_services register_first_run_hook write_managed_files_report; do
+    enable_user_services register_first_run_hook write_managed_files_report \
+    install_noctalia_state_seeds_if_missing; do
     eval "$fn() { printf '$fn\n' >>'$TEST_ROOT/order.log'; }"
   done
   install_qt_theme_config() {
@@ -29,6 +30,11 @@ setup() {
   hook_line="$(grep -n '^register_first_run_hook$' "$TEST_ROOT/order.log" | cut -d: -f1)"
   seed_line="$(grep -n '^install_qt_theme_config$' "$TEST_ROOT/order.log" | cut -d: -f1)"
   [ "$hook_line" -lt "$seed_line" ]
+  # The Noctalia state seeds are a first-login correctness guarantee: they
+  # must land before any failable seed can cut the step short.
+  noctalia_seed_line="$(grep -n '^install_noctalia_state_seeds_if_missing$' "$TEST_ROOT/order.log" | cut -d: -f1)"
+  first_failable_line="$(grep -n '^configure_default_applications$' "$TEST_ROOT/order.log" | cut -d: -f1)"
+  [ "$noctalia_seed_line" -lt "$first_failable_line" ]
   # The die really cut the step short: nothing after the failing seed ran.
   refute_file_line "$TEST_ROOT/order.log" "configure_flatpak_theme_access"
   refute_file_line "$TEST_ROOT/order.log" "enable_user_services"
@@ -206,6 +212,73 @@ setup() {
 
   assert_file_contains "$TARGET_HOME/.config/ghostty/themes/noctalia" 'background = #000000'
   refute_file_contains "$TARGET_HOME/.config/ghostty/themes/noctalia" 'palette = 0=#11111b'
+}
+
+@test "Noctalia state seeds mark first-run setup complete before first login" {
+  build_test_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/noctalia-marker-home"
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_noctalia_state_seeds_if_missing
+  # Repeated runs must not disturb the seeded state.
+  install_noctalia_state_seeds_if_missing
+
+  [ -f "$TARGET_HOME/.local/state/noctalia/.setup-complete" ]
+  assert_file_contains "$TARGET_HOME/.local/state/noctalia/settings.toml" 'config_version = 2'
+  # The sidecar carries the managed default wallpaper so sidecar migrations
+  # (including future config_version bumps) cannot drop it.
+  assert_file_contains "$TARGET_HOME/.local/state/noctalia/settings.toml" '[wallpaper.default]'
+  assert_file_contains "$TARGET_HOME/.local/state/noctalia/settings.toml" 'path = "~/.local/share/backgrounds/Alpenglow.jpg"'
+}
+
+@test "Noctalia state seeds preserve existing user state" {
+  build_test_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/noctalia-marker-existing-home"
+  mkdir -p "$TARGET_HOME/.local/state/noctalia"
+  printf 'user-owned\n' >"$TARGET_HOME/.local/state/noctalia/.setup-complete"
+  printf 'config_version = 2\n\n[wallpaper.default]\npath = "/tmp/user-picked.jpg"\n' >"$TARGET_HOME/.local/state/noctalia/settings.toml"
+  DRY_RUN=0
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_noctalia_state_seeds_if_missing
+
+  assert_file_contains "$TARGET_HOME/.local/state/noctalia/.setup-complete" 'user-owned'
+  assert_file_contains "$TARGET_HOME/.local/state/noctalia/settings.toml" 'user-picked.jpg'
+}
+
+@test "Noctalia state seeds are skipped with --skip-dotfiles" {
+  build_test_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/noctalia-marker-skip-home"
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  SKIP_DOTFILES=1
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_noctalia_state_seeds_if_missing
+
+  [ ! -e "$TARGET_HOME/.local/state/noctalia/.setup-complete" ]
+  [ ! -e "$TARGET_HOME/.local/state/noctalia/settings.toml" ]
+}
+
+@test "managed Noctalia config disables the built-in setup wizard" {
+  grep -Eq '^setup_wizard_enabled = false$' "$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml"
 }
 
 @test "qt6ct config uses Noctalia KColorScheme" {

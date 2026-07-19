@@ -34,6 +34,8 @@ source_core() {
   source "$ROOT_DIR/lib/packages.sh"
   # shellcheck source=../../lib/dotnet.sh
   source "$ROOT_DIR/lib/dotnet.sh"
+  # shellcheck source=../../lib/noctalia.sh
+  source "$ROOT_DIR/lib/noctalia.sh"
   # shellcheck source=../../lib/actions.sh
   source "$ROOT_DIR/lib/actions.sh"
   # shellcheck source=../../lib/sources.sh

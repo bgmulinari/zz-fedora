@@ -26,6 +26,46 @@ install_bundled_wallpapers() {
   fi
 }
 
+# Noctalia serves its bundled wallpaper and offers the first-run setup
+# wizard until ~/.local/state/noctalia/.setup-complete exists. The install
+# already is the setup, so seed the marker before the first login; without
+# it, closing the wizard persists the bundled wallpaper into settings.toml,
+# which permanently overrides the managed wallpaper.default.
+#
+# The settings.toml seed pins the sidecar schema version and carries the
+# managed default wallpaper. Without the version, the shell's first
+# in-session settings write creates the sidecar unversioned and the
+# follow-up reload migrates it from version 0; the migration-persist path
+# re-derives wallpaper state from the sidecar alone, so the sidecar must
+# also name the wallpaper itself to survive that path — including future
+# upstream version bumps past the pinned value.
+# Both seeds complement the managed config, so --skip-dotfiles keeps
+# Noctalia's own first-run experience instead.
+install_noctalia_state_seeds_if_missing() {
+  local native_plan destination wallpaper_path
+  [[ "$SKIP_DOTFILES" -eq 1 ]] && return 0
+  native_plan="$(package_file_for_backend "$(native_backend)")"
+  plan_has_any_backend_entry "$native_plan" noctalia-git noctalia || return 0
+
+  destination="$TARGET_HOME/.local/state/noctalia/settings.toml"
+  if [[ ! -e "$destination" && ! -L "$destination" ]]; then
+    log_progress "Seeding Noctalia settings sidecar"
+    wallpaper_path="$(noctalia_managed_default_wallpaper)"
+    {
+      printf 'config_version = 2\n'
+      if [[ -n "$wallpaper_path" ]]; then
+        printf '\n[wallpaper.default]\npath = "%s"\n' "$wallpaper_path"
+      fi
+    } | write_user_file 0644 "$destination"
+  fi
+
+  destination="$TARGET_HOME/.local/state/noctalia/.setup-complete"
+  if [[ ! -e "$destination" && ! -L "$destination" ]]; then
+    log_progress "Marking Noctalia first-run setup complete"
+    write_user_file 0644 "$destination" </dev/null
+  fi
+}
+
 starship_theming_available_for_plan() {
   local native_plan="$1"
 
@@ -110,22 +150,18 @@ install_niri_display_seed_if_missing() {
 }
 
 install_qt6ct_config() {
-  local config_file temp_file color_file
+  local config_file color_file
 
   config_file="$TARGET_HOME/.config/qt6ct/qt6ct.conf"
   color_file="$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
-  temp_file="$(mktemp "$CACHE_DIR/qt6ct.XXXXXX")"
 
-  cat >"$temp_file" <<EOF
+  write_user_file 0644 "$config_file" <<EOF
 [Appearance]
 color_scheme_path=$color_file
 custom_palette=true
 standard_dialogs=default
 style=Fusion
 EOF
-  chmod 0644 "$temp_file"
-  install_file_if_changed user "$temp_file" "$config_file"
-  rm -f "$temp_file"
 }
 
 install_qt_theme_config() {

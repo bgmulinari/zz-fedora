@@ -171,6 +171,9 @@ doctor_check_noctalia_greeter_setup() {
   doctor_check_command noctalia-greeter-session || failed=1
   doctor_check_file "$config_file" || failed=1
   doctor_check_contains_required "$config_file" "noctalia-greeter-session" || failed=1
+  # Seeded (or later user-synced) greeter appearance; absent on installs
+  # where the appearance seed was skipped, so warn-level only.
+  doctor_warn_file "/var/lib/noctalia-greeter/appearance.json"
   return "$failed"
 }
 
@@ -244,6 +247,8 @@ module_90_doctor() {
     doctor_warn_file "$user_config_home/noctalia/config.toml"
     doctor_warn_file "$user_config_home/noctalia/templates/icon-theme-accent"
     doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme"
+    doctor_warn_file "$TARGET_HOME/.local/state/noctalia/.setup-complete"
+    doctor_warn_file "$TARGET_HOME/.local/state/noctalia/settings.toml"
   fi
   doctor_check_dir_has_files "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont" '*.ttf'
 
