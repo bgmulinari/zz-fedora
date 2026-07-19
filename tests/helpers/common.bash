@@ -118,6 +118,33 @@ write_fake_command() {
   chmod +x "$FAKE_BIN/$name"
 }
 
+# Shared run_cmd_as_user stub for first-run/session tests: executes real
+# filesystem commands, no-ops everything else, and logs each invocation as
+# "user:<user>:<args>" when a log file is given. Tests that need failure
+# injection define stub_user_cmd_intercept; a non-zero return from it becomes
+# the command's status. Call `unset -f stub_user_cmd_intercept` to clear it.
+stub_run_cmd_as_user() {
+  STUB_RUN_CMD_AS_USER_LOG="${1:-}"
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    if [[ -n "${STUB_RUN_CMD_AS_USER_LOG:-}" ]]; then
+      printf 'user:%s:%s\n' "$user" "$*" >>"$STUB_RUN_CMD_AS_USER_LOG"
+    fi
+    if declare -F stub_user_cmd_intercept >/dev/null 2>&1 && ! stub_user_cmd_intercept "$@"; then
+      return 1
+    fi
+    case "$1" in
+      mkdir|rm|sh|install|cp)
+        "$@"
+        ;;
+      *)
+        return 0
+        ;;
+    esac
+  }
+}
+
 run_without_bats_debug_trap() {
   local saved_debug_trap
   saved_debug_trap="$(trap -p DEBUG)"

@@ -145,7 +145,11 @@ started inside the Anaconda chroot. Anaconda installs Fedora packages from the
 release and updates repositories in one transaction before the add-on enables
 RPM Fusion, COPR, Terra, vendor repositories, or Flathub.
 First-login/session-sensitive work remains registered through the existing
-`zz first-run` path.
+`zz first-run` path. Extra-data flatpaks (for example Spotify and Zoom) cannot
+run their sandboxed apply step inside the chroot, so the installer records them
+on a deferred list in the target user's state directory and `zz first-run`
+installs them in the first login session, retrying on later logins (with a
+bounded attempt budget) if an install fails.
 
 ## VM Validation
 

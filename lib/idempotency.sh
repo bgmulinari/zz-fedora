@@ -425,6 +425,46 @@ flatpak_readd_remote_from_repo_file() {
   flatpak_remote_import_flathub_key "$name"
 }
 
+# Extra-data flatpaks (Spotify, Zoom) run an apply_extra script inside a
+# bubblewrap sandbox at install time. Creating that sandbox needs a new user
+# namespace, which the kernel refuses inside a chroot (the installer-ISO
+# Anaconda environment), so extra-data installs there always fail.
+# The probe cache is assigned here, not seeded from the environment, so an
+# inherited FLATPAK_SANDBOX_AVAILABLE value cannot act as an installer knob.
+FLATPAK_SANDBOX_AVAILABLE=""
+
+flatpak_sandbox_available() {
+  if [[ -z "$FLATPAK_SANDBOX_AVAILABLE" ]]; then
+    if have_cmd bwrap && bwrap --unshare-user --ro-bind / / true >/dev/null 2>&1; then
+      FLATPAK_SANDBOX_AVAILABLE=1
+    else
+      FLATPAK_SANDBOX_AVAILABLE=0
+    fi
+  fi
+  [[ "$FLATPAK_SANDBOX_AVAILABLE" == "1" ]]
+}
+
+# Three-state probe: 0 = the app uses extra data, 1 = it does not, 2 = the
+# metadata could not be read. Deferral decisions must treat 2 as "defer":
+# wrongly deferring a normal app costs one harmless first-run install, while
+# wrongly attempting an extra-data app in the chroot loses it. The cached
+# summary is consulted first to avoid a network round trip, but it can
+# report success with EMPTY output when the local cache lacks the per-ref
+# metadata (observed with flathub in the Anaconda chroot and on desktop
+# hosts), so empty metadata always falls through to the network lookup and
+# an empty network result reads as unknown, never as "no extra data".
+flatpak_app_uses_extra_data() {
+  local remote="$1"
+  local app_id="$2"
+  local metadata
+  metadata="$(flatpak remote-info --cached --show-metadata "$remote" "$app_id" 2>/dev/null)" || metadata=""
+  if [[ -z "$metadata" ]]; then
+    metadata="$(flatpak remote-info --show-metadata "$remote" "$app_id" 2>/dev/null)" || return 2
+    [[ -n "$metadata" ]] || return 2
+  fi
+  grep -q '^\[Extra Data\]' <<<"$metadata"
+}
+
 flatpak_install_or_update() {
   local app_id="$1"
   local remote="${2:-flathub}"

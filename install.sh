@@ -61,6 +61,17 @@ prepare_context() {
   TARGET_HOME="$(resolve_target_home "$TARGET_USER")" || die "Could not resolve home directory for target user '$TARGET_USER'"
 }
 
+# First-run owns per-user session state (the completion marker and the
+# deferred Flatpak queue) that resolves against the invoking user's home. A
+# root invocation would consume root's state tree, write root's marker, and
+# strand the target user's pending queue while removing their autostart
+# hook, so it is refused instead.
+require_first_run_user_context() {
+  [[ "$EUID" -eq 0 ]] || return 0
+  [[ "$TARGET_USER" != "root" ]] || return 0
+  die "first-run manages per-user session state; run it as the target user: su - $TARGET_USER -c 'zz first-run'"
+}
+
 step_should_run_always() {
   return 0
 }
@@ -358,6 +369,7 @@ main() {
       module_90_doctor
       ;;
     first-run)
+      require_first_run_user_context
       [[ -f "$PLAN_DIR/bundles.list" ]] || build_plan_from_selections
       module_85_first_run
       ;;

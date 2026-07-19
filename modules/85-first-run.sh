@@ -61,6 +61,11 @@ module_85_first_run() {
   marker="$(first_run_marker)"
   if [[ -f "$marker" && "${ZZ_FIRST_RUN_FORCE:-0}" -ne 1 ]]; then
     log_info "First-run tasks already completed: $marker"
+    # A deferred Flatpak queue can appear after first-run already completed
+    # (an install re-run in a sandbox-restricted environment re-registers
+    # the hook); consume it and clear the hook instead of stranding both.
+    install_deferred_flatpaks || return 1
+    remove_first_run_hook
     return 0
   fi
 
@@ -73,6 +78,7 @@ module_85_first_run() {
   fi
   apply_desktop_defaults
   apply_managed_noctalia_app_themes || return 1
+  install_deferred_flatpaks || return 1
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: mark first-run complete -> %s\n' "$marker"

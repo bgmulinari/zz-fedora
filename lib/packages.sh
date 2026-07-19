@@ -108,6 +108,159 @@ remove_plan_entries() {
   mv -f "$filtered" "$plan_file"
 }
 
+# The deferred queue is durable runtime state consumed by first-run, so it
+# lives directly under STATE_DIR: PLAN_DIR is regenerable plan output that
+# plan_reset deletes on every replan, which would silently drop the queue.
+flatpak_deferred_plan_file() {
+  printf '%s/deferred.flatpaks\n' "$STATE_DIR"
+}
+
+flatpak_deferred_attempts_file() {
+  printf '%s.attempts\n' "$(flatpak_deferred_plan_file)"
+}
+
+# Bounded first-run retries: each failed pass increments the counter, and
+# once the budget is spent the remaining apps are dropped with a warning so
+# a permanently failing app cannot block first-run completion forever.
+FLATPAK_DEFERRED_MAX_ATTEMPTS=5
+
+flatpak_deferred_attempts() {
+  local attempts_file attempts=""
+  attempts_file="$(flatpak_deferred_attempts_file)"
+  [[ -r "$attempts_file" ]] && attempts="$(<"$attempts_file")"
+  [[ "$attempts" =~ ^[0-9]+$ ]] || attempts=0
+  printf '%s\n' "$attempts"
+}
+
+# Returns 1 while retries remain (first-run stays incomplete so the hook
+# fires again next login) and 0 once the budget is spent and the queue has
+# been dropped.
+deferred_flatpaks_note_failed_pass() {
+  local deferred_file attempts_file attempts
+  deferred_file="$(flatpak_deferred_plan_file)"
+  attempts_file="$(flatpak_deferred_attempts_file)"
+  attempts="$(flatpak_deferred_attempts)"
+  attempts=$((attempts + 1))
+  if [[ "$attempts" -lt "$FLATPAK_DEFERRED_MAX_ATTEMPTS" ]]; then
+    printf '%s\n' "$attempts" >"$attempts_file" 2>/dev/null ||
+      log_warn "Could not record the deferred Flatpak attempt count: $attempts_file"
+    return 1
+  fi
+  log_warn "Deferred Flatpaks still failing after $attempts first-run attempts; giving up. Install manually with: flatpak install --system flathub <app-id>"
+  append_warning "Deferred Flatpaks were dropped after $attempts failed first-run attempts."
+  rm -f "$deferred_file" "$attempts_file" 2>/dev/null || true
+  return 0
+}
+
+# When the flatpak sandbox cannot be created in this environment (the
+# Anaconda chroot), extra-data flatpaks are guaranteed to fail their
+# apply_extra step. Record them on the deferred list for the first-run
+# session step instead of attempting an install that cannot succeed. An
+# unreadable metadata probe also defers: see flatpak_app_uses_extra_data.
+defer_extra_data_flatpaks() {
+  local plan_file="$1"
+  local deferred_file attempts_file
+  deferred_file="$(flatpak_deferred_plan_file)"
+  attempts_file="$(flatpak_deferred_attempts_file)"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    [[ -f "$plan_file" ]] || return 0
+    flatpak_sandbox_available && return 0
+    printf 'DRY-RUN: defer extra-data Flatpaks to first login (flatpak sandbox unavailable)\n'
+    return 0
+  fi
+  if flatpak_sandbox_available; then
+    # A queue left by an earlier sandbox-restricted run is superseded: this
+    # run installs everything directly.
+    rm -f "$deferred_file" "$attempts_file" 2>/dev/null || true
+    return 0
+  fi
+  [[ -f "$plan_file" ]] || return 0
+  local app_id probe_status
+  while IFS= read -r app_id; do
+    [[ -n "$app_id" ]] || continue
+    probe_status=0
+    flatpak_app_uses_extra_data flathub "$app_id" || probe_status=$?
+    if [[ "$probe_status" -eq 1 ]]; then
+      continue
+    fi
+    if [[ "$probe_status" -ge 2 ]]; then
+      log_warn "Could not read Flatpak metadata; deferring to first login to be safe: $app_id"
+    else
+      log_warn "Deferring extra-data Flatpak to the first login session: $app_id"
+    fi
+    append_warning "Flatpak deferred to first login: $app_id"
+    append_plan_entries "$deferred_file" "$app_id"
+  done < <(read_plan_file "$plan_file")
+  if [[ -f "$deferred_file" ]]; then
+    # Root-driven installs hand the file to the state owner immediately so
+    # the first-login session can consume and rewrite it.
+    chown_state_path_to_owner "$deferred_file"
+  fi
+  return 0
+}
+
+# First-run consumes the deferred list inside the user's session, where the
+# sandbox works and polkit allows an active session to install system
+# flatpaks. Each verified success is dropped from the list immediately so an
+# interrupted run resumes with only the remainder; a failed pass keeps the
+# first-run hook registered for a bounded number of next-login retries.
+install_deferred_flatpaks() {
+  local deferred_file attempts_file
+  deferred_file="$(flatpak_deferred_plan_file)"
+  attempts_file="$(flatpak_deferred_attempts_file)"
+  if [[ ! -e "$deferred_file" ]]; then
+    [[ "$DRY_RUN" -eq 1 ]] || rm -f "$attempts_file" 2>/dev/null || true
+    return 0
+  fi
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: install deferred Flatpaks in-session: %s\n' "$deferred_file"
+    return 0
+  fi
+  if [[ ! -r "$deferred_file" ]]; then
+    log_warn "Deferred Flatpak list exists but is not readable: $deferred_file"
+    local unreadable_status=0
+    deferred_flatpaks_note_failed_pass || unreadable_status=$?
+    return "$unreadable_status"
+  fi
+  local -a apps=()
+  mapfile -t apps < <(read_plan_file "$deferred_file")
+  if [[ "${#apps[@]}" -eq 0 ]]; then
+    rm -f "$deferred_file" "$attempts_file" 2>/dev/null || true
+    return 0
+  fi
+  local app_id install_status detail_log failed=0
+  for app_id in "${apps[@]}"; do
+    log_progress "Installing deferred Flatpak: $app_id"
+    install_status=0
+    if [[ -n "${LOG_DIR:-}" ]]; then
+      detail_log="$LOG_DIR/flatpak-${app_id//[^A-Za-z0-9_.-]/_}-first-run-$(timestamp).log"
+      run_cmd_as_user "$TARGET_USER" flatpak install -y --or-update --system flathub "$app_id" >"$detail_log" 2>&1 || install_status=$?
+      if [[ "$install_status" -ne 0 ]]; then
+        cat "$detail_log" >&2
+      fi
+    else
+      run_cmd_as_user "$TARGET_USER" flatpak install -y --or-update --system flathub "$app_id" || install_status=$?
+    fi
+    if [[ "$install_status" -eq 0 ]] && verify_plan_entry flatpak "$app_id"; then
+      # Queue bookkeeping must not turn a successful install into a failed
+      # pass; a stale entry only costs an idempotent --or-update next time.
+      remove_plan_entries "$deferred_file" "$app_id" ||
+        log_warn "Could not update the deferred Flatpak list: $deferred_file"
+      continue
+    fi
+    log_warn "Deferred Flatpak failed and will be retried on next login: $app_id"
+    failed=1
+  done
+  if [[ "$failed" -ne 0 ]]; then
+    local pass_status=0
+    deferred_flatpaks_note_failed_pass || pass_status=$?
+    return "$pass_status"
+  fi
+  rm -f "$deferred_file" "$attempts_file" 2>/dev/null ||
+    log_warn "Could not remove the deferred Flatpak list: $deferred_file"
+  return 0
+}
+
 record_system_skip() {
   local backend="$1"
   local item="$2"
@@ -270,6 +423,7 @@ install_optional_packages_for_backend() {
   local backend="$1"
   local plan_file="$2"
   local base_plan="$3"
+  local skip_plan="${4:-}"
   [[ -f "$plan_file" ]] || return 0
 
   local optional_plan package_name
@@ -277,6 +431,9 @@ install_optional_packages_for_backend() {
   while IFS= read -r package_name; do
     [[ -n "$package_name" ]] || continue
     if [[ -f "$base_plan" ]] && grep -Fx "$package_name" "$base_plan" >/dev/null 2>&1; then
+      continue
+    fi
+    if [[ -n "$skip_plan" && -f "$skip_plan" ]] && grep -Fx "$package_name" "$skip_plan" >/dev/null 2>&1; then
       continue
     fi
     append_plan_entries "$optional_plan" "$package_name"

@@ -11,7 +11,8 @@ module_32_optional_packages() {
   build_base_package_plan_for_backend flatpak "$flatpak_base_plan"
 
   log_progress "Installing optional Flatpaks"
-  install_optional_packages_for_backend flatpak "$PLAN_DIR/flatpak/apps.flatpaks" "$flatpak_base_plan"
+  defer_extra_data_flatpaks "$PLAN_DIR/flatpak/apps.flatpaks"
+  install_optional_packages_for_backend flatpak "$PLAN_DIR/flatpak/apps.flatpaks" "$flatpak_base_plan" "$(flatpak_deferred_plan_file)"
   log_progress "Installing optional native packages"
   install_optional_packages_for_backend dnf "$PLAN_DIR/packages/dnf.pkgs" "$dnf_base_plan"
 
