@@ -75,6 +75,29 @@ setup() {
   assert_contains "$output" "seed Noctalia Greeter appearance"
   assert_contains "$output" "systemctl enable --force greetd.service"
 }
+@test "Noctalia Greeter disables hardware cursors in its greetd session" {
+  run noctalia_greetd_config_content
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" 'command = "/usr/bin/env WLR_NO_HARDWARE_CURSORS=1 /usr/bin/noctalia-greeter-session"'
+}
+@test "Noctalia Greeter verification requires the hardware cursor workaround" {
+  NOCTALIA_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
+  NOCTALIA_GREETER_STATE_DIR="$TEST_ROOT/noctalia-greeter"
+  mkdir -p "$NOCTALIA_GREETER_STATE_DIR"
+  printf '{}\n' >"$NOCTALIA_GREETER_STATE_DIR/appearance.json"
+  rpm() { return 0; }
+  command() { return 0; }
+  systemctl() { return 0; }
+
+  printf '[default_session]\ncommand = "%s"\n' "$NOCTALIA_GREETER_SESSION_BIN" >"$NOCTALIA_GREETD_CONFIG"
+  run verify_noctalia_greeter
+  [ "$status" -ne 0 ]
+
+  noctalia_greetd_config_content >"$NOCTALIA_GREETD_CONFIG"
+  run verify_noctalia_greeter
+  [ "$status" -eq 0 ]
+}
 @test "Noctalia Greeter appearance seed stages the managed palette and wallpaper" {
   build_test_plan
   DRY_RUN=0

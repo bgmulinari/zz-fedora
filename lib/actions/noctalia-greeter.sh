@@ -174,7 +174,7 @@ noctalia_greetd_config_content() {
 vt = 1
 
 [default_session]
-command = "$NOCTALIA_GREETER_SESSION_BIN"
+command = "/usr/bin/env WLR_NO_HARDWARE_CURSORS=1 $NOCTALIA_GREETER_SESSION_BIN"
 user = "$NOCTALIA_GREETER_USER"
 EOF
 }
@@ -320,6 +320,7 @@ verify_noctalia_greeter() {
     && command -v noctalia-greeter-session >/dev/null 2>&1 \
     && systemctl is-enabled greetd >/dev/null 2>&1 \
     && grep -F "noctalia-greeter-session" "$NOCTALIA_GREETD_CONFIG" >/dev/null 2>&1 \
+    && grep -F "WLR_NO_HARDWARE_CURSORS=1" "$NOCTALIA_GREETD_CONFIG" >/dev/null 2>&1 \
     && { [[ -s "$NOCTALIA_GREETER_STATE_DIR/appearance.json" ]] || noctalia_greeter_appearance_seed_skipped; }
 }
 

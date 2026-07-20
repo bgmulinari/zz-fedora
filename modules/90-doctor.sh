@@ -171,6 +171,7 @@ doctor_check_noctalia_greeter_setup() {
   doctor_check_command noctalia-greeter-session || failed=1
   doctor_check_file "$config_file" || failed=1
   doctor_check_contains_required "$config_file" "noctalia-greeter-session" || failed=1
+  doctor_check_contains_required "$config_file" "WLR_NO_HARDWARE_CURSORS=1" || failed=1
   # Seeded (or later user-synced) greeter appearance; absent on installs
   # where the appearance seed was skipped, so warn-level only.
   doctor_warn_file "/var/lib/noctalia-greeter/appearance.json"

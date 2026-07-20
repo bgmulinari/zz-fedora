@@ -381,3 +381,16 @@ step_table_failure_policy() {
   assert_contains "$output" "$NOCTALIA_GREETD_CONFIG missing pattern noctalia-greeter-session"
   assert_contains "$output" "Fatal desktop readiness checks failed"
 }
+
+@test "doctor requires the Noctalia Greeter hardware cursor workaround" {
+  NOCTALIA_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
+  printf '[default_session]\ncommand = "/usr/bin/noctalia-greeter-session"\n' >"$NOCTALIA_GREETD_CONFIG"
+  doctor_check_command() { return 0; }
+  doctor_check_file() { return 0; }
+  doctor_warn_file() { return 0; }
+
+  run doctor_check_noctalia_greeter_setup
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "$NOCTALIA_GREETD_CONFIG missing pattern WLR_NO_HARDWARE_CURSORS=1"
+}
