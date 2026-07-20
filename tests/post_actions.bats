@@ -522,6 +522,15 @@ EOF
   [[ ! -s "$command_log" ]]
 }
 
+@test "managed Zed settings select the enabled Noctalia theme variants" {
+  local settings_file="$ROOT_DIR/dotfiles/zed/.config/zed/settings.json"
+  local noctalia_config="$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml"
+
+  assert_file_contains "$settings_file" '"light": "Noctalia Light"'
+  assert_file_contains "$settings_file" '"dark": "Noctalia Dark"'
+  assert_file_contains "$noctalia_config" '"zed",'
+}
+
 @test "Flatpak theme access override is applied as user override" {
   build_test_plan
   setup_fake_bin

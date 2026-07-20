@@ -329,12 +329,13 @@ assert_all_bundles_reachable() {
 }
 
 @test "browser and development selections add their sources and packages" {
-  build_test_plan "browser=brave,firefox" "dev=vscode,lazygit" "ai=codex"
+  build_test_plan "browser=brave,firefox" "dev=vscode,zed,lazygit" "ai=codex"
 
   assert_plan_has "$PLAN_DIR/bundles.list" "browsers-firefox"
   assert_plan_has "$PLAN_DIR/bundles.list" "browsers-firefox-pywalfox"
   assert_plan_has "$PLAN_DIR/bundles.list" "browsers-firefox-pywalfox-runtime"
   assert_plan_has "$PLAN_DIR/bundles.list" "dev-vscode-extensions"
+  assert_plan_has "$PLAN_DIR/bundles.list" "dev-zed"
   assert_plan_has "$PLAN_DIR/sources/vendor.list" "vendor:brave"
   assert_plan_has "$PLAN_DIR/sources/vendor.list" "vendor:vscode"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:vscode-marketplace"
@@ -344,6 +345,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "firefox"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pipx"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "code"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "zed"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "lazygit"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "vscode-extension:noctalia.noctaliatheme"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "pywalfox"
@@ -353,6 +355,8 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/systemd/user/pywalfox-theme-sync.service"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "npm-global:@openai/codex"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:npm"
+  assert_plan_has "$PLAN_DIR/stow/packages.list" "zed"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/zed/settings.json"
   [[ "$(join_by $'\n' "${WARNING_MESSAGES[@]}")" == *"artifact:npm"* ]]
 }
 

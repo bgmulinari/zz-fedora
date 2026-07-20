@@ -314,12 +314,14 @@ Templates:
 
 - Built-in templates enabled by the managed config: `niri`, `ghostty`, `starship`, `btop`, `gtk3`, `gtk4`, `qt`, and `kcolorscheme`.
 - Community templates enabled by the managed config: `pywalfox`, `zen-browser`, `neovim`, `vscode`, `zed`, and `yazi`. No v4 plugins, QuickShell config, or migration shims are present.
+- The managed Zed settings select `Noctalia Light` and `Noctalia Dark`, matching the variants rendered to `~/.config/zed/themes/noctalia.json` by Noctalia's enabled Zed community template.
 - User templates enabled by the managed config: `icon_theme`.
 
 Related managed files:
 
 - `~/.local/share/backgrounds`
 - `~/.config/noctalia/config.toml`
+- `~/.config/zed/settings.json`
 - `~/.config/noctalia/templates/icon-theme-accent`
 - `~/.config/niri/cfg/display.kdl`
 - `~/.config/niri/noctalia.kdl`

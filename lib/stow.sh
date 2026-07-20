@@ -18,6 +18,7 @@ stow_package_required_command() {
     shell-yazi) printf 'yazi\n' ;;
     shell-zoxide) printf 'zoxide\n' ;;
     vscode) printf 'code\n' ;;
+    zed) printf 'zed\n' ;;
     zsh) printf 'zsh\n' ;;
   esac
 }
