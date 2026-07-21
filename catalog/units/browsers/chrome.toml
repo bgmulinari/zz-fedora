@@ -1,0 +1,14 @@
+id = "browsers-chrome"
+description = "Google Chrome browser bundle for Fedora"
+
+[choice]
+category = "browsers"
+id = "chrome"
+label = "Google Chrome"
+order = 30
+description = "Fast and secure web browser by Google"
+
+[[install]]
+backend = "dnf"
+sources = ["vendor:google-chrome"]
+packages = ["google-chrome-stable"]

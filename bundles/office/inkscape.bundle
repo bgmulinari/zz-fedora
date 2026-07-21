@@ -1,6 +1,0 @@
-BUNDLE_ID="office-inkscape"
-BUNDLE_INSTALLER="flatpak"
-BUNDLE_SOURCE_IDS="flathub"
-BUNDLE_ITEMS_FILE="packages/flatpak/inkscape.flatpaks"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Inkscape Flatpak for Fedora"

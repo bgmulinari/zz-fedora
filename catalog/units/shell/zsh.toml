@@ -1,0 +1,11 @@
+id = "shell-zsh"
+description = "Zsh bundle for Fedora"
+stow = ["zsh"]
+
+[base]
+order = 220
+
+[[install]]
+backend = "dnf"
+sources = ["artifact:oh-my-zsh", "artifact:zsh-autosuggestions", "artifact:zsh-syntax-highlighting"]
+packages = ["zsh"]

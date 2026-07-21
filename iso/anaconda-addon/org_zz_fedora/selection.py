@@ -1,6 +1,8 @@
 """Choice catalog and selection-file helpers for the Anaconda add-on."""
 
 import os
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -11,13 +13,13 @@ from org_zz_fedora.constants import (
     SELECTION_FILE,
 )
 
-PACKAGE_CHOICES_DIR = Path(__file__).resolve().parent / "choices"
-REMOTE_RUNTIME_CHOICES_DIR = Path("/run/zz-fedora/repository/choices")
+PACKAGE_ROOT = Path(__file__).resolve().parent
+REMOTE_RUNTIME_ROOT = Path("/run/zz-fedora/repository")
 INSTALLER_DESKTOP_APP_PROFILE_FILE = Path(
     "/etc/zz-fedora/desktop-app-profile"
 )
-INSTALL_REPO_CHOICES_DIR = Path("/run/install/repo/zz-fedora/choices")
-SOURCE_TREE_CHOICES_DIR = Path(__file__).resolve().parents[3] / "choices"
+INSTALL_REPO_ROOT = Path("/run/install/repo/zz-fedora")
+SOURCE_TREE_ROOT = Path(__file__).resolve().parents[3]
 
 CATEGORY_LABELS = {
     "browsers": "Browsers",
@@ -32,7 +34,7 @@ CATEGORY_LABELS = {
 
 
 class Choice:
-    """A single optional install choice from choices/*.conf."""
+    """A single optional install choice from the compiled choice catalog."""
 
     def __init__(self, choice_id, label, default, description):
         self.id = choice_id
@@ -50,24 +52,48 @@ class Category:
         self.choices = choices
 
 
-def _choice_catalog_root():
+def _catalog_root():
     for root in (
-        REMOTE_RUNTIME_CHOICES_DIR,
-        INSTALL_REPO_CHOICES_DIR,
-        PACKAGE_CHOICES_DIR,
-        SOURCE_TREE_CHOICES_DIR,
+        REMOTE_RUNTIME_ROOT,
+        INSTALL_REPO_ROOT,
+        PACKAGE_ROOT,
+        SOURCE_TREE_ROOT,
     ):
-        if (root / "browsers.conf").is_file():
+        if (root / "catalog/units").is_dir() and (root / "lib/catalog.py").is_file():
             return root
-    return PACKAGE_CHOICES_DIR
+    return PACKAGE_ROOT
 
 
-def _catalog_path(root, category_id):
-    return root / ("%s.conf" % category_id)
+def _compile_catalog(root, out_dir):
+    result = subprocess.run(
+        [
+            sys.executable or "python3",
+            str(root / "lib/catalog.py"),
+            "--root",
+            str(root),
+            "compile",
+            "--out",
+            str(out_dir),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip().splitlines()
+        detail = detail[-1] if detail else "catalog compilation failed"
+        raise RuntimeError(
+            "Could not read the choice catalog: {}".format(detail)
+        )
 
 
-def _category_ids(root):
-    discovered = {path.stem for path in root.glob("*.conf") if path.is_file()}
+def _category_ids(compiled_dir):
+    listing = compiled_dir / "categories.list"
+    try:
+        lines = listing.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return []
+    discovered = {line.strip() for line in lines if line.strip()}
     ordered = [category_id for category_id in CATEGORY_ORDER if category_id in discovered]
     ordered.extend(sorted(discovered.difference(ordered)))
     return ordered
@@ -78,45 +104,53 @@ def _category_label(category_id):
     return CATEGORY_LABELS.get(category_id, generated)
 
 
+def _read_choice_rows(path):
+    choices = []
+    with open(path, "r", encoding="utf-8") as catalog:
+        for raw_line in catalog:
+            line = raw_line.rstrip("\n")
+            if not line or line.startswith("#"):
+                continue
+
+            fields = line.split("\t")
+            if len(fields) != 5:
+                continue
+
+            choice_id, label, default_flag, _unit_ids, description = fields
+            choices.append(
+                Choice(
+                    choice_id=choice_id,
+                    label=label,
+                    default=default_flag == "1",
+                    description=description,
+                )
+            )
+    return choices
+
+
 def read_categories():
     """Read Fedora optional choices from the refreshed catalog snapshot."""
 
-    root = _choice_catalog_root()
-    categories = []
-    for category_id in _category_ids(root):
-        path = _catalog_path(root, category_id)
-        if not path.exists():
-            continue
+    root = _catalog_root()
+    with tempfile.TemporaryDirectory(prefix="zz-fedora-catalog.") as out_dir:
+        compiled_dir = Path(out_dir)
+        _compile_catalog(root, compiled_dir)
 
-        choices = []
-        with open(path, "r", encoding="utf-8") as catalog:
-            for raw_line in catalog:
-                line = raw_line.rstrip("\n")
-                if not line or line.startswith("#"):
-                    continue
+        categories = []
+        for category_id in _category_ids(compiled_dir):
+            path = compiled_dir / "choices" / ("%s.tsv" % category_id)
+            if not path.is_file():
+                continue
 
-                fields = line.split("\t")
-                if len(fields) != 5:
-                    continue
-
-                choice_id, label, default_flag, _bundle_ids, description = fields
-                choices.append(
-                    Choice(
-                        choice_id=choice_id,
-                        label=label,
-                        default=default_flag == "1",
-                        description=description,
+            choices = _read_choice_rows(path)
+            if choices:
+                categories.append(
+                    Category(
+                        category_id=category_id,
+                        label=_category_label(category_id),
+                        choices=choices,
                     )
                 )
-
-        if choices:
-            categories.append(
-                Category(
-                    category_id=category_id,
-                    label=_category_label(category_id),
-                    choices=choices,
-                )
-            )
 
     return categories
 

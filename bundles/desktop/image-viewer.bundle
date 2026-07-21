@@ -1,5 +1,0 @@
-BUNDLE_ID="desktop-image-viewer"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_ITEMS_FILE="packages/official/desktop/image-viewer.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Image viewer"

@@ -1,0 +1,14 @@
+id = "desktop-connections"
+description = "Remote desktop client"
+
+[choice]
+category = "desktop"
+id = "connections"
+label = "Connections"
+default = true
+order = 170
+description = "View and use remote desktops"
+
+[[install]]
+backend = "dnf"
+packages = ["gnome-connections"]

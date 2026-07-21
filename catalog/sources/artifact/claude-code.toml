@@ -1,0 +1,7 @@
+id = "artifact:claude-code"
+kind = "artifact"
+label = "Claude Code upstream installer"
+project = "https://claude.ai/install.sh"
+description = "Optional Claude Code vendor installer"
+gpg_policy = "tls-only"
+reason = "Claude Code is installed through the vendor-maintained rolling installer"

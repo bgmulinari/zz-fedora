@@ -1,0 +1,9 @@
+id = "shell-fd"
+description = "fd bundle for Fedora"
+
+[base]
+order = 280
+
+[[install]]
+backend = "dnf"
+packages = ["fd-find"]

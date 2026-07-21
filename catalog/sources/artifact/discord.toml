@@ -1,0 +1,7 @@
+id = "artifact:discord"
+kind = "artifact"
+label = "Discord stable RPM download"
+project = "https://discord.com/api/download?platform=linux&format=rpm"
+description = "Optional official Discord stable RPM bootstrap package"
+gpg_policy = "tls-only"
+reason = "Discord publishes an unsigned rolling stable RPM; the installer validates its package name and architecture before local DNF installation"

@@ -14,7 +14,8 @@ def runtime_is_ready():
 
     return (
         (REMOTE_RUNTIME_DIR / "install.sh").is_file()
-        and (REMOTE_RUNTIME_DIR / "choices/browsers.conf").is_file()
+        and (REMOTE_RUNTIME_DIR / "catalog/units").is_dir()
+        and (REMOTE_RUNTIME_DIR / "lib/catalog.py").is_file()
     )
 
 

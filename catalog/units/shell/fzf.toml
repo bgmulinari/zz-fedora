@@ -1,0 +1,10 @@
+id = "shell-fzf"
+description = "fzf bundle for Fedora"
+stow = ["shell-fzf"]
+
+[base]
+order = 290
+
+[[install]]
+backend = "dnf"
+packages = ["fzf"]

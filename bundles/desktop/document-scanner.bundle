@@ -1,5 +1,0 @@
-BUNDLE_ID="desktop-document-scanner"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_ITEMS_FILE="packages/official/desktop/document-scanner.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Document scanner"

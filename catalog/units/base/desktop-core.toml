@@ -1,0 +1,9 @@
+id = "base-desktop-core"
+description = "Core desktop integration packages for Fedora"
+
+[base]
+order = 110
+
+[[install]]
+backend = "dnf"
+packages = ["xwayland-satellite"]

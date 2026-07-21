@@ -1,0 +1,14 @@
+id = "desktop-audio-player"
+description = "Audio player"
+
+[choice]
+category = "desktop"
+id = "audio-player"
+label = "Audio Player"
+default = true
+order = 100
+description = "Play audio files"
+
+[[install]]
+backend = "dnf"
+packages = ["decibels"]

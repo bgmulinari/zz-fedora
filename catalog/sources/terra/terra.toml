@@ -1,0 +1,8 @@
+id = "terra"
+kind = "terra"
+label = "Terra"
+required = true
+description = "Terra repository for Ghostty"
+gpg_policy = "unsigned-bootstrap"
+bootstrap_exception = true
+reason = "Bootstraps Terra release packages before installing required Ghostty packages"

@@ -1,0 +1,10 @@
+id = "shell-fastfetch"
+description = "Fastfetch bundle for Fedora"
+stow = ["shell-fastfetch"]
+
+[base]
+order = 250
+
+[[install]]
+backend = "dnf"
+packages = ["fastfetch"]

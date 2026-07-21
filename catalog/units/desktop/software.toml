@@ -1,0 +1,14 @@
+id = "desktop-software"
+description = "Graphical software manager"
+
+[choice]
+category = "desktop"
+id = "software"
+label = "Software"
+default = true
+order = 140
+description = "Add, remove, and update graphical applications"
+
+[[install]]
+backend = "dnf"
+packages = ["gnome-software"]

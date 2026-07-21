@@ -1,0 +1,8 @@
+id = "copr:atim/starship"
+kind = "copr"
+label = "COPR: atim/starship"
+project = "atim/starship"
+required = true
+description = "Starship prompt Fedora COPR"
+gpg_policy = "copr-plugin"
+reason = "Provides Starship for the base shell prompt"

@@ -1,6 +1,0 @@
-# The installer ISO kickstart (iso/zz-fedora.ks) pre-stages
-# plymouth-system-theme so Anaconda builds the initramfs with Plymouth and
-# adds the rhgb/quiet kernel arguments; keep the two lists in sync.
-plymouth
-plymouth-system-theme
-grubby

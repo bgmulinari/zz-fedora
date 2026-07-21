@@ -1,6 +1,0 @@
-BUNDLE_ID="dev-zed"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_IDS="terra"
-BUNDLE_ITEMS_FILE="packages/terra/zed.pkgs"
-BUNDLE_STOW_PACKAGES="zed"
-BUNDLE_DESCRIPTION="Zed code editor bundle for Fedora"

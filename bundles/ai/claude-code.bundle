@@ -1,6 +1,0 @@
-BUNDLE_ID="ai-claude-code"
-BUNDLE_INSTALLER="action"
-BUNDLE_SOURCE_IDS="artifact:claude-code"
-BUNDLE_ITEMS_FILE="packages/actions/ai-claude-code.actions"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Claude Code CLI installer"

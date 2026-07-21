@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # Plymouth graphical boot splash custom action. The packages come from the
-# base-boot-splash dnf bundle (packages/official/boot-splash.pkgs); this action
+# base-boot-splash unit (catalog/units/base/boot-splash.toml); this action
 # covers the two pieces a package install alone cannot: the rhgb/quiet kernel
 # arguments (Anaconda only adds them when Plymouth was part of the original
 # install transaction, so minimal installs lack them) and an initramfs rebuild

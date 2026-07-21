@@ -1,0 +1,18 @@
+id = "base-gtk-look"
+description = "GTK and Qt font, icon, and theme baseline for Fedora"
+
+[base]
+order = 190
+minimal_desktop_skip = true
+
+[[install]]
+backend = "dnf"
+packages = [
+  "adw-gtk3-theme",
+  "fontawesome-6-free-fonts",
+  "fontconfig",
+  "google-noto-color-emoji-fonts",
+  "google-noto-sans-cjk-fonts",
+  "google-noto-sans-fonts",
+  "yaru-icon-theme",
+]

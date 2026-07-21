@@ -1,0 +1,24 @@
+id = "base-bootstrap"
+description = "Persistent tools for desktop integration and installer reruns"
+stow = ["shell"]
+
+[base]
+order = 10
+early = true
+
+[[install]]
+backend = "dnf"
+packages = [
+  "bash-completion",
+  "bats",
+  "ca-certificates",
+  "curl",
+  "dnf5-plugins",
+  "git",
+  "gum",
+  "jq",
+  "nss-tools",
+  "stow",
+  "tar",
+  "unzip",
+]

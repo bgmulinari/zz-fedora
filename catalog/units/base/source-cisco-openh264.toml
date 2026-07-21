@@ -1,0 +1,10 @@
+id = "base-source-cisco-openh264"
+description = "Always-enabled Fedora Cisco OpenH264 source"
+
+[base]
+order = 50
+minimal_desktop_skip = true
+
+[[install]]
+backend = "dnf"
+sources = ["cisco-openh264"]

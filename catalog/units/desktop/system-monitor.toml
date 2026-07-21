@@ -1,0 +1,14 @@
+id = "desktop-system-monitor"
+description = "Graphical system monitor"
+
+[choice]
+category = "desktop"
+id = "system-monitor"
+label = "System Monitor"
+default = true
+order = 150
+description = "View current processes and monitor system resources"
+
+[[install]]
+backend = "dnf"
+packages = ["gnome-system-monitor"]

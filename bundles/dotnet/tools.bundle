@@ -1,7 +1,0 @@
-BUNDLE_ID="dotnet-tools"
-BUNDLE_INSTALLER="action"
-BUNDLE_SOURCE_IDS="artifact:nuget"
-BUNDLE_DEPENDENCIES="dotnet-sdk"
-BUNDLE_ITEMS_FILE="packages/actions/dotnet-tools.actions"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION=".NET global tools installer"

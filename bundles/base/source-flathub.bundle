@@ -1,8 +1,0 @@
-BUNDLE_ID="base-source-flathub"
-BUNDLE_BASE="1"
-BUNDLE_BASE_ORDER="40"
-BUNDLE_MINIMAL_DESKTOP_SKIP="1"
-BUNDLE_INSTALLER="flatpak"
-BUNDLE_SOURCE_IDS="flathub"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Always-enabled Flathub source for Fedora"

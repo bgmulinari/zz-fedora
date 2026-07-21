@@ -1,0 +1,7 @@
+id = "copr:imput/helium"
+kind = "copr"
+label = "COPR: imput/helium"
+project = "imput/helium"
+description = "Helium browser Fedora COPR"
+gpg_policy = "copr-plugin"
+reason = "Provides optional Helium browser package"

@@ -1,8 +1,0 @@
-SOURCE_ID="cisco-openh264"
-SOURCE_KIND="cisco-openh264"
-SOURCE_LABEL="Fedora Cisco OpenH264"
-SOURCE_REQUIRED=1
-SOURCE_DESCRIPTION="Fedora Cisco OpenH264 repository"
-SOURCE_GPG_POLICY="distro-managed"
-SOURCE_BOOTSTRAP_EXCEPTION=0
-SOURCE_REASON="Enables Fedora's OpenH264 repository for the base desktop source set"

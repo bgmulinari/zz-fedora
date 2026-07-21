@@ -20,6 +20,7 @@ cleanup_on_exit() {
     tui_progress_end || true
   fi
   stop_sudo_keepalive
+  catalog_cleanup_cache
   restore_state_ownership
   release_lock
 }

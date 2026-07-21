@@ -1,0 +1,7 @@
+id = "copr:dejan/lazygit"
+kind = "copr"
+label = "COPR: dejan/lazygit"
+project = "dejan/lazygit"
+description = "lazygit Fedora COPR"
+gpg_policy = "copr-plugin"
+reason = "Provides optional lazygit package"

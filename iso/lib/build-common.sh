@@ -460,6 +460,14 @@ iso_stage_tracked_runtime_payload() {
     iso_err "staged payload is missing executable iso/lib/runtime-loader.sh"
     return 1
   }
+  [[ -d "$destination/catalog/units" ]] || {
+    iso_err "staged payload is missing catalog/units"
+    return 1
+  }
+  [[ -f "$destination/lib/catalog.py" ]] || {
+    iso_err "staged payload is missing lib/catalog.py"
+    return 1
+  }
   [[ ! -e "$destination/.git" ]] || {
     iso_err "staged payload unexpectedly contains .git"
     return 1

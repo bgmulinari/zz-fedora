@@ -1,9 +1,0 @@
-SOURCE_ID="artifact:oh-my-zsh"
-SOURCE_KIND="artifact"
-SOURCE_LABEL="Oh My Zsh pinned Git checkout"
-SOURCE_PROJECT="https://github.com/ohmyzsh/ohmyzsh.git@d2379b2701df66a36b217a7707e77f8029a99814"
-SOURCE_REQUIRED=1
-SOURCE_DESCRIPTION="Pinned Oh My Zsh checkout used by the required shell baseline"
-SOURCE_GPG_POLICY="pinned-commit"
-SOURCE_BOOTSTRAP_EXCEPTION=0
-SOURCE_REASON="Provides the required Zsh framework at a reviewed immutable commit"

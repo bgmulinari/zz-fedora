@@ -1,0 +1,14 @@
+id = "desktop-image-viewer"
+description = "Image viewer"
+
+[choice]
+category = "desktop"
+id = "image-viewer"
+label = "Image Viewer"
+default = true
+order = 70
+description = "View and edit images"
+
+[[install]]
+backend = "dnf"
+packages = ["loupe"]

@@ -1,0 +1,15 @@
+id = "dev-jetbrains-toolbox"
+description = "JetBrains Toolbox direct installer"
+
+[choice]
+category = "dev"
+id = "jetbrains-toolbox"
+label = "JetBrains Toolbox"
+default = true
+order = 40
+description = "App for installing, updating, and managing JetBrains IDEs"
+
+[[install]]
+backend = "action"
+sources = ["artifact:jetbrains-toolbox"]
+actions = ["jetbrains-toolbox"]

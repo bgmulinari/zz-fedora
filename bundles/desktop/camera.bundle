@@ -1,5 +1,0 @@
-BUNDLE_ID="desktop-camera"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_ITEMS_FILE="packages/official/desktop/camera.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Camera application"

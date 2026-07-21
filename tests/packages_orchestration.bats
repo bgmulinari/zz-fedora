@@ -155,6 +155,7 @@ setup() {
 }
 @test "required base package failure aborts base setup before service work" {
   build_test_plan
+  catalog_ensure_loaded
   DRY_RUN=0
 
   package_install_idempotent() {
@@ -251,6 +252,7 @@ setup() {
 }
 @test "Niri readiness failure aborts base setup" {
   build_test_plan
+  catalog_ensure_loaded
   DRY_RUN=0
 
   package_install_idempotent() {

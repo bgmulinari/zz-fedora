@@ -1,0 +1,15 @@
+id = "media-spotify"
+description = "Spotify Flatpak for Fedora"
+
+[choice]
+category = "media"
+id = "spotify"
+label = "Spotify"
+default = true
+order = 20
+description = "Desktop client for streaming music and podcasts"
+
+[[install]]
+backend = "flatpak"
+sources = ["flathub"]
+flatpaks = ["com.spotify.Client"]

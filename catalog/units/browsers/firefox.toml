@@ -1,0 +1,15 @@
+id = "browsers-firefox"
+description = "Firefox browser bundle for Fedora"
+requires = ["browsers-firefox-pywalfox"]
+
+[choice]
+category = "browsers"
+id = "firefox"
+label = "Firefox"
+default = true
+order = 10
+description = "Fast, privacy-focused web browser"
+
+[[install]]
+backend = "dnf"
+packages = ["firefox"]

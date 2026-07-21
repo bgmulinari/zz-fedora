@@ -1,0 +1,11 @@
+id = "shell-starship"
+description = "Starship shell bundle for Fedora"
+stow = ["shell-starship"]
+
+[base]
+order = 230
+
+[[install]]
+backend = "dnf"
+sources = ["copr:atim/starship"]
+packages = ["starship"]

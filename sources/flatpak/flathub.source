@@ -1,8 +1,0 @@
-SOURCE_ID="flathub"
-SOURCE_KIND="flatpak"
-SOURCE_LABEL="Flathub"
-SOURCE_REQUIRED=1
-SOURCE_DESCRIPTION="Flathub Flatpak remote"
-SOURCE_GPG_POLICY="flatpak-gpg"
-SOURCE_BOOTSTRAP_EXCEPTION=0
-SOURCE_REASON="Provides GTK Flatpak theme runtimes for the base desktop and optional Flatpak applications"

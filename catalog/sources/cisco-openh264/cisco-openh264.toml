@@ -1,0 +1,7 @@
+id = "cisco-openh264"
+kind = "cisco-openh264"
+label = "Fedora Cisco OpenH264"
+required = true
+description = "Fedora Cisco OpenH264 repository"
+gpg_policy = "distro-managed"
+reason = "Enables Fedora's OpenH264 repository for the base desktop source set"

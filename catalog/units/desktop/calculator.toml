@@ -1,0 +1,14 @@
+id = "desktop-calculator"
+description = "Desktop calculator"
+
+[choice]
+category = "desktop"
+id = "calculator"
+label = "Calculator"
+default = true
+order = 10
+description = "Perform arithmetic, scientific, and financial calculations"
+
+[[install]]
+backend = "dnf"
+packages = ["gnome-calculator"]

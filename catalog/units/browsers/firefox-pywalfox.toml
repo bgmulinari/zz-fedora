@@ -1,0 +1,9 @@
+id = "browsers-firefox-pywalfox"
+description = "Pywalfox setup for Firefox theme synchronization"
+requires = ["browsers-firefox-pywalfox-runtime"]
+stow = ["pywalfox"]
+
+[[install]]
+backend = "action"
+sources = ["artifact:pywalfox"]
+actions = ["pywalfox"]

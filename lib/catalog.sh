@@ -1,394 +1,216 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Descriptor/manifest catalog layer: loading, caching, and validating the
-# data-driven installer API under sources/, bundles/, and choices/.
+# Compiled-catalog access layer. The catalog itself lives under catalog/ as
+# TOML (one unit or source per file); lib/catalog.py is the single authority
+# on that format and compiles it into flat TSVs. This layer runs the compile
+# lazily on first access, loads the TSVs into Bash arrays, and exposes the
+# lookup API used by the planner, wizard, and modules. No other Bash code
+# parses catalog data.
 
-declare -Ag SOURCE_FILE_CACHE=()
-declare -Ag BUNDLE_FILE_CACHE=()
-declare -Ag SOURCE_FILE_CACHE_LOADED=()
-declare -Ag BUNDLE_FILE_CACHE_LOADED=()
-declare -Ag BASE_BUNDLE_CATALOG_LOADED=()
-
-# Base-install membership is derived from bundle metadata, not hand-kept
-# lists: BUNDLE_BASE=1 marks a base bundle, BUNDLE_BASE_ORDER gives its
-# position in base planning, BUNDLE_BASE_EARLY=1 puts it in the early base
-# set, and BUNDLE_MINIMAL_DESKTOP_SKIP=1 excludes it from the minimal
-# desktop profile.
-declare -ag EARLY_BASE_BUNDLE_IDS=()
+CATALOG_LOADED=0
+CATALOG_CACHE_INSTANCE_ID="${BASHPID:-$$}"
+declare -Ag CATALOG_BUNDLE_ROW=()   # bundle id -> full bundles.tsv row
+declare -Ag CATALOG_SOURCE_ROW=()   # source id -> full sources.tsv row
+declare -Ag CATALOG_BUNDLE_STEPS=() # bundle id -> newline-joined "idx\tbackend\tsources"
+declare -Ag CATALOG_STEP_ITEMS=()   # "bundle id\x1fidx" -> newline-joined items
+declare -ag CATALOG_SOURCE_IDS=()
+declare -ag CATALOG_CATEGORIES=()
+declare -ag CATALOG_ACTION_ITEMS=()
 declare -ag BASE_BUNDLE_IDS=()
+declare -ag EARLY_BASE_BUNDLE_IDS=()
 declare -ag MINIMAL_DESKTOP_SKIP_BUNDLE_IDS=()
 
-descriptor_value_from_file() {
-  local file="$1"
-  local key="$2"
-  local result_name="$3"
-  local line value
-
-  printf -v "$result_name" '%s' ""
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ "$line" == "$key="* ]] || continue
-    value="${line#*=}"
-    if [[ "$value" == \"*\" ]]; then
-      value="${value#\"}"
-      value="${value%\"}"
-    fi
-    printf -v "$result_name" '%s' "$value"
-    return 0
-  done <"$file"
-  return 1
+catalog_compiled_dir() {
+  # Every top-level Bash process gets its own compiled snapshot. Command
+  # substitutions inherit the instance id captured when this file was
+  # sourced, so their generated paths remain visible to the parent shell.
+  printf '%s/catalog-compiled.%s\n' "$CACHE_DIR" "$CATALOG_CACHE_INSTANCE_ID"
 }
 
-bundle_manifest_entries() {
-  [[ -n "${BUNDLE_ITEMS_FILE:-}" ]] || return 0
-  manifest_entries "$ROOT_DIR/$BUNDLE_ITEMS_FILE"
-}
-
-list_source_files() {
-  find "$ROOT_DIR/sources" -type f -name '*.source' | sort
-}
-
-load_source_file_cache() {
-  [[ -n "${SOURCE_FILE_CACHE_LOADED[catalog]:-}" ]] && return 0
-
-  local source_file source_id
-  while IFS= read -r source_file; do
-    descriptor_value_from_file "$source_file" SOURCE_ID source_id || continue
-    [[ -n "$source_id" ]] || continue
-    [[ -z "${SOURCE_FILE_CACHE[$source_id]:-}" ]] || die "Duplicate source ID '$source_id': ${SOURCE_FILE_CACHE[$source_id]} and $source_file"
-    SOURCE_FILE_CACHE["$source_id"]="$source_file"
-  done < <(list_source_files)
-  SOURCE_FILE_CACHE_LOADED[catalog]=1
-}
-
-source_file_for_id() {
-  local source_id="$1"
-  load_source_file_cache
-  if [[ -n "${SOURCE_FILE_CACHE[$source_id]:-}" ]]; then
-    printf '%s\n' "${SOURCE_FILE_CACHE[$source_id]}"
-    return 0
-  fi
-  return 1
-}
-
-load_source_descriptor() {
-  local source_id="$1"
-  local source_file
-  source_file="$(source_file_for_id "$source_id")" || return 1
-  unset \
-    SOURCE_ID \
-    SOURCE_KIND \
-    SOURCE_LABEL \
-    SOURCE_PROJECT \
-    SOURCE_REQUIRED \
-    SOURCE_DESCRIPTION \
-    SOURCE_GPG_POLICY \
-    SOURCE_BOOTSTRAP_EXCEPTION \
-    SOURCE_REASON
-  # shellcheck disable=SC1090
-  source "$source_file"
-}
-
-list_source_ids() {
-  local source_file source_id
-  while IFS= read -r source_file; do
-    descriptor_value_from_file "$source_file" SOURCE_ID source_id || continue
-    [[ -n "$source_id" ]] && printf '%s\n' "$source_id"
-  done < <(list_source_files)
-}
-
-source_descriptor_key_supported() {
-  case "$1" in
-    SOURCE_ID|SOURCE_KIND|SOURCE_LABEL|SOURCE_PROJECT|SOURCE_REQUIRED|SOURCE_DESCRIPTION|SOURCE_GPG_POLICY|SOURCE_BOOTSTRAP_EXCEPTION|SOURCE_REASON)
-      return 0
-      ;;
-    *)
-      return 1
+catalog_cleanup_cache() {
+  local compiled_dir
+  compiled_dir="$(catalog_compiled_dir)"
+  case "$compiled_dir" in
+    "$CACHE_DIR"/catalog-compiled.*)
+      rm -rf -- "$compiled_dir" || true
       ;;
   esac
 }
 
-validate_source_descriptor_keys() {
-  local source_file="$1"
-  local line key
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    case "$line" in
-      ''|'#'*)
-        continue
-        ;;
-    esac
-    [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]] || die "Invalid source descriptor line '$line' in $source_file"
-    key="${BASH_REMATCH[1]}"
-    source_descriptor_key_supported "$key" || die "Unknown source descriptor key '$key' in $source_file"
-  done <"$source_file"
-}
-
-validate_source_descriptor() {
-  local source_file="$1"
-
-  validate_source_descriptor_keys "$source_file"
-
-  unset \
-    SOURCE_ID \
-    SOURCE_KIND \
-    SOURCE_LABEL \
-    SOURCE_PROJECT \
-    SOURCE_REQUIRED \
-    SOURCE_DESCRIPTION \
-    SOURCE_GPG_POLICY \
-    SOURCE_BOOTSTRAP_EXCEPTION \
-    SOURCE_REASON
-  # shellcheck disable=SC1090
-  source "$source_file"
-
-  [[ -n "${SOURCE_ID:-}" ]] || die "Missing SOURCE_ID in $source_file"
-  [[ "$SOURCE_ID" =~ ^[A-Za-z0-9_.:/-]+$ ]] || die "Invalid SOURCE_ID '$SOURCE_ID' in $source_file"
-  [[ -n "${SOURCE_KIND:-}" ]] || die "Missing SOURCE_KIND in $source_file"
-  [[ -n "${SOURCE_LABEL:-}" ]] || die "Missing SOURCE_LABEL in $source_file"
-  [[ -n "${SOURCE_REQUIRED:-}" ]] || die "Missing SOURCE_REQUIRED in $source_file"
-  [[ -n "${SOURCE_DESCRIPTION:-}" ]] || die "Missing SOURCE_DESCRIPTION in $source_file"
-  [[ -n "${SOURCE_GPG_POLICY:-}" ]] || die "Missing SOURCE_GPG_POLICY in $source_file"
-  [[ -n "${SOURCE_BOOTSTRAP_EXCEPTION:-}" ]] || die "Missing SOURCE_BOOTSTRAP_EXCEPTION in $source_file"
-  [[ -n "${SOURCE_REASON:-}" ]] || die "Missing SOURCE_REASON in $source_file"
-  [[ "$SOURCE_REQUIRED" == "0" || "$SOURCE_REQUIRED" == "1" ]] || die "Invalid SOURCE_REQUIRED in $source_file"
-  [[ "$SOURCE_BOOTSTRAP_EXCEPTION" == "0" || "$SOURCE_BOOTSTRAP_EXCEPTION" == "1" ]] || die "Invalid SOURCE_BOOTSTRAP_EXCEPTION in $source_file"
-  case "$SOURCE_GPG_POLICY" in
-    distro-managed|copr-plugin|rpm-gpg-import|repo-gpg-key|flatpak-gpg|unsigned-bootstrap|pinned-commit|sha256|tls-only)
-      ;;
-    *)
-      die "Invalid SOURCE_GPG_POLICY '$SOURCE_GPG_POLICY' in $source_file"
-      ;;
-  esac
-  if [[ "$SOURCE_GPG_POLICY" == "unsigned-bootstrap" && "$SOURCE_BOOTSTRAP_EXCEPTION" != "1" ]]; then
-    die "Unsigned bootstrap source must set SOURCE_BOOTSTRAP_EXCEPTION=1 in $source_file"
-  fi
-  case "$SOURCE_KIND" in
-    official|copr|terra|rpmfusion|cisco-openh264|vendor|flatpak|artifact)
-      ;;
-    *)
-      die "Unsupported source kind '$SOURCE_KIND' in $source_file"
-      ;;
-  esac
-  case "$SOURCE_KIND" in
-    artifact|copr)
-      [[ -n "${SOURCE_PROJECT:-}" ]] || die "Missing SOURCE_PROJECT for $SOURCE_KIND source in $source_file"
-      ;;
-    *)
-      [[ -z "${SOURCE_PROJECT:-}" ]] || die "SOURCE_PROJECT is only valid for artifact and copr sources in $source_file"
-      ;;
-  esac
-}
-
-validate_source_catalog() {
-  local source_file
-  load_source_file_cache
-  while IFS= read -r source_file; do
-    validate_source_descriptor "$source_file"
-  done < <(list_source_files)
-}
-
-list_bundle_files() {
-  find "$ROOT_DIR/bundles" -type f -name '*.bundle' | sort
-}
-
-load_bundle_file_cache() {
-  [[ -n "${BUNDLE_FILE_CACHE_LOADED[catalog]:-}" ]] && return 0
-
-  local bundle_file bundle_id
-  while IFS= read -r bundle_file; do
-    descriptor_value_from_file "$bundle_file" BUNDLE_ID bundle_id || continue
-    [[ -n "$bundle_id" ]] || continue
-    [[ -z "${BUNDLE_FILE_CACHE[$bundle_id]:-}" ]] || die "Duplicate bundle ID '$bundle_id': ${BUNDLE_FILE_CACHE[$bundle_id]} and $bundle_file"
-    BUNDLE_FILE_CACHE["$bundle_id"]="$bundle_file"
-  done < <(list_bundle_files)
-  BUNDLE_FILE_CACHE_LOADED[catalog]=1
-}
-
-load_base_bundle_catalog() {
-  [[ -n "${BASE_BUNDLE_CATALOG_LOADED[catalog]:-}" ]] && return 0
-
-  local bundle_file bundle_id base_flag base_order early_flag skip_flag
-  local -a base_rows=()
-  local -A seen_orders=()
-
-  EARLY_BASE_BUNDLE_IDS=()
+# Tests point ROOT_DIR at sandbox catalogs mid-process; resetting drops every
+# in-memory table so the next access recompiles from the new root.
+catalog_reset_cache() {
+  CATALOG_LOADED=0
+  CATALOG_BUNDLE_ROW=()
+  CATALOG_SOURCE_ROW=()
+  CATALOG_BUNDLE_STEPS=()
+  CATALOG_STEP_ITEMS=()
+  CATALOG_SOURCE_IDS=()
+  CATALOG_CATEGORIES=()
+  CATALOG_ACTION_ITEMS=()
   BASE_BUNDLE_IDS=()
+  EARLY_BASE_BUNDLE_IDS=()
   MINIMAL_DESKTOP_SKIP_BUNDLE_IDS=()
-
-  while IFS= read -r bundle_file; do
-    descriptor_value_from_file "$bundle_file" BUNDLE_ID bundle_id || continue
-    [[ -n "$bundle_id" ]] || continue
-    base_flag=""
-    descriptor_value_from_file "$bundle_file" BUNDLE_BASE base_flag || true
-    if [[ "$bundle_file" == "$ROOT_DIR/bundles/base/"* && "$base_flag" != "1" ]]; then
-      die "Bundle under bundles/base/ must declare BUNDLE_BASE=1 in $bundle_file"
-    fi
-    if [[ "$base_flag" != "1" ]]; then
-      continue
-    fi
-    base_order=""
-    descriptor_value_from_file "$bundle_file" BUNDLE_BASE_ORDER base_order || true
-    [[ "$base_order" =~ ^[0-9]+$ ]] || die "Base bundle '$bundle_id' must declare a numeric BUNDLE_BASE_ORDER in $bundle_file"
-    base_order="$((10#$base_order))"
-    [[ -z "${seen_orders[$base_order]:-}" ]] || die "Duplicate BUNDLE_BASE_ORDER '$base_order': ${seen_orders[$base_order]} and $bundle_file"
-    seen_orders["$base_order"]="$bundle_file"
-    early_flag=""
-    descriptor_value_from_file "$bundle_file" BUNDLE_BASE_EARLY early_flag || true
-    skip_flag=""
-    descriptor_value_from_file "$bundle_file" BUNDLE_MINIMAL_DESKTOP_SKIP skip_flag || true
-    base_rows+=("$(printf '%012d\t%s\t%s\t%s' "$base_order" "$bundle_id" "${early_flag:-0}" "${skip_flag:-0}")")
-  done < <(list_bundle_files)
-
-  if [[ "${#base_rows[@]}" -gt 0 ]]; then
-    while IFS=$'\t' read -r _ bundle_id early_flag skip_flag; do
-      BASE_BUNDLE_IDS+=("$bundle_id")
-      if [[ "$early_flag" == "1" ]]; then
-        EARLY_BASE_BUNDLE_IDS+=("$bundle_id")
-      fi
-      if [[ "$skip_flag" == "1" ]]; then
-        MINIMAL_DESKTOP_SKIP_BUNDLE_IDS+=("$bundle_id")
-      fi
-    done < <(printf '%s\n' "${base_rows[@]}" | LC_ALL=C sort)
-  fi
-
-  BASE_BUNDLE_CATALOG_LOADED[catalog]=1
 }
 
-bundle_file_for_id() {
-  local bundle_id="$1"
-  load_bundle_file_cache
-  if [[ -n "${BUNDLE_FILE_CACHE[$bundle_id]:-}" ]]; then
-    printf '%s\n' "${BUNDLE_FILE_CACHE[$bundle_id]}"
-    return 0
-  fi
-  return 1
+catalog_ensure_loaded() {
+  [[ "$CATALOG_LOADED" -eq 1 ]] && return 0
+  command -v python3 >/dev/null 2>&1 ||
+    die "python3 is required to load the catalog; install it and rerun (bootstrap.sh installs it on fresh systems)"
+
+  local compiled_dir
+  compiled_dir="$(catalog_compiled_dir)"
+  rm -rf "$compiled_dir"
+  mkdir -p "$compiled_dir"
+  python3 "$ROOT_DIR/lib/catalog.py" --root "$ROOT_DIR" compile --out "$compiled_dir" ||
+    die "Catalog validation failed; fix the errors above and rerun"
+
+  local line id early skip
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    CATALOG_BUNDLE_ROW["${line%%$'\t'*}"]="$line"
+  done <"$compiled_dir/bundles.tsv"
+
+  while IFS=$'\t' read -r id early skip; do
+    [[ -n "$id" ]] || continue
+    BASE_BUNDLE_IDS+=("$id")
+    [[ "$early" == "1" ]] && EARLY_BASE_BUNDLE_IDS+=("$id")
+    [[ "$skip" == "1" ]] && MINIMAL_DESKTOP_SKIP_BUNDLE_IDS+=("$id")
+  done <"$compiled_dir/base.tsv"
+
+  local step_index backend step_sources
+  while IFS=$'\t' read -r id step_index backend step_sources; do
+    [[ -n "$id" ]] || continue
+    if [[ -n "${CATALOG_BUNDLE_STEPS[$id]:-}" ]]; then
+      CATALOG_BUNDLE_STEPS["$id"]+=$'\n'"$step_index"$'\t'"$backend"$'\t'"$step_sources"
+    else
+      CATALOG_BUNDLE_STEPS["$id"]="$step_index"$'\t'"$backend"$'\t'"$step_sources"
+    fi
+  done <"$compiled_dir/steps.tsv"
+
+  local item key
+  while IFS=$'\t' read -r id step_index backend item; do
+    [[ -n "$id" ]] || continue
+    key="$id"$'\x1f'"$step_index"
+    if [[ -n "${CATALOG_STEP_ITEMS[$key]:-}" ]]; then
+      CATALOG_STEP_ITEMS["$key"]+=$'\n'"$item"
+    else
+      CATALOG_STEP_ITEMS["$key"]="$item"
+    fi
+    [[ "$backend" == "action" ]] && append_unique CATALOG_ACTION_ITEMS "$item"
+  done <"$compiled_dir/items.tsv"
+
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    id="${line%%$'\t'*}"
+    CATALOG_SOURCE_IDS+=("$id")
+    CATALOG_SOURCE_ROW["$id"]="$line"
+  done <"$compiled_dir/sources.tsv"
+
+  while IFS= read -r id; do
+    [[ -n "$id" ]] && CATALOG_CATEGORIES+=("$id")
+  done <"$compiled_dir/categories.list"
+
+  CATALOG_LOADED=1
 }
 
 load_bundle_descriptor() {
   local bundle_id="$1"
-  local bundle_file
-  bundle_file="$(bundle_file_for_id "$bundle_id")" || return 1
-  unset \
+  catalog_ensure_loaded
+  local row="${CATALOG_BUNDLE_ROW[$bundle_id]:-}"
+  [[ -n "$row" ]] || return 1
+  # Tab is IFS whitespace, so empty TSV fields would collapse under a
+  # tab-IFS read; swap in a non-whitespace separator first.
+  row="${row//$'\t'/$'\x1f'}"
+  # shellcheck disable=SC2034  # Descriptor globals are consumed by the planner, modules, and tui.
+  IFS=$'\x1f' read -r \
     BUNDLE_ID \
     BUNDLE_BASE \
     BUNDLE_BASE_ORDER \
     BUNDLE_BASE_EARLY \
     BUNDLE_MINIMAL_DESKTOP_SKIP \
-    BUNDLE_INSTALLER \
-    BUNDLE_SOURCE_IDS \
     BUNDLE_DEPENDENCIES \
-    BUNDLE_ITEMS_FILE \
-    BUNDLE_STOW_PACKAGES \
-    BUNDLE_DESCRIPTION
-  # shellcheck disable=SC1090
-  source "$bundle_file"
-}
-
-bundle_descriptor_key_supported() {
-  case "$1" in
-    BUNDLE_ID|BUNDLE_BASE|BUNDLE_BASE_ORDER|BUNDLE_BASE_EARLY|BUNDLE_MINIMAL_DESKTOP_SKIP|BUNDLE_INSTALLER|BUNDLE_SOURCE_IDS|BUNDLE_DEPENDENCIES|BUNDLE_ITEMS_FILE|BUNDLE_STOW_PACKAGES|BUNDLE_DESCRIPTION)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
-validate_bundle_descriptor_keys() {
-  local bundle_file="$1"
-  local line key
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    case "$line" in
-      ''|'#'*)
-        continue
-        ;;
-    esac
-    [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]] || die "Invalid bundle descriptor line '$line' in $bundle_file"
-    key="${BASH_REMATCH[1]}"
-    bundle_descriptor_key_supported "$key" || die "Unknown bundle descriptor key '$key' in $bundle_file"
-  done <"$bundle_file"
-}
-
-bundle_installer_supported() {
-  case "$1" in
-    dnf|flatpak|action)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
-validate_bundle_descriptor() {
-  local bundle_file="$1"
-
-  validate_bundle_descriptor_keys "$bundle_file"
-
-  unset \
-    BUNDLE_ID \
-    BUNDLE_BASE \
-    BUNDLE_BASE_ORDER \
-    BUNDLE_BASE_EARLY \
-    BUNDLE_MINIMAL_DESKTOP_SKIP \
-    BUNDLE_INSTALLER \
     BUNDLE_SOURCE_IDS \
-    BUNDLE_DEPENDENCIES \
-    BUNDLE_ITEMS_FILE \
     BUNDLE_STOW_PACKAGES \
-    BUNDLE_DESCRIPTION
-  # shellcheck disable=SC1090
-  source "$bundle_file"
-
-  [[ -n "${BUNDLE_ID:-}" ]] || die "Missing BUNDLE_ID in $bundle_file"
-  if [[ -n "${BUNDLE_BASE:-}" ]]; then
-    [[ "$BUNDLE_BASE" == "0" || "$BUNDLE_BASE" == "1" ]] || die "Invalid BUNDLE_BASE '$BUNDLE_BASE' in $bundle_file"
-  fi
-  if [[ "${BUNDLE_BASE:-0}" == "1" ]]; then
-    [[ "${BUNDLE_BASE_ORDER:-}" =~ ^[0-9]+$ ]] || die "Base bundle must declare a numeric BUNDLE_BASE_ORDER in $bundle_file"
-  else
-    [[ -z "${BUNDLE_BASE_ORDER:-}" ]] || die "BUNDLE_BASE_ORDER requires BUNDLE_BASE=1 in $bundle_file"
-    [[ -z "${BUNDLE_BASE_EARLY:-}" ]] || die "BUNDLE_BASE_EARLY requires BUNDLE_BASE=1 in $bundle_file"
-    [[ -z "${BUNDLE_MINIMAL_DESKTOP_SKIP:-}" ]] || die "BUNDLE_MINIMAL_DESKTOP_SKIP requires BUNDLE_BASE=1 in $bundle_file"
-  fi
-  if [[ -n "${BUNDLE_BASE_EARLY:-}" ]]; then
-    [[ "$BUNDLE_BASE_EARLY" == "0" || "$BUNDLE_BASE_EARLY" == "1" ]] || die "Invalid BUNDLE_BASE_EARLY '$BUNDLE_BASE_EARLY' in $bundle_file"
-  fi
-  if [[ -n "${BUNDLE_MINIMAL_DESKTOP_SKIP:-}" ]]; then
-    [[ "$BUNDLE_MINIMAL_DESKTOP_SKIP" == "0" || "$BUNDLE_MINIMAL_DESKTOP_SKIP" == "1" ]] || die "Invalid BUNDLE_MINIMAL_DESKTOP_SKIP '$BUNDLE_MINIMAL_DESKTOP_SKIP' in $bundle_file"
-  fi
-  [[ "$BUNDLE_ID" =~ ^[A-Za-z0-9_.:-]+$ ]] || die "Invalid BUNDLE_ID '$BUNDLE_ID' in $bundle_file"
-  [[ -n "${BUNDLE_INSTALLER:-}" ]] || die "Missing BUNDLE_INSTALLER in $bundle_file"
-  [[ -n "${BUNDLE_DESCRIPTION:-}" ]] || die "Missing BUNDLE_DESCRIPTION in $bundle_file"
-  bundle_installer_supported "$BUNDLE_INSTALLER" || die "Unsupported installer '$BUNDLE_INSTALLER' in $bundle_file"
-  if [[ -n "${BUNDLE_ITEMS_FILE:-}" ]]; then
-    [[ "$BUNDLE_ITEMS_FILE" =~ \.(pkgs|flatpaks|actions)$ ]] || die "Bundle payload file '$BUNDLE_ITEMS_FILE' must use a manifest suffix (.pkgs, .flatpaks, .actions) in $bundle_file"
-    [[ -f "$ROOT_DIR/$BUNDLE_ITEMS_FILE" ]] || die "Missing bundle payload file '$BUNDLE_ITEMS_FILE' in $bundle_file"
-    if [[ "$BUNDLE_INSTALLER" == "action" ]]; then
-      validate_action_manifest "$ROOT_DIR/$BUNDLE_ITEMS_FILE"
-    fi
-  fi
-
-  local source_id
-  while IFS= read -r source_id; do
-    [[ -n "$source_id" ]] || continue
-    source_file_for_id "$source_id" >/dev/null || die "Unknown source ID '$source_id' in $bundle_file"
-  done < <(split_csv "${BUNDLE_SOURCE_IDS:-}")
-  local dependency_id
-  while IFS= read -r dependency_id; do
-    [[ -n "$dependency_id" ]] || continue
-    [[ "$dependency_id" != "$BUNDLE_ID" ]] || die "Bundle '$BUNDLE_ID' cannot depend on itself in $bundle_file"
-    bundle_file_for_id "$dependency_id" >/dev/null || die "Unknown bundle dependency '$dependency_id' in $bundle_file"
-  done < <(split_csv "${BUNDLE_DEPENDENCIES:-}")
+    BUNDLE_BACKENDS \
+    BUNDLE_DESCRIPTION <<<"$row"
 }
 
-validate_bundle_catalog() {
-  local bundle_file
-  load_bundle_file_cache
-  while IFS= read -r bundle_file; do
-    validate_bundle_descriptor "$bundle_file"
-  done < <(list_bundle_files)
+bundle_exists() {
+  catalog_ensure_loaded
+  [[ -n "${CATALOG_BUNDLE_ROW[$1]:-}" ]]
+}
+
+list_bundle_ids() {
+  catalog_ensure_loaded
+  printf '%s\n' "${!CATALOG_BUNDLE_ROW[@]}" | sort
+}
+
+# Prints one line per install step of the bundle: "index\tbackend\tsources".
+bundle_steps() {
+  local bundle_id="$1"
+  catalog_ensure_loaded
+  local steps="${CATALOG_BUNDLE_STEPS[$bundle_id]:-}"
+  [[ -n "$steps" ]] && printf '%s\n' "$steps"
+  return 0
+}
+
+# Prints the payload items of one install step, one per line.
+bundle_step_items() {
+  local bundle_id="$1"
+  local step_index="$2"
+  catalog_ensure_loaded
+  local items="${CATALOG_STEP_ITEMS[$bundle_id$'\x1f'$step_index]:-}"
+  [[ -n "$items" ]] && printf '%s\n' "$items"
+  return 0
+}
+
+# Prints every payload item of the bundle across all steps, sorted unique.
+bundle_items() {
+  local bundle_id="$1"
+  catalog_ensure_loaded
+  local step_index _backend _sources
+  while IFS=$'\t' read -r step_index _backend _sources; do
+    [[ -n "$step_index" ]] || continue
+    bundle_step_items "$bundle_id" "$step_index"
+  done < <(bundle_steps "$bundle_id") | sort -u
+}
+
+load_source_descriptor() {
+  local source_id="$1"
+  catalog_ensure_loaded
+  local row="${CATALOG_SOURCE_ROW[$source_id]:-}"
+  [[ -n "$row" ]] || return 1
+  row="${row//$'\t'/$'\x1f'}"
+  # shellcheck disable=SC2034  # Source globals are consumed by fedora.sh, readiness.sh, and the planner.
+  IFS=$'\x1f' read -r \
+    SOURCE_ID \
+    SOURCE_KIND \
+    SOURCE_LABEL \
+    SOURCE_PROJECT \
+    SOURCE_REQUIRED \
+    SOURCE_GPG_POLICY \
+    SOURCE_BOOTSTRAP_EXCEPTION \
+    SOURCE_DESCRIPTION \
+    SOURCE_REASON <<<"$row"
+}
+
+list_source_ids() {
+  catalog_ensure_loaded
+  printf '%s\n' "${CATALOG_SOURCE_IDS[@]:-}"
+}
+
+# Custom-action payloads can only be checked against the Bash action registry,
+# which lib/catalog.py cannot see; the planner calls this after loading.
+catalog_validate_action_items() {
+  catalog_ensure_loaded
+  local action
+  for action in "${CATALOG_ACTION_ITEMS[@]:-}"; do
+    [[ -n "$action" ]] || continue
+    action_registered "$action" ||
+      die "Unknown custom action '$action' in the catalog: no register_action row declares it (see lib/actions/*.sh)"
+  done
 }
 
 normalize_category_name() {
@@ -399,64 +221,30 @@ normalize_category_name() {
   esac
 }
 
+category_names() {
+  catalog_ensure_loaded
+  printf '%s\n' "${CATALOG_CATEGORIES[@]:-}"
+}
+
 choice_catalog_path() {
   local category
   category="$(normalize_category_name "$1")"
-  printf '%s\n' "$ROOT_DIR/choices/$category.conf"
-}
-
-validate_choice_catalog() {
-  local category="$1"
-  local catalog
-  catalog="$(choice_catalog_path "$category")"
-  [[ -f "$catalog" ]] || return 0
-  local line
-  local -A seen_ids=()
-  local line_no=0
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    line_no=$((line_no + 1))
-    [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
-    local without_tabs field_count
-    without_tabs="${line//$'\t'/}"
-    field_count=$(( ${#line} - ${#without_tabs} + 1 ))
-    [[ "$field_count" -eq 5 ]] || die "Invalid catalog row at $catalog:$line_no"
-    local field_line id label default_flag bundle_ids description
-    field_line="${line//$'\t'/$'\x1f'}"
-    IFS=$'\x1f' read -r id label default_flag bundle_ids description <<<"$field_line"
-    [[ -n "$id" && -n "$label" && -n "$default_flag" && -n "$description" ]] || die "Invalid empty field in $catalog:$line_no"
-    [[ "$id" =~ ^[A-Za-z0-9_.-]+$ ]] || die "Invalid choice ID '$id' in $catalog:$line_no"
-    [[ "$default_flag" == "0" || "$default_flag" == "1" ]] || die "Invalid default flag '$default_flag' in $catalog:$line_no"
-    [[ -z "${seen_ids[$id]:-}" ]] || die "Duplicate choice ID '$id' in $catalog:$line_no"
-    seen_ids["$id"]=1
-    local bundle_id
-    while IFS= read -r bundle_id; do
-      [[ -z "$bundle_id" ]] && continue
-      bundle_file_for_id "$bundle_id" >/dev/null || die "Unknown bundle ID '$bundle_id' in $catalog:$line_no"
-      if array_contains "$bundle_id" "${BASE_BUNDLE_IDS[@]:-}"; then
-        die "Base bundle '$bundle_id' must not be exposed as an optional choice in $catalog:$line_no"
-      fi
-    done < <(split_csv "$bundle_ids")
-  done <"$catalog"
-}
-
-list_choice_catalogs() {
-  find "$ROOT_DIR/choices" -maxdepth 1 -type f -name '*.conf' | sort
+  catalog_ensure_loaded
+  printf '%s/choices/%s.tsv\n' "$(catalog_compiled_dir)" "$category"
 }
 
 default_choice_ids() {
-  local category="$1"
   local catalog
-  catalog="$(choice_catalog_path "$category")"
+  catalog="$(choice_catalog_path "$1")"
   [[ -f "$catalog" ]] || return 0
-  awk -F'\t' 'NF==5 && $1 !~ /^#/ && $3 == 1 {print $1}' "$catalog"
+  awk -F'\t' 'NF==5 && $3 == 1 {print $1}' "$catalog"
 }
 
 all_choice_ids() {
-  local category="$1"
   local catalog
-  catalog="$(choice_catalog_path "$category")"
+  catalog="$(choice_catalog_path "$1")"
   [[ -f "$catalog" ]] || return 0
-  awk -F'\t' 'NF==5 && $1 !~ /^#/ {print $1}' "$catalog"
+  awk -F'\t' 'NF==5 {print $1}' "$catalog"
 }
 
 choice_record() {
@@ -465,7 +253,7 @@ choice_record() {
   local catalog
   catalog="$(choice_catalog_path "$category")"
   [[ -f "$catalog" ]] || return 1
-  awk -F'\t' -v choice_id="$choice_id" 'NF==5 && $1 !~ /^#/ && $1 == choice_id {print $0}' "$catalog"
+  awk -F'\t' -v choice_id="$choice_id" 'NF==5 && $1 == choice_id {print $0}' "$catalog"
 }
 
 choice_field() {
@@ -475,8 +263,4 @@ choice_field() {
   line="${line//$'\t'/$'\x1f'}"
   IFS=$'\x1f' read -r -a fields <<<"$line"
   printf '%s\n' "${fields[$((field_index - 1))]:-}"
-}
-
-category_names() {
-  find "$ROOT_DIR/choices" -maxdepth 1 -type f -name '*.conf' -printf '%f\n' | sed 's/\.conf$//' | sort
 }

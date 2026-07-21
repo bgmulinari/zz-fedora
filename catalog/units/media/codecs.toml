@@ -1,0 +1,15 @@
+id = "media-codecs"
+description = "Fedora multimedia and Bluetooth aptX codecs with detected AMD and Intel acceleration"
+
+[choice]
+category = "media"
+id = "codecs"
+label = "Full multimedia codecs"
+default = true
+order = 10
+description = "Common audio, video, and Bluetooth aptX codecs plus detected AMD and Intel video acceleration"
+
+[[install]]
+backend = "action"
+sources = ["rpmfusion-free", "rpmfusion-nonfree", "cisco-openh264"]
+actions = ["media-codecs", "media-hardware-acceleration"]

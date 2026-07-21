@@ -1,0 +1,16 @@
+id = "dev-docker"
+description = "Docker CE setup for Fedora"
+requires = ["dev-docker-post"]
+
+[choice]
+category = "dev"
+id = "docker"
+label = "Docker CE"
+default = true
+order = 50
+description = "Docker Engine, CLI, containerd, Buildx, and Compose for running containers"
+
+[[install]]
+backend = "action"
+sources = ["artifact:docker"]
+actions = ["docker"]

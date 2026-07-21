@@ -1,5 +1,0 @@
-BUNDLE_ID="desktop-system-monitor"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_ITEMS_FILE="packages/official/desktop/system-monitor.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Graphical system monitor"

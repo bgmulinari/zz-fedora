@@ -35,7 +35,7 @@ backend_prerequisite_items() {
   case "$1" in
     dnf|action) return 0 ;;
     flatpak)
-      manifest_entries "$ROOT_DIR/packages/official/flatpak.pkgs"
+      printf '%s\n' "${FLATPAK_BACKEND_PREREQ_PKGS[@]}"
       ;;
     *)
       die "Unsupported backend: $1"
@@ -391,8 +391,13 @@ build_base_package_plan_for_backend() {
   local base_plan="$2"
   local filter="${3:-all}"
 
-  local bundle_id
-  local -a bundle_items=()
+  # is_early_base_bundle reads EARLY_BASE_BUNDLE_IDS in this shell, while
+  # effective_base_bundle_ids below runs in a process-substitution subshell;
+  # load here so the early/remaining split never sees half-filled arrays.
+  catalog_ensure_loaded
+
+  local bundle_id step_index step_backend _step_sources
+  local -a step_items=()
   while IFS= read -r bundle_id; do
     [[ -n "$bundle_id" ]] || continue
     case "$filter" in
@@ -408,10 +413,11 @@ build_base_package_plan_for_backend() {
         die "Unsupported base bundle filter: $filter"
         ;;
     esac
-    load_bundle_descriptor "$bundle_id" || die "Unknown base bundle: $bundle_id"
-    [[ "$BUNDLE_INSTALLER" == "$backend" ]] || continue
-    mapfile -t bundle_items < <(bundle_manifest_entries)
-    append_plan_entries "$base_plan" "${bundle_items[@]:-}"
+    while IFS=$'\t' read -r step_index step_backend _step_sources; do
+      [[ -n "$step_index" && "$step_backend" == "$backend" ]] || continue
+      mapfile -t step_items < <(bundle_step_items "$bundle_id" "$step_index")
+      append_plan_entries "$base_plan" "${step_items[@]:-}"
+    done < <(bundle_steps "$bundle_id")
   done < <(effective_base_bundle_ids)
 }
 

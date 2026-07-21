@@ -1,0 +1,6 @@
+id = "browsers-firefox-pywalfox-runtime"
+description = "Isolated Python application runtime for Firefox theme synchronization"
+
+[[install]]
+backend = "dnf"
+packages = ["pipx"]

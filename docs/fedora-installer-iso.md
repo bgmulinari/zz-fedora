@@ -15,7 +15,7 @@ The default profile is `full`: every optional non-browser choice is
 preselected, while Firefox is the only preselected browser and therefore the
 default browser. Both Anaconda UIs also expose the `minimal` desktop app
 profile. It keeps the Niri and Noctalia baseline, suppresses the Desktop
-catalog defaults and full-profile desktop integration bundles, and still
+catalog defaults and full-profile desktop integration units, and still
 allows individual desktop apps to be selected explicitly. Other optional
 catalogs keep their normal defaults in both profiles.
 
@@ -113,8 +113,8 @@ triggering a release build for installer-path changes.
 
 The ISO must still be rebuilt for changes to the Kickstart, Anaconda add-on,
 base installer packages, boot integration, or remote-runtime loader. Changes
-to installer modules, manifests, package choices, bundles, sources, dotfiles,
-and templates are picked up from `main` when installation starts. This makes
+to installer modules, catalog units and sources, dotfiles, and templates are
+picked up from `main` when installation starts. This makes
 the result intentionally time-dependent: two installations from the same ISO
 can resolve different repository revisions.
 

@@ -194,12 +194,12 @@ setup() {
   }
 
   output="$(bootstrap_notice)"
-  assert_contains "$output" "Packages: ca-certificates curl git gum dnf5-plugins"
+  assert_contains "$output" "Packages: ca-certificates curl git gum python3 dnf5-plugins"
   refute_contains "$output" "bats"
   refute_contains "$output" "dnf-plugins-core"
 
   output="$(bootstrap_fedora)"
-  assert_contains "$output" "dnf install -y ca-certificates curl git gum dnf5-plugins"
+  assert_contains "$output" "dnf install -y ca-certificates curl git gum python3 dnf5-plugins"
   refute_contains "$output" "bats"
   refute_contains "$output" "dnf-plugins-core"
 }

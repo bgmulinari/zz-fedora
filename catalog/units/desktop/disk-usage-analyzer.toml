@@ -1,0 +1,14 @@
+id = "desktop-disk-usage-analyzer"
+description = "Disk usage analyzer"
+
+[choice]
+category = "desktop"
+id = "disk-usage-analyzer"
+label = "Disk Usage Analyzer"
+default = true
+order = 60
+description = "Check folder sizes and available disk space"
+
+[[install]]
+backend = "dnf"
+packages = ["baobab"]

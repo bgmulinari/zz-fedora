@@ -1,0 +1,6 @@
+id = "dev-docker-post"
+description = "Docker service and user setup"
+
+[[install]]
+backend = "action"
+actions = ["docker-post-install"]

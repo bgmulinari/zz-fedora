@@ -1,0 +1,15 @@
+id = "base-file-integration-gtk"
+description = "GTK and Nautilus file integration packages for Fedora"
+
+[base]
+order = 170
+minimal_desktop_skip = true
+
+[[install]]
+backend = "dnf"
+packages = [
+  "ffmpegthumbnailer",
+  "gvfs-mtp",
+  "gvfs-nfs",
+  "gvfs-smb",
+]

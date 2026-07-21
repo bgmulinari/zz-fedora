@@ -1,0 +1,11 @@
+id = "base-ghostty"
+description = "Ghostty terminal bundle for Fedora"
+stow = ["ghostty"]
+
+[base]
+order = 90
+
+[[install]]
+backend = "dnf"
+sources = ["terra"]
+packages = ["ghostty", "ghostty-shell-integration"]

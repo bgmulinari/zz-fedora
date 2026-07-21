@@ -1,0 +1,15 @@
+id = "dev-devtunnel"
+description = "Microsoft Dev Tunnel CLI installer"
+
+[choice]
+category = "dev"
+id = "devtunnel"
+label = "Microsoft Dev Tunnel CLI"
+default = true
+order = 60
+description = "CLI for securely exposing local web services to the internet"
+
+[[install]]
+backend = "action"
+sources = ["artifact:devtunnel"]
+actions = ["devtunnel"]

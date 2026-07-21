@@ -1,0 +1,14 @@
+id = "desktop-logs"
+description = "System log viewer"
+
+[choice]
+category = "desktop"
+id = "logs"
+label = "Logs"
+default = true
+order = 50
+description = "View detailed event logs for the system"
+
+[[install]]
+backend = "dnf"
+packages = ["gnome-logs"]

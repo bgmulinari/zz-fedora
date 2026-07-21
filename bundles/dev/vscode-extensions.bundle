@@ -1,6 +1,0 @@
-BUNDLE_ID="dev-vscode-extensions"
-BUNDLE_INSTALLER="action"
-BUNDLE_SOURCE_IDS="artifact:vscode-marketplace"
-BUNDLE_ITEMS_FILE="packages/actions/dev-vscode-extensions.actions"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Managed Visual Studio Code extensions"

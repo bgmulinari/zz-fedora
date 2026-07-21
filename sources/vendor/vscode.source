@@ -1,8 +1,0 @@
-SOURCE_ID="vendor:vscode"
-SOURCE_KIND="vendor"
-SOURCE_LABEL="Visual Studio Code RPM Repository"
-SOURCE_REQUIRED=0
-SOURCE_DESCRIPTION="Official Visual Studio Code RPM repository"
-SOURCE_GPG_POLICY="repo-gpg-key"
-SOURCE_BOOTSTRAP_EXCEPTION=0
-SOURCE_REASON="Provides optional Visual Studio Code package"

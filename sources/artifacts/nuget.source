@@ -1,9 +1,0 @@
-SOURCE_ID="artifact:nuget"
-SOURCE_KIND="artifact"
-SOURCE_LABEL="NuGet package registry"
-SOURCE_PROJECT="https://api.nuget.org"
-SOURCE_REQUIRED=0
-SOURCE_DESCRIPTION="Optional .NET global tool packages"
-SOURCE_GPG_POLICY="tls-only"
-SOURCE_BOOTSTRAP_EXCEPTION=0
-SOURCE_REASON="Selected .NET tools resolve current releases from NuGet"

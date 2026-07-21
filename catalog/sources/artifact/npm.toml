@@ -1,0 +1,7 @@
+id = "artifact:npm"
+kind = "artifact"
+label = "npm public registry"
+project = "https://registry.npmjs.org"
+description = "Optional globally installed npm packages"
+gpg_policy = "tls-only"
+reason = "Selected npm tools resolve their current release from the public registry"

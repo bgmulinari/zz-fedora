@@ -1,0 +1,7 @@
+id = "rpmfusion-free"
+kind = "rpmfusion"
+label = "RPM Fusion Free"
+required = true
+description = "RPM Fusion free repository"
+gpg_policy = "rpm-gpg-import"
+reason = "Provides free RPM Fusion packages and appstream metadata"

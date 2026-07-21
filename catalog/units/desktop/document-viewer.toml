@@ -1,0 +1,14 @@
+id = "desktop-document-viewer"
+description = "Document viewer"
+
+[choice]
+category = "desktop"
+id = "document-viewer"
+label = "Document Viewer"
+default = true
+order = 80
+description = "View PDF and other multi-page documents"
+
+[[install]]
+backend = "dnf"
+packages = ["papers"]

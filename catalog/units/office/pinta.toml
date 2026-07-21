@@ -1,0 +1,15 @@
+id = "office-pinta"
+description = "Pinta Flatpak for Fedora"
+
+[choice]
+category = "office"
+id = "pinta"
+label = "Pinta"
+default = true
+order = 40
+description = "Simple drawing and bitmap image editor"
+
+[[install]]
+backend = "flatpak"
+sources = ["flathub"]
+flatpaks = ["com.github.PintaProject.Pinta"]

@@ -1,0 +1,10 @@
+id = "shell-btop"
+description = "btop bundle for Fedora"
+stow = ["btop"]
+
+[base]
+order = 270
+
+[[install]]
+backend = "dnf"
+packages = ["btop"]

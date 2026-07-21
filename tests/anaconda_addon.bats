@@ -47,8 +47,10 @@ path = repo / "iso/anaconda-addon/org_zz_fedora/selection.py"
 spec = importlib.util.spec_from_file_location("zz_fedora_selection_test", path)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-module.SOURCE_TREE_CHOICES_DIR = repo / "choices"
-module.PACKAGE_CHOICES_DIR = repo / "choices"
+module.REMOTE_RUNTIME_ROOT = Path(os.environ["ZZ_TEST_ROOT"]) / "no-remote-runtime"
+module.INSTALL_REPO_ROOT = Path(os.environ["ZZ_TEST_ROOT"]) / "no-install-repo"
+module.PACKAGE_ROOT = repo
+module.SOURCE_TREE_ROOT = repo
 profile_file = Path(os.environ["ZZ_TEST_ROOT"]) / "desktop-app-profile"
 module.INSTALLER_DESKTOP_APP_PROFILE_FILE = profile_file
 
@@ -108,19 +110,47 @@ PY
   run env ZZ_REPO_ROOT="$ROOT_DIR" ZZ_TEST_ROOT="$TEST_ROOT" python3 - <<'PY'
 import importlib.util
 import os
+import shutil
 import sys
 import types
 from pathlib import Path
 
 repo = Path(os.environ["ZZ_REPO_ROOT"])
 root = Path(os.environ["ZZ_TEST_ROOT"])
-remote_choices = root / "run/zz-fedora/repository/choices"
-remote_choices.mkdir(parents=True)
-(remote_choices / "browsers.conf").write_text(
-    "new-browser\tNew browser\t1\tbrowser-new\tFrom the refreshed runtime\n"
+remote_root = root / "run/zz-fedora/repository"
+(remote_root / "catalog/units/browsers").mkdir(parents=True)
+(remote_root / "catalog/units/new-tools").mkdir(parents=True)
+(remote_root / "lib").mkdir(parents=True)
+shutil.copy(repo / "lib/catalog.py", remote_root / "lib/catalog.py")
+(remote_root / "catalog/units/browsers/new-browser.toml").write_text(
+    'id = "browsers-new"\n'
+    'description = "From the refreshed runtime"\n'
+    "\n"
+    "[choice]\n"
+    'category = "browsers"\n'
+    'id = "new-browser"\n'
+    'label = "New browser"\n'
+    "default = true\n"
+    'description = "From the refreshed runtime"\n'
+    "\n"
+    "[[install]]\n"
+    'backend = "dnf"\n'
+    'packages = ["new-browser"]\n'
 )
-(remote_choices / "new-tools.conf").write_text(
-    "new-tool\tNew tool\t1\ttool-new\tFrom a new remote catalog\n"
+(remote_root / "catalog/units/new-tools/new-tool.toml").write_text(
+    'id = "tools-new"\n'
+    'description = "From a new remote catalog"\n'
+    "\n"
+    "[choice]\n"
+    'category = "new-tools"\n'
+    'id = "new-tool"\n'
+    'label = "New tool"\n'
+    "default = true\n"
+    'description = "From a new remote catalog"\n'
+    "\n"
+    "[[install]]\n"
+    'backend = "dnf"\n'
+    'packages = ["new-tool"]\n'
 )
 
 package = types.ModuleType("org_zz_fedora")
@@ -137,10 +167,10 @@ path = repo / "iso/anaconda-addon/org_zz_fedora/selection.py"
 spec = importlib.util.spec_from_file_location("zz_fedora_remote_selection_test", path)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-module.REMOTE_RUNTIME_CHOICES_DIR = remote_choices
-module.INSTALL_REPO_CHOICES_DIR = repo / "choices"
-module.PACKAGE_CHOICES_DIR = repo / "choices"
-module.SOURCE_TREE_CHOICES_DIR = repo / "choices"
+module.REMOTE_RUNTIME_ROOT = remote_root
+module.INSTALL_REPO_ROOT = repo
+module.PACKAGE_ROOT = repo
+module.SOURCE_TREE_ROOT = repo
 
 categories = module.read_categories()
 assert [category.id for category in categories] == ["browsers", "new-tools"]
@@ -167,11 +197,10 @@ loader.write_text(
     "#!/usr/bin/env bash\n"
     "set -Eeuo pipefail\n"
     "printf '%s\\n' \"${https_proxy:-}\" >\"$ZZ_TEST_PROXY_LOG\"\n"
-    "mkdir -p \"$ZZ_TEST_RUNTIME_DIR/choices\"\n"
+    "mkdir -p \"$ZZ_TEST_RUNTIME_DIR/catalog/units\" \"$ZZ_TEST_RUNTIME_DIR/lib\"\n"
     "printf '#!/usr/bin/env bash\\n' >\"$ZZ_TEST_RUNTIME_DIR/install.sh\"\n"
     "chmod +x \"$ZZ_TEST_RUNTIME_DIR/install.sh\"\n"
-    "printf 'firefox\\tFirefox\\t1\\tbrowsers-firefox\\tFirefox\\n' "
-    ">\"$ZZ_TEST_RUNTIME_DIR/choices/browsers.conf\"\n"
+    "printf 'catalog tool\\n' >\"$ZZ_TEST_RUNTIME_DIR/lib/catalog.py\"\n"
 )
 loader.chmod(0o755)
 
@@ -358,11 +387,12 @@ PY
   assert_file_contains "$ROOT_DIR/iso/anaconda-addon-data/org.fedoraproject.Anaconda.Addons.ZZFedora.conf" "org.fedoraproject.Anaconda.Addons.ZZFedora"
   assert_file_contains "$addon/selection.py" "def read_categories"
   assert_file_contains "$addon/selection.py" "def _category_ids"
-  assert_file_contains "$addon/selection.py" 'REMOTE_RUNTIME_CHOICES_DIR = Path("/run/zz-fedora/repository/choices")'
+  assert_file_contains "$addon/selection.py" 'REMOTE_RUNTIME_ROOT = Path("/run/zz-fedora/repository")'
   assert_file_contains "$addon/selection.py" "def default_selections"
   assert_file_contains "$addon/selection.py" "desktop_app_profile == \"minimal\""
-  assert_file_contains "$addon/selection.py" 'parents[3] / "choices"'
-  assert_file_contains "$addon/selection.py" 'root / ("%s.conf" % category_id)'
+  assert_file_contains "$addon/selection.py" 'SOURCE_TREE_ROOT = Path(__file__).resolve().parents[3]'
+  assert_file_contains "$addon/selection.py" 'lib/catalog.py'
+  assert_file_contains "$addon/selection.py" 'compiled_dir / "choices" / ("%s.tsv" % category_id)'
   assert_file_contains "$addon/selection.py" "select.%s=%s"
   assert_file_contains "$addon/runtime.py" "def refresh_runtime"
   assert_file_contains "$addon/runtime.py" "def payload_proxy_url"
@@ -388,7 +418,8 @@ PY
   assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "choiceListBox"
   assert_file_contains "$addon/gui/spokes/zz_fedora.glade" "desktopAppProfileCombo"
   refute_file_contains "$addon/gui/spokes/zz_fedora.glade" "Install ZZ Fedora managed desktop"
-  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "org_zz_fedora/choices"
+  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "org_zz_fedora/catalog"
+  assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "org_zz_fedora/lib/catalog.py"
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "conf.d/100-zz-fedora.conf"
   assert_file_contains "$ROOT_DIR/iso/anaconda-addon-data/conf.d/100-zz-fedora.conf" "hidden_spokes ="
   assert_file_contains "$ROOT_DIR/iso/anaconda-addon-data/conf.d/100-zz-fedora.conf" "SoftwareSelectionSpoke"
@@ -438,8 +469,10 @@ selection_file = repo_root / "iso/anaconda-addon/org_zz_fedora/selection.py"
 spec = importlib.util.spec_from_file_location("zz_fedora_selection", selection_file)
 selection = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(selection)
+selection.REMOTE_RUNTIME_ROOT = repo_root / "no-remote-runtime"
+selection.INSTALL_REPO_ROOT = repo_root / "no-install-repo"
 
-assert selection.SOURCE_TREE_CHOICES_DIR == repo_root / "choices"
+assert selection.SOURCE_TREE_ROOT == repo_root
 categories = selection.read_categories()
 category_by_id = {category.id: category for category in categories}
 assert [category.id for category in categories] == list(constants.CATEGORY_ORDER)

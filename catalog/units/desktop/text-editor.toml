@@ -1,0 +1,14 @@
+id = "desktop-text-editor"
+description = "Plain-text editor"
+
+[choice]
+category = "desktop"
+id = "text-editor"
+label = "Text Editor"
+default = true
+order = 30
+description = "View and edit text files"
+
+[[install]]
+backend = "dnf"
+packages = ["gnome-text-editor"]

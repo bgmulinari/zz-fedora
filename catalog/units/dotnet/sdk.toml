@@ -1,0 +1,15 @@
+id = "dotnet-sdk"
+description = ".NET SDK installer"
+
+[choice]
+category = "dotnet"
+id = "sdk"
+label = ".NET SDKs"
+default = true
+order = 10
+description = "Supported SDK channels for building and running cross-platform .NET applications"
+
+[[install]]
+backend = "action"
+sources = ["artifact:dotnet"]
+actions = ["dotnet-sdk"]

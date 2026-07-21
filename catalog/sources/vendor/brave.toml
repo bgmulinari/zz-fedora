@@ -1,0 +1,6 @@
+id = "vendor:brave"
+kind = "vendor"
+label = "Brave Browser RPM Repository"
+description = "Official Brave RPM repository"
+gpg_policy = "repo-gpg-key"
+reason = "Provides optional Brave browser package"

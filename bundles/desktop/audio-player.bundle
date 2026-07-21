@@ -1,5 +1,0 @@
-BUNDLE_ID="desktop-audio-player"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_ITEMS_FILE="packages/official/desktop/audio-player.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Audio player"

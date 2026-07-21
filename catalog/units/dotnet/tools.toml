@@ -1,0 +1,16 @@
+id = "dotnet-tools"
+description = ".NET global tools installer"
+requires = ["dotnet-sdk"]
+
+[choice]
+category = "dotnet"
+id = "tools"
+label = ".NET global tools"
+default = true
+order = 20
+description = "C# language server, EF Core, REPL, decompiler, certificate, PowerShell, and ABP tools"
+
+[[install]]
+backend = "action"
+sources = ["artifact:nuget"]
+actions = ["dotnet-tools"]

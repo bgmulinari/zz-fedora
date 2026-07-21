@@ -1,0 +1,14 @@
+id = "desktop-characters"
+description = "Character picker"
+
+[choice]
+category = "desktop"
+id = "characters"
+label = "Characters"
+default = true
+order = 20
+description = "Find and insert unusual characters"
+
+[[install]]
+backend = "dnf"
+packages = ["gnome-characters"]

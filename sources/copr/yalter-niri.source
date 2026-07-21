@@ -1,9 +1,0 @@
-SOURCE_ID="copr:yalter/niri"
-SOURCE_KIND="copr"
-SOURCE_LABEL="COPR: yalter/niri"
-SOURCE_PROJECT="yalter/niri"
-SOURCE_REQUIRED=1
-SOURCE_DESCRIPTION="Niri compositor COPR for Fedora"
-SOURCE_GPG_POLICY="copr-plugin"
-SOURCE_BOOTSTRAP_EXCEPTION=0
-SOURCE_REASON="Provides Niri for the required base desktop session"

@@ -1,0 +1,7 @@
+id = "artifact:docker"
+kind = "artifact"
+label = "Docker CE Fedora repository"
+project = "https://download.docker.com/linux/fedora/docker-ce.repo"
+description = "Optional Docker CE repository definition and signed packages"
+gpg_policy = "repo-gpg-key"
+reason = "Docker CE packages are installed from Docker's Fedora repository"

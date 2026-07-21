@@ -1,9 +1,0 @@
-SOURCE_ID="artifact:discord"
-SOURCE_KIND="artifact"
-SOURCE_LABEL="Discord stable RPM download"
-SOURCE_PROJECT="https://discord.com/api/download?platform=linux&format=rpm"
-SOURCE_REQUIRED=0
-SOURCE_DESCRIPTION="Optional official Discord stable RPM bootstrap package"
-SOURCE_GPG_POLICY="tls-only"
-SOURCE_BOOTSTRAP_EXCEPTION=0
-SOURCE_REASON="Discord publishes an unsigned rolling stable RPM; the installer validates its package name and architecture before local DNF installation"

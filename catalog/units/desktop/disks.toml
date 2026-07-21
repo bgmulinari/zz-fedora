@@ -1,0 +1,14 @@
+id = "desktop-disks"
+description = "Disk management utility"
+
+[choice]
+category = "desktop"
+id = "disks"
+label = "Disks"
+default = true
+order = 40
+description = "Manage drives, disk images, partitions, and storage media"
+
+[[install]]
+backend = "dnf"
+packages = ["gnome-disk-utility"]

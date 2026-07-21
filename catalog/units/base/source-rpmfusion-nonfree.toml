@@ -1,0 +1,10 @@
+id = "base-source-rpmfusion-nonfree"
+description = "Always-enabled RPM Fusion Nonfree source for Fedora"
+
+[base]
+order = 30
+minimal_desktop_skip = true
+
+[[install]]
+backend = "dnf"
+sources = ["rpmfusion-nonfree"]

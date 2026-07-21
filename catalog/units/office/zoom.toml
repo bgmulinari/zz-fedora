@@ -1,0 +1,15 @@
+id = "office-zoom"
+description = "Zoom Flatpak for Fedora"
+
+[choice]
+category = "office"
+id = "zoom"
+label = "Zoom"
+default = true
+order = 30
+description = "App for video meetings, team chat, and collaboration"
+
+[[install]]
+backend = "flatpak"
+sources = ["flathub"]
+flatpaks = ["us.zoom.Zoom"]

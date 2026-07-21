@@ -1,0 +1,28 @@
+id = "base-system-services"
+description = "Required network, firewall, time, audio, and power services for the Niri session"
+
+[base]
+order = 130
+early = true
+
+[[install]]
+backend = "dnf"
+packages = [
+  "NetworkManager",
+  "NetworkManager-bluetooth",
+  "NetworkManager-wifi",
+  "alsa-utils",
+  "avahi",
+  "bluez",
+  "bluez-tools",
+  "chrony",
+  "cups",
+  "firewalld",
+  "ipp-usb",
+  "nss-mdns",
+  "pipewire-alsa",
+  "pipewire-pulseaudio",
+  "tuned-ppd",
+  "upower",
+  "wireplumber",
+]

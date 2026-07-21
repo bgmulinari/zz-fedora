@@ -1,0 +1,15 @@
+id = "ai-codex"
+description = "Codex CLI from npm"
+
+[choice]
+category = "ai"
+id = "codex"
+label = "Codex CLI"
+default = true
+order = 30
+description = "Terminal coding agent that reads, edits, and runs code"
+
+[[install]]
+backend = "action"
+sources = ["artifact:npm"]
+actions = ["npm-global:@openai/codex"]

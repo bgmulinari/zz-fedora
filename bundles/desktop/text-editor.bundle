@@ -1,5 +1,0 @@
-BUNDLE_ID="desktop-text-editor"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_ITEMS_FILE="packages/official/desktop/text-editor.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Plain-text editor"

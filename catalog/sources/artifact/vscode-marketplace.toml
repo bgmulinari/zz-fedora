@@ -1,0 +1,7 @@
+id = "artifact:vscode-marketplace"
+kind = "artifact"
+label = "Visual Studio Marketplace"
+project = "https://marketplace.visualstudio.com"
+description = "Optional Visual Studio Code extensions"
+gpg_policy = "tls-only"
+reason = "Selected Visual Studio Code extensions resolve their current release from the Visual Studio Marketplace"

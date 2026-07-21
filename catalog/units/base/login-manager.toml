@@ -1,0 +1,10 @@
+id = "base-login-manager"
+description = "Noctalia Greeter login manager for Fedora"
+
+[base]
+order = 60
+
+[[install]]
+backend = "action"
+sources = ["copr:lionheartp/Hyprland"]
+actions = ["noctalia-greeter"]

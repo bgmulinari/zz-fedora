@@ -1,0 +1,9 @@
+id = "base-desktop-apps"
+description = "Graphical file manager and terminal integration for the Niri session"
+
+[base]
+order = 150
+
+[[install]]
+backend = "dnf"
+packages = ["ghostty-nautilus", "nautilus"]

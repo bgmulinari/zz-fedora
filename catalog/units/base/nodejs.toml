@@ -1,0 +1,9 @@
+id = "base-nodejs"
+description = "Node.js and npm runtime for JavaScript-based CLI tools"
+
+[base]
+order = 210
+
+[[install]]
+backend = "dnf"
+packages = ["nodejs24-npm"]

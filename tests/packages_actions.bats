@@ -8,30 +8,40 @@ setup() {
   source_modules
 }
 
-@test "every manifest action id resolves to a registered installer and verifier" {
-  local manifest action
-  for manifest in "$ROOT_DIR"/packages/actions/*.actions; do
-    while IFS= read -r action; do
-      [[ -n "$action" ]] || continue
-      split_action_id "$action"
-      [[ -n "${ACTION_INSTALL_FN[$ACTION_DISPATCH_ID]:-}" ]] || {
-        printf '%s declares action %s with no registered installer\n' "$manifest" "$action" >&2
-        return 1
-      }
-      [[ -n "${ACTION_VERIFY_FN[$ACTION_DISPATCH_ID]:-}" ]] || {
-        printf '%s declares action %s with no registered verifier\n' "$manifest" "$action" >&2
-        return 1
-      }
-      declare -F "${ACTION_INSTALL_FN[$ACTION_DISPATCH_ID]}" >/dev/null || {
-        printf 'action %s registers undefined install function %s\n' "$action" "${ACTION_INSTALL_FN[$ACTION_DISPATCH_ID]}" >&2
-        return 1
-      }
-      declare -F "${ACTION_VERIFY_FN[$ACTION_DISPATCH_ID]}" >/dev/null || {
-        printf 'action %s registers undefined verify function %s\n' "$action" "${ACTION_VERIFY_FN[$ACTION_DISPATCH_ID]}" >&2
-        return 1
-      }
-    done < <(read_plan_file "$manifest")
-  done
+@test "every catalog action item resolves to a registered installer and verifier" {
+  catalog_ensure_loaded
+  local bundle_id step_index step_backend _step_sources action found_any=0
+  while IFS= read -r bundle_id; do
+    [[ -n "$bundle_id" ]] || continue
+    while IFS=$'\t' read -r step_index step_backend _step_sources; do
+      [[ -n "$step_index" && "$step_backend" == "action" ]] || continue
+      while IFS= read -r action; do
+        [[ -n "$action" ]] || continue
+        found_any=1
+        split_action_id "$action"
+        [[ -n "${ACTION_INSTALL_FN[$ACTION_DISPATCH_ID]:-}" ]] || {
+          printf 'bundle %s declares action %s with no registered installer\n' "$bundle_id" "$action" >&2
+          return 1
+        }
+        [[ -n "${ACTION_VERIFY_FN[$ACTION_DISPATCH_ID]:-}" ]] || {
+          printf 'bundle %s declares action %s with no registered verifier\n' "$bundle_id" "$action" >&2
+          return 1
+        }
+        declare -F "${ACTION_INSTALL_FN[$ACTION_DISPATCH_ID]}" >/dev/null || {
+          printf 'action %s registers undefined install function %s\n' "$action" "${ACTION_INSTALL_FN[$ACTION_DISPATCH_ID]}" >&2
+          return 1
+        }
+        declare -F "${ACTION_VERIFY_FN[$ACTION_DISPATCH_ID]}" >/dev/null || {
+          printf 'action %s registers undefined verify function %s\n' "$action" "${ACTION_VERIFY_FN[$ACTION_DISPATCH_ID]}" >&2
+          return 1
+        }
+      done < <(bundle_step_items "$bundle_id" "$step_index")
+    done < <(bundle_steps "$bundle_id")
+  done < <(list_bundle_ids)
+  [[ "$found_any" -eq 1 ]] || {
+    printf 'expected the catalog to declare at least one custom action\n' >&2
+    return 1
+  }
 }
 
 @test "every base-planned action registers a non-empty verifier" {

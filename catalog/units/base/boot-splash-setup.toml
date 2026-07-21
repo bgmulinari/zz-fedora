@@ -1,0 +1,10 @@
+id = "base-boot-splash-setup"
+description = "Kernel arguments and initramfs rebuild for the graphical boot splash and LUKS prompt"
+
+[base]
+order = 136
+minimal_desktop_skip = true
+
+[[install]]
+backend = "action"
+actions = ["boot-splash"]

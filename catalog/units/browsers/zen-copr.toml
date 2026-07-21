@@ -1,0 +1,14 @@
+id = "browsers-zen-copr"
+description = "Zen browser bundle from COPR for Fedora"
+
+[choice]
+category = "browsers"
+id = "zen"
+label = "Zen Browser"
+order = 50
+description = "Privacy-focused browser with a customizable interface"
+
+[[install]]
+backend = "dnf"
+sources = ["copr:sneexy/zen-browser"]
+packages = ["zen-browser"]

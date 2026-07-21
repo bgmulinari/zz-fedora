@@ -1,0 +1,6 @@
+id = "vendor:google-chrome"
+kind = "vendor"
+label = "Google Chrome RPM Repository"
+description = "Official Google Chrome RPM repository"
+gpg_policy = "repo-gpg-key"
+reason = "Provides optional Google Chrome package"

@@ -1,0 +1,7 @@
+id = "flathub"
+kind = "flatpak"
+label = "Flathub"
+required = true
+description = "Flathub Flatpak remote"
+gpg_policy = "flatpak-gpg"
+reason = "Provides GTK Flatpak theme runtimes for the base desktop and optional Flatpak applications"

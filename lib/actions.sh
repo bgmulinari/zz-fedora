@@ -90,7 +90,7 @@ action_registered() {
   [[ -n "${ACTION_INSTALL_FN[$ACTION_DISPATCH_ID]:-}" ]]
 }
 
-# validate_action_manifest <manifest_file> fails fast when a .actions manifest
+# validate_action_manifest <manifest_file> fails fast when a file of action ids
 # references an action id that no lib/actions/*.sh file registered.
 validate_action_manifest() {
   local manifest_file="$1"

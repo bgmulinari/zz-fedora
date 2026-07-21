@@ -225,7 +225,9 @@ rsync -a --delete \
   --exclude='__pycache__/' \
   --exclude='*.pyc' \
   "$addon_dir/" "$product_root/usr/share/anaconda/addons/"
-rsync -a --delete "$repo_dir/choices/" "$product_root/usr/share/anaconda/addons/org_zz_fedora/choices/"
+rsync -a --delete "$repo_dir/catalog/" "$product_root/usr/share/anaconda/addons/org_zz_fedora/catalog/"
+install -D -m 0644 "$repo_dir/lib/catalog.py" \
+  "$product_root/usr/share/anaconda/addons/org_zz_fedora/lib/catalog.py"
 install -m 0644 \
   "$addon_data_dir/org.fedoraproject.Anaconda.Addons.ZZFedora.conf" \
   "$product_root/usr/share/anaconda/dbus/confs/"

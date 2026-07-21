@@ -321,15 +321,18 @@ assert_unique_file() {
 }
 
 assert_base_manifests_in_plan() {
-  local bundle_id plan_file base_item
+  local bundle_id plan_file base_item step_index step_backend _step_sources
 
+  catalog_ensure_loaded
   for bundle_id in "${BASE_BUNDLE_IDS[@]}"; do
     assert_plan_has "$PLAN_DIR/bundles.list" "$bundle_id"
-    load_bundle_descriptor "$bundle_id"
-    plan_file="$(package_file_for_backend "$BUNDLE_INSTALLER")"
-    while IFS= read -r base_item; do
-      [[ -n "$base_item" ]] || continue
-      assert_plan_has "$plan_file" "$base_item"
-    done < <(bundle_manifest_entries)
+    while IFS=$'\t' read -r step_index step_backend _step_sources; do
+      [[ -n "$step_index" ]] || continue
+      plan_file="$(package_file_for_backend "$step_backend")"
+      while IFS= read -r base_item; do
+        [[ -n "$base_item" ]] || continue
+        assert_plan_has "$plan_file" "$base_item"
+      done < <(bundle_step_items "$bundle_id" "$step_index")
+    done < <(bundle_steps "$bundle_id")
   done
 }

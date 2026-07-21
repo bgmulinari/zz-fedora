@@ -1,0 +1,11 @@
+id = "shell-yazi"
+description = "Yazi shell bundle for Fedora"
+stow = ["shell-yazi"]
+
+[base]
+order = 310
+
+[[install]]
+backend = "dnf"
+sources = ["copr:lihaohong/yazi"]
+packages = ["yazi"]

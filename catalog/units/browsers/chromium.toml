@@ -1,0 +1,13 @@
+id = "browsers-chromium"
+description = "Chromium browser bundle for Fedora"
+
+[choice]
+category = "browsers"
+id = "chromium"
+label = "Chromium"
+order = 20
+description = "Open-source browser focused on speed, safety, and stability"
+
+[[install]]
+backend = "dnf"
+packages = ["chromium"]

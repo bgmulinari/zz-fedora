@@ -1,0 +1,14 @@
+id = "desktop-camera"
+description = "Camera application"
+
+[choice]
+category = "desktop"
+id = "camera"
+label = "Camera"
+default = true
+order = 110
+description = "Take pictures and videos"
+
+[[install]]
+backend = "dnf"
+packages = ["snapshot"]

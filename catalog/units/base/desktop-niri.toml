@@ -1,0 +1,11 @@
+id = "base-desktop-niri"
+description = "Niri compositor base bundle for Fedora"
+stow = ["environment", "niri"]
+
+[base]
+order = 70
+
+[[install]]
+backend = "dnf"
+sources = ["copr:yalter/niri"]
+packages = ["niri"]

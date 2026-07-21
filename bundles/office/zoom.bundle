@@ -1,6 +1,0 @@
-BUNDLE_ID="office-zoom"
-BUNDLE_INSTALLER="flatpak"
-BUNDLE_SOURCE_IDS="flathub"
-BUNDLE_ITEMS_FILE="packages/flatpak/zoom.flatpaks"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Zoom Flatpak for Fedora"

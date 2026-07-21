@@ -1,0 +1,16 @@
+id = "dev-zed"
+description = "Zed code editor bundle for Fedora"
+stow = ["zed"]
+
+[choice]
+category = "dev"
+id = "zed"
+label = "Zed"
+default = true
+order = 20
+description = "High-performance code editor with collaboration and AI-assisted development tools"
+
+[[install]]
+backend = "dnf"
+sources = ["terra"]
+packages = ["zed"]

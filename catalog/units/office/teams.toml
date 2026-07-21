@@ -1,0 +1,15 @@
+id = "office-teams"
+description = "Teams for Linux Flatpak for Fedora"
+
+[choice]
+category = "office"
+id = "teams"
+label = "Teams for Linux"
+default = true
+order = 20
+description = "Unofficial Microsoft Teams desktop client with Linux integration"
+
+[[install]]
+backend = "flatpak"
+sources = ["flathub"]
+flatpaks = ["com.github.IsmaelMartinez.teams_for_linux"]

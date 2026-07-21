@@ -6,7 +6,7 @@
 - `install.sh` owns setup. `bootstrap.sh` only installs prerequisites, clones or updates the repository, and hands off to `install.sh`.
 - The installed `zz` launcher is for post-install operations. Do not add install, wizard, plan, check, or repair wrappers under `bin/zz.d/`. Discover its supported commands with `./bin/zz commands --json`.
 - The installer is under active development. Do not add migrations, compatibility shims, existing-install preservation, or regression guards for previous behavior unless the user explicitly requests them.
-- Keep new repository-facing identifiers and documentation generic. Do not introduce third-party branding into bundle IDs, manifest names, Stow package names, or docs unless the user explicitly requests it.
+- Keep new repository-facing identifiers and documentation generic. Do not introduce third-party branding into unit IDs, catalog file names, Stow package names, or docs unless the user explicitly requests it.
 
 ## Repository layout
 
@@ -14,11 +14,8 @@
 install.sh    Installer entry point and orchestrator
 bootstrap.sh  Installs prerequisites, clones the repo, hands off to install.sh
 modules/      Ordered install steps (preflight, sources, plan, packages, ...)
-lib/          Shared Bash logic used by the installer and modules
-choices/      Wizard choice catalogs; each choice maps to bundle IDs
-bundles/      Bundle composition; bundles reference package lists and sources
-packages/     Package lists (.pkgs, .flatpaks) and direct actions (.actions)
-sources/      Repository definitions with trust metadata (.source)
+lib/          Shared Bash logic, plus lib/catalog.py, the catalog validator/compiler
+catalog/      One TOML file per unit and per software source; the data-driven installer API
 dotfiles/     Portable user configuration deployed as Stow packages
 templates/    Files rendered by the installer rather than deployed via Stow
 bin/          The installed zz post-install launcher and its subcommands
@@ -26,35 +23,38 @@ iso/          Fedora installer ISO integration (Kickstart, Anaconda add-on)
 tests/        Bats regression suites
 ```
 
-The data layer chains choices → bundles → packages and sources: the wizard
-resolves selected choices to bundles, and each bundle declares the package
-lists, actions, and repositories it needs.
+The data layer is the `catalog/` tree. Each unit file declares wizard
+visibility through a `[choice]` table or base membership through a `[base]`
+table, plus one or more `[[install]]` steps carrying its packages, flatpaks,
+or actions and the sources they need. `lib/catalog.py` validates the catalog
+and compiles it to flat TSVs that the Bash planner consumes through
+`lib/catalog.sh`; wizard categories derive from the `[choice]` tables.
 
 ## Put changes in the right place
 
 - Keep ordered install orchestration in `modules/NN-name.sh`; put reusable Bash logic in `lib/` and keep modules thin.
-- Treat `choices/`, `bundles/`, `packages/`, and `sources/` as the data-driven installer API.
-- Put optional wizard choices in `choices/*.conf`, bundle composition in `bundles/**/*.bundle`, package lists in `packages/**/*.pkgs` or `*.flatpaks`, direct installer actions in `packages/actions/*.actions`, and repository definitions in `sources/**/*.source`.
+- Treat the `catalog/` tree as the data-driven installer API: put install units in `catalog/units/<group>/<name>.toml` and repository definitions in `catalog/sources/<kind>/<name>.toml`. Unit group directories are organizational; semantics come from each unit's tables.
 - Put portable user configuration in `dotfiles/<stow-package>/`. Reserve `templates/` for files rendered or seeded by the installer rather than deployed through Stow; `config/managed-config.tsv` is the authoritative map of managed paths and their seed/preserve behavior. See `docs/dotfiles-layering.md` for the layering rules, including the `shell-*` Stow package prefix convention.
 - Put regression tests in `tests/`; share Bash test helpers through `tests/helpers/` and put non-Bash test harnesses in `tests/support/`.
 - When upstream reference code or docs are needed, consult the upstream project's repository or documentation instead of package decompilation or ad hoc reverse engineering.
 
-## Preserve manifest contracts
+## Preserve catalog contracts
 
-- Keep each `choices/*.conf` row tab-separated with exactly five fields: `id`, `label`, `default`, `bundle_ids`, and `description`.
-- Preserve manifest suffixes: `.conf`, `.bundle`, `.pkgs`, `.flatpaks`, `.actions`, and `.source`.
-- Base bundle membership is declared in the bundle descriptor: `BUNDLE_BASE=1` with a unique numeric `BUNDLE_BASE_ORDER`, plus optional `BUNDLE_BASE_EARLY=1` and `BUNDLE_MINIMAL_DESKTOP_SKIP=1`. Every descriptor under `bundles/base/` must declare `BUNDLE_BASE=1`. Base bundles are planned before optional bundles and must not appear in an optional choice catalog. Use `DEFAULT_BUNDLE_IDS` only for broader defaults outside the choice catalogs.
-- The default install selects every non-browser catalog choice and only Firefox from the browser catalog. Express optional catalog defaults through the third field of each choice row.
-- Give every base-owning bundle a useful `BUNDLE_DESCRIPTION`; base package and action work must remain explainable in the generated `base-rationale.tsv`.
-- Source descriptors must declare trust metadata with `SOURCE_GPG_POLICY`, `SOURCE_BOOTSTRAP_EXCEPTION`, `SOURCE_REQUIRED`, and `SOURCE_REASON`. The full key set is `SOURCE_ID`, `SOURCE_KIND`, `SOURCE_LABEL`, `SOURCE_PROJECT`, `SOURCE_REQUIRED`, `SOURCE_DESCRIPTION`, `SOURCE_GPG_POLICY`, `SOURCE_BOOTSTRAP_EXCEPTION`, and `SOURCE_REASON`; unknown keys fail catalog validation.
-- `SOURCE_PROJECT` is kind-scoped: required for `copr` sources (the COPR project to enable) and `artifact` sources (the fetch origin, optionally pinned as `url@commit`), and disallowed for every other kind.
-- `packages/<kind>/` mirrors `sources/<kind>/` for repo-backed kinds (`copr`, `flatpak`, `rpmfusion`, `terra`, `vendor`). Three intentional divergences: `sources/artifacts/` descriptors are consumed by `packages/actions/` manifests (two halves of one pipeline), `sources/cisco-openh264/` is delivered through an action manifest and has no `packages/` directory, and `packages/official/` installs from Fedora's preconfigured base repos and needs no source descriptor.
-- Bundles reference sources only through the comma-separated `BUNDLE_SOURCE_IDS` key; unknown descriptor keys fail catalog validation. Dedicated `source-*` base bundles own base-required sources; optional bundles declare their own source needs inline via `BUNDLE_SOURCE_IDS` (source enablement is idempotent, so overlap with base sources is fine).
+- Every unit file declares a catalog-unique `id` and a `description`, optionally `requires` (unit IDs pulled in by dependency expansion) and `stow` (Stow packages the unit deploys), and at least one `[[install]]` step. `lib/catalog.py` validation fails on unknown keys at any level; run `python3 lib/catalog.py --root . validate` after catalog edits.
+- Each `[[install]]` step declares `backend` (`dnf`, `flatpak`, or `action`), optional `sources` (source IDs the step needs), and a payload key that must match the backend: `packages` for `dnf`, `flatpaks` for `flatpak`, `actions` for `action`.
+- Base membership is the `[base]` table: a required integer `order` unique across the catalog, plus optional `early = true` and `minimal_desktop_skip = true`. Every unit under `catalog/units/base/` must declare `[base]`; `[base]` units may also live in other groups (the `shell-*` units do). A unit must not declare both `[base]` and `[choice]`: base units are planned before optional units and never appear in a wizard category. Use `DEFAULT_BUNDLE_IDS` only for broader defaults outside the choice catalogs.
+- Wizard visibility is the `[choice]` table: required `category`, `id` (unique within the category), `label`, and `description` (the wizard copy), plus optional `default`, `order` (rows sort by `order`, then `id`), and `also` (extra unit IDs the choice selects).
+- The default install selects every non-browser catalog choice and only Firefox from the browsers category. Express optional defaults through `[choice]` `default = true`.
+- Give every base-owning unit a useful `description`; base package and action work must remain explainable in the generated `base-rationale.tsv` (its format is unchanged).
+- Source descriptors declare `id`, `kind` (`official`, `copr`, `terra`, `rpmfusion`, `cisco-openh264`, `vendor`, `flatpak`, or `artifact`), `label`, `required`, `description`, and trust metadata: `gpg_policy` (one of `distro-managed`, `copr-plugin`, `rpm-gpg-import`, `repo-gpg-key`, `flatpak-gpg`, `unsigned-bootstrap`, `pinned-commit`, `sha256`, `tls-only`), `bootstrap_exception` (must be `true` when `gpg_policy` is `unsigned-bootstrap`), and `reason`.
+- `project` is kind-scoped: required for `copr` sources (the COPR project to enable) and `artifact` sources (the fetch origin, optionally pinned as `url@commit`), and forbidden for every other kind.
+- Units reference sources only through the per-step `sources` lists; unknown source IDs fail catalog validation. Dedicated `source-*` base units own base-required sources; optional units declare their own source needs on their install steps (source enablement is idempotent, so overlap with base sources is fine).
 
 ## Bash and installer behavior
 
 - Use `#!/usr/bin/env bash` and `set -Eeuo pipefail` in Bash entrypoints.
 - Follow the existing naming style: lowercase function names, uppercase globals and environment flags, and quoted variable expansions.
+- `lib/catalog.py` is the only catalog parser. It targets Python >= 3.11 and uses only the standard library (`tomllib`); `python3` is a bootstrap prerequisite installed by `bootstrap.sh`. Bash never parses catalog TOML: it consumes only the compiled TSVs through `lib/catalog.sh`.
 - Give every externally-settable environment override the `ZZ_` prefix (for example `ZZ_DRY_RUN`, `ZZ_ASSUME_YES`, `ZZ_NO_TUI`); unprefixed uppercase names are internal runtime globals only and must not be read from the caller's environment as installer knobs.
 - Keep required base actions idempotent and give them explicit verification checks.
 - Keep GUI defaults that require a logged-in user session in the first-run path rather than the system install path.
@@ -109,9 +109,9 @@ lists, actions, and repositories it needs.
 
 - Use `./tests/full.sh` for broad or cross-cutting changes, `./tests/full.sh --timings` to include per-suite timings, and `./tests/profile.sh` only as the non-gating performance helper.
 - Prefer fast, non-interactive tests that need neither root nor network access. Test planner and module behavior in-process; use `install.sh` subprocesses only when testing the CLI boundary.
-- For base-bundle changes, test that base work is always planned, runs before optional work, is verified when required, and is not blocked by optional package failures.
+- For base-unit changes, test that base work is always planned, runs before optional work, is verified when required, and is not blocked by optional package failures.
 - For first-login or session-sensitive changes, test marker creation and removal plus repeated-run idempotency.
-- When implementation identifiers churn, test the new desired behavior. Do not add absence-only tests for old package names, actions, bundle IDs, filenames, or installer strings unless a negative selection is an intentional planner contract.
+- When implementation identifiers churn, test the new desired behavior. Do not add absence-only tests for old package names, actions, unit IDs, filenames, or installer strings unless a negative selection is an intentional planner contract.
 
 ## Commits and pull requests
 

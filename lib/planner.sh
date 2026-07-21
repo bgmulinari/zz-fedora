@@ -45,13 +45,6 @@ plan_file_has_entry() {
   grep -Fx "$entry" "$plan_file" >/dev/null 2>&1
 }
 
-append_bundle_payload_to_plan() {
-  local destination
-  destination="$(package_file_for_backend "$BUNDLE_INSTALLER")"
-  mapfile -t bundle_items < <(bundle_manifest_entries)
-  append_plan_entries "$destination" "${bundle_items[@]:-}"
-}
-
 append_bundle_stow_plan() {
   local stow_package
   while IFS= read -r stow_package; do
@@ -68,12 +61,19 @@ append_bundle_to_plan() {
 
   load_bundle_descriptor "$bundle_id" || die "Unknown bundle: $bundle_id"
   append_plan_entries "$PLAN_DIR/bundles.list" "$bundle_id"
-  append_unique "$plan_backends_name" "$BUNDLE_INSTALLER"
   local source_id
   while IFS= read -r source_id; do
     [[ -n "$source_id" ]] && append_unique "$plan_sources_name" "$source_id"
   done < <(split_csv "${BUNDLE_SOURCE_IDS:-}")
-  append_bundle_payload_to_plan
+  local step_index step_backend _step_sources destination
+  local -a step_items=()
+  while IFS=$'\t' read -r step_index step_backend _step_sources; do
+    [[ -n "$step_index" ]] || continue
+    append_unique "$plan_backends_name" "$step_backend"
+    destination="$(package_file_for_backend "$step_backend")"
+    mapfile -t step_items < <(bundle_step_items "$bundle_id" "$step_index")
+    append_plan_entries "$destination" "${step_items[@]:-}"
+  done < <(bundle_steps "$bundle_id")
   append_bundle_stow_plan
 }
 
@@ -115,9 +115,9 @@ build_plan_from_selections() {
   # shellcheck disable=SC2034  # Read via dynamic scoping by lib/packages.sh plan appenders.
   local DEFER_PLAN_SORT=1
   ensure_state_dirs
+  catalog_ensure_loaded
+  catalog_validate_action_items
   plan_reset
-  validate_source_catalog
-  validate_bundle_catalog
 
   local -a selected_bundle_ids=()
   local -a plan_sources=()
@@ -135,7 +135,6 @@ build_plan_from_selections() {
 
   local category choice_id record choice_bundles
   for category in $(category_names); do
-    validate_choice_catalog "$category"
     while IFS= read -r choice_id; do
       [[ -n "$choice_id" ]] || continue
       record="$(choice_record "$category" "$choice_id")"
@@ -280,7 +279,7 @@ write_base_rationale_report() {
   printf 'backend\titem\towner_bundle\tclassification\tconsumer\treason\n' >"$report"
   load_base_responsibility_cache
 
-  local bundle_id item source_id
+  local bundle_id item source_id step_index step_backend _step_sources
   local -A seen_base_sources=()
   while IFS= read -r bundle_id; do
     [[ -n "$bundle_id" ]] || continue
@@ -293,10 +292,13 @@ write_base_rationale_report() {
       write_base_rationale_row "$report" source "$source_id" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
       seen_base_sources["$source_id"]=1
     done < <(split_csv "${BUNDLE_SOURCE_IDS:-}")
-    while IFS= read -r item; do
-      [[ -n "$item" ]] || continue
-      write_base_rationale_row "$report" "$BUNDLE_INSTALLER" "$item" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
-    done < <(bundle_manifest_entries)
+    while IFS=$'\t' read -r step_index step_backend _step_sources; do
+      [[ -n "$step_index" ]] || continue
+      while IFS= read -r item; do
+        [[ -n "$item" ]] || continue
+        write_base_rationale_row "$report" "$step_backend" "$item" "$BUNDLE_ID" "$BUNDLE_DESCRIPTION"
+      done < <(bundle_step_items "$bundle_id" "$step_index")
+    done < <(bundle_steps "$bundle_id")
   done < <(effective_base_bundle_ids)
 
   if [[ "$(resolved_desktop_app_profile)" == "full" ]] && grep -Fx 'base-source-flathub' "$PLAN_DIR/bundles.list" >/dev/null 2>&1; then

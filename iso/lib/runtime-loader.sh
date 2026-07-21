@@ -132,8 +132,12 @@ iso_refresh_runtime() (
     iso_runtime_err "remote runtime is missing executable install.sh"
     return 1
   }
-  [[ -f "$staged_dir/choices/browsers.conf" ]] || {
-    iso_runtime_err "remote runtime is missing choices/browsers.conf"
+  [[ -d "$staged_dir/catalog/units" ]] || {
+    iso_runtime_err "remote runtime is missing catalog/units"
+    return 1
+  }
+  [[ -f "$staged_dir/lib/catalog.py" ]] || {
+    iso_runtime_err "remote runtime is missing lib/catalog.py"
     return 1
   }
 

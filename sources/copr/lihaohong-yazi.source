@@ -1,9 +1,0 @@
-SOURCE_ID="copr:lihaohong/yazi"
-SOURCE_KIND="copr"
-SOURCE_LABEL="COPR: lihaohong/yazi"
-SOURCE_PROJECT="lihaohong/yazi"
-SOURCE_REQUIRED=1
-SOURCE_DESCRIPTION="Yazi terminal file manager Fedora COPR"
-SOURCE_GPG_POLICY="copr-plugin"
-SOURCE_BOOTSTRAP_EXCEPTION=0
-SOURCE_REASON="Provides Yazi for the base shell file manager"

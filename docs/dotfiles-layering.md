@@ -17,7 +17,7 @@ Decision rule when adding configuration for a new app:
   update goes in a Stow package: `dotfiles/<stow-package>/` mirroring the
   home-relative layout (for example
   `dotfiles/btop/.config/btop/btop.conf`). Reference the package from the
-  owning bundle's `BUNDLE_STOW_PACKAGES` field.
+  owning catalog unit's `stow` key.
 - Hardware-specific, user-owned, or fallback content that the installer
   writes once and must never clobber afterwards goes in `templates/`, with a
   matching row in `config/managed-config.tsv` declaring its mode and
@@ -59,13 +59,13 @@ A tool that needs both an app config tree and a shell hook uses two
 packages: an unprefixed one for the config tree and a `shell-*` one for the
 fragment.
 
-Note that `shell-*` **bundle IDs** do not map 1:1 to `shell-*` **Stow
-packages**. Bundle IDs are `<category>-<basename>`, so every bundle under
-`bundles/shell/` gets a `shell-` prefix regardless of what it stows. For
-example, the `shell-btop` bundle (`bundles/shell/btop.bundle`) stows the
-`btop` package, because btop's config is an owned tree, not a `.shellrc.d`
-fragment. The `shell-fzf` bundle stows the `shell-fzf` package only because
-fzf really does ship a fragment.
+Note that `shell-*` **unit IDs** do not map 1:1 to `shell-*` **Stow
+packages**. Unit IDs follow `<group>-<basename>`, so every unit under
+`catalog/units/shell/` gets a `shell-` prefix regardless of what it stows.
+For example, the `shell-btop` unit (`catalog/units/shell/btop.toml`) stows
+the `btop` package, because btop's config is an owned tree, not a
+`.shellrc.d` fragment. The `shell-fzf` unit stows the `shell-fzf` package
+only because fzf really does ship a fragment.
 
 ## Apps with both a template and a Stow package
 

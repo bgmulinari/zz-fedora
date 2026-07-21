@@ -1,0 +1,9 @@
+id = "base-desktop-controls"
+description = "Graphical audio and printing controls for the Niri session"
+
+[base]
+order = 140
+
+[[install]]
+backend = "dnf"
+packages = ["pavucontrol", "system-config-printer"]

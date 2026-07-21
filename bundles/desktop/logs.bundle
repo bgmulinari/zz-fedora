@@ -1,5 +1,0 @@
-BUNDLE_ID="desktop-logs"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_ITEMS_FILE="packages/official/desktop/logs.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="System log viewer"

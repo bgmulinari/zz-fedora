@@ -1,9 +1,0 @@
-SOURCE_ID="artifact:docker"
-SOURCE_KIND="artifact"
-SOURCE_LABEL="Docker CE Fedora repository"
-SOURCE_PROJECT="https://download.docker.com/linux/fedora/docker-ce.repo"
-SOURCE_REQUIRED=0
-SOURCE_DESCRIPTION="Optional Docker CE repository definition and signed packages"
-SOURCE_GPG_POLICY="repo-gpg-key"
-SOURCE_BOOTSTRAP_EXCEPTION=0
-SOURCE_REASON="Docker CE packages are installed from Docker's Fedora repository"

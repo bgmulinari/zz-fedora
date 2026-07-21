@@ -1,0 +1,8 @@
+id = "copr:lihaohong/yazi"
+kind = "copr"
+label = "COPR: lihaohong/yazi"
+project = "lihaohong/yazi"
+required = true
+description = "Yazi terminal file manager Fedora COPR"
+gpg_policy = "copr-plugin"
+reason = "Provides Yazi for the base shell file manager"

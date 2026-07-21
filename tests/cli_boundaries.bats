@@ -129,18 +129,19 @@ setup() {
   assert_contains "$output" "desktop-app:minimal"
 }
 
-@test "print-plan fails fast when an action manifest references an unregistered id" {
+@test "print-plan fails fast when the catalog references an unregistered action" {
   local repo_copy="$TEST_ROOT/repo-copy"
   mkdir -p "$repo_copy/assets/wallpapers"
   git -C "$ROOT_DIR" ls-files -z -- . ':!assets' \
     | tar --null -cf - -C "$ROOT_DIR" -T - \
     | tar -xf - -C "$repo_copy"
-  printf 'not-a-registered-action\n' >>"$repo_copy/packages/actions/media-codecs.actions"
+  printf '\n[[install]]\nbackend = "action"\nactions = ["not-a-registered-action"]\n' \
+    >>"$repo_copy/catalog/units/media/codecs.toml"
 
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" \
     bash "$repo_copy/install.sh" print-plan --dry-run --skip-dotfiles --no-tui
 
   [ "$status" -ne 0 ]
   assert_contains "$output" "Unknown custom action 'not-a-registered-action'"
-  assert_contains "$output" "media-codecs.actions"
+  assert_contains "$output" "no register_action row declares it"
 }

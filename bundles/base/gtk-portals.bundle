@@ -1,8 +1,0 @@
-BUNDLE_ID="base-gtk-portals"
-BUNDLE_BASE="1"
-BUNDLE_BASE_ORDER="120"
-BUNDLE_MINIMAL_DESKTOP_SKIP="1"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_ITEMS_FILE="packages/official/gtk-portals.pkgs"
-BUNDLE_STOW_PACKAGES="portals"
-BUNDLE_DESCRIPTION="GTK portal and auth integration for Fedora"

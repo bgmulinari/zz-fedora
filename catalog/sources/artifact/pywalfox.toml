@@ -1,0 +1,7 @@
+id = "artifact:pywalfox"
+kind = "artifact"
+label = "Pywalfox native host and Firefox add-on"
+project = "https://github.com/Frewacom/pywalfox-native"
+description = "Optional Firefox theme synchronization components"
+gpg_policy = "tls-only"
+reason = "Pywalfox resolves its current native host from PyPI and its signed browser add-on from Mozilla Add-ons"

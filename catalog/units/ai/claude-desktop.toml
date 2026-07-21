@@ -1,0 +1,15 @@
+id = "ai-claude-desktop"
+description = "Claude Desktop bundle for Fedora"
+
+[choice]
+category = "ai"
+id = "claude-desktop"
+label = "Claude Desktop"
+default = true
+order = 10
+description = "Unofficial Linux port of the Claude Desktop app"
+
+[[install]]
+backend = "dnf"
+sources = ["vendor:claude-desktop"]
+packages = ["claude-desktop-unofficial.x86_64"]

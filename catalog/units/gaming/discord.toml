@@ -1,0 +1,15 @@
+id = "gaming-discord"
+description = "Official Discord RPM direct installer"
+
+[choice]
+category = "gaming"
+id = "discord"
+label = "Discord"
+default = true
+order = 30
+description = "Voice, video, and text chat for friends and gaming communities"
+
+[[install]]
+backend = "action"
+sources = ["artifact:discord"]
+actions = ["discord"]

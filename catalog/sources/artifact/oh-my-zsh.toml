@@ -1,0 +1,8 @@
+id = "artifact:oh-my-zsh"
+kind = "artifact"
+label = "Oh My Zsh pinned Git checkout"
+project = "https://github.com/ohmyzsh/ohmyzsh.git@d2379b2701df66a36b217a7707e77f8029a99814"
+required = true
+description = "Pinned Oh My Zsh checkout used by the required shell baseline"
+gpg_policy = "pinned-commit"
+reason = "Provides the required Zsh framework at a reviewed immutable commit"

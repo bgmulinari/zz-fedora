@@ -1,0 +1,14 @@
+id = "desktop-document-scanner"
+description = "Document scanner"
+
+[choice]
+category = "desktop"
+id = "document-scanner"
+label = "Document Scanner"
+default = true
+order = 120
+description = "Make digital copies of photos and documents"
+
+[[install]]
+backend = "dnf"
+packages = ["simple-scan"]

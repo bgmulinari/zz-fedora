@@ -1,0 +1,11 @@
+id = "base-qt-look"
+description = "Qt theme integration baseline for Fedora"
+
+[base]
+order = 200
+minimal_desktop_skip = true
+
+[[install]]
+backend = "dnf"
+sources = ["copr:lionheartp/Hyprland"]
+packages = ["qt6ct-kde"]

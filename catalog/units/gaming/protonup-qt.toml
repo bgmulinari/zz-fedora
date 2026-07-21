@@ -1,0 +1,15 @@
+id = "gaming-protonup-qt"
+description = "ProtonUp-Qt Flatpak for Fedora"
+
+[choice]
+category = "gaming"
+id = "protonup-qt"
+label = "ProtonUp-Qt"
+default = true
+order = 20
+description = "Graphical manager for Proton, Wine, and other Linux gaming compatibility tools"
+
+[[install]]
+backend = "flatpak"
+sources = ["flathub"]
+flatpaks = ["net.davidotek.pupgui2"]

@@ -1,0 +1,9 @@
+id = "shell-gh"
+description = "GitHub CLI bundle for Fedora"
+
+[base]
+order = 260
+
+[[install]]
+backend = "dnf"
+packages = ["gh"]

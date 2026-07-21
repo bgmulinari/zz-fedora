@@ -1,5 +1,0 @@
-BUNDLE_ID="desktop-file-roller"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_ITEMS_FILE="packages/official/desktop/file-roller.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Archive manager"

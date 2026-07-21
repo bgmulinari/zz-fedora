@@ -1,0 +1,15 @@
+id = "dev-lazygit"
+description = "lazygit bundle for Fedora"
+
+[choice]
+category = "dev"
+id = "lazygit"
+label = "lazygit"
+default = true
+order = 70
+description = "Simple terminal interface for Git commands"
+
+[[install]]
+backend = "dnf"
+sources = ["copr:dejan/lazygit"]
+packages = ["lazygit"]

@@ -1,0 +1,7 @@
+id = "artifact:dotnet"
+kind = "artifact"
+label = "Microsoft .NET installer and release metadata"
+project = "https://github.com/dotnet/install-scripts@4a37a9f9d1a061fc389d6515100336db4e51710e"
+description = "Optional .NET SDK installer and signed SDK payload flow"
+gpg_policy = "sha256"
+reason = "Selected .NET SDK channels use a commit-pinned installer with a repository-pinned SHA-256"

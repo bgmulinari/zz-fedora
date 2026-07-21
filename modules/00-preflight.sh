@@ -20,6 +20,7 @@ module_00_preflight() {
   if [[ "$EUID" -ne 0 ]] && ! command -v sudo >/dev/null 2>&1; then
     die "sudo is required unless running as root"
   fi
+  have_cmd python3 || die "python3 is required to load the catalog; install it and rerun (bootstrap.sh installs it on fresh systems)"
   if [[ "$COMMAND" == "wizard" ]]; then
     have_cmd gum || die "gum is required for wizard mode"
   fi

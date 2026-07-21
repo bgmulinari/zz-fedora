@@ -381,11 +381,11 @@ main() {
       list_install_profiles
       ;;
     list-choices)
-      local category file
-      for file in $(list_choice_catalogs); do
-        category="$(basename "$file" .conf)"
+      local category catalog
+      for category in $(category_names); do
+        catalog="$(choice_catalog_path "$category")"
         printf '[%s]\n' "$category"
-        awk -F'\t' 'NF==5 && $1 !~ /^#/ {printf "%s\t%s\tdefault=%s\n", $1, $2, $3}' "$file"
+        awk -F'\t' 'NF==5 {printf "%s\t%s\tdefault=%s\n", $1, $2, $3}' "$catalog"
         printf '\n'
       done
       ;;

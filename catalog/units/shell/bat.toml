@@ -1,0 +1,9 @@
+id = "shell-bat"
+description = "bat bundle for Fedora"
+
+[base]
+order = 300
+
+[[install]]
+backend = "dnf"
+packages = ["bat"]

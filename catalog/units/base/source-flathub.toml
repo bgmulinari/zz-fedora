@@ -1,0 +1,10 @@
+id = "base-source-flathub"
+description = "Always-enabled Flathub source for Fedora"
+
+[base]
+order = 40
+minimal_desktop_skip = true
+
+[[install]]
+backend = "flatpak"
+sources = ["flathub"]

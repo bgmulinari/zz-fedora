@@ -1,0 +1,15 @@
+id = "office-inkscape"
+description = "Inkscape Flatpak for Fedora"
+
+[choice]
+category = "office"
+id = "inkscape"
+label = "Inkscape"
+default = true
+order = 50
+description = "Vector graphics editor for illustrations, logos, diagrams, and more"
+
+[[install]]
+backend = "flatpak"
+sources = ["flathub"]
+flatpaks = ["org.inkscape.Inkscape"]

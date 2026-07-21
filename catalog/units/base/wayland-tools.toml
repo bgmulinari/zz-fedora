@@ -1,0 +1,9 @@
+id = "base-wayland-tools"
+description = "Wayland input and display helpers for the managed shell"
+
+[base]
+order = 180
+
+[[install]]
+backend = "dnf"
+packages = ["ddcutil", "wtype"]

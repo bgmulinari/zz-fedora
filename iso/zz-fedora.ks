@@ -26,9 +26,12 @@ ca-certificates
 curl
 git
 dnf5-plugins
+# The installer compiles catalog/ with lib/catalog.py before planning; dnf5
+# alone no longer guarantees a python3 interpreter on the target.
+python3
 # Present during the payload transaction so the kernel's initramfs build picks
 # up the graphical boot splash and LUKS prompt without a post-install rebuild,
 # and so Anaconda adds the rhgb/quiet kernel arguments. Mirrors
-# packages/official/boot-splash.pkgs; keep the two in sync.
+# catalog/units/base/boot-splash.toml; keep the two in sync.
 plymouth-system-theme
 %end

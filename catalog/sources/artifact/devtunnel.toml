@@ -1,0 +1,7 @@
+id = "artifact:devtunnel"
+kind = "artifact"
+label = "Microsoft Dev Tunnel CLI download"
+project = "https://aka.ms/TunnelsCliDownload/linux-x64"
+description = "Optional Microsoft Dev Tunnel CLI binary"
+gpg_policy = "tls-only"
+reason = "Dev Tunnel is downloaded from the vendor's rolling x86_64 URL"

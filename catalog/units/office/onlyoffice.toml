@@ -1,0 +1,15 @@
+id = "office-onlyoffice"
+description = "OnlyOffice Flatpak for Fedora"
+
+[choice]
+category = "office"
+id = "onlyoffice"
+label = "OnlyOffice"
+default = true
+order = 10
+description = "Desktop editors for documents, spreadsheets, presentations, forms, and PDFs"
+
+[[install]]
+backend = "flatpak"
+sources = ["flathub"]
+flatpaks = ["org.onlyoffice.desktopeditors"]

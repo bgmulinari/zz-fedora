@@ -1,0 +1,7 @@
+id = "rpmfusion-nonfree"
+kind = "rpmfusion"
+label = "RPM Fusion Nonfree"
+required = true
+description = "RPM Fusion nonfree repository"
+gpg_policy = "rpm-gpg-import"
+reason = "Provides nonfree RPM Fusion packages and appstream metadata"

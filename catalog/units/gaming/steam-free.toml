@@ -1,0 +1,15 @@
+id = "gaming-steam-free"
+description = "RPM Fusion Free enablement bundle for Steam on Fedora"
+
+[choice]
+category = "gaming"
+id = "steam"
+label = "Steam"
+default = true
+order = 10
+description = "PC game storefront, library, launcher, and community client"
+also = ["gaming-steam-nonfree"]
+
+[[install]]
+backend = "dnf"
+sources = ["rpmfusion-free"]

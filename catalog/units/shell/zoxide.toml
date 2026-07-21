@@ -1,0 +1,10 @@
+id = "shell-zoxide"
+description = "Zoxide bundle for Fedora"
+stow = ["shell-zoxide"]
+
+[base]
+order = 240
+
+[[install]]
+backend = "dnf"
+packages = ["zoxide"]

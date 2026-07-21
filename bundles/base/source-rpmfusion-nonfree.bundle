@@ -1,8 +1,0 @@
-BUNDLE_ID="base-source-rpmfusion-nonfree"
-BUNDLE_BASE="1"
-BUNDLE_BASE_ORDER="30"
-BUNDLE_MINIMAL_DESKTOP_SKIP="1"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_IDS="rpmfusion-nonfree"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Always-enabled RPM Fusion Nonfree source for Fedora"

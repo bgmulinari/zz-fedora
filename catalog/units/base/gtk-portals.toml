@@ -1,0 +1,11 @@
+id = "base-gtk-portals"
+description = "GTK portal and auth integration for Fedora"
+stow = ["portals"]
+
+[base]
+order = 120
+minimal_desktop_skip = true
+
+[[install]]
+backend = "dnf"
+packages = ["gnome-keyring", "xdg-desktop-portal-gnome", "xdg-desktop-portal-gtk"]

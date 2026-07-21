@@ -1,0 +1,14 @@
+id = "desktop-boxes"
+description = "Local virtual machine manager"
+
+[choice]
+category = "desktop"
+id = "boxes"
+label = "Boxes"
+default = true
+order = 160
+description = "Create, view, and use virtual machines"
+
+[[install]]
+backend = "dnf"
+packages = ["gnome-boxes"]

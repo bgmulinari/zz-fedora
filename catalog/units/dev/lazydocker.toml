@@ -1,0 +1,15 @@
+id = "dev-lazydocker"
+description = "lazydocker from Homebrew"
+
+[choice]
+category = "dev"
+id = "lazydocker"
+label = "lazydocker"
+default = true
+order = 80
+description = "Simple terminal interface for Docker and Docker Compose"
+
+[[install]]
+backend = "action"
+sources = ["artifact:homebrew"]
+actions = ["brew:lazydocker"]

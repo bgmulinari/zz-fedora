@@ -1,0 +1,15 @@
+id = "dev-neovim"
+description = "Neovim bundle for Fedora"
+stow = ["nvim"]
+
+[choice]
+category = "dev"
+id = "neovim"
+label = "Neovim"
+default = true
+order = 30
+description = "Extensible Vim-based text editor"
+
+[[install]]
+backend = "dnf"
+packages = ["neovim"]

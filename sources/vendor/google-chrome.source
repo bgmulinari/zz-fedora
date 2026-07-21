@@ -1,8 +1,0 @@
-SOURCE_ID="vendor:google-chrome"
-SOURCE_KIND="vendor"
-SOURCE_LABEL="Google Chrome RPM Repository"
-SOURCE_REQUIRED=0
-SOURCE_DESCRIPTION="Official Google Chrome RPM repository"
-SOURCE_GPG_POLICY="repo-gpg-key"
-SOURCE_BOOTSTRAP_EXCEPTION=0
-SOURCE_REASON="Provides optional Google Chrome package"

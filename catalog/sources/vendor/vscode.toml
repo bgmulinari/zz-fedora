@@ -1,0 +1,6 @@
+id = "vendor:vscode"
+kind = "vendor"
+label = "Visual Studio Code RPM Repository"
+description = "Official Visual Studio Code RPM repository"
+gpg_policy = "repo-gpg-key"
+reason = "Provides optional Visual Studio Code package"

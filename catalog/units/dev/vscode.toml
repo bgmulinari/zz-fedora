@@ -1,0 +1,17 @@
+id = "dev-vscode"
+description = "Visual Studio Code bundle for Fedora"
+requires = ["dev-vscode-extensions"]
+stow = ["vscode"]
+
+[choice]
+category = "dev"
+id = "vscode"
+label = "Visual Studio Code"
+default = true
+order = 10
+description = "Code editor with built-in debugging and source control"
+
+[[install]]
+backend = "dnf"
+sources = ["vendor:vscode"]
+packages = ["code"]

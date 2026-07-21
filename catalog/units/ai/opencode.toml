@@ -1,0 +1,15 @@
+id = "ai-opencode"
+description = "OpenCode from Homebrew"
+
+[choice]
+category = "ai"
+id = "opencode"
+label = "OpenCode Terminal"
+default = true
+order = 40
+description = "Open-source AI coding agent built for the terminal"
+
+[[install]]
+backend = "action"
+sources = ["artifact:homebrew"]
+actions = ["brew:opencode"]

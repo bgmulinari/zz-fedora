@@ -332,9 +332,8 @@ Related managed files:
 
 Primary files:
 
-- `bundles/base/noctalia.bundle`
-- `packages/copr/lionheartp-hyprland/noctalia.pkgs`
-- `sources/copr/lionheartp-hyprland.source`
+- `catalog/units/base/noctalia.toml` (unit descriptor; its `[[install]]` step carries the `noctalia-git` package and the COPR source reference)
+- `catalog/sources/copr/lionheartp-hyprland.toml`
 - `lib/fedora.sh`
 - `lib/actions/noctalia-greeter.sh` (Noctalia Greeter action; `lib/actions.sh` holds the action registry and the thin `modules/35-custom-actions.sh` orchestrates it)
 - `modules/80-post-actions.sh`
@@ -402,7 +401,7 @@ When revisiting Noctalia v5:
      noctalia
    ```
 
-5. Once upstream v5 stable is available in Fedora's standard repositories, change the base manifest from `noctalia-git` to `noctalia` and remove Terra's `noctalia-git` exclusion. If the greeter or `qt6ct-kde` also enters Fedora, narrow or remove the remaining LionHeartP source wiring accordingly.
+5. Once upstream v5 stable is available in Fedora's standard repositories, change the package in `catalog/units/base/noctalia.toml` from `noctalia-git` to `noctalia` and remove Terra's `noctalia-git` exclusion. If the greeter or `qt6ct-kde` also enters Fedora, narrow or remove the remaining LionHeartP source wiring accordingly.
 6. Re-check v5 docs for renamed config fields, template IDs, IPC commands, package names, source recommendations, and setup wizard behavior.
 7. Keep the integration clean v5-only. Do not add v4 compatibility, plugin migration, or QuickShell fallback paths.
 8. Update this file with the new checkpoint, package/build decision, VM/manual test result, and validation commands.

@@ -1,9 +1,0 @@
-SOURCE_ID="artifact:homebrew"
-SOURCE_KIND="artifact"
-SOURCE_LABEL="Homebrew upstream installer and package registry"
-SOURCE_PROJECT="https://github.com/Homebrew/install@c7952e40b7957268f61643152f4db725379b292e"
-SOURCE_REQUIRED=0
-SOURCE_DESCRIPTION="Optional Homebrew bootstrap and formula downloads"
-SOURCE_GPG_POLICY="sha256"
-SOURCE_BOOTSTRAP_EXCEPTION=0
-SOURCE_REASON="Selected Homebrew-backed tools use a commit-pinned installer with a repository-pinned SHA-256"

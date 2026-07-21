@@ -1,0 +1,7 @@
+id = "artifact:nuget"
+kind = "artifact"
+label = "NuGet package registry"
+project = "https://api.nuget.org"
+description = "Optional .NET global tool packages"
+gpg_policy = "tls-only"
+reason = "Selected .NET tools resolve current releases from NuGet"

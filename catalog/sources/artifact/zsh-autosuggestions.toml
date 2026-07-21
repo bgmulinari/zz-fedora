@@ -1,0 +1,8 @@
+id = "artifact:zsh-autosuggestions"
+kind = "artifact"
+label = "zsh-autosuggestions pinned Git checkout"
+project = "https://github.com/zsh-users/zsh-autosuggestions.git@85919cd1ffa7d2d5412f6d3fe437ebdbeeec4fc5"
+required = true
+description = "Pinned zsh-autosuggestions plugin checkout"
+gpg_policy = "pinned-commit"
+reason = "Provides required shell autosuggestions at an immutable commit"

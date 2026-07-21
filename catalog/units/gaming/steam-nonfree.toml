@@ -1,0 +1,7 @@
+id = "gaming-steam-nonfree"
+description = "Steam package bundle from RPM Fusion Nonfree for Fedora"
+
+[[install]]
+backend = "dnf"
+sources = ["rpmfusion-nonfree"]
+packages = ["steam"]

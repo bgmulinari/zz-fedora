@@ -1,6 +1,0 @@
-BUNDLE_ID="dev-lazydocker"
-BUNDLE_INSTALLER="action"
-BUNDLE_SOURCE_IDS="artifact:homebrew"
-BUNDLE_ITEMS_FILE="packages/actions/dev-lazydocker.actions"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="lazydocker from Homebrew"

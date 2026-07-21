@@ -1,6 +1,0 @@
-BUNDLE_ID="gaming-discord"
-BUNDLE_INSTALLER="action"
-BUNDLE_SOURCE_IDS="artifact:discord"
-BUNDLE_ITEMS_FILE="packages/actions/gaming-discord.actions"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Official Discord RPM direct installer"

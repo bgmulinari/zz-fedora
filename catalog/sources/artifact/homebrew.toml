@@ -1,0 +1,7 @@
+id = "artifact:homebrew"
+kind = "artifact"
+label = "Homebrew upstream installer and package registry"
+project = "https://github.com/Homebrew/install@c7952e40b7957268f61643152f4db725379b292e"
+description = "Optional Homebrew bootstrap and formula downloads"
+gpg_policy = "sha256"
+reason = "Selected Homebrew-backed tools use a commit-pinned installer with a repository-pinned SHA-256"

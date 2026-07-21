@@ -1,6 +1,0 @@
-BUNDLE_ID="media-codecs"
-BUNDLE_INSTALLER="action"
-BUNDLE_SOURCE_IDS="rpmfusion-free,rpmfusion-nonfree,cisco-openh264"
-BUNDLE_ITEMS_FILE="packages/actions/media-codecs.actions"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Fedora multimedia and Bluetooth aptX codecs with detected AMD and Intel acceleration"

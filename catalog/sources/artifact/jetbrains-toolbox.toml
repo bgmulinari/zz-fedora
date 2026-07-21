@@ -1,0 +1,7 @@
+id = "artifact:jetbrains-toolbox"
+kind = "artifact"
+label = "JetBrains Toolbox release service"
+project = "https://data.services.jetbrains.com/products/releases"
+description = "Optional JetBrains Toolbox release metadata and archive"
+gpg_policy = "sha256"
+reason = "JetBrains Toolbox is verified with the SHA-256 published beside the current vendor release"

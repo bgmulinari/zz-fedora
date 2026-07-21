@@ -1,8 +1,0 @@
-SOURCE_ID="vendor:brave"
-SOURCE_KIND="vendor"
-SOURCE_LABEL="Brave Browser RPM Repository"
-SOURCE_REQUIRED=0
-SOURCE_DESCRIPTION="Official Brave RPM repository"
-SOURCE_GPG_POLICY="repo-gpg-key"
-SOURCE_BOOTSTRAP_EXCEPTION=0
-SOURCE_REASON="Provides optional Brave browser package"

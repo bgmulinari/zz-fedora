@@ -9,37 +9,60 @@ setup() {
 
 assert_all_bundles_reachable() {
   local -a reachable=()
-  local bundle_id catalog bundle_ids dependency_id index=0
+  local bundle_id category catalog units dependency_id index=0 choice_units_seen=0
+
+  catalog_ensure_loaded
   for bundle_id in "${BASE_BUNDLE_IDS[@]}" "${DEFAULT_BUNDLE_IDS[@]}"; do
     append_unique reachable "$bundle_id"
   done
 
-  while IFS= read -r catalog; do
-    while IFS=$'\t' read -r _id _label _default bundle_ids _description; do
-      [[ -n "$_id" && "$_id" != \#* ]] || continue
+  while IFS= read -r category; do
+    [[ -n "$category" ]] || continue
+    catalog="$(choice_catalog_path "$category")"
+    [[ -f "$catalog" ]] || {
+      printf 'missing compiled choice catalog: %s\n' "$catalog" >&2
+      return 1
+    }
+    while IFS= read -r units; do
       while IFS= read -r bundle_id; do
-        [[ -n "$bundle_id" ]] && append_unique reachable "$bundle_id"
-      done < <(split_csv "$bundle_ids")
-    done <"$catalog"
-  done < <(list_choice_catalogs)
+        [[ -n "$bundle_id" ]] || continue
+        append_unique reachable "$bundle_id"
+        choice_units_seen=$((choice_units_seen + 1))
+      done < <(split_csv "$units")
+    done < <(awk -F'\t' 'NF==5 {print $4}' "$catalog")
+  done < <(category_names)
+
+  [[ "$choice_units_seen" -gt 0 ]] || {
+    printf 'no units collected from compiled choice catalogs; reachability check would be vacuous\n' >&2
+    return 1
+  }
 
   while [[ "$index" -lt "${#reachable[@]}" ]]; do
     bundle_id="${reachable[$index]}"
-    load_bundle_descriptor "$bundle_id"
+    load_bundle_descriptor "$bundle_id" || {
+      printf 'reachable id is not a catalog unit: %s\n' "$bundle_id" >&2
+      return 1
+    }
     while IFS= read -r dependency_id; do
       [[ -n "$dependency_id" ]] && append_unique reachable "$dependency_id"
     done < <(split_csv "${BUNDLE_DEPENDENCIES:-}")
     index=$((index + 1))
   done
 
-  local bundle_file
-  while IFS= read -r bundle_file; do
-    descriptor_value_from_file "$bundle_file" BUNDLE_ID bundle_id
+  local checked=0
+  while IFS= read -r bundle_id; do
+    [[ -n "$bundle_id" ]] || continue
+    checked=$((checked + 1))
     array_contains "$bundle_id" "${reachable[@]}" || {
       printf 'unreachable bundle: %s\n' "$bundle_id" >&2
       return 1
     }
-  done < <(list_bundle_files)
+  done < <(list_bundle_ids)
+
+  [[ "$checked" -gt 0 ]] || {
+    printf 'list_bundle_ids returned no units; reachability check would be vacuous\n' >&2
+    return 1
+  }
 }
 
 @test "planner fixture restores Bats debug tracing" {
@@ -421,29 +444,30 @@ assert_all_bundles_reachable() {
   run_without_bats_debug_trap assert_all_bundles_reachable
 }
 
-@test "a new bundles/base descriptor is planned into the effective base set" {
+@test "a new catalog base unit is planned into the effective base set" {
   local sandbox="$TEST_ROOT/base-derivation-root"
-  mkdir -p "$sandbox"
-  cp -R "$ROOT_DIR/bundles" "$sandbox/bundles"
-  cat >"$sandbox/bundles/base/zz-test.bundle" <<'BUNDLE'
-BUNDLE_ID="base-zz-test"
-BUNDLE_BASE="1"
-BUNDLE_BASE_ORDER="15"
-BUNDLE_MINIMAL_DESKTOP_SKIP="1"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_SOURCE_IDS=""
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Sandbox base bundle for planner derivation tests"
-BUNDLE
+  local original_root="$ROOT_DIR"
+  mkdir -p "$sandbox/lib"
+  cp -R "$ROOT_DIR/catalog" "$sandbox/catalog"
+  cp "$ROOT_DIR/lib/catalog.py" "$sandbox/lib/catalog.py"
+  cat >"$sandbox/catalog/units/base/zz-test.toml" <<'TOML'
+id = "base-zz-test"
+description = "Sandbox base unit for planner derivation tests"
+
+[base]
+order = 15
+minimal_desktop_skip = true
+
+[[install]]
+backend = "dnf"
+packages = ["zz-test-package"]
+TOML
 
   effective_ids_for_profile() {
     local profile="$1"
     ROOT_DIR="$sandbox"
     DESKTOP_APP_PROFILE="$profile"
-    BUNDLE_FILE_CACHE=()
-    BUNDLE_FILE_CACHE_LOADED=()
-    BASE_BUNDLE_CATALOG_LOADED=()
-    load_base_bundle_catalog
+    catalog_reset_cache
     effective_base_bundle_ids
   }
 
@@ -456,4 +480,39 @@ BUNDLE
   run effective_ids_for_profile minimal
   [ "$status" -eq 0 ]
   [[ "$output" != *"base-zz-test"* ]]
+
+  ROOT_DIR="$sandbox"
+  catalog_reset_cache
+  catalog_ensure_loaded
+  array_contains "base-zz-test" "${BASE_BUNDLE_IDS[@]}"
+  array_contains "base-zz-test" "${MINIMAL_DESKTOP_SKIP_BUNDLE_IDS[@]}"
+  ! array_contains "base-zz-test" "${EARLY_BASE_BUNDLE_IDS[@]}"
+
+  ROOT_DIR="$original_root"
+  catalog_reset_cache
+}
+
+@test "bundle reachability check fails when the catalog gains an orphan unit" {
+  local sandbox="$TEST_ROOT/orphan-unit-root"
+  mkdir -p "$sandbox/lib"
+  cp -R "$ROOT_DIR/catalog" "$sandbox/catalog"
+  cp "$ROOT_DIR/lib/catalog.py" "$sandbox/lib/catalog.py"
+  cat >"$sandbox/catalog/units/dev/zz-orphan.toml" <<'TOML'
+id = "dev-zz-orphan"
+description = "Sandbox orphan unit for reachability self-checks"
+
+[[install]]
+backend = "dnf"
+packages = ["zz-orphan-package"]
+TOML
+
+  reachability_in_sandbox() {
+    ROOT_DIR="$sandbox"
+    catalog_reset_cache
+    assert_all_bundles_reachable
+  }
+
+  run reachability_in_sandbox
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unreachable bundle: dev-zz-orphan"* ]]
 }

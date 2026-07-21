@@ -1,0 +1,9 @@
+id = "base-jetbrains-mono-nerd-font"
+description = "Pinned JetBrains Mono Nerd Font for terminal icon and prompt rendering"
+
+[base]
+order = 100
+
+[[install]]
+backend = "action"
+actions = ["jetbrains-mono-nerd-font"]

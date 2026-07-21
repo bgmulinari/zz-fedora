@@ -1,0 +1,6 @@
+id = "vendor:claude-desktop"
+kind = "vendor"
+label = "Claude Desktop RPM Repository"
+description = "Unofficial RPM repository with exact x86_64 package identity verification"
+gpg_policy = "repo-gpg-key"
+reason = "Provides the exact x86_64 Claude Desktop RPM after signed repository metadata verification"

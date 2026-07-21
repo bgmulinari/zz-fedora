@@ -1,8 +1,0 @@
-SOURCE_ID="terra"
-SOURCE_KIND="terra"
-SOURCE_LABEL="Terra"
-SOURCE_REQUIRED=1
-SOURCE_DESCRIPTION="Terra repository for Ghostty"
-SOURCE_GPG_POLICY="unsigned-bootstrap"
-SOURCE_BOOTSTRAP_EXCEPTION=1
-SOURCE_REASON="Bootstraps Terra release packages before installing required Ghostty packages"

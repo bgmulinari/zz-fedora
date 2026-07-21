@@ -1,0 +1,14 @@
+id = "desktop-video-player"
+description = "Video player"
+
+[choice]
+category = "desktop"
+id = "video-player"
+label = "Video Player"
+default = true
+order = 90
+description = "Play video files"
+
+[[install]]
+backend = "dnf"
+packages = ["showtime"]

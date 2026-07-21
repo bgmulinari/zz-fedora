@@ -1,0 +1,14 @@
+id = "desktop-file-roller"
+description = "Archive manager"
+
+[choice]
+category = "desktop"
+id = "file-roller"
+label = "File Roller"
+default = true
+order = 130
+description = "Create, view, and extract archives"
+
+[[install]]
+backend = "dnf"
+packages = ["file-roller"]

@@ -62,6 +62,7 @@ minimal_desktop_skips_bundle() {
 
 effective_base_bundle_ids() {
   local profile bundle_id
+  catalog_ensure_loaded
   profile="$(resolved_desktop_app_profile)"
 
   for bundle_id in "${BASE_BUNDLE_IDS[@]:-}"; do

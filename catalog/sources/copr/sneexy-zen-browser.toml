@@ -1,0 +1,7 @@
+id = "copr:sneexy/zen-browser"
+kind = "copr"
+label = "COPR: sneexy/zen-browser"
+project = "sneexy/zen-browser"
+description = "Zen Browser COPR for Fedora"
+gpg_policy = "copr-plugin"
+reason = "Provides optional Zen Browser package"

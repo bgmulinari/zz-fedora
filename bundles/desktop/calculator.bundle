@@ -1,5 +1,0 @@
-BUNDLE_ID="desktop-calculator"
-BUNDLE_INSTALLER="dnf"
-BUNDLE_ITEMS_FILE="packages/official/desktop/calculator.pkgs"
-BUNDLE_STOW_PACKAGES=""
-BUNDLE_DESCRIPTION="Desktop calculator"

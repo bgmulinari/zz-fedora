@@ -1,0 +1,15 @@
+id = "base-file-integration"
+description = "Core XDG and file integration packages for Fedora"
+
+[base]
+order = 160
+
+[[install]]
+backend = "dnf"
+packages = [
+  "udiskie",
+  "udisks2",
+  "xdg-terminal-exec",
+  "xdg-user-dirs",
+  "xdg-utils",
+]

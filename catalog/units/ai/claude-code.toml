@@ -1,0 +1,15 @@
+id = "ai-claude-code"
+description = "Claude Code CLI installer"
+
+[choice]
+category = "ai"
+id = "claude-code"
+label = "Claude Code"
+default = true
+order = 20
+description = "Terminal coding agent that reads, edits, and tests codebases"
+
+[[install]]
+backend = "action"
+sources = ["artifact:claude-code"]
+actions = ["claude-code"]

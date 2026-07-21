@@ -1,0 +1,10 @@
+id = "base-boot-splash"
+description = "Plymouth boot splash packages for graphical boot and disk unlock"
+
+[base]
+order = 135
+minimal_desktop_skip = true
+
+[[install]]
+backend = "dnf"
+packages = ["grubby", "plymouth", "plymouth-system-theme"]

@@ -41,8 +41,9 @@ if [[ "$src" == */anaconda-addon/ ]]; then
   printf 'addon\n' >"$dest/org_zz_fedora/__init__.py"
   mkdir -p "$dest/org_zz_fedora/service"
   printf 'service\n' >"$dest/org_zz_fedora/service/installation.py"
-elif [[ "$src" == */choices/ ]]; then
-  printf 'firefox\tFirefox\t1\tbrowsers-firefox\tFedora official Firefox\n' >"$dest/browsers.conf"
+elif [[ "$src" == */catalog/ ]]; then
+  mkdir -p "$dest/units/browsers"
+  printf 'id = "browsers-firefox"\n' >"$dest/units/browsers/firefox.toml"
 else
   printf 'payload\n' >"$dest/payload-marker"
   printf '#!/usr/bin/env bash\n' >"$dest/install.sh"
@@ -50,6 +51,8 @@ else
   mkdir -p "$dest/iso/lib"
   printf '#!/usr/bin/env bash\n' >"$dest/iso/lib/runtime-loader.sh"
   chmod +x "$dest/iso/lib/runtime-loader.sh"
+  mkdir -p "$dest/catalog/units" "$dest/lib"
+  printf 'catalog tool\n' >"$dest/lib/catalog.py"
 fi
 SH
 
@@ -99,7 +102,8 @@ fi
 payload_marker=no
 product_img=no
 addon_in_product=no
-choices_in_product=no
+catalog_in_product=no
+catalog_tool_in_product=no
 config_in_product=no
 service_task_in_product=no
 dbus_conf_in_product=no
@@ -116,8 +120,11 @@ for add in "${adds[@]}"; do
     if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_fedora/__init__\.py$' >/dev/null; then
       addon_in_product=yes
     fi
-    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_fedora/choices/browsers\.conf$' >/dev/null; then
-      choices_in_product=yes
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_fedora/catalog/units/browsers/firefox\.toml$' >/dev/null; then
+      catalog_in_product=yes
+    fi
+    if gzip -dc "$add/product.img" | cpio -t 2>/dev/null | grep -E '^(\./)?usr/share/anaconda/addons/org_zz_fedora/lib/catalog\.py$' >/dev/null; then
+      catalog_tool_in_product=yes
     fi
     product_conf="$(gzip -dc "$add/product.img" | cpio -i --to-stdout --quiet '*100-zz-fedora.conf' 2>/dev/null || true)"
     if grep -F 'SoftwareSelectionSpoke' <<<"$product_conf" >/dev/null; then
@@ -150,7 +157,8 @@ done
   printf 'payload_marker=%s\n' "$payload_marker"
   printf 'product_img=%s\n' "$product_img"
   printf 'addon_in_product=%s\n' "$addon_in_product"
-  printf 'choices_in_product=%s\n' "$choices_in_product"
+  printf 'catalog_in_product=%s\n' "$catalog_in_product"
+  printf 'catalog_tool_in_product=%s\n' "$catalog_tool_in_product"
   printf 'config_in_product=%s\n' "$config_in_product"
   printf 'service_task_in_product=%s\n' "$service_task_in_product"
   printf 'dbus_conf_in_product=%s\n' "$dbus_conf_in_product"
@@ -190,7 +198,8 @@ SH
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "payload_marker=yes"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "product_img=yes"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "addon_in_product=yes"
-  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "choices_in_product=yes"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "catalog_in_product=yes"
+  assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "catalog_tool_in_product=yes"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "config_in_product=yes"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "service_task_in_product=yes"
   assert_file_contains "$ZZ_TEST_MKKSISO_LOG" "dbus_conf_in_product=yes"
@@ -312,7 +321,9 @@ SH
   cp "$ROOT_DIR/config/defaults.sh" "$fixture_repo/config/"
   cp "$ROOT_DIR/iso/zz-fedora.ks" "$ROOT_DIR/iso/payload-paths.conf" "$fixture_repo/iso/"
   cp -a "$ROOT_DIR/iso/anaconda-addon" "$ROOT_DIR/iso/anaconda-addon-data" "$fixture_repo/iso/"
-  cp -a "$ROOT_DIR/choices" "$fixture_repo/"
+  cp -a "$ROOT_DIR/catalog" "$fixture_repo/"
+  mkdir -p "$fixture_repo/lib"
+  cp "$ROOT_DIR/lib/catalog.py" "$fixture_repo/lib/"
   cp "$ROOT_DIR/install.sh" "$fixture_repo/"
   git -C "$fixture_repo" init -q
   git -C "$fixture_repo" add .
@@ -333,6 +344,8 @@ if [[ "$staging_payload" -eq 1 ]]; then
   mkdir -p "$destination/iso/lib"
   printf '#!/usr/bin/env bash\n' >"$destination/iso/lib/runtime-loader.sh"
   chmod +x "$destination/iso/lib/runtime-loader.sh"
+  mkdir -p "$destination/catalog/units" "$destination/lib"
+  printf 'catalog tool\n' >"$destination/lib/catalog.py"
 fi
 SH
 
@@ -714,18 +727,20 @@ SH
 
   fixture="$TEST_ROOT/payload-repo"
   destination="$TEST_ROOT/payload"
-  mkdir -p "$fixture/iso/lib" "$fixture/lib" "$fixture/tests" "$fixture/logs"
+  mkdir -p "$fixture/iso/lib" "$fixture/lib" "$fixture/catalog/units/browsers" "$fixture/tests" "$fixture/logs"
   printf '#!/usr/bin/env bash\n' >"$fixture/install.sh"
   chmod +x "$fixture/install.sh"
-  printf 'install.sh\nlib\niso/payload-paths.conf\niso/lib/runtime-loader.sh\n' >"$fixture/iso/payload-paths.conf"
+  printf 'install.sh\ncatalog\nlib\niso/payload-paths.conf\niso/lib/runtime-loader.sh\n' >"$fixture/iso/payload-paths.conf"
   printf '#!/usr/bin/env bash\n' >"$fixture/iso/lib/runtime-loader.sh"
   chmod +x "$fixture/iso/lib/runtime-loader.sh"
   printf 'runtime\n' >"$fixture/lib/runtime.sh"
+  printf 'catalog tool\n' >"$fixture/lib/catalog.py"
+  printf 'id = "browsers-firefox"\n' >"$fixture/catalog/units/browsers/firefox.toml"
   printf 'test\n' >"$fixture/tests/not-runtime.bats"
   printf 'secret\n' >"$fixture/.env"
   printf 'log\n' >"$fixture/logs/local.log"
   git -C "$fixture" init -q
-  git -C "$fixture" add iso/payload-paths.conf iso/lib/runtime-loader.sh install.sh lib/runtime.sh tests/not-runtime.bats
+  git -C "$fixture" add iso/payload-paths.conf iso/lib/runtime-loader.sh install.sh lib/runtime.sh lib/catalog.py catalog/units/browsers/firefox.toml tests/not-runtime.bats
 
   # shellcheck source=../iso/lib/build-common.sh
   source "$ROOT_DIR/iso/lib/build-common.sh"
@@ -736,6 +751,8 @@ SH
   [[ -f "$destination/iso/payload-paths.conf" ]]
   [[ -x "$destination/iso/lib/runtime-loader.sh" ]]
   [[ -f "$destination/lib/runtime.sh" ]]
+  [[ -f "$destination/lib/catalog.py" ]]
+  [[ -f "$destination/catalog/units/browsers/firefox.toml" ]]
   [[ ! -e "$destination/.git" ]]
   [[ ! -e "$destination/.env" ]]
   [[ ! -e "$destination/logs" ]]
@@ -751,6 +768,8 @@ SH
   assert_file_contains "$runtime_py" "/run/install/repo/zz-fedora/iso/lib/runtime-loader.sh"
   assert_file_contains "$manifest" "iso/lib/runtime-loader.sh"
   assert_file_contains "$manifest" "iso/payload-paths.conf"
+  assert_file_contains "$manifest" "catalog"
+  assert_file_contains "$manifest" "lib"
 }
 
 @test "ISO runtime refresh stages a remote runtime snapshot" {
@@ -761,14 +780,15 @@ SH
   archive_root="$TEST_ROOT/snapshot-deadbee"
   archive="$TEST_ROOT/snapshot.tar.gz"
   destination="$TEST_ROOT/runtime"
-  mkdir -p "$archive_root/choices" "$archive_root/extra-runtime" "$archive_root/iso" "$archive_root/lib" "$archive_root/tests"
+  mkdir -p "$archive_root/catalog/units/browsers" "$archive_root/extra-runtime" "$archive_root/iso" "$archive_root/lib" "$archive_root/tests"
   printf '#!/usr/bin/env bash\n' >"$archive_root/install.sh"
   chmod +x "$archive_root/install.sh"
-  printf 'firefox\tFirefox\t1\tbrowsers-firefox\tFirefox\n' >"$archive_root/choices/browsers.conf"
+  printf 'id = "browsers-firefox"\n' >"$archive_root/catalog/units/browsers/firefox.toml"
+  printf 'catalog tool\n' >"$archive_root/lib/catalog.py"
   printf 'manifest-driven\n' >"$archive_root/extra-runtime/marker"
   printf 'latest runtime\n' >"$archive_root/lib/latest.sh"
   printf 'not runtime\n' >"$archive_root/tests/not-runtime.bats"
-  printf 'install.sh\nchoices\nlib\nextra-runtime\niso/payload-paths.conf\n' >"$archive_root/iso/payload-paths.conf"
+  printf 'install.sh\ncatalog\nlib\nextra-runtime\niso/payload-paths.conf\n' >"$archive_root/iso/payload-paths.conf"
   tar -czf "$archive" -C "$TEST_ROOT" "$(basename "$archive_root")"
 
   run env \
@@ -785,6 +805,8 @@ SH
   [[ -f "$destination/iso/payload-paths.conf" ]]
   [[ -f "$destination/extra-runtime/marker" ]]
   [[ -f "$destination/lib/latest.sh" ]]
+  [[ -f "$destination/lib/catalog.py" ]]
+  [[ -f "$destination/catalog/units/browsers/firefox.toml" ]]
   [[ ! -e "$destination/tests" ]]
   assert_file_contains "$destination/config/iso-payload.conf" "git_revision=deadbee"
   assert_file_contains "$destination/config/iso-payload.conf" "remote_ref=main"
@@ -799,11 +821,12 @@ SH
   archive="$TEST_ROOT/clock-snapshot.tar.gz"
   destination="$TEST_ROOT/clock-runtime"
   paths_file="$TEST_ROOT/clock-runtime-paths.conf"
-  mkdir -p "$archive_root/choices"
+  mkdir -p "$archive_root/catalog/units/browsers" "$archive_root/lib"
   printf '#!/usr/bin/env bash\n' >"$archive_root/install.sh"
   chmod +x "$archive_root/install.sh"
-  printf 'firefox\tFirefox\t1\tbrowsers-firefox\tFirefox\n' >"$archive_root/choices/browsers.conf"
-  printf 'install.sh\nchoices\n' >"$paths_file"
+  printf 'id = "browsers-firefox"\n' >"$archive_root/catalog/units/browsers/firefox.toml"
+  printf 'catalog tool\n' >"$archive_root/lib/catalog.py"
+  printf 'install.sh\ncatalog\nlib\n' >"$paths_file"
   tar -czf "$archive" -C "$TEST_ROOT" "$(basename "$archive_root")"
 
   write_fake_command curl <<'SH'
@@ -879,6 +902,8 @@ if [[ "$staging_payload" -eq 1 ]]; then
   mkdir -p "$dest/iso/lib"
   printf '#!/usr/bin/env bash\n' >"$dest/iso/lib/runtime-loader.sh"
   chmod +x "$dest/iso/lib/runtime-loader.sh"
+  mkdir -p "$dest/catalog/units" "$dest/lib"
+  printf 'catalog tool\n' >"$dest/lib/catalog.py"
 fi
 SH
 
@@ -930,8 +955,9 @@ SH
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "org.fedoraproject.Anaconda.Addons.ZZFedora.service"
   assert_contains "$package_lines" "git"
   assert_contains "$package_lines" "dnf5-plugins"
+  assert_contains "$package_lines" "python3"
   assert_contains "$package_lines" "plymouth-system-theme"
-  assert_file_contains "$ROOT_DIR/packages/official/boot-splash.pkgs" "plymouth-system-theme"
+  assert_file_contains "$ROOT_DIR/catalog/units/base/boot-splash.toml" "plymouth-system-theme"
   refute_contains "$package_lines" "bats"
   refute_contains "$package_lines" "dnf-plugins-core"
   refute_contains "$package_lines" "rsync"

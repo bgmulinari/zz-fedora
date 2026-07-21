@@ -1,0 +1,11 @@
+id = "base-noctalia"
+description = "Noctalia v5 shell bundle for Fedora"
+stow = ["noctalia"]
+
+[base]
+order = 80
+
+[[install]]
+backend = "dnf"
+sources = ["copr:lionheartp/Hyprland"]
+packages = ["noctalia-git"]

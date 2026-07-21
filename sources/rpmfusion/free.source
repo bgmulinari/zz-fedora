@@ -1,8 +1,0 @@
-SOURCE_ID="rpmfusion-free"
-SOURCE_KIND="rpmfusion"
-SOURCE_LABEL="RPM Fusion Free"
-SOURCE_REQUIRED=1
-SOURCE_DESCRIPTION="RPM Fusion free repository"
-SOURCE_GPG_POLICY="rpm-gpg-import"
-SOURCE_BOOTSTRAP_EXCEPTION=0
-SOURCE_REASON="Provides free RPM Fusion packages and appstream metadata"

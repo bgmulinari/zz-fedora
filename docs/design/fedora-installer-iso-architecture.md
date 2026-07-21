@@ -24,8 +24,9 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
 - A generated `images/product.img` contains the Anaconda add-on payload under
   `/usr/share/anaconda/addons/`, matching Red Hat's documented installer
   customization layout. The product image also includes a fallback snapshot of
-  `choices/` for add-on development and diagnostics. During an ISO install, the
-  spoke renders the catalogs from the refreshed remote runtime instead.
+  the `catalog/` tree for add-on development and diagnostics. During an ISO
+  install, the spoke renders the catalogs from the refreshed remote runtime
+  instead.
   It also installs an Anaconda configuration snippet that hides the built-in
   `SoftwareSelectionSpoke`; all optional setup choices are made in the
   `ZZ Fedora` spoke under Anaconda's existing Software section.
@@ -60,8 +61,9 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
   reports an invalid installer clock, the loader uses chronyd to synchronize
   time and retries the download once. The embedded manifest is used only when
   refreshing from an older revision that predates the manifest.
-- Both the graphical and text spokes read `choices/` from that refreshed
-  snapshot. New rows and new `choices/*.conf` catalogs are discovered without
+- Both the graphical and text spokes derive the choice catalogs from the
+  refreshed snapshot's `catalog/` tree through the shared `lib/catalog.py`
+  parser. New units, choices, and categories are discovered without
   rebuilding the ISO. The add-on later creates a depth-1 clone at `~/.zz` for
   the first regular user created in Anaconda, verifies it against the exact
   revision recorded by the refreshed payload, and runs the installer from that
