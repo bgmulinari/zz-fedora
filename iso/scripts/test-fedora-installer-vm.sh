@@ -315,6 +315,7 @@ services --enabled=NetworkManager
 sudo
 ca-certificates
 curl
+git
 dnf5-plugins
 python3
 %end

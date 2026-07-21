@@ -1013,6 +1013,7 @@ SH
   assert_file_contains "$script" 'etc/zz-fedora/desktop-app-profile'
   assert_file_contains "$script" "Desktop app profile: %s"
   assert_file_contains "$script" "%pre --interpreter=/usr/bin/bash"
+  assert_file_contains "$script" $'curl\ngit\ndnf5-plugins\npython3'
   assert_file_contains "$script" "addon_data_dir="
   assert_file_contains "$script" "usr/share/anaconda/dbus/services"
   assert_file_contains "$script" "conf.d/100-zz-fedora.conf"
