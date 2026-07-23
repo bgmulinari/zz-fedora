@@ -316,6 +316,89 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "managed Ghostty template waits for activation and reloads through systemd" {
+  config="$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml"
+  reload_hook="$ROOT_DIR/dotfiles/noctalia/.local/bin/noctalia-reload-ghostty"
+  state_file="$TEST_ROOT/ghostty-service-states"
+  setup_fake_bin
+
+  run python3 - "$config" <<'PY'
+import sys
+import tomllib
+
+with open(sys.argv[1], "rb") as config_file:
+    config = tomllib.load(config_file)
+
+templates = config["theme"]["templates"]
+assert "ghostty" not in templates["builtin_ids"]
+assert templates["user"]["ghostty"] == {
+    "input_path": "$XDG_CONFIG_HOME/noctalia/templates/ghostty",
+    "output_path": "$XDG_CONFIG_HOME/ghostty/themes/noctalia",
+    "post_hook": "$HOME/.local/bin/noctalia-reload-ghostty",
+}
+PY
+  [ "$status" -eq 0 ]
+
+  write_fake_command systemctl <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf 'systemctl:%s\n' "$*" >>"$GHOSTTY_RELOAD_COMMAND_LOG"
+if [[ "$*" == "--user show --property=ActiveState --value app-com.mitchellh.ghostty.service" ]]; then
+  if [[ -n "${GHOSTTY_RELOAD_STATE_FILE:-}" ]]; then
+    mapfile -t states <"$GHOSTTY_RELOAD_STATE_FILE"
+    printf '%s\n' "${states[0]}"
+    if (("${#states[@]}" > 1)); then
+      printf '%s\n' "${states[@]:1}" >"$GHOSTTY_RELOAD_STATE_FILE"
+    fi
+  else
+    printf '%s\n' "${GHOSTTY_RELOAD_STATE:-active}"
+  fi
+  exit 0
+fi
+[[ "$*" == "--user reload app-com.mitchellh.ghostty.service" ]]
+EOF
+  write_fake_command sleep <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf 'sleep:%s\n' "$*" >>"$GHOSTTY_RELOAD_COMMAND_LOG"
+EOF
+
+  GHOSTTY_RELOAD_COMMAND_LOG="$COMMAND_LOG" \
+    PATH="$FAKE_BIN:$PATH" \
+    "$reload_hook"
+
+  assert_file_contains "$COMMAND_LOG" \
+    "systemctl:--user show --property=ActiveState --value app-com.mitchellh.ghostty.service"
+  assert_file_contains "$COMMAND_LOG" \
+    "systemctl:--user reload app-com.mitchellh.ghostty.service"
+  refute_file_contains "$COMMAND_LOG" "sleep:"
+
+  : >"$COMMAND_LOG"
+  printf 'activating\nactive\n' >"$state_file"
+  GHOSTTY_RELOAD_STATE_FILE="$state_file" \
+    GHOSTTY_RELOAD_COMMAND_LOG="$COMMAND_LOG" \
+    PATH="$FAKE_BIN:$PATH" \
+    "$reload_hook"
+
+  assert_file_contains "$COMMAND_LOG" \
+    "sleep:0.1"
+  [ "$(grep -Fc "systemctl:--user show --property=ActiveState --value app-com.mitchellh.ghostty.service" "$COMMAND_LOG")" -eq 2 ]
+  assert_file_contains "$COMMAND_LOG" \
+    "systemctl:--user reload app-com.mitchellh.ghostty.service"
+
+  : >"$COMMAND_LOG"
+  GHOSTTY_RELOAD_STATE=inactive \
+    GHOSTTY_RELOAD_COMMAND_LOG="$COMMAND_LOG" \
+    PATH="$FAKE_BIN:$PATH" \
+    "$reload_hook"
+
+  assert_file_contains "$COMMAND_LOG" \
+    "systemctl:--user show --property=ActiveState --value app-com.mitchellh.ghostty.service"
+  refute_file_contains "$COMMAND_LOG" "sleep:"
+  refute_file_contains "$COMMAND_LOG" \
+    "systemctl:--user reload app-com.mitchellh.ghostty.service"
+}
+
 @test "Noctalia icon theme sync maps accent to closest installed Yaru theme" {
   setup_fake_bin
   TARGET_HOME="$TEST_ROOT/icon-theme-home"

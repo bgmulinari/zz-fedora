@@ -118,7 +118,9 @@ step_table_failure_policy() {
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/config.toml\tstow\tbackup-before-stow\tnoctalia'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/state/noctalia/.setup-complete\tseed-if-missing\tpreserve\tnoctalia'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/state/noctalia/settings.toml\tseed-if-missing\tpreserve\tnoctalia'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/templates/ghostty\tstow\tbackup-before-stow\tnoctalia-ghostty'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/templates/icon-theme-accent\tstow\tbackup-before-stow\tnoctalia-icon-theme'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/bin/noctalia-reload-ghostty\tstow\tbackup-before-stow\tnoctalia-ghostty'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/bin/noctalia-sync-icon-theme\tstow\tbackup-before-stow\tnoctalia-icon-theme'
   assert_file_contains "$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml" "[shell.greeter_sync]"
   assert_file_contains "$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml" "auto_sync = false"
@@ -141,7 +143,9 @@ step_table_failure_policy() {
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve\tniri-display'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve\tghostty-theme'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/config.toml\tstow\tbackup-before-stow\tnoctalia'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/templates/ghostty\tstow\tbackup-before-stow\tnoctalia-ghostty'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/templates/icon-theme-accent\tstow\tbackup-before-stow\tnoctalia-icon-theme'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.local/bin/noctalia-reload-ghostty\tstow\tbackup-before-stow\tnoctalia-ghostty'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.local/bin/noctalia-sync-icon-theme\tstow\tbackup-before-stow\tnoctalia-icon-theme'
 }
 

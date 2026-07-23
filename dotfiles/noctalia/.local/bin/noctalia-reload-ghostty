@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+GHOSTTY_SERVICE="app-com.mitchellh.ghostty.service"
+GHOSTTY_ACTIVATION_WAIT_ATTEMPTS=50
+GHOSTTY_ACTIVATION_WAIT_INTERVAL=0.1
+
+ghostty_service_state() {
+  systemctl --user show \
+    --property=ActiveState \
+    --value \
+    "$GHOSTTY_SERVICE" 2>/dev/null || true
+}
+
+service_state="$(ghostty_service_state)"
+attempt=0
+
+# Noctalia can render the theme before Ghostty has completed its
+# Type=notify-reload startup. Wait for READY instead of sending SIGUSR2 while
+# Ghostty is still installing its signal handler.
+while ((attempt < GHOSTTY_ACTIVATION_WAIT_ATTEMPTS)) \
+  && [[ "$service_state" == "activating" || "$service_state" == "reloading" ]]; do
+  sleep "$GHOSTTY_ACTIVATION_WAIT_INTERVAL"
+  service_state="$(ghostty_service_state)"
+  ((++attempt))
+done
+
+[[ "$service_state" == "active" ]] || exit 0
+systemctl --user reload "$GHOSTTY_SERVICE"

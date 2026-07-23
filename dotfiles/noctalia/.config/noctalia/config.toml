@@ -170,7 +170,6 @@ wallpaper_scheme = "m3-content"
 enable_builtin_templates = true
 builtin_ids = [
   "niri",
-  "ghostty",
   "starship",
   "btop",
   "gtk3",
@@ -186,6 +185,11 @@ community_ids = [
   "zed",
   "yazi",
 ]
+
+[theme.templates.user.ghostty]
+input_path = "$XDG_CONFIG_HOME/noctalia/templates/ghostty"
+output_path = "$XDG_CONFIG_HOME/ghostty/themes/noctalia"
+post_hook = "$HOME/.local/bin/noctalia-reload-ghostty"
 
 [theme.templates.user.icon_theme]
 input_path = "$XDG_CONFIG_HOME/noctalia/templates/icon-theme-accent"

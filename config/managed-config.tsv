@@ -9,5 +9,7 @@
 ~/.config/noctalia/config.toml	stow	backup-before-stow	noctalia	Stows curated, hardware-agnostic Noctalia v5 user config.
 ~/.local/state/noctalia/.setup-complete	seed-if-missing	preserve	noctalia	Marks Noctalia first-run setup complete so the shell keeps the managed theme and wallpaper instead of its bundled first-run defaults.
 ~/.local/state/noctalia/settings.toml	seed-if-missing	preserve	noctalia	Pins the Noctalia settings sidecar schema version and default wallpaper so sidecar migrations cannot drop the managed wallpaper.
+~/.config/noctalia/templates/ghostty	stow	backup-before-stow	noctalia-ghostty	Renders Noctalia terminal colors into Ghostty's managed theme.
 ~/.config/noctalia/templates/icon-theme-accent	stow	backup-before-stow	noctalia-icon-theme	Renders the active Noctalia primary color for icon theme accent selection.
+~/.local/bin/noctalia-reload-ghostty	stow	backup-before-stow	noctalia-ghostty	Reloads an active Ghostty service through systemd after Noctalia renders its theme.
 ~/.local/bin/noctalia-sync-icon-theme	stow	backup-before-stow	noctalia-icon-theme	Maps the active Noctalia accent to the closest installed Yaru icon theme.

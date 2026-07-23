@@ -246,7 +246,9 @@ module_90_doctor() {
   doctor_warn_file "$TARGET_HOME/.local/share/backgrounds/Alpenglow.jpg"
   if doctor_noctalia_planned "$native_plan"; then
     doctor_warn_file "$user_config_home/noctalia/config.toml"
+    doctor_warn_file "$user_config_home/noctalia/templates/ghostty"
     doctor_warn_file "$user_config_home/noctalia/templates/icon-theme-accent"
+    doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-reload-ghostty"
     doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme"
     doctor_warn_file "$TARGET_HOME/.local/state/noctalia/.setup-complete"
     doctor_warn_file "$TARGET_HOME/.local/state/noctalia/settings.toml"
@@ -273,7 +275,9 @@ module_90_doctor() {
     doctor_check_contains "$user_config_home/ghostty/config" 'theme = noctalia'
   fi
   if doctor_noctalia_planned "$native_plan"; then
+    doctor_check_contains "$user_config_home/noctalia/config.toml" '[theme.templates.user.ghostty]'
     doctor_check_contains "$user_config_home/noctalia/config.toml" '[theme.templates.user.icon_theme]'
+    doctor_check_contains "$TARGET_HOME/.local/bin/noctalia-reload-ghostty" 'systemctl --user reload'
     doctor_check_contains "$user_config_home/noctalia/templates/icon-theme-accent" '{{ colors.primary.default.hex }}'
     doctor_check_contains "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme" 'QS_ICON_THEME='
   fi

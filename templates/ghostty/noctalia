@@ -1,5 +1,5 @@
 # Fallback Noctalia Ghostty theme.
-# Noctalia can overwrite this file from its built-in ghostty template.
+# Noctalia can overwrite this file from the managed Ghostty user template.
 palette = 0=#11111b
 palette = 1=#f38ba8
 palette = 2=#a6e3a1
