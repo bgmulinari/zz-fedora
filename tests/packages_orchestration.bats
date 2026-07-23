@@ -53,7 +53,7 @@ setup() {
 
   [ "$optional_index" -gt 0 ]
   [ "$found_code_retry" -eq 1 ]
-  for required_item in niri zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi; do
+  for required_item in niri policycoreutils-python-utils zsh starship zoxide fastfetch gh btop fd-find fzf bat yazi; do
     found_before_optional=0
     for ((idx = 0; idx < optional_index; idx++)); do
       [[ " ${package_install_calls[$idx]#*:} " == *" $required_item "* ]] && found_before_optional=1
@@ -71,8 +71,10 @@ setup() {
   [ "$status" -eq 0 ]
   assert_contains "$output" "install greetd and Noctalia Greeter package noctalia-greeter"
   assert_contains "$output" "/etc/greetd/config.toml"
+  assert_contains "$output" "ensure SELinux fcontext xdm_var_lib_t"
   assert_contains "$output" "noctalia-greeter-apply-appearance --setup-system"
   assert_contains "$output" "seed Noctalia Greeter appearance"
+  assert_contains "$output" "restore SELinux contexts under /var/lib/noctalia-greeter"
   assert_contains "$output" "systemctl enable --force greetd.service"
 }
 @test "Noctalia Greeter disables hardware cursors in its greetd session" {
@@ -89,6 +91,7 @@ setup() {
   rpm() { return 0; }
   command() { return 0; }
   systemctl() { return 0; }
+  verify_noctalia_greeter_selinux_context() { return 0; }
 
   printf '[default_session]\ncommand = "%s"\n' "$NOCTALIA_GREETER_SESSION_BIN" >"$NOCTALIA_GREETD_CONFIG"
   run verify_noctalia_greeter
@@ -96,6 +99,82 @@ setup() {
 
   noctalia_greetd_config_content >"$NOCTALIA_GREETD_CONFIG"
   run verify_noctalia_greeter
+  [ "$status" -eq 0 ]
+}
+@test "Noctalia Greeter SELinux fcontext setup is idempotent" {
+  DRY_RUN=0
+  NOCTALIA_GREETER_STATE_DIR="$TEST_ROOT/noctalia-greeter"
+  local current_type=""
+  selinuxenabled() { return 0; }
+  semanage() {
+    if [[ "$*" == "fcontext -l -C" && -n "$current_type" ]]; then
+      printf '%s all files system_u:object_r:%s:s0\n' "$NOCTALIA_GREETER_STATE_DIR(/.*)?" "$current_type"
+    fi
+  }
+  run_cmd_as_root() {
+    printf '%s\n' "$*" >>"$TEST_ROOT/root.log"
+  }
+
+  run_without_bats_debug_trap ensure_noctalia_greeter_selinux_fcontext
+  assert_file_contains "$TEST_ROOT/root.log" "semanage fcontext -a -t xdm_var_lib_t $NOCTALIA_GREETER_STATE_DIR(/.*)?"
+
+  : >"$TEST_ROOT/root.log"
+  current_type="xdm_var_lib_t"
+  run_without_bats_debug_trap ensure_noctalia_greeter_selinux_fcontext
+  [ ! -s "$TEST_ROOT/root.log" ]
+
+  current_type="var_lib_t"
+  run_without_bats_debug_trap ensure_noctalia_greeter_selinux_fcontext
+  assert_file_contains "$TEST_ROOT/root.log" "semanage fcontext -m -t xdm_var_lib_t $NOCTALIA_GREETER_STATE_DIR(/.*)?"
+}
+@test "Noctalia Greeter restores and verifies its SELinux state contexts" {
+  DRY_RUN=0
+  NOCTALIA_GREETER_STATE_DIR="$TEST_ROOT/noctalia-greeter"
+  local current_type="xdm_var_lib_t"
+  local context_matches=0
+  selinuxenabled() { return 0; }
+  restorecon() { :; }
+  matchpathcon() {
+    case "$1" in
+      -n)
+        printf 'system_u:object_r:%s:s0\n' "$current_type"
+        ;;
+      -V)
+        return "$context_matches"
+        ;;
+    esac
+  }
+  run_cmd_as_root() {
+    printf '%s\n' "$*" >>"$TEST_ROOT/root.log"
+  }
+
+  run_without_bats_debug_trap restore_noctalia_greeter_selinux_context
+  assert_file_contains "$TEST_ROOT/root.log" "restorecon -RF $NOCTALIA_GREETER_STATE_DIR"
+
+  run verify_noctalia_greeter_selinux_context
+  [ "$status" -eq 0 ]
+
+  current_type="var_lib_t"
+  run verify_noctalia_greeter_selinux_context
+  [ "$status" -ne 0 ]
+
+  current_type="xdm_var_lib_t"
+  context_matches=1
+  run verify_noctalia_greeter_selinux_context
+  [ "$status" -ne 0 ]
+}
+@test "Noctalia Greeter SELinux setup skips cleanly when SELinux is disabled" {
+  DRY_RUN=0
+  selinuxenabled() { return 1; }
+  run_cmd_as_root() {
+    printf '%s\n' "$*" >>"$TEST_ROOT/root.log"
+  }
+
+  run_without_bats_debug_trap ensure_noctalia_greeter_selinux_fcontext
+  run_without_bats_debug_trap restore_noctalia_greeter_selinux_context
+  [ ! -f "$TEST_ROOT/root.log" ]
+
+  run verify_noctalia_greeter_selinux_context
   [ "$status" -eq 0 ]
 }
 @test "Noctalia Greeter appearance seed stages the managed palette and wallpaper" {
@@ -205,6 +284,51 @@ setup() {
   assert_tsv_row "$PLAN_DIR/system-skips.tsv" $'action\tnoctalia-greeter\texisting display manager: gdm.service'
   refute_contains "$output" "install:"
   refute_contains "$output" "cmd:"
+}
+@test "existing managed greetd reconciles Noctalia Greeter SELinux state before skipping setup" {
+  build_test_plan
+  DRY_RUN=0
+  NOCTALIA_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
+  NOCTALIA_GREETER_STATE_DIR="$TEST_ROOT/noctalia-greeter"
+  local verification_status=0
+  mkdir -p "$NOCTALIA_GREETER_STATE_DIR"
+  printf '{}\n' >"$NOCTALIA_GREETER_STATE_DIR/greeter.toml"
+  noctalia_greetd_config_content >"$NOCTALIA_GREETD_CONFIG"
+
+  detect_enabled_display_manager() {
+    printf 'greetd.service\n'
+  }
+  ensure_noctalia_greeter_selinux_fcontext() {
+    printf 'selinux:ensure\n'
+  }
+  restore_noctalia_greeter_selinux_context() {
+    printf 'selinux:restore\n'
+  }
+  verify_noctalia_greeter_selinux_context() {
+    printf 'selinux:verify\n'
+    return "$verification_status"
+  }
+  package_install_idempotent() {
+    printf 'unexpected-install:%s\n' "$*"
+  }
+  run_cmd_as_root() {
+    printf 'unexpected-cmd:%s\n' "$*"
+  }
+
+  run install_noctalia_greeter
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "selinux:ensure"
+  assert_contains "$output" "selinux:restore"
+  assert_contains "$output" "selinux:verify"
+  assert_tsv_row "$PLAN_DIR/system-skips.tsv" $'action\tnoctalia-greeter\texisting display manager: greetd.service'
+  refute_contains "$output" "unexpected-install:"
+  refute_contains "$output" "unexpected-cmd:"
+
+  verification_status=1
+  run install_noctalia_greeter
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "state does not have the required SELinux context"
 }
 @test "missing required service retries owning package before failing" {
   build_test_plan

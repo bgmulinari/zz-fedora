@@ -5,6 +5,10 @@ description = "Noctalia Greeter login manager for Fedora"
 order = 60
 
 [[install]]
+backend = "dnf"
+packages = ["policycoreutils-python-utils"]
+
+[[install]]
 backend = "action"
 sources = ["copr:lionheartp/Hyprland"]
 actions = ["noctalia-greeter"]

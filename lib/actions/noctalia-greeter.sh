@@ -7,6 +7,7 @@ NOCTALIA_GREETER_FEDORA_COPR_REPO="copr:copr.fedorainfracloud.org:lionheartp:Hyp
 NOCTALIA_GREETER_PACKAGE="noctalia-greeter"
 NOCTALIA_GREETER_USER="greeter"
 NOCTALIA_GREETER_STATE_DIR="/var/lib/noctalia-greeter"
+NOCTALIA_GREETER_SELINUX_TYPE="xdm_var_lib_t"
 NOCTALIA_GREETER_SESSION_BIN="/usr/bin/noctalia-greeter-session"
 NOCTALIA_GREETD_CONFIG="/etc/greetd/config.toml"
 
@@ -241,6 +242,70 @@ ensure_noctalia_greeter_user() {
   run_cmd_as_root useradd -r -s /usr/bin/nologin -d "$NOCTALIA_GREETER_STATE_DIR" "$NOCTALIA_GREETER_USER"
 }
 
+ensure_noctalia_greeter_selinux_fcontext() {
+  local fcontext_rule existing_type
+  fcontext_rule="$NOCTALIA_GREETER_STATE_DIR(/.*)?"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: ensure SELinux fcontext %s for %s\n' "$NOCTALIA_GREETER_SELINUX_TYPE" "$fcontext_rule"
+    return 0
+  fi
+
+  command -v selinuxenabled >/dev/null 2>&1 || die "Noctalia Greeter SELinux setup requires selinuxenabled."
+  if ! selinuxenabled; then
+    log_info "SELinux is disabled; skipping the Noctalia Greeter fcontext rule."
+    return 0
+  fi
+
+  command -v semanage >/dev/null 2>&1 || die "Noctalia Greeter SELinux setup requires semanage."
+  if ! existing_type="$(
+    LC_ALL=C semanage fcontext -l -C |
+      awk -v rule="$fcontext_rule" '$1 == rule && $2 == "all" && $3 == "files" { split($NF, context, ":"); print context[3]; exit }'
+  )"; then
+    die "Could not inspect local SELinux fcontext rules."
+  fi
+
+  if [[ -z "$existing_type" ]]; then
+    run_cmd_as_root semanage fcontext -a -t "$NOCTALIA_GREETER_SELINUX_TYPE" "$fcontext_rule"
+  elif [[ "$existing_type" != "$NOCTALIA_GREETER_SELINUX_TYPE" ]]; then
+    run_cmd_as_root semanage fcontext -m -t "$NOCTALIA_GREETER_SELINUX_TYPE" "$fcontext_rule"
+  fi
+}
+
+restore_noctalia_greeter_selinux_context() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: restore SELinux contexts under %s\n' "$NOCTALIA_GREETER_STATE_DIR"
+    return 0
+  fi
+
+  command -v selinuxenabled >/dev/null 2>&1 || die "Noctalia Greeter SELinux setup requires selinuxenabled."
+  selinuxenabled || return 0
+  command -v restorecon >/dev/null 2>&1 || die "Noctalia Greeter SELinux setup requires restorecon."
+  run_cmd_as_root restorecon -RF "$NOCTALIA_GREETER_STATE_DIR"
+}
+
+verify_noctalia_greeter_selinux_context() {
+  local path expected_context
+
+  command -v selinuxenabled >/dev/null 2>&1 || return 1
+  selinuxenabled || return 0
+  command -v matchpathcon >/dev/null 2>&1 || return 1
+
+  for path in "$NOCTALIA_GREETER_STATE_DIR" "$NOCTALIA_GREETER_STATE_DIR/greeter.toml"; do
+    expected_context="$(matchpathcon -n "$path" 2>/dev/null)" || return 1
+    [[ "$expected_context" == *":$NOCTALIA_GREETER_SELINUX_TYPE:"* ]] || return 1
+    matchpathcon -V "$path" >/dev/null 2>&1 || return 1
+  done
+}
+
+noctalia_greeter_has_managed_greetd_state() {
+  local display_manager="$1"
+  [[ "$display_manager" == "greetd.service" ]] \
+    && [[ -f "$NOCTALIA_GREETD_CONFIG" ]] \
+    && grep -F "$NOCTALIA_GREETER_SESSION_BIN" "$NOCTALIA_GREETD_CONFIG" >/dev/null 2>&1 \
+    && [[ -f "$NOCTALIA_GREETER_STATE_DIR/greeter.toml" ]]
+}
+
 prepare_noctalia_greeter_paths() {
   log_progress "Preparing Noctalia Greeter state and log paths"
   run_cmd_as_root mkdir -p "$NOCTALIA_GREETER_STATE_DIR"
@@ -264,6 +329,12 @@ install_noctalia_greeter() {
   local existing_display_manager=""
   existing_display_manager="$(detect_enabled_display_manager || true)"
   if [[ -n "$existing_display_manager" ]]; then
+    if noctalia_greeter_has_managed_greetd_state "$existing_display_manager"; then
+      log_progress "Reconciling Noctalia Greeter SELinux state"
+      ensure_noctalia_greeter_selinux_fcontext || return 1
+      restore_noctalia_greeter_selinux_context || return 1
+      verify_noctalia_greeter_selinux_context || die "Noctalia Greeter state does not have the required SELinux context."
+    fi
     log_info "Existing display manager detected ($existing_display_manager); skipping Noctalia Greeter package and service setup."
     record_system_skip action noctalia-greeter "existing display manager: $existing_display_manager"
     return 0
@@ -274,9 +345,11 @@ install_noctalia_greeter() {
     ensure_noctalia_greeter_user
     install_noctalia_greetd_config
     configure_noctalia_greetd_pam
+    ensure_noctalia_greeter_selinux_fcontext
     prepare_noctalia_greeter_paths
     printf 'DRY-RUN: initialize %s/greeter.toml with noctalia-greeter-apply-appearance --setup-system\n' "$NOCTALIA_GREETER_STATE_DIR"
     printf 'DRY-RUN: seed Noctalia Greeter appearance from the managed Noctalia theme and default wallpaper\n'
+    restore_noctalia_greeter_selinux_context
     run_cmd_as_root systemctl daemon-reload
     run_cmd_as_root systemctl set-default graphical.target
     run_cmd_as_root systemctl enable --force greetd.service
@@ -302,10 +375,12 @@ install_noctalia_greeter() {
   ensure_noctalia_greeter_user
   install_noctalia_greetd_config
   configure_noctalia_greetd_pam
+  ensure_noctalia_greeter_selinux_fcontext
   prepare_noctalia_greeter_paths
   log_progress "Initializing Noctalia Greeter appearance"
   run_cmd_as_root env "GREETER_USER=$NOCTALIA_GREETER_USER" noctalia-greeter-apply-appearance --setup-system || return 1
   seed_noctalia_greeter_appearance || return 1
+  restore_noctalia_greeter_selinux_context || return 1
 
   log_progress "Enabling graphical login through greetd"
   run_cmd_as_root systemctl set-default graphical.target || return 1
@@ -321,6 +396,7 @@ verify_noctalia_greeter() {
     && systemctl is-enabled greetd >/dev/null 2>&1 \
     && grep -F "noctalia-greeter-session" "$NOCTALIA_GREETD_CONFIG" >/dev/null 2>&1 \
     && grep -F "WLR_NO_HARDWARE_CURSORS=1" "$NOCTALIA_GREETD_CONFIG" >/dev/null 2>&1 \
+    && verify_noctalia_greeter_selinux_context \
     && { [[ -s "$NOCTALIA_GREETER_STATE_DIR/appearance.json" ]] || noctalia_greeter_appearance_seed_skipped; }
 }
 
