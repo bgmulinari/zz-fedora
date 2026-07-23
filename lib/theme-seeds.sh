@@ -45,7 +45,7 @@ install_noctalia_state_seeds_if_missing() {
   local native_plan destination wallpaper_path
   [[ "$SKIP_DOTFILES" -eq 1 ]] && return 0
   native_plan="$(package_file_for_backend "$(native_backend)")"
-  plan_has_any_backend_entry "$native_plan" noctalia-git noctalia || return 0
+  plan_has_any_backend_entry "$native_plan" noctalia || return 0
 
   destination="$TARGET_HOME/.local/state/noctalia/settings.toml"
   if [[ ! -e "$destination" && ! -L "$destination" ]]; then

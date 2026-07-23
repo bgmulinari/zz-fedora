@@ -23,7 +23,7 @@ setup() {
   assert_contains "$output" '"dnf5-plugins"'
   assert_contains "$output" '"niri"'
   assert_contains "$output" '"noctalia-greeter"'
-  assert_contains "$output" '"noctalia-git"'
+  assert_contains "$output" '"noctalia"'
   assert_contains "$output" '"copr:lionheartp/Hyprland"'
   assert_contains "$output" '"browsers-firefox"'
   assert_contains "$output" '"code"'

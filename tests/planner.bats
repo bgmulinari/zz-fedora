@@ -108,7 +108,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "dnf5-plugins"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nss-tools"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nodejs24-npm"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "noctalia-git"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "noctalia"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "starship"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "yazi"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
@@ -131,6 +131,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/noctalia-sync-icon-theme"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-login-manager'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-greeter\tbase-login-manager\tdesktop-service\tgraphical login'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnoctalia\tbase-noctalia\tnoctalia\tNoctalia v5 shell'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-ghostty'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tghostty-shell-integration\tbase-ghostty\tdefault-app\tterminal shell integration'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbash-completion\tbase-bootstrap\tshell-tool\tinteractive Bash'
@@ -307,7 +308,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/bundles.list" "base-ghostty"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "niri"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "noctalia-git"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "noctalia"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-terminal-exec"

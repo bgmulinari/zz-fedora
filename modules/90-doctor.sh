@@ -131,7 +131,7 @@ doctor_portal_planned() {
 
 doctor_noctalia_planned() {
   local native_plan="$1"
-  doctor_plan_has_entry "$native_plan" "noctalia-git"
+  doctor_plan_has_entry "$native_plan" "noctalia"
 }
 
 doctor_noctalia_greeter_planned() {

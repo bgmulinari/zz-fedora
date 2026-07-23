@@ -7,5 +7,4 @@ order = 80
 
 [[install]]
 backend = "dnf"
-sources = ["copr:lionheartp/Hyprland"]
-packages = ["noctalia-git"]
+packages = ["noctalia"]

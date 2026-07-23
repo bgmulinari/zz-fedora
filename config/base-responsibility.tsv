@@ -4,7 +4,7 @@ source	rpmfusion-nonfree	desktop-service	Fedora package manager	Required source 
 source	flathub	theme-font	Flatpak theme runtimes	Required remote for base GTK Flatpak theme runtimes and optional Flatpak apps.
 source	cisco-openh264	desktop-service	Fedora package manager	Enables Fedora OpenH264 metadata for desktop media compatibility.
 source	copr:yalter/niri	niri	Niri session	Provides the required Niri compositor package.
-source	copr:lionheartp/Hyprland	desktop-service	Noctalia shell, Greeter, and Qt theme	Provides noctalia-git, Noctalia Greeter, and qt6ct-kde for the required base desktop.
+source	copr:lionheartp/Hyprland	desktop-service	Noctalia Greeter and Qt theme	Provides Noctalia Greeter and qt6ct-kde for the required base desktop.
 source	terra	default-app	Ghostty	Bootstraps Terra release packages for required Ghostty packages.
 source	copr:atim/starship	theme-font	Starship prompt	Provides the Starship package used by the base shell prompt.
 source	copr:lihaohong/yazi	default-app	Yazi shell file manager	Provides the Yazi package used by the base shell tooling.
@@ -26,7 +26,7 @@ action	boot-splash	desktop-service	graphical boot and disk unlock	Ensures the rh
 dnf	plymouth	desktop-service	graphical boot and disk unlock	Provides the Plymouth splash daemon shown during boot, shutdown, and LUKS passphrase entry.
 dnf	plymouth-system-theme	desktop-service	graphical boot and disk unlock	Provides Fedora's default bgrt and spinner splash themes and their render plugins.
 dnf	grubby	desktop-service	graphical boot and disk unlock	Adds the rhgb and quiet kernel arguments that enable the graphical boot splash.
-dnf	noctalia-git	noctalia	Noctalia v5 shell	Installs the rolling COPR build launched by Niri autostart until v5 stable reaches Fedora's standard repositories.
+dnf	noctalia	noctalia	Noctalia v5 shell	Installs the official Fedora package launched by Niri autostart.
 dnf	ghostty	default-app	default terminal	Provides the default terminal used by keybindings and xdg-terminal-exec.
 dnf	ghostty-shell-integration	default-app	terminal shell integration	Provides Ghostty shell integration scripts for working-directory reporting, prompt marking, and shell-aware terminal behavior.
 action	jetbrains-mono-nerd-font	theme-font	terminal and prompt rendering	Installs the pinned Nerd Font used by Ghostty and Starship glyphs.
