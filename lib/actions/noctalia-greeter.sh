@@ -259,7 +259,7 @@ ensure_noctalia_greeter_selinux_fcontext() {
 
   command -v semanage >/dev/null 2>&1 || die "Noctalia Greeter SELinux setup requires semanage."
   if ! existing_type="$(
-    LC_ALL=C semanage fcontext -l -C |
+    run_cmd_as_root env LC_ALL=C semanage fcontext -l -C |
       awk -v rule="$fcontext_rule" '$1 == rule && $2 == "all" && $3 == "files" { split($NF, context, ":"); print context[3]; exit }'
   )"; then
     die "Could not inspect local SELinux fcontext rules."

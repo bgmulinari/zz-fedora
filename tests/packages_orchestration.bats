@@ -112,10 +112,18 @@ setup() {
     fi
   }
   run_cmd_as_root() {
+    if [[ "$*" == "env LC_ALL=C semanage fcontext -l -C" ]]; then
+      printf 'inspect\n' >>"$TEST_ROOT/selinux-root-inspection.log"
+      if [[ -n "$current_type" ]]; then
+        printf '%s all files system_u:object_r:%s:s0\n' "$NOCTALIA_GREETER_STATE_DIR(/.*)?" "$current_type"
+      fi
+      return 0
+    fi
     printf '%s\n' "$*" >>"$TEST_ROOT/root.log"
   }
 
   run_without_bats_debug_trap ensure_noctalia_greeter_selinux_fcontext
+  assert_file_contains "$TEST_ROOT/selinux-root-inspection.log" "inspect"
   assert_file_contains "$TEST_ROOT/root.log" "semanage fcontext -a -t xdm_var_lib_t $NOCTALIA_GREETER_STATE_DIR(/.*)?"
 
   : >"$TEST_ROOT/root.log"
