@@ -37,6 +37,7 @@ module_00_preflight() {
   printf 'Target user: %s\n' "$TARGET_USER"
   printf 'Target home: %s\n' "$TARGET_HOME"
   printf 'Mode: %s\n' "$COMMAND"
+  printf 'Update mode: %s\n' "${UPDATE_MODE:-0}"
   printf 'Dry-run: %s\n' "$DRY_RUN"
   printf 'Desktop app profile: %s\n' "$(resolved_desktop_app_profile)"
   printf 'Selected profiles: base\n'

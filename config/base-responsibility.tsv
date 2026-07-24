@@ -13,7 +13,6 @@ dnf	nss-tools	installer-bootstrap	browser certificate trust	Provides certutil fo
 dnf	curl	installer-bootstrap	bootstrap and post-actions	Fetches installer prerequisites, Pywalfox policy assets, and shell bootstrap scripts.
 dnf	git	installer-bootstrap	repo clone and shell plugins	Clones this repo and shell plugin repositories.
 dnf	gum	installer-bootstrap	wizard and TUI	Provides the interactive wizard and installer prompts.
-dnf	stow	installer-bootstrap	dotfile deployment	Deploys managed dotfiles without copying user config.
 dnf	jq	installer-bootstrap	JSON metadata parsing	Parses JSON metadata for update and custom action helpers.
 dnf	tar	installer-bootstrap	archive handling	Handles downloaded archives and debug bundles.
 dnf	unzip	installer-bootstrap	archive handling	Extracts zip payloads used by installer-managed assets.

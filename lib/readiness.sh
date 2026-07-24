@@ -252,15 +252,27 @@ readiness_generate_portals() {
 readiness_generate_desktop_files() {
   local user_config_home="$TARGET_HOME/.config"
   local niri_config_home="$user_config_home/niri"
+  local product_niri_home="$ROOT_DIR/dotfiles/niri/.config/niri"
   local item status severity
 
   for item in \
     "$user_config_home/niri/config.kdl" \
-    "$niri_config_home/cfg/autostart.kdl" \
-    "$niri_config_home/cfg/keybinds.kdl" \
-    "$niri_config_home/cfg/misc.kdl" \
-    "$user_config_home/xdg-desktop-portal/niri-portals.conf" \
-    "$user_config_home/environment.d/10-niri-gtk.conf"; do
+    "$niri_config_home/cfg/display.kdl" \
+    "$niri_config_home/noctalia.kdl" \
+    "$product_niri_home/defaults.kdl" \
+    "$product_niri_home/cfg/autostart.kdl" \
+    "$product_niri_home/cfg/keybinds.kdl" \
+    "$product_niri_home/cfg/misc.kdl" \
+    "/etc/xdg/xdg-desktop-portal/niri-portals.conf" \
+    "/usr/lib/environment.d/10-zz-desktop.conf"; do
+    if [[ "$SKIP_USER_CONFIG" -eq 1 ]] && {
+      [[ "$item" == "$user_config_home/niri/config.kdl" ]] ||
+        [[ "$item" == "$niri_config_home/cfg/display.kdl" ]] ||
+        [[ "$item" == "$niri_config_home/noctalia.kdl" ]]
+    }; then
+      readiness_record "file" "$item" "skipped" "info" "user configuration skipped"
+      continue
+    fi
     if readiness_planned_install_context; then
       status="planned"
     else
@@ -323,7 +335,7 @@ readiness_generate_config_conflicts() {
     [[ -n "$path" ]] || continue
     status="conflict"
     severity="warn"
-    if [[ "$action" == "backup-before-stow" ]]; then
+    if [[ "$action" == "backup-before-link" ]]; then
       status="planned-backup"
       severity="info"
     fi

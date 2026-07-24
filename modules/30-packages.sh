@@ -41,8 +41,6 @@ configure_base_shell() {
   local shell_path="/bin/zsh"
   local oh_my_zsh_dir="$TARGET_HOME/.oh-my-zsh"
   local custom_plugins_dir="$oh_my_zsh_dir/custom/plugins"
-  local zshrc_path="$TARGET_HOME/.zshrc"
-
   if [[ "$DRY_RUN" -eq 0 ]] && ! command -v zsh >/dev/null 2>&1; then
     log_warn "zsh was planned but not found after base package install; retrying direct install."
     package_install_idempotent dnf zsh
@@ -66,14 +64,6 @@ configure_base_shell() {
       printf 'DRY-RUN: append %s to /etc/shells\n' "$shell_path"
     else
       run_cmd_as_root sh -c 'printf "%s\n" "$1" >> /etc/shells' sh "$shell_path"
-    fi
-  fi
-
-  if [[ -f "$zshrc_path" && ! -L "$zshrc_path" ]]; then
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-      printf 'DRY-RUN: rm -f %s\n' "$zshrc_path"
-    else
-      run_cmd_as_user "$TARGET_USER" rm -f "$zshrc_path"
     fi
   fi
 
@@ -156,7 +146,11 @@ module_30_packages() {
 
   log_progress "Configuring base desktop session"
   configure_niri_session "$dnf_base_plan" "$flatpak_base_plan" || return 1
-  configure_base_shell "$dnf_base_plan" "$flatpak_base_plan" || return 1
+  if [[ "$SKIP_USER_CONFIG" -eq 1 ]]; then
+    log_info "Skipping target-user shell configuration"
+  else
+    configure_base_shell "$dnf_base_plan" "$flatpak_base_plan" || return 1
+  fi
   install_base_actions_from_plan "$action_base_plan" || return 1
 
   rm -f \

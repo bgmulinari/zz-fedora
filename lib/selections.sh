@@ -91,3 +91,43 @@ load_saved_selections() {
     esac
   done <"$SAVED_SELECTIONS"
 }
+
+normalize_saved_selections_for_update() {
+  [[ "$UPDATE_MODE" -eq 1 ]] || return 0
+  catalog_ensure_loaded
+
+  local category choice_id record
+  local -a valid_choices=()
+  local -A current_categories=()
+  while IFS= read -r category; do
+    [[ -n "$category" ]] && current_categories["$category"]=1
+  done < <(category_names)
+
+  for category in "${!CATEGORY_OVERRIDE_PRESENT[@]}"; do
+    [[ -n "${CATEGORY_OVERRIDE_PRESENT[$category]:-}" ]] || continue
+    if [[ -z "${current_categories[$category]:-}" ]]; then
+      log_warn "Saved selection category '$category' is no longer available and was removed."
+      CATEGORY_OVERRIDES["$category"]=""
+      CATEGORY_OVERRIDE_PRESENT["$category"]=""
+      continue
+    fi
+
+    valid_choices=()
+    while IFS= read -r choice_id; do
+      [[ -n "$choice_id" ]] || continue
+      record="$(choice_record "$category" "$choice_id" || true)"
+      if [[ -n "$record" ]]; then
+        valid_choices+=("$choice_id")
+      else
+        log_warn "Saved choice '$choice_id' in category '$category' is no longer available and was removed."
+      fi
+    done < <(split_csv "${CATEGORY_OVERRIDES[$category]}")
+    CATEGORY_OVERRIDES["$category"]="$(join_by , "${valid_choices[@]:-}")"
+  done
+
+  if [[ -n "$PREFERRED_BROWSER" ]] &&
+    [[ -z "$(choice_record browsers "$PREFERRED_BROWSER" || true)" ]]; then
+    log_warn "Saved preferred browser '$PREFERRED_BROWSER' is no longer available and was removed."
+    PREFERRED_BROWSER=""
+  fi
+}

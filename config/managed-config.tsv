@@ -1,15 +1,38 @@
-# path	mode	conflict	owner	description
-~/.local/share/backgrounds	seed-if-missing	preserve	wallpapers	Seeds sixteen provenance-documented 6000x4000 wallpapers without replacing existing user files.
-~/.config/autostart/zz-first-run.desktop	first-run	regenerate	first-run	Launches one-time user-session setup after login.
-~/.local/bin/zz	generated	regenerate	zz-launcher	Installs the post-install zz utility.
-~/.config/niri/cfg/display.kdl	seed-if-missing	preserve	niri-display	Seeds hardware-specific Niri display config when absent.
-~/.config/niri/noctalia.kdl	seed-if-missing	preserve	niri-noctalia	Seeds the Noctalia v5 Niri template include when absent.
-~/.config/starship.toml	seed-if-missing	preserve	starship	Seeds Starship only when the user has no config.
-~/.config/ghostty/themes/noctalia	seed-if-missing	preserve	ghostty-theme	Seeds a valid fallback Ghostty theme until Noctalia v5 regenerates it.
-~/.config/noctalia/config.toml	stow	backup-before-stow	noctalia	Stows curated, hardware-agnostic Noctalia v5 user config.
-~/.local/state/noctalia/.setup-complete	seed-if-missing	preserve	noctalia	Marks Noctalia first-run setup complete so the shell keeps the managed theme and wallpaper instead of its bundled first-run defaults.
-~/.local/state/noctalia/settings.toml	seed-if-missing	preserve	noctalia	Pins the Noctalia settings sidecar schema version and default wallpaper so sidecar migrations cannot drop the managed wallpaper.
-~/.config/noctalia/templates/ghostty	stow	backup-before-stow	noctalia-ghostty	Renders Noctalia terminal colors into Ghostty's managed theme.
-~/.config/noctalia/templates/icon-theme-accent	stow	backup-before-stow	noctalia-icon-theme	Renders the active Noctalia primary color for icon theme accent selection.
-~/.local/bin/noctalia-reload-ghostty	stow	backup-before-stow	noctalia-ghostty	Reloads an active Ghostty service through systemd after Noctalia renders its theme.
-~/.local/bin/noctalia-sync-icon-theme	stow	backup-before-stow	noctalia-icon-theme	Maps the active Noctalia accent to the closest installed Yaru icon theme.
+# component	path	mode	conflict	source	required-command	description
+core	~/.config/autostart/zz-first-run.desktop	first-run	regenerate	-	-	Launches one-time user-session setup after login.
+core	~/.local/bin/zz	generated	regenerate	-	-	Installs the post-install zz utility.
+core	~/.local/share/backgrounds	seed-if-missing	preserve	-	-	Seeds bundled wallpapers without replacing existing user files.
+shell	~/.bashrc	seed-if-missing	preserve	templates/shell/bashrc	-	Seeds a user-owned Bash entrypoint that loads the live ZZ shell defaults.
+shell	~/.profile	seed-if-missing	preserve	templates/shell/profile	-	Seeds a user-owned login-shell entrypoint that loads the live ZZ environment defaults.
+shell-fastfetch	~/.config/zz-fedora/shell.d/fastfetch	product-link	backup-before-link	dotfiles/shell-fastfetch/.shellrc.d/fastfetch	fastfetch	Links the selected Fastfetch shell integration.
+shell-fzf	~/.config/zz-fedora/shell.d/fzf	product-link	backup-before-link	dotfiles/shell-fzf/.shellrc.d/fzf	fzf	Links the selected fzf shell integration.
+shell-starship	~/.config/zz-fedora/shell.d/starship	product-link	backup-before-link	dotfiles/shell-starship/.shellrc.d/starship	starship	Links the selected Starship shell integration.
+shell-yazi	~/.config/zz-fedora/shell.d/yazi	product-link	backup-before-link	dotfiles/shell-yazi/.shellrc.d/yazi	yazi	Links the selected Yazi shell integration.
+shell-zoxide	~/.config/zz-fedora/shell.d/zoxide	product-link	backup-before-link	dotfiles/shell-zoxide/.shellrc.d/zoxide	zoxide	Links the selected zoxide shell integration.
+zsh	~/.zshrc	seed-if-missing	preserve	templates/shell/zshrc	zsh	Seeds a user-owned Zsh entrypoint that loads the live ZZ shell defaults.
+environment	/usr/lib/environment.d/10-zz-desktop.conf	system-file	regenerate	dotfiles/environment/.config/environment.d/10-niri-gtk.conf	-	Installs the product-owned desktop session environment.
+portals	/etc/xdg/xdg-desktop-portal/niri-portals.conf	system-file	regenerate	dotfiles/portals/.config/xdg-desktop-portal/niri-portals.conf	-	Installs the product-owned desktop portal preference map.
+niri	~/.config/niri/config.kdl	seed-if-missing	preserve	dotfiles/niri/.config/niri/config.kdl	niri	Seeds the user-owned Niri entrypoint over the live ZZ defaults.
+niri	~/.config/niri/cfg/display.kdl	seed-if-missing	preserve	templates/niri/display.kdl	niri	Seeds hardware-specific Niri display configuration.
+niri	~/.config/niri/noctalia.kdl	seed-if-missing	preserve	templates/niri/noctalia.kdl	niri	Seeds the generated Noctalia Niri theme include.
+ghostty	~/.config/ghostty/config	seed-if-missing	preserve	templates/ghostty/config	ghostty	Seeds the user-owned Ghostty entrypoint.
+ghostty	~/.config/ghostty/zz-defaults	product-link	backup-before-link	dotfiles/ghostty/.config/ghostty/config	ghostty	Links Ghostty to the live ZZ defaults.
+ghostty	~/.config/ghostty/shaders/cursor_tail.glsl	product-link	backup-before-link	dotfiles/ghostty/.config/ghostty/shaders/cursor_tail.glsl	ghostty	Links the managed Ghostty shader.
+ghostty	~/.config/ghostty/themes/noctalia	seed-if-missing	preserve	templates/ghostty/noctalia	ghostty	Seeds a fallback theme until Noctalia regenerates it.
+noctalia	~/.config/noctalia/config.toml	seed-if-missing	preserve	templates/noctalia/config.toml	noctalia	Seeds the user-owned Noctalia include entrypoint.
+noctalia	~/.config/noctalia/conf.d	directory	preserve	-	noctalia	Provides a user-owned Noctalia override directory.
+noctalia	~/.config/noctalia/palettes/catppuccin-mocha-blue.json	product-link	backup-before-link	dotfiles/noctalia/.config/noctalia/palettes/catppuccin-mocha-blue.json	noctalia	Links the managed Noctalia palette.
+noctalia	~/.config/noctalia/templates/ghostty	product-link	backup-before-link	dotfiles/noctalia/.config/noctalia/templates/ghostty	noctalia	Links the managed Ghostty color template.
+noctalia	~/.config/noctalia/templates/icon-theme-accent	product-link	backup-before-link	dotfiles/noctalia/.config/noctalia/templates/icon-theme-accent	noctalia	Links the managed icon-accent template.
+noctalia	~/.local/bin/noctalia-reload-ghostty	product-link	backup-before-link	dotfiles/noctalia/.local/bin/noctalia-reload-ghostty	noctalia	Links the Ghostty reload helper.
+noctalia	~/.local/bin/noctalia-sync-icon-theme	product-link	backup-before-link	dotfiles/noctalia/.local/bin/noctalia-sync-icon-theme	noctalia	Links the icon-theme synchronization helper.
+noctalia	~/.local/share/noctalia/plugins/niri-outputs	product-link	backup-before-link	dotfiles/noctalia/.local/share/noctalia/plugins/niri-outputs	noctalia	Links the product-owned Niri outputs plugin.
+noctalia	~/.local/state/noctalia/.setup-complete	seed-if-missing	preserve	-	noctalia	Marks the Noctalia first-run setup complete.
+noctalia	~/.local/state/noctalia/settings.toml	seed-if-missing	preserve	-	noctalia	Seeds the app-writable Noctalia settings sidecar.
+starship	~/.config/starship.toml	seed-if-missing	preserve	templates/starship.toml	starship	Seeds a user-owned Starship configuration.
+btop	~/.config/btop/btop.conf	seed-if-missing	preserve	dotfiles/btop/.config/btop/btop.conf	btop	Seeds a user-owned btop configuration.
+nvim	~/.local/share/applications/nvim.desktop	product-link	backup-before-link	dotfiles/nvim/.local/share/applications/nvim.desktop	nvim	Links the managed terminal-editor desktop entry.
+vscode	~/.config/Code/User/settings.json	seed-if-missing	preserve	dotfiles/vscode/.config/Code/User/settings.json	code	Seeds user-owned Visual Studio Code settings.
+zed	~/.config/zed/settings.json	seed-if-missing	preserve	dotfiles/zed/.config/zed/settings.json	zed	Seeds user-owned Zed settings.
+pywalfox	/usr/lib/systemd/user/pywalfox-theme-sync.path	system-file	regenerate	dotfiles/pywalfox/.config/systemd/user/pywalfox-theme-sync.path	-	Installs the product-owned Pywalfox path unit.
+pywalfox	/usr/lib/systemd/user/pywalfox-theme-sync.service	system-file	regenerate	dotfiles/pywalfox/.config/systemd/user/pywalfox-theme-sync.service	-	Installs the product-owned Pywalfox synchronization service.

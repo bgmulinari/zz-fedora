@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Report Noctalia state overrides relative to the managed repo dotfile."""
+"""Report Noctalia state overrides relative to the product-owned default."""
 
 from __future__ import annotations
 
@@ -106,7 +106,7 @@ def main() -> int:
             continue
         portable_state_only.append(f"{key} = {value_text(state_value)}")
 
-    print_section("Overrides managed dotfile", overrides)
+    print_section("Overrides product default", overrides)
     print_section("State-only portable candidates", portable_state_only)
     print_section("Redundant state keys", redundant)
     print(f"\n## Hardware/local state")

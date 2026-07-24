@@ -1,0 +1,11 @@
+# User-owned Noctalia entrypoint seeded by ZZ Fedora.
+#
+# ZZ defaults update with ~/.zz. Put hand-written overrides in
+# ~/.config/noctalia/conf.d/*.toml; Settings UI overrides remain in
+# ~/.local/state/noctalia/settings.toml and load last.
+
+[include]
+files = [
+  "$HOME/.zz/dotfiles/noctalia/.config/noctalia/config.toml",
+  "$HOME/.config/noctalia/conf.d",
+]

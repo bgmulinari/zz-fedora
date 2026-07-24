@@ -221,20 +221,32 @@ module_90_doctor() {
   log_progress "Checking managed user configuration files"
   local user_config_home="$TARGET_HOME/.config"
   local niri_config_home="$user_config_home/niri"
+  local product_niri_home="$ROOT_DIR/dotfiles/niri/.config/niri"
+  local product_ghostty_config="$ROOT_DIR/dotfiles/ghostty/.config/ghostty/config"
+  local product_noctalia_config="$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml"
+  local desktop_environment_file="/usr/lib/environment.d/10-zz-desktop.conf"
+  local portal_preferences_file="/etc/xdg/xdg-desktop-portal/niri-portals.conf"
   if doctor_plan_has_entry "$native_plan" "niri"; then
-    doctor_warn_file "$user_config_home/niri/config.kdl"
-    doctor_warn_file "$niri_config_home/cfg/autostart.kdl"
-    doctor_warn_file "$niri_config_home/cfg/keybinds.kdl"
-    doctor_warn_file "$niri_config_home/cfg/misc.kdl"
-    doctor_warn_file "$user_config_home/environment.d/10-niri-gtk.conf"
-    doctor_warn_file "$user_config_home/niri/noctalia.kdl"
+    if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
+      doctor_warn_file "$niri_config_home/config.kdl"
+      doctor_warn_file "$niri_config_home/cfg/display.kdl"
+      doctor_warn_file "$niri_config_home/noctalia.kdl"
+    fi
+    doctor_warn_file "$product_niri_home/defaults.kdl"
+    doctor_warn_file "$product_niri_home/cfg/autostart.kdl"
+    doctor_warn_file "$product_niri_home/cfg/keybinds.kdl"
+    doctor_warn_file "$product_niri_home/cfg/misc.kdl"
+    doctor_warn_file "$desktop_environment_file"
   fi
   if doctor_portal_planned "$native_plan"; then
-    doctor_warn_file "$user_config_home/xdg-desktop-portal/niri-portals.conf"
+    doctor_warn_file "$portal_preferences_file"
   fi
   doctor_warn_file "$user_config_home/xdg-terminals.list"
-  doctor_plan_has_entry "$native_plan" "ghostty" && doctor_warn_file "$user_config_home/ghostty/config"
-  doctor_plan_has_entry "$native_plan" "ghostty" && doctor_warn_file "$user_config_home/ghostty/themes/noctalia"
+  if doctor_plan_has_entry "$native_plan" "ghostty"; then
+    [[ "$SKIP_USER_CONFIG" -eq 1 ]] || doctor_warn_file "$user_config_home/ghostty/config"
+    [[ "$SKIP_USER_CONFIG" -eq 1 ]] || doctor_warn_file "$user_config_home/ghostty/zz-defaults"
+    [[ "$SKIP_USER_CONFIG" -eq 1 ]] || doctor_warn_file "$user_config_home/ghostty/themes/noctalia"
+  fi
   if doctor_plan_has_entry "$native_plan" "qt6ct" || doctor_plan_has_entry "$native_plan" "qt6ct-kde"; then
     doctor_warn_file "$user_config_home/qt6ct/qt6ct.conf"
     doctor_warn_file "$user_config_home/kdeglobals"
@@ -245,41 +257,53 @@ module_90_doctor() {
   doctor_plan_has_entry "$native_plan" "neovim" && doctor_warn_file "$TARGET_HOME/.local/share/applications/nvim.desktop"
   doctor_warn_file "$TARGET_HOME/.local/share/backgrounds/Alpenglow.jpg"
   if doctor_noctalia_planned "$native_plan"; then
-    doctor_warn_file "$user_config_home/noctalia/config.toml"
-    doctor_warn_file "$user_config_home/noctalia/templates/ghostty"
-    doctor_warn_file "$user_config_home/noctalia/templates/icon-theme-accent"
-    doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-reload-ghostty"
-    doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme"
-    doctor_warn_file "$TARGET_HOME/.local/state/noctalia/.setup-complete"
-    doctor_warn_file "$TARGET_HOME/.local/state/noctalia/settings.toml"
+    if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
+      doctor_warn_file "$user_config_home/noctalia/config.toml"
+      doctor_warn_file "$user_config_home/noctalia/templates/ghostty"
+      doctor_warn_file "$user_config_home/noctalia/templates/icon-theme-accent"
+      doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-reload-ghostty"
+      doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme"
+      doctor_warn_file "$TARGET_HOME/.local/state/noctalia/.setup-complete"
+      doctor_warn_file "$TARGET_HOME/.local/state/noctalia/settings.toml"
+    fi
   fi
   doctor_check_dir_has_files "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont" '*.ttf'
 
   log_progress "Checking managed configuration contents"
   if doctor_plan_has_entry "$native_plan" "niri"; then
-    doctor_check_contains "$niri_config_home/cfg/autostart.kdl" 'spawn-at-startup "noctalia"'
-    doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'noctalia msg panel-toggle launcher'
-    doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "ghostty" "+new-window"'
-    doctor_check_contains "$niri_config_home/config.kdl" 'include "./noctalia.kdl"'
-    doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'TERMINAL=xdg-terminal-exec'
-    doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'PATH=${HOME}/.local/bin:${PATH:-/usr/local/bin:/usr/bin}'
+    doctor_check_contains "$product_niri_home/cfg/autostart.kdl" 'spawn-at-startup "noctalia"'
+    doctor_check_contains "$product_niri_home/cfg/keybinds.kdl" 'noctalia msg panel-toggle launcher'
+    doctor_check_contains "$product_niri_home/cfg/keybinds.kdl" 'spawn "ghostty" "+new-window"'
+    [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
+      doctor_check_contains "$niri_config_home/config.kdl" 'include "~/.zz/dotfiles/niri/.config/niri/defaults.kdl"'
+    [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
+      doctor_check_contains "$niri_config_home/config.kdl" 'include "./noctalia.kdl"'
+    doctor_check_contains "$desktop_environment_file" 'TERMINAL=xdg-terminal-exec'
+    doctor_check_contains "$desktop_environment_file" 'PATH=${HOME}/.local/bin:${PATH:-/usr/local/bin:/usr/bin}'
     if doctor_plan_has_entry "$native_plan" "nautilus"; then
-      doctor_check_contains "$niri_config_home/cfg/keybinds.kdl" 'spawn "nautilus"'
+      doctor_check_contains "$product_niri_home/cfg/keybinds.kdl" 'spawn "nautilus"'
     fi
     if doctor_plan_has_entry "$native_plan" "qt6ct" || doctor_plan_has_entry "$native_plan" "qt6ct-kde"; then
-      doctor_check_contains "$user_config_home/environment.d/10-niri-gtk.conf" 'QT_QPA_PLATFORMTHEME=qt6ct'
+      doctor_check_contains "$desktop_environment_file" 'QT_QPA_PLATFORMTHEME=qt6ct'
     fi
   fi
   if doctor_plan_has_entry "$native_plan" "ghostty"; then
-    doctor_check_contains "$user_config_home/ghostty/config" 'quit-after-last-window-closed = false'
-    doctor_check_contains "$user_config_home/ghostty/config" 'theme = noctalia'
+    [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
+      doctor_check_contains "$user_config_home/ghostty/config" 'config-file = zz-defaults'
+    doctor_check_contains "$product_ghostty_config" 'quit-after-last-window-closed = false'
+    doctor_check_contains "$product_ghostty_config" 'theme = noctalia'
   fi
   if doctor_noctalia_planned "$native_plan"; then
-    doctor_check_contains "$user_config_home/noctalia/config.toml" '[theme.templates.user.ghostty]'
-    doctor_check_contains "$user_config_home/noctalia/config.toml" '[theme.templates.user.icon_theme]'
-    doctor_check_contains "$TARGET_HOME/.local/bin/noctalia-reload-ghostty" 'systemctl --user reload'
-    doctor_check_contains "$user_config_home/noctalia/templates/icon-theme-accent" '{{ colors.primary.default.hex }}'
-    doctor_check_contains "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme" 'QS_ICON_THEME='
+    [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
+      doctor_check_contains "$user_config_home/noctalia/config.toml" \
+        '"$HOME/.zz/dotfiles/noctalia/.config/noctalia/config.toml"'
+    doctor_check_contains "$product_noctalia_config" '[theme.templates.user.ghostty]'
+    doctor_check_contains "$product_noctalia_config" '[theme.templates.user.icon_theme]'
+    if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
+      doctor_check_contains "$TARGET_HOME/.local/bin/noctalia-reload-ghostty" 'systemctl --user reload'
+      doctor_check_contains "$user_config_home/noctalia/templates/icon-theme-accent" '{{ colors.primary.default.hex }}'
+      doctor_check_contains "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme" 'QS_ICON_THEME='
+    fi
   fi
   if doctor_plan_has_entry "$native_plan" "xdg-terminal-exec"; then
     doctor_check_contains "$user_config_home/xdg-terminals.list" 'Alacritty.desktop'
@@ -299,10 +323,13 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "niri"; then
     doctor_check_command niri || ((++fatal_checks))
     doctor_check_file /usr/share/wayland-sessions/niri.desktop || ((++fatal_checks))
-    doctor_check_file "$user_config_home/niri/config.kdl" || ((++fatal_checks))
-    doctor_check_file "$niri_config_home/cfg/autostart.kdl" || ((++fatal_checks))
-    doctor_check_file "$niri_config_home/cfg/keybinds.kdl" || ((++fatal_checks))
-    doctor_check_file "$niri_config_home/cfg/misc.kdl" || ((++fatal_checks))
+    if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
+      doctor_check_file "$niri_config_home/config.kdl" || ((++fatal_checks))
+    fi
+    doctor_check_file "$product_niri_home/defaults.kdl" || ((++fatal_checks))
+    doctor_check_file "$product_niri_home/cfg/autostart.kdl" || ((++fatal_checks))
+    doctor_check_file "$product_niri_home/cfg/keybinds.kdl" || ((++fatal_checks))
+    doctor_check_file "$product_niri_home/cfg/misc.kdl" || ((++fatal_checks))
   fi
 
   log_progress "Checking shell and developer tools"

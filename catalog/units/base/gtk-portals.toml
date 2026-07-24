@@ -1,6 +1,6 @@
 id = "base-gtk-portals"
 description = "GTK portal and auth integration for Fedora"
-stow = ["portals"]
+config = ["portals"]
 
 [base]
 order = 120

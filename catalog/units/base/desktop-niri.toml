@@ -1,6 +1,6 @@
 id = "base-desktop-niri"
 description = "Niri compositor base bundle for Fedora"
-stow = ["environment", "niri"]
+config = ["environment", "niri"]
 
 [base]
 order = 70

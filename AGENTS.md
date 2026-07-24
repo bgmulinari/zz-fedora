@@ -6,7 +6,7 @@
 - `install.sh` owns setup. `bootstrap.sh` only installs prerequisites, clones or updates the repository, and hands off to `install.sh`.
 - The installed `zz` launcher is for post-install operations. Do not add install, wizard, plan, check, or repair wrappers under `bin/zz.d/`. Discover its supported commands with `./bin/zz commands --json`.
 - The installer is under active development. Do not add migrations, compatibility shims, existing-install preservation, or regression guards for previous behavior unless the user explicitly requests them.
-- Keep new repository-facing identifiers and documentation generic. Do not introduce third-party branding into unit IDs, catalog file names, Stow package names, or docs unless the user explicitly requests it.
+- Keep new repository-facing identifiers and documentation generic. Do not introduce third-party branding into unit IDs, catalog file names, config component names, or docs unless the user explicitly requests it.
 
 ## Repository layout
 
@@ -16,8 +16,8 @@ bootstrap.sh  Installs prerequisites, clones the repo, hands off to install.sh
 modules/      Ordered install steps (preflight, sources, plan, packages, ...)
 lib/          Shared Bash logic, plus lib/catalog.py, the catalog validator/compiler
 catalog/      One TOML file per unit and per software source; the data-driven installer API
-dotfiles/     Portable user configuration deployed as Stow packages
-templates/    Files rendered by the installer rather than deployed via Stow
+dotfiles/     Product-owned defaults and assets loaded or linked from ~/.zz
+templates/    Seeds for user-owned files and installer-rendered inputs
 bin/          The installed zz post-install launcher and its subcommands
 iso/          Fedora installer ISO integration (Kickstart, Anaconda add-on)
 tests/        Bats regression suites
@@ -34,13 +34,13 @@ and compiles it to flat TSVs that the Bash planner consumes through
 
 - Keep ordered install orchestration in `modules/NN-name.sh`; put reusable Bash logic in `lib/` and keep modules thin.
 - Treat the `catalog/` tree as the data-driven installer API: put install units in `catalog/units/<group>/<name>.toml` and repository definitions in `catalog/sources/<kind>/<name>.toml`. Unit group directories are organizational; semantics come from each unit's tables.
-- Put portable user configuration in `dotfiles/<stow-package>/`. Reserve `templates/` for files rendered or seeded by the installer rather than deployed through Stow; `config/managed-config.tsv` is the authoritative map of managed paths and their seed/preserve behavior. See `docs/dotfiles-layering.md` for the layering rules, including the `shell-*` Stow package prefix convention.
+- Put product-owned live defaults and assets under `dotfiles/`. Reserve `templates/` for user-owned seeds and rendered inputs. `config/managed-config.tsv` is the authoritative map of components, paths, ownership modes, and conflict behavior; see `docs/dotfiles-layering.md`.
 - Put regression tests in `tests/`; share Bash test helpers through `tests/helpers/` and put non-Bash test harnesses in `tests/support/`.
 - When upstream reference code or docs are needed, consult the upstream project's repository or documentation instead of package decompilation or ad hoc reverse engineering.
 
 ## Preserve catalog contracts
 
-- Every unit file declares a catalog-unique `id` and a `description`, optionally `requires` (unit IDs pulled in by dependency expansion) and `stow` (Stow packages the unit deploys), and at least one `[[install]]` step. `lib/catalog.py` validation fails on unknown keys at any level; run `python3 lib/catalog.py --root . validate` after catalog edits.
+- Every unit file declares a catalog-unique `id` and a `description`, optionally `requires` (unit IDs pulled in by dependency expansion) and `config` (managed configuration components selected from `config/managed-config.tsv`), and at least one `[[install]]` step. `lib/catalog.py` validation fails on unknown keys at any level; run `python3 lib/catalog.py --root . validate` after catalog edits.
 - Each `[[install]]` step declares `backend` (`dnf`, `flatpak`, or `action`), optional `sources` (source IDs the step needs), and a payload key that must match the backend: `packages` for `dnf`, `flatpaks` for `flatpak`, `actions` for `action`.
 - Base membership is the `[base]` table: a required integer `order` unique across the catalog, plus optional `early = true` and `minimal_desktop_skip = true`. Every unit under `catalog/units/base/` must declare `[base]`; `[base]` units may also live in other groups (the `shell-*` units do). A unit must not declare both `[base]` and `[choice]`: base units are planned before optional units and never appear in a wizard category. Use `DEFAULT_BUNDLE_IDS` only for broader defaults outside the choice catalogs.
 - Wizard visibility is the `[choice]` table: required `category`, `id` (unique within the category), `label`, and `description` (the wizard copy), plus optional `default`, `order` (rows sort by `order`, then `id`), and `also` (extra unit IDs the choice selects).
@@ -58,7 +58,7 @@ and compiles it to flat TSVs that the Bash planner consumes through
 - Give every externally-settable environment override the `ZZ_` prefix (for example `ZZ_DRY_RUN`, `ZZ_ASSUME_YES`, `ZZ_NO_TUI`); unprefixed uppercase names are internal runtime globals only and must not be read from the caller's environment as installer knobs.
 - Keep required base actions idempotent and give them explicit verification checks.
 - Keep GUI defaults that require a logged-in user session in the first-run path rather than the system install path.
-- For Noctalia changes, keep portable settings in the managed dotfiles and do not commit generated, monitor-specific, or hardware-specific state from `~/.local/state/noctalia/`.
+- For Noctalia changes, keep portable product defaults in the managed config and do not commit generated, monitor-specific, or hardware-specific state from `~/.local/state/noctalia/`.
 
 ## Fedora installer ISO
 

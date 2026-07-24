@@ -22,4 +22,4 @@ cd ~/.zz
 
 - [ZZ command-line utility](docs/zz-cli.md)
 - [Fedora installer ISO](docs/fedora-installer-iso.md)
-- [Dotfiles and templates layering](docs/dotfiles-layering.md)
+- [Configuration ownership and layering](docs/dotfiles-layering.md)

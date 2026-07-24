@@ -300,7 +300,7 @@ EOF
   command_log="$TEST_ROOT/deferred-first-run-commands.log"
 
   # Phase 1: deferred chroot install. systemctl --global cannot see units
-  # stowed into the target user's home, so the Pywalfox unit fails while
+  # installed as managed configuration, so the Pywalfox unit fails while
   # RPM-shipped units keep working; the run warns and continues.
   ZZ_INSTALLER_DEFER_START_SERVICES=1
   run_cmd_as_root() {

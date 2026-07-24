@@ -3,19 +3,18 @@ set -Eeuo pipefail
 
 plan_reset() {
   rm -rf "$PLAN_DIR"
-  if declare -p MANAGED_CONFIG_STOW_OWNER_CACHE >/dev/null 2>&1; then
-    MANAGED_CONFIG_STOW_OWNER_CACHE=()
-  fi
   mkdir -p \
     "$PLAN_DIR/actions" \
+    "$PLAN_DIR/config" \
     "$PLAN_DIR/sources" \
     "$PLAN_DIR/packages" \
     "$PLAN_DIR/prereqs" \
     "$PLAN_DIR/flatpak" \
     "$PLAN_DIR/services" \
-    "$PLAN_DIR/files" \
-    "$PLAN_DIR/stow"
+    "$PLAN_DIR/files"
   : >"$PLAN_DIR/bundles.list"
+  : >"$PLAN_DIR/config/components.list"
+  : >"$(managed_config_deployment_plan_file)"
   : >"$PLAN_DIR/summary.txt"
 }
 
@@ -45,13 +44,15 @@ plan_file_has_entry() {
   grep -Fx "$entry" "$plan_file" >/dev/null 2>&1
 }
 
-append_bundle_stow_plan() {
-  local stow_package
-  while IFS= read -r stow_package; do
-    [[ -n "$stow_package" ]] || continue
-    append_plan_entries "$PLAN_DIR/stow/packages.list" "$stow_package"
-    append_managed_files_for_stow_package "$stow_package"
-  done < <(split_csv "${BUNDLE_STOW_PACKAGES:-}")
+append_bundle_config_plan() {
+  local component
+  while IFS= read -r component; do
+    [[ -n "$component" ]] || continue
+    if ! plan_file_has_entry "$PLAN_DIR/config/components.list" "$component"; then
+      append_plan_entries "$PLAN_DIR/config/components.list" "$component"
+      append_managed_config_component "$component"
+    fi
+  done < <(split_csv "${BUNDLE_CONFIG_COMPONENTS:-}")
 }
 
 append_bundle_to_plan() {
@@ -74,7 +75,7 @@ append_bundle_to_plan() {
     mapfile -t step_items < <(bundle_step_items "$bundle_id" "$step_index")
     append_plan_entries "$destination" "${step_items[@]:-}"
   done < <(bundle_steps "$bundle_id")
-  append_bundle_stow_plan
+  append_bundle_config_plan
 }
 
 expand_bundle_dependencies() {
@@ -101,13 +102,6 @@ append_backend_prereqs() {
   mapfile -t prereq_items < <(backend_prerequisite_items "$backend")
   [[ "${#prereq_items[@]}" -gt 0 ]] || return 0
   append_plan_entries "$(prereq_file_for_backend "$prereq_backend")" "${prereq_items[@]}"
-}
-
-append_dotfiles_prereqs() {
-  local stow_plan_file="$PLAN_DIR/stow/packages.list"
-  [[ -f "$stow_plan_file" ]] || return 0
-  [[ "$(count_plan_entries "$stow_plan_file")" -gt 0 ]] || return 0
-  append_plan_entries "$(prereq_file_for_backend "$(native_backend)")" "stow"
 }
 
 # shellcheck disable=SC2088  # Managed-file records intentionally use literal ~/ keys; expansion happens at apply time.
@@ -155,8 +149,6 @@ build_plan_from_selections() {
   for bundle_id in "${plan_backends[@]:-}"; do
     append_backend_prereqs "$bundle_id"
   done
-  append_dotfiles_prereqs
-
   if [[ "$(resolved_desktop_app_profile)" == "full" ]] && array_contains "flatpak" "${plan_backends[@]:-}"; then
     append_plan_entries \
       "$PLAN_DIR/flatpak/apps.flatpaks" \
@@ -179,7 +171,7 @@ build_plan_from_selections() {
   if plan_file_has_entry "$(package_file_for_backend "$(native_backend)")" "ghostty"; then
     append_plan_entries "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
   fi
-  if [[ "${SKIP_DOTFILES:-0}" -ne 1 ]] && plan_file_has_entry "$PLAN_DIR/actions/actions.list" "pywalfox"; then
+  if plan_file_has_entry "$PLAN_DIR/actions/actions.list" "pywalfox"; then
     append_plan_entries "$PLAN_DIR/services/user-enable.list" "pywalfox-theme-sync.path"
   fi
   append_managed_file "~/.local/share/backgrounds"
@@ -194,8 +186,8 @@ build_plan_from_selections() {
   append_managed_file "~/.config/autostart/zz-first-run.desktop"
   append_managed_file "~/.local/bin/zz"
   normalize_plan_files
-  if [[ "${SKIP_DOTFILES:-0}" -ne 1 ]] && declare -F stow_write_conflict_preview >/dev/null 2>&1; then
-    stow_write_conflict_preview
+  if declare -F write_managed_config_conflict_preview >/dev/null 2>&1; then
+    write_managed_config_conflict_preview
   fi
 
   write_base_rationale_report
@@ -429,9 +421,9 @@ write_plan_summary() {
       awk -F'\t' 'NF>=5 {printf "  - %s (%s, %s, owner=%s) %s\n", $1, $2, $3, $4, $5}' "$PLAN_DIR/files/managed-config-policy.tsv"
     fi
 
-    printf '\nStow:\n'
-    if [[ -f "$PLAN_DIR/stow/packages.list" ]]; then
-      sed 's/^/  - /' "$PLAN_DIR/stow/packages.list"
+    printf '\nConfig components:\n'
+    if [[ -f "$PLAN_DIR/config/components.list" ]]; then
+      sed 's/^/  - /' "$PLAN_DIR/config/components.list"
     fi
 
     printf '\nBase rationale:\n'
@@ -623,8 +615,8 @@ print_plan_json() {
   json_array_from_file "$PLAN_DIR/services/system-enable.list"
   printf ',"user_enable":'
   json_array_from_file "$PLAN_DIR/services/user-enable.list"
-  printf '},"stow_packages":'
-  json_array_from_file "$PLAN_DIR/stow/packages.list"
+  printf '},"config_components":'
+  json_array_from_file "$PLAN_DIR/config/components.list"
   printf ',"managed_files":'
   json_array_from_file "$PLAN_DIR/files/managed-files.list"
   printf ',"config_conflicts":'

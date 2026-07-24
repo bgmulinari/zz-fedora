@@ -1,87 +1,92 @@
-# Dotfiles and templates layering
+# Configuration ownership and layering
 
-This page explains how user configuration reaches the target home directory
-and how to decide where a new file belongs: a Stow package under `dotfiles/`,
-or an installer-rendered file under `templates/`.
+ZZ keeps the product checkout at `~/.zz`. Git owns that tree, and
+`zz update zz` fast-forwards that checkout, rebuilds the current plan from
+saved selections, and applies its required and configuration work in update
+mode. Optional software installation is skipped. User configuration lives
+outside the checkout and is never silently replaced; product-owned links into
+`~/.zz` see updated defaults immediately, and newly declared links are created
+when the refreshed plan is applied.
 
-## Two delivery paths
+GNU Stow is not part of this model. The catalog selects named configuration
+components, and `modules/60-user-config.sh` applies the paths declared in
+`config/managed-config.tsv`.
 
-| Layer | Deployed by | Semantics |
+## Ownership modes
+
+Each manifest row has seven tab-separated fields:
+
+`component`, `path`, `mode`, `conflict`, `source`, `required-command`, and
+`description`.
+
+| Mode | Owner | Update behavior |
 | --- | --- | --- |
-| `dotfiles/<stow-package>/` | GNU Stow, via `modules/60-dotfiles.sh` | Files are symlinked into `$HOME`, so the repository checkout stays the live source of truth. Pre-existing real files at a target path are backed up first (`backup-before-stow`). |
-| `templates/` | Installer seed and render helpers, for example `lib/theme-seeds.sh` | Files are copied or rendered into place, typically only when the destination is missing (`seed-if-missing`), and then left alone (`preserve`). The user owns the file afterwards. |
+| `product-link` | ZZ | The target is a symlink into `~/.zz`. Git updates take effect immediately. A conflicting target is backed up before the link is created. |
+| `system-file` | ZZ | The installer copies the repository source to `/etc` or `/usr/lib` and replaces changed content through the normal installer backup path. |
+| `seed-if-missing` | User | The installer copies the default only when the target does not exist. Later ZZ updates preserve it. |
+| `directory` | User | The installer ensures an override directory exists without managing its contents. |
+| `first-run` | Installer/session | A later first-login step creates or updates the path. |
+| `generated` | Installer | Installer logic renders or installs the path. |
 
-Decision rule when adding configuration for a new app:
+Repository defaults and product assets live under `dotfiles/`. Despite the
+historical directory name, these files are not Stow packages. Seed sources
+that exist only to initialize a user-owned file live under `templates/`.
 
-- Portable config that should track the repository on every install and
-  update goes in a Stow package: `dotfiles/<stow-package>/` mirroring the
-  home-relative layout (for example
-  `dotfiles/btop/.config/btop/btop.conf`). Reference the package from the
-  owning catalog unit's `stow` key.
-- Hardware-specific, user-owned, or fallback content that the installer
-  writes once and must never clobber afterwards goes in `templates/`, with a
-  matching row in `config/managed-config.tsv` declaring its mode and
-  conflict policy.
+Catalog units select components with their top-level `config` array. The
+planner expands those components into
+`files/config-deployments.tsv`, reports their ownership policy, and applies
+them during the User Configuration step.
 
-Guessing wrong has real consequences: a file placed under `templates/`
-without seeding logic never deploys, and moving a seeded file into a Stow
-package silently replaces user-owned content on the next install.
+## Native application layers
 
-## `config/managed-config.tsv` is the authoritative map
+The entrypoint for each configurable application is user-owned. It loads the
+live ZZ defaults first and a user override last:
 
-`config/managed-config.tsv` declares, per managed path, the deployment
-`mode` (`stow`, `seed-if-missing`, `first-run`, `generated`), the `conflict`
-policy (`backup-before-stow`, `preserve`, `regenerate`), the `owner`, and a
-description. When a path appears both in a Stow package and in
-`templates/`, this file is what disambiguates which mechanism wins for that
-path. Stow-managed files without an explicit row get a generated
-`stow`/`backup-before-stow` policy entry in the plan (see
-`lib/files.sh`).
-
-## The `shell-*` Stow package prefix
-
-The prefix encodes how a package integrates with the shared shell startup
-tree:
-
-- **Prefixed (`shell-*`): contributes drop-in fragments.** The package ships
-  only `.shellrc.d/*` fragments that hook a tool into the interactive shell.
-  The `.shellrc.d` tree itself belongs to `dotfiles/shell/`, whose
-  `.bashrc` (and `dotfiles/zsh/.zshrc`) source every fragment. Examples:
-  `dotfiles/shell-fastfetch`, `dotfiles/shell-fzf`,
-  `dotfiles/shell-starship`, `dotfiles/shell-yazi`,
-  `dotfiles/shell-zoxide`.
-- **Unprefixed: owns its own config tree.** The package deploys the app's
-  own configuration files, not shell hooks. Examples: `dotfiles/btop`
-  (`.config/btop/`), `dotfiles/zsh` (`.zshrc`), `dotfiles/ghostty`
-  (`.config/ghostty/`).
-
-A tool that needs both an app config tree and a shell hook uses two
-packages: an unprefixed one for the config tree and a `shell-*` one for the
-fragment.
-
-Note that `shell-*` **unit IDs** do not map 1:1 to `shell-*` **Stow
-packages**. Unit IDs follow `<group>-<basename>`, so every unit under
-`catalog/units/shell/` gets a `shell-` prefix regardless of what it stows.
-For example, the `shell-btop` unit (`catalog/units/shell/btop.toml`) stows
-the `btop` package, because btop's config is an owned tree, not a
-`.shellrc.d` fragment. The `shell-fzf` unit stows the `shell-fzf` package
-only because fzf really does ship a fragment.
-
-## Apps with both a template and a Stow package
-
-Some apps intentionally have configuration in both layers. The Stow package
-carries the portable live config; the template carries a rendered or
-hardware-specific seed for a *different path* that the installer writes only
-when missing and then preserves.
-
-| App | Stow-managed live config (edit here) | Installer-seeded template (`seed-if-missing`, `preserve`) |
+| Surface | User-owned entrypoint or override | Product-owned default |
 | --- | --- | --- |
-| Ghostty | `dotfiles/ghostty/.config/ghostty/config`; `dotfiles/noctalia/.config/noctalia/templates/ghostty`; `dotfiles/noctalia/.local/bin/noctalia-reload-ghostty` | `templates/ghostty/noctalia` → `~/.config/ghostty/themes/noctalia` (fallback theme until Noctalia regenerates it) |
-| Niri | `dotfiles/niri/.config/niri/config.kdl` and `dotfiles/niri/.config/niri/cfg/` | `templates/niri/display.kdl` → `~/.config/niri/cfg/display.kdl` (hardware-specific); `templates/niri/noctalia.kdl` → `~/.config/niri/noctalia.kdl` |
-| Starship | `dotfiles/shell-starship/.shellrc.d/starship` (shell hook only) | `templates/starship.toml` → `~/.config/starship.toml` (seeded only when the user has no config) |
-| Noctalia | `dotfiles/noctalia/.config/noctalia/config.toml` (stowed) | No `templates/` entry; Noctalia's managed paths use `stow` mode, plus two state seeds installed before first login: an empty `~/.local/state/noctalia/.setup-complete` marker (skips the shell's own setup wizard and its bundled first-run wallpaper) and a `~/.local/state/noctalia/settings.toml` carrying `config_version = 2` plus the managed `[wallpaper.default]` (prevents the shell's sidecar migrations — including future upstream version bumps — from dropping the managed wallpaper). `dotfiles/noctalia/.config/noctalia/templates/` is a Noctalia app asset, not an installer template. |
+| Niri | `~/.config/niri/config.kdl`, plus optional `~/.config/niri/local.kdl` | `dotfiles/niri/.config/niri/defaults.kdl` and its `cfg/` includes |
+| Noctalia | `~/.config/noctalia/config.toml` and `~/.config/noctalia/conf.d` | `dotfiles/noctalia/.config/noctalia/config.toml`; Settings UI state remains under `~/.local/state/noctalia/` and loads last |
+| Ghostty | `~/.config/ghostty/config` and optional `~/.config/ghostty/local` | `dotfiles/ghostty/.config/ghostty/config`, linked as `~/.config/ghostty/zz-defaults` |
+| Bash | `~/.bashrc` and `~/.shellrc.d/` | `dotfiles/shell/.bashrc`; selected product integrations are linked under `~/.config/zz-fedora/shell.d/` |
+| Zsh | `~/.zshrc`, `~/.shellrc.d/`, and `~/.zshrc.d/` | `dotfiles/zsh/.zshrc` and the same selected product integration links |
 
-To change an app's day-to-day configuration, edit the Stow package. Edit the
-`templates/` file only when changing what a fresh machine gets seeded with;
-existing installs keep their user-owned copy because of the `preserve`
-policy in `config/managed-config.tsv`.
+This split lets Git update the product defaults without merging or overwriting
+personal changes. Optional shell integrations remain tied to their catalog
+selections: the installer links only selected fragments into the product
+integration directory, and each fragment also checks for its corresponding
+command before enabling anything.
+
+Hardware-specific and generated values stay in user or state files. For
+example, Niri display settings are seeded from
+`templates/niri/display.kdl`, while Noctalia-generated monitor and widget state
+stays out of the repository.
+
+## Resetting a user-owned file
+
+Seeded files do not change automatically. To intentionally replace one with
+the latest shipped default:
+
+```bash
+zz refresh --list
+zz refresh niri/config.kdl
+```
+
+If the current file differs, `zz refresh` first creates an adjacent
+`<filename>.bak.<timestamp>` copy, installs the current default, and prints
+the diff. Product-owned links are intentionally excluded from this command
+because updating `~/.zz` already refreshes them.
+
+## Adding configuration
+
+1. Put live product defaults or assets under the appropriate directory in
+   `dotfiles/`; put a user seed under `templates/`.
+2. Add a row to `config/managed-config.tsv` with explicit ownership and
+   conflict behavior.
+3. Add the component to the owning catalog unit's `config` array.
+4. For an application with native includes, keep the user entrypoint thin:
+   load the product default, then the user override.
+5. Add focused planner and apply tests for preservation, backup, and link
+   behavior.
+
+Use the `promote-noctalia-config` skill for Noctalia Settings UI changes so
+portable defaults are promoted without committing hardware-specific state.

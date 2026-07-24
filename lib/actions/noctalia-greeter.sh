@@ -19,7 +19,7 @@ noctalia_greeter_action_skipped() {
 
 # The appearance seed is best-effort: when the managed config cannot be
 # rendered into a greeter appearance (non-custom theme source, missing
-# palette or wallpaper, --skip-dotfiles), the greeter keeps its own
+# palette or wallpaper, --skip-user-config), the greeter keeps its own
 # defaults rather than failing the whole install. Skips are recorded so
 # verification accepts the absent manifest.
 noctalia_greeter_appearance_seed_skipped() {
@@ -81,9 +81,9 @@ seed_noctalia_greeter_appearance() {
   local wallpaper_file asset_candidate expanded_path wallpaper_name
   local extension staging installed_name failure=""
 
-  if [[ "$SKIP_DOTFILES" -eq 1 ]]; then
-    log_info "Skipping Noctalia Greeter appearance seed: dotfiles are skipped, keeping the greeter defaults."
-    noctalia_greeter_skip_appearance_seed "dotfiles skipped"
+  if [[ "$SKIP_USER_CONFIG" -eq 1 ]]; then
+    log_info "Skipping Noctalia Greeter appearance seed: user config is skipped, keeping the greeter defaults."
+    noctalia_greeter_skip_appearance_seed "user config skipped"
     return 0
   fi
 

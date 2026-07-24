@@ -1,6 +1,6 @@
 id = "shell-btop"
 description = "btop bundle for Fedora"
-stow = ["btop"]
+config = ["btop"]
 
 [base]
 order = 270

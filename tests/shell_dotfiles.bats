@@ -16,6 +16,21 @@ setup() {
   refute_contains "$output" ".cargo/env"
 }
 
+@test "selected product shell integrations load before user fragments" {
+  local home_dir="$TEST_ROOT/layered-shell-home"
+  mkdir -p "$home_dir/.config/zz-fedora/shell.d" "$home_dir/.shellrc.d"
+  ln -s "$ROOT_DIR" "$home_dir/.zz"
+  printf 'ZZ_LAYER="${ZZ_LAYER:+$ZZ_LAYER:}product"\n' \
+    >"$home_dir/.config/zz-fedora/shell.d/test"
+  printf 'ZZ_LAYER="${ZZ_LAYER:+$ZZ_LAYER:}user"\n' \
+    >"$home_dir/.shellrc.d/test"
+
+  run env HOME="$home_dir" bash -c '. "$HOME/.zz/dotfiles/shell/.bashrc"; printf "%s\n" "$ZZ_LAYER"'
+
+  [ "$status" -eq 0 ]
+  assert_equal "product:user" "$output"
+}
+
 @test "profile resolves environment.d expansions without corrupting PATH" {
   setup_fake_bin
   local home_dir="$TEST_ROOT/profile-home"

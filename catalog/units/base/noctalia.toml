@@ -1,6 +1,6 @@
 id = "base-noctalia"
 description = "Noctalia v5 shell bundle for Fedora"
-stow = ["noctalia"]
+config = ["noctalia"]
 
 [base]
 order = 80

@@ -24,6 +24,7 @@ make_fake_sudo_passthrough() {
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "zz update <target>"
+  assert_contains "$output" "zz            Update ~/.zz and apply the current plan from saved selections"
   assert_contains "$output" "dotnet-tools"
   assert_contains "$output" "--dry-run"
   refute_contains "$output" "--reboot"
@@ -52,6 +53,7 @@ make_fake_sudo_passthrough() {
   assert_contains "$output" "DRY-RUN: update installed .NET global tools"
   assert_contains "$output" "DRY-RUN: $FAKE_BIN/claude update"
   refute_contains "$output" "==> Cleanup"
+  refute_contains "$output" "==> ZZ Fedora"
   assert_contains "$output" "Update complete."
   assert_contains "$output" "- dnf:"
   assert_contains "$output" "- flatpak:"
@@ -61,6 +63,135 @@ make_fake_sudo_passthrough() {
     bash "$ROOT_DIR/bin/zz" update all --dry-run --cleanup
   [ "$status" -eq 0 ]
   assert_contains "$output" "==> Cleanup"
+}
+
+@test "zz update zz fast-forwards the product checkout and applies saved selections in update mode" {
+  local origin="$TEST_ROOT/origin.git"
+  local publisher="$TEST_ROOT/publisher"
+  local checkout="$TEST_ROOT/home/.zz"
+  git init --bare "$origin" >/dev/null
+  git init -b main "$publisher" >/dev/null
+  git -C "$publisher" config user.name "ZZ Test"
+  git -C "$publisher" config user.email "zz@example.test"
+  printf 'one\n' >"$publisher/payload"
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf 'printf '\''install %%s\\n'\'' "$*" >>%q\n' "$COMMAND_LOG"
+  } >"$publisher/install.sh"
+  chmod +x "$publisher/install.sh"
+  git -C "$publisher" add payload install.sh
+  git -C "$publisher" commit -m initial >/dev/null
+  git -C "$publisher" remote add origin "$origin"
+  git -C "$publisher" push -u origin main >/dev/null
+  git --git-dir="$origin" symbolic-ref HEAD refs/heads/main
+  git clone "$origin" "$checkout" >/dev/null
+
+  printf 'two\n' >"$publisher/payload"
+  git -C "$publisher" add payload
+  git -C "$publisher" commit -m update >/dev/null
+  git -C "$publisher" push >/dev/null
+
+  mkdir -p "$XDG_CONFIG_HOME/zz-fedora"
+  printf 'target_user=%s\n' "$TARGET_USER" >"$XDG_CONFIG_HOME/zz-fedora/selections.conf"
+
+  run env HOME="$TARGET_HOME" \
+    ZZ_UPDATE_REPO_DIR="$checkout" ZZ_UPDATE_EXPECTED_ORIGIN="$origin" \
+    bash "$ROOT_DIR/bin/zz" update zz
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "product checkout fast-forwarded"
+  assert_equal "two" "$(cat "$checkout/payload")"
+  assert_file_contains "$COMMAND_LOG" "install install --yes --use-saved --update"
+}
+
+@test "zz update zz reapplies saved selections in update mode when the checkout is already current" {
+  local origin="$TEST_ROOT/origin.git"
+  local publisher="$TEST_ROOT/publisher"
+  local checkout="$TEST_ROOT/home/.zz"
+  git init --bare "$origin" >/dev/null
+  git init -b main "$publisher" >/dev/null
+  git -C "$publisher" config user.name "ZZ Test"
+  git -C "$publisher" config user.email "zz@example.test"
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf 'printf '\''install %%s\\n'\'' "$*" >>%q\n' "$COMMAND_LOG"
+  } >"$publisher/install.sh"
+  chmod +x "$publisher/install.sh"
+  git -C "$publisher" add install.sh
+  git -C "$publisher" commit -m initial >/dev/null
+  git -C "$publisher" remote add origin "$origin"
+  git -C "$publisher" push -u origin main >/dev/null
+  git --git-dir="$origin" symbolic-ref HEAD refs/heads/main
+  git clone "$origin" "$checkout" >/dev/null
+  mkdir -p "$XDG_CONFIG_HOME/zz-fedora"
+  printf 'target_user=%s\n' "$TARGET_USER" >"$XDG_CONFIG_HOME/zz-fedora/selections.conf"
+
+  run env HOME="$TARGET_HOME" \
+    ZZ_UPDATE_REPO_DIR="$checkout" ZZ_UPDATE_EXPECTED_ORIGIN="$origin" \
+    bash "$ROOT_DIR/bin/zz" update zz
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "ZZ is already up to date"
+  assert_contains "$output" "saved-selection plan applied in update mode"
+  assert_file_contains "$COMMAND_LOG" "install install --yes --use-saved --update"
+}
+
+@test "zz update zz refuses to overwrite local checkout changes" {
+  local checkout="$TEST_ROOT/home/.zz"
+  git init -b main "$checkout" >/dev/null
+  git -C "$checkout" config user.name "ZZ Test"
+  git -C "$checkout" config user.email "zz@example.test"
+  printf 'product\n' >"$checkout/product"
+  git -C "$checkout" add product
+  git -C "$checkout" commit -m initial >/dev/null
+  git -C "$checkout" remote add origin "$TEST_ROOT/origin.git"
+  printf 'local\n' >"$checkout/local-change"
+
+  run env HOME="$TARGET_HOME" \
+    ZZ_UPDATE_REPO_DIR="$checkout" ZZ_UPDATE_EXPECTED_ORIGIN="$TEST_ROOT/origin.git" \
+    bash "$ROOT_DIR/bin/zz" update zz
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "has local changes"
+}
+
+@test "zz update zz refuses clean commits that are not in upstream" {
+  local origin="$TEST_ROOT/origin.git"
+  local publisher="$TEST_ROOT/publisher"
+  local checkout="$TEST_ROOT/home/.zz"
+  git init --bare "$origin" >/dev/null
+  git init -b main "$publisher" >/dev/null
+  git -C "$publisher" config user.name "ZZ Test"
+  git -C "$publisher" config user.email "zz@example.test"
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf 'printf '\''install %%s\\n'\'' "$*" >>%q\n' "$COMMAND_LOG"
+  } >"$publisher/install.sh"
+  chmod +x "$publisher/install.sh"
+  git -C "$publisher" add install.sh
+  git -C "$publisher" commit -m initial >/dev/null
+  git -C "$publisher" remote add origin "$origin"
+  git -C "$publisher" push -u origin main >/dev/null
+  git --git-dir="$origin" symbolic-ref HEAD refs/heads/main
+  git clone "$origin" "$checkout" >/dev/null
+
+  git -C "$checkout" config user.name "ZZ Test"
+  git -C "$checkout" config user.email "zz@example.test"
+  printf 'local product change\n' >"$checkout/local-product-change"
+  git -C "$checkout" add local-product-change
+  git -C "$checkout" commit -m "local product change" >/dev/null
+  local local_commit
+  local_commit="$(git -C "$checkout" rev-parse HEAD)"
+  mkdir -p "$XDG_CONFIG_HOME/zz-fedora"
+  printf 'target_user=%s\n' "$TARGET_USER" >"$XDG_CONFIG_HOME/zz-fedora/selections.conf"
+
+  run env HOME="$TARGET_HOME" \
+    ZZ_UPDATE_REPO_DIR="$checkout" ZZ_UPDATE_EXPECTED_ORIGIN="$origin" \
+    bash "$ROOT_DIR/bin/zz" update zz
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "contains commits not present in origin/main"
+  assert_equal "$local_commit" "$(git -C "$checkout" rev-parse HEAD)"
 }
 
 @test "zz update direct target executes only that updater" {

@@ -115,50 +115,51 @@ step_table_failure_policy() {
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tghostty-shell-integration\tdefault-app\tterminal shell integration\tProvides Ghostty shell integration scripts for working-directory reporting, prompt marking, and shell-aware terminal behavior.'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/config.toml\tstow\tbackup-before-stow\tnoctalia'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/state/noctalia/.setup-complete\tseed-if-missing\tpreserve\tnoctalia'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/state/noctalia/settings.toml\tseed-if-missing\tpreserve\tnoctalia'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/templates/ghostty\tstow\tbackup-before-stow\tnoctalia-ghostty'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/templates/icon-theme-accent\tstow\tbackup-before-stow\tnoctalia-icon-theme'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/bin/noctalia-reload-ghostty\tstow\tbackup-before-stow\tnoctalia-ghostty'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/bin/noctalia-sync-icon-theme\tstow\tbackup-before-stow\tnoctalia-icon-theme'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/config.toml\tseed-if-missing\tpreserve\ttemplates/noctalia/config.toml'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/state/noctalia/.setup-complete\tseed-if-missing\tpreserve\t-\tnoctalia'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/state/noctalia/settings.toml\tseed-if-missing\tpreserve\t-\tnoctalia'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/templates/ghostty\tproduct-link\tbackup-before-link\t'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/templates/icon-theme-accent\tproduct-link\tbackup-before-link\t'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/bin/noctalia-reload-ghostty\tproduct-link\tbackup-before-link\t'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/bin/noctalia-sync-icon-theme\tproduct-link\tbackup-before-link\t'
   assert_file_contains "$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml" "[shell.greeter_sync]"
   assert_file_contains "$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml" "auto_sync = false"
 }
 
 @test "managed config conflicts and base rationale are generated in plan" {
   TARGET_HOME="$TEST_ROOT/home"
-  mkdir -p "$TARGET_HOME/.config/niri"
-  printf 'existing shell\n' >"$TARGET_HOME/.bashrc"
+  mkdir -p "$TARGET_HOME/.config/ghostty"
+  printf 'existing defaults\n' >"$TARGET_HOME/.config/ghostty/zz-defaults"
 
   ZZ_TEST_CONFLICT_PREVIEW=1
   build_test_plan
 
-  assert_file_contains "$PLAN_DIR/files/config-conflicts.tsv" "~/.bashrc"
+  assert_file_contains "$PLAN_DIR/files/config-conflicts.tsv" "~/.config/ghostty/zz-defaults"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'flatpak\torg.gtk.Gtk3theme.adw-gtk3\tbase-source-flathub\ttheme-font'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-login-manager\tdesktop-service'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-greeter\tbase-login-manager\tdesktop-service'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnoctalia\tbase-noctalia\tnoctalia'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.bashrc\tstow\tbackup-before-stow\tshell'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve\tniri-display'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve\tghostty-theme'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/config.toml\tstow\tbackup-before-stow\tnoctalia'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/templates/ghostty\tstow\tbackup-before-stow\tnoctalia-ghostty'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/templates/icon-theme-accent\tstow\tbackup-before-stow\tnoctalia-icon-theme'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.local/bin/noctalia-reload-ghostty\tstow\tbackup-before-stow\tnoctalia-ghostty'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.local/bin/noctalia-sync-icon-theme\tstow\tbackup-before-stow\tnoctalia-icon-theme'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.bashrc\tseed-if-missing\tpreserve\tshell'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve\tniri'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve\tghostty'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/config.toml\tseed-if-missing\tpreserve\tnoctalia'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/templates/ghostty\tproduct-link\tbackup-before-link\tnoctalia'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/templates/icon-theme-accent\tproduct-link\tbackup-before-link\tnoctalia'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.local/bin/noctalia-reload-ghostty\tproduct-link\tbackup-before-link\tnoctalia'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.local/bin/noctalia-sync-icon-theme\tproduct-link\tbackup-before-link\tnoctalia'
 }
 
-@test "readiness treats handled backup-before-stow conflicts as informational" {
+@test "readiness treats handled backup-before-link conflicts as informational" {
   TARGET_HOME="$TEST_ROOT/home"
-  printf 'existing shell\n' >"$TARGET_HOME/.bashrc"
+  mkdir -p "$TARGET_HOME/.config/ghostty"
+  printf 'existing defaults\n' >"$TARGET_HOME/.config/ghostty/zz-defaults"
 
   ZZ_TEST_CONFLICT_PREVIEW=1
   build_test_plan
   run_without_bats_debug_trap generate_readiness_status
 
-  assert_file_contains "$(readiness_file)" $'config-conflict\t~/.bashrc\tplanned-backup\tinfo\tshell:backup-before-stow'
-  refute_file_contains "$(readiness_file)" $'config-conflict\t~/.bashrc\tconflict\twarn'
+  assert_file_contains "$(readiness_file)" $'config-conflict\t~/.config/ghostty/zz-defaults\tplanned-backup\tinfo\tghostty:backup-before-link'
+  refute_file_contains "$(readiness_file)" $'config-conflict\t~/.config/ghostty/zz-defaults\tconflict\twarn'
 }
 
 @test "doctor accepts globally enabled user services" {
@@ -295,6 +296,10 @@ step_table_failure_policy() {
   } 2>&1)"
 
   assert_contains "$output" "[ok] existing display manager gdm.service"
+  assert_contains "$output" "[ok] file $TARGET_HOME/.config/niri/config.kdl"
+  assert_contains "$output" "[ok] file $ROOT_DIR/dotfiles/niri/.config/niri/defaults.kdl"
+  assert_contains "$output" "[ok] file $ROOT_DIR/dotfiles/niri/.config/niri/cfg/autostart.kdl"
+  assert_contains "$output" "[ok] file /usr/lib/environment.d/10-zz-desktop.conf"
   refute_contains "$output" "service not enabled greetd"
   refute_contains "$output" "Fatal desktop readiness checks failed"
   assert_contains "$output" "Reboot, open your display manager, and choose the Niri session."

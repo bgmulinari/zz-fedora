@@ -1,12 +1,7 @@
-// Managed by zz-fedora.
-// Managed Niri + Noctalia desktop baseline.
+// User entrypoint seeded by ZZ Fedora.
+// Product defaults update with ~/.zz; personal overrides load last.
 
-include "./cfg/animation.kdl"
-include "./cfg/autostart.kdl"
-include "./cfg/input.kdl"
+include "~/.zz/dotfiles/niri/.config/niri/defaults.kdl"
 include "./cfg/display.kdl"
-include "./cfg/layout.kdl"
-include "./cfg/keybinds.kdl"
-include "./cfg/rules.kdl"
-include "./cfg/misc.kdl"
 include "./noctalia.kdl"
+include optional=true "./local.kdl"

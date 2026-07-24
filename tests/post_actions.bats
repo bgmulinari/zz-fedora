@@ -8,6 +8,22 @@ setup() {
   source_modules
 }
 
+@test "skip user config preserves target-user files during post-actions" {
+  build_test_plan
+  SKIP_USER_CONFIG=1
+  DRY_RUN=0
+  mkdir -p "$TARGET_HOME/.config/niri" "$TARGET_HOME/.config/ghostty"
+  printf 'personal niri\n' >"$TARGET_HOME/.config/niri/config.kdl"
+  printf 'personal ghostty\n' >"$TARGET_HOME/.config/ghostty/config"
+
+  run module_80_post_actions
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Skipping target-user configuration, assets, defaults, and services"
+  assert_equal "personal niri" "$(cat "$TARGET_HOME/.config/niri/config.kdl")"
+  assert_equal "personal ghostty" "$(cat "$TARGET_HOME/.config/ghostty/config")"
+}
+
 @test "post-actions registers the first-run hook and report before any failable seed" {
   for fn in install_zz_launcher configure_default_applications \
     install_bundled_wallpapers install_starship_config \
@@ -55,6 +71,28 @@ setup() {
   assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Decibels.desktop audio/mpeg"
   assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.TextEditor.desktop text/plain"
   assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Nautilus.desktop application/zip"
+}
+
+@test "update mode reapplies MIME defaults only for packages that remain installed" {
+  build_test_plan "desktop=audio-player"
+  UPDATE_MODE=1
+  DRY_RUN=0
+  fedora_package_installed() {
+    [[ "$1" == "nautilus" ]]
+  }
+  have_cmd() {
+    return 1
+  }
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf '%s:%s\n' "$user" "$(printf '%q ' "$@")" >>"$TEST_ROOT/commands.log"
+  }
+
+  run_without_bats_debug_trap configure_default_applications_from_tsv
+
+  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Nautilus.desktop application/zip"
+  refute_file_contains "$TEST_ROOT/commands.log" "org.gnome.Decibels.desktop"
 }
 
 @test "minimal desktop app profile skips full desktop MIME defaults but keeps terminal defaults" {
@@ -133,6 +171,27 @@ setup() {
 
   assert_file_contains "$TEST_ROOT/browser-default-commands.log" "user:test-user:xdg-mime default brave-browser.desktop text/html"
   refute_file_contains "$TEST_ROOT/browser-default-commands.log" "firefox.desktop"
+}
+
+@test "update mode preserves browser defaults when the saved browser was removed" {
+  set_category_override browsers "firefox"
+  PREFERRED_BROWSER=""
+  UPDATE_MODE=1
+  DRY_RUN=0
+  TARGET_USER=test-user
+  TARGET_HOME="$TEST_ROOT/browser-home"
+  mkdir -p "$TARGET_HOME"
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf 'user:%s:%s\n' "$user" "$*" >>"$TEST_ROOT/browser-default-commands.log"
+  }
+
+  run configure_selected_browser_default
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "saved browser is not installed: firefox.desktop"
+  [[ ! -e "$TEST_ROOT/browser-default-commands.log" ]]
 }
 
 @test "Starship seed includes fallback Noctalia palette" {
@@ -258,13 +317,13 @@ setup() {
   assert_file_contains "$TARGET_HOME/.local/state/noctalia/settings.toml" 'user-picked.jpg'
 }
 
-@test "Noctalia state seeds are skipped with --skip-dotfiles" {
+@test "Noctalia state seeds are skipped with --skip-user-config" {
   build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/noctalia-marker-skip-home"
   mkdir -p "$TARGET_HOME"
   DRY_RUN=0
-  SKIP_DOTFILES=1
+  SKIP_USER_CONFIG=1
   run_cmd_as_user() {
     local user="$1"
     shift

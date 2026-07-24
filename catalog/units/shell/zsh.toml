@@ -1,6 +1,6 @@
 id = "shell-zsh"
 description = "Zsh bundle for Fedora"
-stow = ["zsh"]
+config = ["zsh"]
 
 [base]
 order = 220

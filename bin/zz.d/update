@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # zz-name: update
-# zz-summary: Update installed package managers and developer tools.
-# zz-usage: zz update <all|dnf|flatpak|brew|npm|dotnet|dotnet-sdk|dotnet-tools|claude|cleanup> [options]
+# zz-summary: Update ZZ, installed package managers, and developer tools.
+# zz-usage: zz update <zz|all|dnf|flatpak|brew|npm|dotnet|dotnet-sdk|dotnet-tools|claude|cleanup> [options]
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -46,6 +46,7 @@ Usage:
 
 Targets:
   all           Run dnf, flatpak, brew, npm, dotnet, and claude.
+  zz            Update ~/.zz and apply the current plan from saved selections.
   dnf           Stage Fedora package updates for an offline upgrade.
   flatpak       Update Flatpak apps and runtimes.
   brew          Update Homebrew formulae.
@@ -74,6 +75,7 @@ skip() {
 
 target_label() {
   case "$1" in
+    zz) printf 'ZZ Fedora' ;;
     brew) printf 'homebrew' ;;
     dotnet-sdk) printf '.NET SDK' ;;
     dotnet-tools) printf '.NET tools' ;;
@@ -570,8 +572,117 @@ cleanup_updates() {
   return 1
 }
 
+update_zz() {
+  section "ZZ Fedora"
+  if [[ "$EUID" -eq 0 ]]; then
+    printf 'Run zz update zz as your regular user, not root.\n' >&2
+    set_update_summary zz failed "must run as the regular user"
+    return 1
+  fi
+
+  local repo_dir expected_origin actual_origin branch upstream checkout_detail
+  repo_dir="${ZZ_UPDATE_REPO_DIR:-$RUN_HOME/.zz}"
+  expected_origin="${ZZ_UPDATE_EXPECTED_ORIGIN:-https://github.com/bgmulinari/zz-fedora.git}"
+
+  [[ -d "$repo_dir/.git" ]] || {
+    printf 'ZZ checkout not found at %s.\n' "$repo_dir" >&2
+    set_update_summary zz failed "Git checkout not found at $repo_dir"
+    return 1
+  }
+  actual_origin="$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)"
+  [[ "$actual_origin" == "$expected_origin" ]] || {
+    printf 'Refusing to update %s because origin is %s, expected %s.\n' \
+      "$repo_dir" "${actual_origin:-unset}" "$expected_origin" >&2
+    set_update_summary zz failed "unexpected Git origin"
+    return 1
+  }
+  [[ -z "$(git -C "$repo_dir" status --porcelain)" ]] || {
+    printf 'Refusing to update ZZ because %s has local changes.\n' "$repo_dir" >&2
+    printf 'Move or discard those changes before updating the product checkout.\n' >&2
+    set_update_summary zz failed "local Git changes must be resolved"
+    return 1
+  }
+
+  branch="$(git -C "$repo_dir" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  [[ -n "$branch" ]] || {
+    printf 'Refusing to update a detached ZZ checkout.\n' >&2
+    set_update_summary zz failed "checkout is detached"
+    return 1
+  }
+  upstream="$(git -C "$repo_dir" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)"
+  [[ -n "$upstream" ]] || {
+    printf 'The ZZ branch %s has no upstream branch.\n' "$branch" >&2
+    set_update_summary zz failed "branch has no upstream"
+    return 1
+  }
+  [[ "$upstream" == origin/* ]] || {
+    printf 'Refusing to update from non-origin upstream %s.\n' "$upstream" >&2
+    set_update_summary zz failed "branch upstream is not origin"
+    return 1
+  }
+  [[ -x "$repo_dir/install.sh" ]] || {
+    printf 'ZZ installer not found or not executable at %s/install.sh.\n' "$repo_dir" >&2
+    set_update_summary zz failed "installer not found in product checkout"
+    return 1
+  }
+  [[ -f "$SAVED_SELECTIONS" ]] || {
+    printf 'Saved ZZ selections not found at %s.\n' "$SAVED_SELECTIONS" >&2
+    printf 'Run the ZZ installer once before using zz update zz.\n' >&2
+    set_update_summary zz failed "saved selections not found"
+    return 1
+  }
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: git -C %s fetch --prune origin\n' "$(shell_quote "$repo_dir")"
+    printf 'DRY-RUN: git -C %s merge --ff-only %s\n' \
+      "$(shell_quote "$repo_dir")" "$(shell_quote "$upstream")"
+    printf 'DRY-RUN: %s install --yes --use-saved --update\n' \
+      "$(shell_quote "$repo_dir/install.sh")"
+    set_update_summary zz ok "dry-run: would update ZZ and apply the saved-selection plan in update mode"
+    return 0
+  fi
+
+  if ! git -C "$repo_dir" fetch --prune origin; then
+    set_update_summary zz failed "Git fetch failed"
+    return 1
+  fi
+
+  local current_commit upstream_commit updated_commit
+  current_commit="$(git -C "$repo_dir" rev-parse HEAD)"
+  upstream_commit="$(git -C "$repo_dir" rev-parse "$upstream")"
+  if [[ "$current_commit" == "$upstream_commit" ]]; then
+    printf 'ZZ is already up to date.\n'
+    checkout_detail="checkout already up to date"
+  else
+    if ! git -C "$repo_dir" merge-base --is-ancestor "$current_commit" "$upstream_commit"; then
+      printf 'Refusing to update ZZ because %s contains commits not present in %s.\n' \
+        "$repo_dir" "$upstream" >&2
+      printf 'Keep development commits in a separate checkout before updating the product tree.\n' >&2
+      set_update_summary zz failed "checkout has local commits not present upstream"
+      return 1
+    fi
+    if ! git -C "$repo_dir" merge --ff-only "$upstream"; then
+      set_update_summary zz failed "branch could not be fast-forwarded"
+      return 1
+    fi
+    updated_commit="$(git -C "$repo_dir" rev-parse HEAD)"
+    if [[ "$updated_commit" != "$upstream_commit" ]]; then
+      set_update_summary zz failed "branch did not converge to its upstream commit"
+      return 1
+    fi
+    checkout_detail="product checkout fast-forwarded"
+  fi
+
+  if ! "$repo_dir/install.sh" install --yes --use-saved --update; then
+    set_update_summary zz failed "$checkout_detail; applying the saved-selection plan in update mode failed"
+    return 1
+  fi
+  set_update_summary zz ok "$checkout_detail; saved-selection plan applied in update mode"
+}
+
 run_target() {
   case "$1" in
+    zz) update_zz ;;
     dnf) update_dnf ;;
     flatpak) update_flatpak ;;
     brew) update_brew ;;

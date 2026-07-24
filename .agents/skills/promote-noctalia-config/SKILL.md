@@ -1,6 +1,6 @@
 ---
 name: promote-noctalia-config
-description: Inspect Noctalia v5 Settings UI overrides and promote portable changes into this repo's managed dotfile. Use when working in zz-fedora on Noctalia config, when the user asks what changed in the Noctalia UI, wants UI settings made default, wants overrides reset, or wants to avoid committing generated hardware-specific Noctalia state.
+description: Inspect Noctalia v5 Settings UI overrides and promote portable changes into this repo's product-owned default. Use when working in zz-fedora on Noctalia config, when the user asks what changed in the Noctalia UI, wants UI settings made default, wants overrides reset, or wants to avoid committing generated hardware-specific Noctalia state.
 ---
 
 # Promote Noctalia Config
@@ -13,9 +13,9 @@ Noctalia v5 loads config in this order:
 2. `~/.config/noctalia/*.toml`
 3. `~/.local/state/noctalia/settings.toml`
 
-In this repo, the managed baseline is `dotfiles/noctalia/.config/noctalia/config.toml`, stowed to `~/.config/noctalia/config.toml`. Noctalia Settings UI changes are written to `~/.local/state/noctalia/settings.toml`; that file wins only for keys it contains.
+In this repo, the product baseline is `dotfiles/noctalia/.config/noctalia/config.toml`. The user-owned `~/.config/noctalia/config.toml` entrypoint includes that live file from `~/.zz`, then includes `~/.config/noctalia/conf.d` for hand-written overrides. Noctalia Settings UI changes are written to `~/.local/state/noctalia/settings.toml`; that file wins only for keys it contains.
 
-Do not manage or stow `settings.toml` directly. It may contain generated, host-specific state such as lockscreen widget output names and coordinates.
+Do not make `settings.toml` product-owned. It may contain generated, host-specific state such as lockscreen widget output names and coordinates.
 
 ## Workflow
 
@@ -27,7 +27,7 @@ Do not manage or stow `settings.toml` directly. It may contain generated, host-s
 
    The default report summarizes hardware/local state without printing all keys. Use `--show-local` only when debugging generated state.
 
-2. Check for direct writes into stowed repo files:
+2. Check for direct writes into product-owned repo files:
 
    ```bash
    git status --short
@@ -37,14 +37,14 @@ Do not manage or stow `settings.toml` directly. It may contain generated, host-s
    Direct repo changes may be unrelated user edits. Do not attribute them to Noctalia unless there is direct evidence. Treat them as separate from `settings.toml` overrides and confirm whether they should be kept.
 
 3. Classify changes:
-   - `Overrides managed dotfile`: same key exists in dotfile and state with different values. Usually a user preference candidate.
+   - `Overrides product default`: same key exists in the product config and state with different values. Usually a user preference candidate.
    - `State-only portable candidates`: key exists only in state. Promote only if it is clearly a portable preference.
    - `Hardware/local state`: generated or host-specific data. It is excluded from promotion candidates; do not repeat individual keys unless the user is debugging local state.
-   - `Direct repo dotfile changes`: changed files already visible in git. Do not assume cause; keep only user-confirmed, intentional changes.
+   - `Direct product config changes`: changed files already visible in git. Do not assume cause; keep only user-confirmed, intentional changes.
 
 4. Promote only portable, intended preferences into `dotfiles/noctalia/.config/noctalia/config.toml`.
 
-5. Remove the promoted keys from `~/.local/state/noctalia/settings.toml` so the dotfile becomes the source of truth again. Leave unpromoted local/hardware sections untouched.
+5. Remove the promoted keys from `~/.local/state/noctalia/settings.toml` so the product default becomes the source of truth again. Leave unpromoted local/hardware sections untouched.
 
 6. Validate and show the result:
 
@@ -78,4 +78,4 @@ When unsure, ask or leave the key in `settings.toml`.
 
 ## Noctalia Docs
 
-Use `/home/user/repos/noctalia-docs/src/content/docs/v5/configuration/index.mdx` as the source of truth for config load order, state override behavior, exports, includes, and validation.
+Use `~/repos/noctalia-docs/src/content/docs/v5/configuration/index.mdx` as the source of truth for config load order, state override behavior, exports, includes, and validation.

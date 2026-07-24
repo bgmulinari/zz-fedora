@@ -48,6 +48,11 @@ module_10_sources() {
     fedora_enable_sources "$source_id" || return 1
   done
 
+  if [[ "$UPDATE_MODE" -eq 1 ]]; then
+    log_info "Skipping optional software sources in update mode"
+    return 0
+  fi
+
   for source_id in "${source_ids[@]:-}"; do
     source_required_for_install "$source_id" && continue
     enable_source_best_effort "$source_id"

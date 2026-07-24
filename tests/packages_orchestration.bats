@@ -61,6 +61,38 @@ setup() {
     [ "$found_before_optional" -eq 1 ]
   done
 }
+
+@test "base shell configuration preserves a user-owned zsh entrypoint" {
+  local zsh_plan="$TEST_ROOT/zsh-plan.pkgs"
+  printf 'zsh\n' >"$zsh_plan"
+  printf 'source "$HOME/.zshrc.d/personal"\n' >"$TARGET_HOME/.zshrc"
+  DRY_RUN=0
+
+  command() {
+    if [[ "$1" == "-v" && "${2:-}" == "zsh" ]]; then
+      return 0
+    fi
+    builtin command "$@"
+  }
+  install_pinned_git_checkout() {
+    return 0
+  }
+  getent() {
+    printf '%s:x:1000:1000::%s:/bin/zsh\n' "$TARGET_USER" "$TARGET_HOME"
+  }
+  run_cmd_as_root() {
+    return 0
+  }
+  run_cmd_as_user() {
+    shift
+    "$@"
+  }
+
+  run_without_bats_debug_trap configure_base_shell "$zsh_plan"
+
+  assert_equal 'source "$HOME/.zshrc.d/personal"' "$(cat "$TARGET_HOME/.zshrc")"
+}
+
 @test "Noctalia Greeter Fedora action configures greetd fallback" {
   build_test_plan
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
@@ -229,10 +261,10 @@ setup() {
     printf 'root:%s\n' "$*" >>"$TEST_ROOT/root.log"
   }
 
-  # --skip-dotfiles keeps the greeter's own defaults and records the skip.
-  SKIP_DOTFILES=1
+  # --skip-user-config keeps the greeter's own defaults and records the skip.
+  SKIP_USER_CONFIG=1
   run_without_bats_debug_trap seed_noctalia_greeter_appearance
-  SKIP_DOTFILES=0
+  SKIP_USER_CONFIG=0
 
   [ ! -f "$TEST_ROOT/root.log" ]
   # The skip is recorded, which is what verification accepts in place of

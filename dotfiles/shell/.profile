@@ -1,4 +1,4 @@
-# Managed by zz-fedora.
+# Product-owned login-shell defaults loaded from ~/.zz.
 
 export TERMINAL=kitty
 

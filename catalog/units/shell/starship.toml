@@ -1,6 +1,6 @@
 id = "shell-starship"
 description = "Starship shell bundle for Fedora"
-stow = ["shell-starship"]
+config = ["shell-starship", "starship"]
 
 [base]
 order = 230

@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# zz-name: refresh
+# zz-summary: Replace a user-owned config with the current ZZ default.
+# zz-usage: zz refresh <config-path> | zz refresh --list
+set -Eeuo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+MANIFEST="$ROOT_DIR/config/managed-config.tsv"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  zz refresh <config-path>
+  zz refresh --list
+
+Replace one user-owned configuration file with the current ZZ default.
+If the existing file differs, it is saved beside the file as
+<filename>.bak.<timestamp> before replacement.
+
+Paths below ~/.config are written relative to ~/.config, for example:
+  zz refresh niri/config.kdl
+  zz refresh ghostty/config
+EOF
+}
+
+refresh_key_for_path() {
+  local path="$1"
+  case "$path" in
+    \~/.config/*) printf '%s\n' "${path#\~/.config/}" ;;
+    \~/*) printf '%s\n' "${path#\~/}" ;;
+    *) return 1 ;;
+  esac
+}
+
+list_refreshable_configs() {
+  local component path mode _conflict source _required description key
+  while IFS=$'\t' read -r component path mode _conflict source _required description; do
+    [[ -n "$component" && "$component" != \#* ]] || continue
+    [[ "$mode" == "seed-if-missing" && "$source" != "-" ]] || continue
+    key="$(refresh_key_for_path "$path" || true)"
+    [[ -n "$key" ]] || continue
+    printf '%-34s %s\n' "$key" "$description"
+  done <"$MANIFEST"
+}
+
+normalize_refresh_key() {
+  local key="$1"
+  key="${key#\~/}"
+  key="${key#.config/}"
+  key="${key#/}"
+  printf '%s\n' "$key"
+}
+
+next_backup_path() {
+  local destination="$1"
+  local candidate
+  candidate="${destination}.bak.$(date +%s)"
+  local suffix=1
+  while [[ -e "$candidate" || -L "$candidate" ]]; do
+    candidate="${destination}.bak.$(date +%s).$suffix"
+    suffix=$((suffix + 1))
+  done
+  printf '%s\n' "$candidate"
+}
+
+refresh_config() {
+  local wanted
+  wanted="$(normalize_refresh_key "$1")"
+  [[ -n "$wanted" && "$wanted" != *".."* ]] || {
+    printf 'Invalid config path: %s\n' "$1" >&2
+    return 1
+  }
+
+  local component path mode _conflict source _required description key
+  local matched_path="" matched_source=""
+  while IFS=$'\t' read -r component path mode _conflict source _required description; do
+    [[ -n "$component" && "$component" != \#* ]] || continue
+    [[ "$mode" == "seed-if-missing" && "$source" != "-" ]] || continue
+    key="$(refresh_key_for_path "$path" || true)"
+    [[ "$key" == "$wanted" ]] || continue
+    matched_path="$path"
+    matched_source="$source"
+    break
+  done <"$MANIFEST"
+
+  [[ -n "$matched_path" ]] || {
+    printf 'Not a refreshable ZZ config: %s\n\n' "$1" >&2
+    printf 'Available configs:\n' >&2
+    list_refreshable_configs >&2
+    return 1
+  }
+
+  local destination="$HOME/${matched_path#\~/}"
+  local default_file="$ROOT_DIR/$matched_source"
+  [[ -f "$default_file" ]] || {
+    printf 'ZZ default is missing: %s\n' "$default_file" >&2
+    return 1
+  }
+  [[ "$destination" == "$HOME/"* ]] || {
+    printf 'Refusing to refresh a path outside the home directory: %s\n' "$destination" >&2
+    return 1
+  }
+
+  mkdir -p "$(dirname "$destination")"
+  if [[ -e "$destination" || -L "$destination" ]]; then
+    [[ -f "$destination" ]] || {
+      printf 'Refusing to replace a non-file config: %s\n' "$destination" >&2
+      return 1
+    }
+    if [[ ! -L "$destination" ]] && cmp -s "$destination" "$default_file"; then
+      printf '%s already matches the current ZZ default.\n' "$destination"
+      return 0
+    fi
+
+    local backup
+    backup="$(next_backup_path "$destination")"
+    cp -aL -- "$destination" "$backup"
+    rm -f -- "$destination"
+    install -m 0644 "$default_file" "$destination"
+    printf 'Replaced %s with the current ZZ default.\n' "$destination"
+    printf 'Saved backup as %s.\n\n' "$backup"
+    printf 'Changes (backup -> default):\n'
+    diff -u -- "$backup" "$destination" || true
+    return 0
+  fi
+
+  install -m 0644 "$default_file" "$destination"
+  printf 'Installed the current ZZ default at %s.\n' "$destination"
+}
+
+main() {
+  case "${1:-}" in
+    -h|--help)
+      usage
+      ;;
+    --list)
+      [[ "$#" -eq 1 ]] || {
+        usage >&2
+        return 1
+      }
+      list_refreshable_configs
+      ;;
+    "")
+      usage >&2
+      return 1
+      ;;
+    *)
+      [[ "$#" -eq 1 ]] || {
+        usage >&2
+        return 1
+      }
+      refresh_config "$1"
+      ;;
+  esac
+}
+
+main "$@"

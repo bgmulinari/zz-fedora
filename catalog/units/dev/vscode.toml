@@ -1,7 +1,7 @@
 id = "dev-vscode"
 description = "Visual Studio Code bundle for Fedora"
 requires = ["dev-vscode-extensions"]
-stow = ["vscode"]
+config = ["vscode"]
 
 [choice]
 category = "dev"

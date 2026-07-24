@@ -17,7 +17,7 @@ catalog/sources/<kind>/<name>.toml holds one software source per file.
 
 The compiled layout under --out:
   bundles.tsv           id, base, base_order, early, minimal_skip,
-                        requires, sources, stow, backends, description
+                        requires, sources, config, backends, description
   base.tsv              id, early, minimal_skip — base units in base order
   steps.tsv             bundle_id, step_index, backend, sources
   items.tsv             bundle_id, step_index, backend, item
@@ -74,7 +74,7 @@ CHOICE_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 CATEGORY_RE = re.compile(r"^[a-z0-9-]+$")
 CATEGORY_ALIASES = {"browser": "browsers", "source": "sources"}
 
-UNIT_KEYS = {"id", "description", "requires", "stow", "base", "choice", "install"}
+UNIT_KEYS = {"id", "description", "requires", "config", "base", "choice", "install"}
 BASE_KEYS = {"order", "early", "minimal_desktop_skip"}
 CHOICE_KEYS = {"category", "id", "label", "default", "order", "description", "also"}
 INSTALL_KEYS = {"backend", "sources", "packages", "flatpaks", "actions"}
@@ -249,7 +249,7 @@ class Unit:
         self.id = required_string(errors, where, table, "id")
         self.description = required_string(errors, where, table, "description")
         self.requires = string_list(errors, where, table, "requires")
-        self.stow = string_list(errors, where, table, "stow")
+        self.config = string_list(errors, where, table, "config")
         self.base: dict | None = None
         self.choice: dict | None = None
         self.steps: list[InstallStep] = []
@@ -484,7 +484,7 @@ def compile_catalog(catalog: Catalog, out_dir: Path) -> None:
                     flag(bool(base.get("minimal_desktop_skip"))),
                     ",".join(unit.requires),
                     ",".join(unit.sources),
-                    ",".join(unit.stow),
+                    ",".join(unit.config),
                     ",".join(unit.backends),
                     unit.description,
                 )

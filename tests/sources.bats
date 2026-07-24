@@ -32,6 +32,28 @@ setup() {
   refute_contains "$output" "optional:optional-source"
 }
 
+@test "update mode enables required sources and skips optional sources" {
+  source_list="$TEST_ROOT/update-sources.list"
+  printf 'required-source\noptional-source\n' >"$source_list"
+  source_plan_files() {
+    printf '%s\n' "$source_list"
+  }
+  source_required_for_install() {
+    [[ "$1" == "required-source" ]]
+  }
+  fedora_enable_sources() {
+    printf 'enable:%s\n' "$1"
+  }
+  UPDATE_MODE=1
+
+  run module_10_sources
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "enable:required-source"
+  assert_contains "$output" "Skipping optional software sources in update mode"
+  refute_contains "$output" "enable:optional-source"
+}
+
 @test "Fedora vendor and RPM Fusion source setup imports keys before repo installs" {
   DRY_RUN=0
   fedora_repo_enabled() {

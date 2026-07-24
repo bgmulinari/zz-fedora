@@ -1,6 +1,6 @@
 id = "base-ghostty"
 description = "Ghostty terminal bundle for Fedora"
-stow = ["ghostty"]
+config = ["ghostty"]
 
 [base]
 order = 90

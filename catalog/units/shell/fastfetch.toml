@@ -1,6 +1,6 @@
 id = "shell-fastfetch"
 description = "Fastfetch bundle for Fedora"
-stow = ["shell-fastfetch"]
+config = ["shell-fastfetch"]
 
 [base]
 order = 250

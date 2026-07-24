@@ -9,7 +9,7 @@ setup() {
 
 @test "print-plan JSON emits machine-readable plan without log prefix" {
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" \
-    bash "$ROOT_DIR/install.sh" print-plan --dry-run --skip-dotfiles --format json
+    bash "$ROOT_DIR/install.sh" print-plan --dry-run --skip-user-config --format json
 
   [ "$status" -eq 0 ]
   [[ "${output:0:1}" == "{" ]]
@@ -18,6 +18,7 @@ setup() {
   assert_contains "$output" '"selected_bundles":'
   assert_contains "$output" '"source_details":'
   assert_contains "$output" '"native_packages":'
+  assert_contains "$output" '"config_components":'
   assert_contains "$output" '"base_rationale":'
   assert_contains "$output" '"bats"'
   assert_contains "$output" '"dnf5-plugins"'

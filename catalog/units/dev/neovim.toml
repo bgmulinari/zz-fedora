@@ -1,6 +1,6 @@
 id = "dev-neovim"
 description = "Neovim bundle for Fedora"
-stow = ["nvim"]
+config = ["nvim"]
 
 [choice]
 category = "dev"

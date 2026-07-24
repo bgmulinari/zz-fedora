@@ -1,0 +1,6 @@
+# User-owned Bash entrypoint seeded by ZZ Fedora.
+# Edit this file or add fragments under ~/.shellrc.d/.
+
+if [ -f "$HOME/.zz/dotfiles/shell/.bashrc" ]; then
+  . "$HOME/.zz/dotfiles/shell/.bashrc"
+fi

@@ -42,8 +42,6 @@ source_core() {
   source "$ROOT_DIR/lib/sources.sh"
   # shellcheck source=../../lib/systemd.sh
   source "$ROOT_DIR/lib/systemd.sh"
-  # shellcheck source=../../lib/stow.sh
-  source "$ROOT_DIR/lib/stow.sh"
   # shellcheck source=../../lib/files.sh
   source "$ROOT_DIR/lib/files.sh"
   # shellcheck source=../../lib/files-user.sh
@@ -186,8 +184,8 @@ build_test_plan() {
   TARGET_HOME="${TARGET_HOME:-$TEST_ROOT/home}"
   TARGET_USER="${TARGET_USER:-${DEFAULT_TARGET_USER:-$(id -un)}}"
   DRY_RUN=1
-  if [[ "${ZZ_TEST_CONFLICT_PREVIEW:-0}" -ne 1 ]] && declare -F stow_write_conflict_preview >/dev/null 2>&1; then
-    stow_write_conflict_preview() { :; }
+  if [[ "${ZZ_TEST_CONFLICT_PREVIEW:-0}" -ne 1 ]] && declare -F write_managed_config_conflict_preview >/dev/null 2>&1; then
+    write_managed_config_conflict_preview() { :; }
   fi
 
   local cache_key cache_root cache_dir cache_tmp

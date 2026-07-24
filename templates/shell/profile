@@ -1,0 +1,5 @@
+# User-owned login-shell entrypoint seeded by ZZ Fedora.
+
+if [ -f "$HOME/.zz/dotfiles/shell/.profile" ]; then
+  . "$HOME/.zz/dotfiles/shell/.profile"
+fi

@@ -10,6 +10,7 @@ setup() {
   assert_file_contains "$ROOT_DIR/bootstrap.sh" 'INSTALL_DIR="${HOME}/.zz"'
   assert_file_contains "$ROOT_DIR/bootstrap.sh" \
     'git clone --filter=blob:none --depth=1 "$REPO_URL" "$INSTALL_DIR"'
+  assert_file_contains "$ROOT_DIR/bootstrap.sh" 'fetch --prune origin'
 }
 
 @test "install dry-run keeps base setup before optional work" {
@@ -34,16 +35,78 @@ setup() {
   assert_contains "$output" "sudo systemctl enable --force greetd.service"
 }
 
+@test "installer update mode keeps convergence steps and skips optional software installation" {
+  run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
+    bash "$ROOT_DIR/install.sh" install --dry-run --no-tui
+  [ "$status" -eq 0 ]
+
+  run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
+    bash "$ROOT_DIR/install.sh" install --dry-run --no-tui --yes --use-saved --update
+
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Update mode: 1"
+  assert_contains "$output" "==> [4/9] Base Setup"
+  assert_contains "$output" "skipped: Optional Packages"
+  assert_contains "$output" "skipped: Custom Actions"
+  assert_contains "$output" "==> [7/9] User Configuration"
+}
+
+@test "installer update mode prunes obsolete saved choices and persists the current selection set" {
+  mkdir -p "$XDG_CONFIG_HOME/zz-fedora"
+  cat >"$XDG_CONFIG_HOME/zz-fedora/selections.conf" <<EOF
+target_user=$TARGET_USER
+desktop_app_profile=full
+preferred_browser=retired-browser
+select.browsers=firefox,retired-browser
+select.desktop=retired-desktop-app
+select.retired-category=retired-choice
+EOF
+
+  run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
+    bash "$ROOT_DIR/install.sh" install --dry-run --no-tui --yes --use-saved --update
+
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Saved choice 'retired-browser' in category 'browsers' is no longer available and was removed."
+  assert_contains "$output" "Saved choice 'retired-desktop-app' in category 'desktop' is no longer available and was removed."
+  assert_contains "$output" "Saved selection category 'retired-category' is no longer available and was removed."
+  assert_contains "$output" "Saved preferred browser 'retired-browser' is no longer available and was removed."
+  assert_file_contains "$XDG_CONFIG_HOME/zz-fedora/selections.conf" "preferred_browser="
+  assert_file_contains "$XDG_CONFIG_HOME/zz-fedora/selections.conf" "select.browsers=firefox"
+  assert_file_contains "$XDG_CONFIG_HOME/zz-fedora/selections.conf" "select.desktop="
+}
+
+@test "installer update mode still rejects an unknown explicit selection" {
+  mkdir -p "$XDG_CONFIG_HOME/zz-fedora"
+  cat >"$XDG_CONFIG_HOME/zz-fedora/selections.conf" <<EOF
+target_user=$TARGET_USER
+desktop_app_profile=full
+preferred_browser=
+select.browsers=firefox
+EOF
+
+  run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
+    bash "$ROOT_DIR/install.sh" install --dry-run --no-tui --yes --use-saved --update --select desktop=retired-explicit-choice
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Unknown choice 'retired-explicit-choice' in category 'desktop'"
+}
+
 @test "ZZ_-prefixed environment overrides seed the flag defaults" {
   run env \
-    ZZ_DRY_RUN=1 ZZ_ASSUME_YES=1 ZZ_NO_TUI=1 \
-    ZZ_INSTALL_WEAK_DEPS=1 ZZ_VERIFY_INSTALLS=0 ZZ_SKIP_DOTFILES=1 \
-    DRY_RUN=0 ASSUME_YES=0 NO_TUI=0 \
-    INSTALL_WEAK_DEPS=0 VERIFY_INSTALLS=1 SKIP_DOTFILES=0 \
-    bash -c 'source "'"$ROOT_DIR"'/lib/common.sh"; printf "dry=%s yes=%s notui=%s weak=%s verify=%s skipdot=%s\n" "$DRY_RUN" "$ASSUME_YES" "$NO_TUI" "$INSTALL_WEAK_DEPS" "$VERIFY_INSTALLS" "$SKIP_DOTFILES"'
+    ZZ_DRY_RUN=1 ZZ_ASSUME_YES=1 ZZ_NO_TUI=1 ZZ_UPDATE_MODE=1 \
+    ZZ_INSTALL_WEAK_DEPS=1 ZZ_VERIFY_INSTALLS=0 ZZ_SKIP_USER_CONFIG=1 \
+    DRY_RUN=0 ASSUME_YES=0 NO_TUI=0 UPDATE_MODE=0 \
+    INSTALL_WEAK_DEPS=0 VERIFY_INSTALLS=1 SKIP_USER_CONFIG=0 \
+    bash -c 'source "'"$ROOT_DIR"'/lib/common.sh"; printf "dry=%s yes=%s notui=%s update=%s weak=%s verify=%s skipconfig=%s\n" "$DRY_RUN" "$ASSUME_YES" "$NO_TUI" "$UPDATE_MODE" "$INSTALL_WEAK_DEPS" "$VERIFY_INSTALLS" "$SKIP_USER_CONFIG"'
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" "dry=1 yes=1 notui=1 weak=1 verify=0 skipdot=1"
+  assert_contains "$output" "dry=1 yes=1 notui=1 update=1 weak=1 verify=0 skipconfig=1"
 }
 
 @test "ZZ_DRY_RUN environment override makes install behave as --dry-run" {
@@ -160,32 +223,6 @@ setup() {
   refute_contains "$sanitized" $'\r'
 }
 
-@test "stow uses no-folding for managed dotfiles" {
-  command -v stow >/dev/null 2>&1 || skip "stow is not installed"
-  assert_file_contains "$ROOT_DIR/lib/stow.sh" "--no-folding"
-
-  stow_dir="$TEST_ROOT/dotfiles"
-  target_home="$TEST_ROOT/home"
-  mkdir -p \
-    "$stow_dir/sample/.config/Code/User" \
-    "$stow_dir/sample/.local/share/wallpapers" \
-    "$target_home"
-
-  printf '{}\n' >"$stow_dir/sample/.config/Code/User/settings.json"
-  printf 'image\n' >"$stow_dir/sample/.local/share/wallpapers/SilentPeaks.jpg"
-
-  stow --dir "$stow_dir" --target "$target_home" --no-folding sample
-
-  [[ -d "$target_home/.config" ]]
-  [[ ! -L "$target_home/.config" ]]
-  [[ -d "$target_home/.config/Code" ]]
-  [[ ! -L "$target_home/.config/Code" ]]
-  [[ -L "$target_home/.config/Code/User/settings.json" ]]
-  [[ -d "$target_home/.local/share" ]]
-  [[ ! -L "$target_home/.local/share" ]]
-  [[ -L "$target_home/.local/share/wallpapers/SilentPeaks.jpg" ]]
-}
-
 @test "bootstrap installs only Fedora prerequisites needed before handoff" {
   source_bootstrap_functions
   DRY_RUN=1
@@ -237,7 +274,6 @@ setup() {
 
   REPO_URL="$TEST_ROOT/origin.git"
   INSTALL_DIR="$TEST_ROOT/install"
-  REF=""
   clone_or_update_repo
 
   assert_equal "$new_commit" "$(git -C "$TEST_ROOT/install" rev-parse HEAD)"
@@ -256,17 +292,24 @@ setup() {
   git -C "$TEST_ROOT/source" push >/dev/null 2>&1
   desktop_new_commit="$(git -C "$TEST_ROOT/source" rev-parse HEAD)"
 
-  REF=""
   clone_or_update_repo
   assert_equal "desktop" "$(git -C "$TEST_ROOT/install" branch --show-current)"
   assert_equal "$desktop_new_commit" "$(git -C "$TEST_ROOT/install" rev-parse HEAD)"
   assert_equal "desktop new" "$(cat "$TEST_ROOT/install/version.txt")"
   [[ "$(git -C "$TEST_ROOT/install" rev-parse HEAD)" != "$desktop_old_commit" ]]
 
-  REF="main"
-  clone_or_update_repo
-  assert_equal "main" "$(git -C "$TEST_ROOT/install" branch --show-current)"
-  assert_equal "$new_commit" "$(git -C "$TEST_ROOT/install" rev-parse HEAD)"
+  git -C "$TEST_ROOT/install" config user.email test@example.invalid
+  git -C "$TEST_ROOT/install" config user.name "Test User"
+  printf 'local commit\n' >"$TEST_ROOT/install/local-commit.txt"
+  git -C "$TEST_ROOT/install" add local-commit.txt
+  git -C "$TEST_ROOT/install" commit -m "local commit" >/dev/null
+  set +e
+  output="$(clone_or_update_repo 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "contains commits not present in origin/desktop"
+  git -C "$TEST_ROOT/install" reset --hard -q origin/desktop
 
   printf 'dirty\n' >"$TEST_ROOT/install/local.txt"
   set +e
@@ -288,8 +331,52 @@ setup() {
   INSTALL_DIR="$TEST_ROOT/iso-snapshot-install"
   mkdir -p "$INSTALL_DIR/config"
   printf 'format=1\n' >"$INSTALL_DIR/config/iso-payload.conf"
-  REF="main"
   clone_or_update_repo
   [[ -d "$INSTALL_DIR/.git" ]]
   compgen -G "$TEST_ROOT/iso-snapshot-install.iso-snapshot.*" >/dev/null
+}
+
+@test "bootstrap requires an origin-tracking branch before installer handoff" {
+  command -v git >/dev/null 2>&1 || skip "git is not installed"
+  source_bootstrap_functions
+
+  git -c init.defaultBranch=main init --bare "$TEST_ROOT/origin.git" >/dev/null
+  git -c init.defaultBranch=main init "$TEST_ROOT/source" >/dev/null
+  git -C "$TEST_ROOT/source" config user.email test@example.invalid
+  git -C "$TEST_ROOT/source" config user.name "Test User"
+  git -C "$TEST_ROOT/source" commit --allow-empty -m initial >/dev/null
+  git -C "$TEST_ROOT/source" remote add origin "$TEST_ROOT/origin.git"
+  git -C "$TEST_ROOT/source" push -u origin main >/dev/null 2>&1
+  git clone "$TEST_ROOT/origin.git" "$TEST_ROOT/install" >/dev/null 2>&1
+
+  INSTALL_DIR="$TEST_ROOT/install"
+  DRY_RUN=0
+
+  git -C "$INSTALL_DIR" checkout --detach >/dev/null 2>&1
+  set +e
+  output="$(update_current_ref 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "detached HEAD"
+
+  git -C "$INSTALL_DIR" switch main >/dev/null 2>&1
+  git -C "$INSTALL_DIR" switch -c local-only >/dev/null 2>&1
+  set +e
+  output="$(update_current_ref 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "has no upstream branch"
+
+  git -C "$INSTALL_DIR" switch main >/dev/null 2>&1
+  git -C "$INSTALL_DIR" remote add fork "$TEST_ROOT/origin.git"
+  git -C "$INSTALL_DIR" fetch fork >/dev/null 2>&1
+  git -C "$INSTALL_DIR" branch --set-upstream-to=fork/main main >/dev/null
+  set +e
+  output="$(update_current_ref 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "non-origin upstream fork/main"
 }

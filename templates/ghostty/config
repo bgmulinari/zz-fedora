@@ -1,0 +1,5 @@
+# User-owned Ghostty entrypoint seeded by ZZ Fedora.
+# Put personal settings in ~/.config/ghostty/local.
+
+config-file = zz-defaults
+config-file = ?local

@@ -1,6 +1,6 @@
 id = "shell-yazi"
 description = "Yazi shell bundle for Fedora"
-stow = ["shell-yazi"]
+config = ["shell-yazi"]
 
 [base]
 order = 310

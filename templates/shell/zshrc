@@ -1,0 +1,6 @@
+# User-owned Zsh entrypoint seeded by ZZ Fedora.
+# Edit this file or add fragments under ~/.zshrc.d/.
+
+if [[ -f "$HOME/.zz/dotfiles/zsh/.zshrc" ]]; then
+  source "$HOME/.zz/dotfiles/zsh/.zshrc"
+fi

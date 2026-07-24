@@ -1,6 +1,6 @@
 id = "base-bootstrap"
 description = "Persistent tools for desktop integration and installer reruns"
-stow = ["shell"]
+config = ["core", "shell"]
 
 [base]
 order = 10
@@ -18,7 +18,6 @@ packages = [
   "gum",
   "jq",
   "nss-tools",
-  "stow",
   "tar",
   "unzip",
 ]

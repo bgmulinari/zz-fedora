@@ -19,8 +19,10 @@ browser_desktop_file() {
 desktop_file_installed_for_user() {
   local desktop_file="$1"
   [[ -f "$TARGET_HOME/.local/share/applications/$desktop_file" ]] && return 0
+  [[ -f "$TARGET_HOME/.local/share/flatpak/exports/share/applications/$desktop_file" ]] && return 0
   [[ -f "/usr/local/share/applications/$desktop_file" ]] && return 0
   [[ -f "/usr/share/applications/$desktop_file" ]] && return 0
+  [[ -f "/var/lib/flatpak/exports/share/applications/$desktop_file" ]] && return 0
   return 1
 }
 
@@ -30,9 +32,11 @@ package_available_for_default_app() {
   native_plan="$(package_file_for_backend "$(native_backend)")"
   flatpak_plan="$(package_file_for_backend flatpak)"
 
-  plan_has_any_backend_entry "$native_plan" "$package_name" && return 0
-  plan_has_any_backend_entry "$flatpak_plan" "$package_name" && return 0
-  [[ "$DRY_RUN" -eq 1 ]] && return 1
+  if [[ "${UPDATE_MODE:-0}" -eq 0 ]]; then
+    plan_has_any_backend_entry "$native_plan" "$package_name" && return 0
+    plan_has_any_backend_entry "$flatpak_plan" "$package_name" && return 0
+    [[ "$DRY_RUN" -eq 1 ]] && return 1
+  fi
 
   if declare -F fedora_package_installed >/dev/null 2>&1 && fedora_package_installed "$package_name"; then
     return 0
@@ -141,6 +145,10 @@ configure_selected_browser_default() {
     local desktop_file=""
     desktop_file="$(browser_desktop_file "$browser_choice" || true)"
     if [[ -n "$desktop_file" ]]; then
+      if [[ "${UPDATE_MODE:-0}" -eq 1 ]] && ! desktop_file_installed_for_user "$desktop_file"; then
+        log_info "Preserving browser defaults because the saved browser is not installed: $desktop_file"
+        return 0
+      fi
       set_default_browser "$desktop_file"
     fi
   fi

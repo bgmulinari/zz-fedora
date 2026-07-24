@@ -101,7 +101,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "jetbrains-mono-nerd-font"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "boot-splash"
-  assert_plan_has "$PLAN_DIR/stow/packages.list" "noctalia"
+  assert_plan_has "$PLAN_DIR/config/components.list" "noctalia"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "zsh"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "bash-completion"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "bats"
@@ -181,7 +181,6 @@ assert_all_bundles_reachable() {
     refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$non_runtime_tool"
   done
   assert_plan_has "$PLAN_DIR/prereqs/dnf.pkgs" "flatpak"
-  assert_plan_has "$PLAN_DIR/prereqs/dnf.pkgs" "stow"
   refute_plan_has "$PLAN_DIR/prereqs/dnf.pkgs" "gnupg2"
   local removed_helper
   for removed_helper in \
@@ -374,23 +373,25 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "lazygit"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "vscode-extension:noctalia.noctaliatheme"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "pywalfox"
-  assert_plan_has "$PLAN_DIR/stow/packages.list" "pywalfox"
+  assert_plan_has "$PLAN_DIR/config/components.list" "pywalfox"
   assert_plan_has "$PLAN_DIR/services/user-enable.list" "pywalfox-theme-sync.path"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/systemd/user/pywalfox-theme-sync.path"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/systemd/user/pywalfox-theme-sync.service"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "/usr/lib/systemd/user/pywalfox-theme-sync.path"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "/usr/lib/systemd/user/pywalfox-theme-sync.service"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "npm-global:@openai/codex"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:npm"
-  assert_plan_has "$PLAN_DIR/stow/packages.list" "zed"
+  assert_plan_has "$PLAN_DIR/config/components.list" "zed"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/zed/settings.json"
   [[ "$(join_by $'\n' "${WARNING_MESSAGES[@]}")" == *"artifact:npm"* ]]
 }
 
-@test "skip dotfiles omits the Pywalfox user unit" {
-  SKIP_DOTFILES=1
+@test "skipping user config retains product system configuration" {
+  SKIP_USER_CONFIG=1
   build_test_plan "browser=firefox"
 
   assert_plan_has "$PLAN_DIR/actions/actions.list" "pywalfox"
-  refute_plan_has "$PLAN_DIR/services/user-enable.list" "pywalfox-theme-sync.path"
+  assert_plan_has "$PLAN_DIR/services/user-enable.list" "pywalfox-theme-sync.path"
+  assert_plan_has "$PLAN_DIR/config/components.list" "pywalfox"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "/usr/lib/systemd/user/pywalfox-theme-sync.path"
 }
 
 @test "Discord selection plans the official RPM action" {
@@ -434,7 +435,7 @@ assert_all_bundles_reachable() {
   assert_unique_file "$PLAN_DIR/packages/dnf.pkgs"
   assert_unique_file "$PLAN_DIR/actions/actions.list"
   assert_unique_file "$PLAN_DIR/services/system-enable-now.list"
-  assert_unique_file "$PLAN_DIR/stow/packages.list"
+  assert_unique_file "$PLAN_DIR/config/components.list"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/share/applications/nvim.desktop"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-sdk"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "dotnet-tools"

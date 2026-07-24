@@ -64,12 +64,12 @@ Common options:
   --yes
   --dry-run
   --use-saved
-  --skip-dotfiles
+  --update
+  --skip-user-config
   --target-user USER
   --desktop-app-profile auto|full|minimal
   --select category=a,b,c
   --no-tui
-  --stow-adopt
   --preview-commands
   --format text|json
 EOF
@@ -102,14 +102,14 @@ parse_cli() {
       --use-saved)
         USE_SAVED_SELECTIONS=1
         ;;
-      --skip-dotfiles)
-        SKIP_DOTFILES=1
+      --update)
+        UPDATE_MODE=1
+        ;;
+      --skip-user-config)
+        SKIP_USER_CONFIG=1
         ;;
       --no-tui)
         NO_TUI=1
-        ;;
-      --stow-adopt)
-        STOW_ADOPT=1
         ;;
       --preview-commands)
         COMMAND_PREVIEW=1

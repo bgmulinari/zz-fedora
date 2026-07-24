@@ -23,8 +23,6 @@ source "$ROOT_DIR/lib/actions.sh"
 source "$ROOT_DIR/lib/sources.sh"
 # shellcheck source=./lib/systemd.sh
 source "$ROOT_DIR/lib/systemd.sh"
-# shellcheck source=./lib/stow.sh
-source "$ROOT_DIR/lib/stow.sh"
 # shellcheck source=./lib/files.sh
 source "$ROOT_DIR/lib/files.sh"
 # shellcheck source=./lib/files-user.sh
@@ -50,12 +48,17 @@ done
 prepare_context() {
   parse_cli "$@"
   [[ "$COMMAND" != "apply" || "${ZZ_INTERNAL_APPLY:-0}" -eq 1 ]] || die "apply is internal; run install or wizard so the plan is generated first"
+  if [[ "$UPDATE_MODE" -eq 1 ]]; then
+    [[ "$COMMAND" == "install" ]] || die "--update is supported only with the install command"
+    [[ "$USE_SAVED_SELECTIONS" -eq 1 ]] || die "--update requires --use-saved"
+  fi
   exec_setup_as_root_if_needed "$@"
   init_log_file
   trap 'fatal_error_handler $?' ERR
   trap cleanup_on_exit EXIT
   if [[ "$USE_SAVED_SELECTIONS" -eq 1 ]]; then
     load_saved_selections
+    normalize_saved_selections_for_update
   fi
   require_fedora
   TARGET_HOME="$(resolve_target_home "$TARGET_USER")" || die "Could not resolve home directory for target user '$TARGET_USER'"
@@ -76,12 +79,12 @@ step_should_run_always() {
   return 0
 }
 
-step_should_run_dotfiles() {
-  [[ "$SKIP_DOTFILES" -ne 1 ]]
-}
-
 step_should_run_doctor() {
   [[ "$COMMAND" == "doctor" || "$COMMAND" == "apply" || "$DRY_RUN" -ne 1 ]]
+}
+
+step_should_run_optional_software() {
+  [[ "$UPDATE_MODE" -eq 0 ]]
 }
 
 declare -ag STEP_IDS=()
@@ -120,9 +123,9 @@ declare -ag INSTALL_STEP_TABLE=(
   $'bootstrap-tools\tBootstrap Tools\tmodule_05_bootstrap_tools\tstep_should_run_always\tfatal\tInstall the Fedora package-manager helpers needed by the plan.'
   $'sources\tSoftware Sources\tmodule_10_sources\tstep_should_run_always\tfatal\tEnable repositories and remotes required by the current plan.'
   $'base-setup\tBase Setup\tmodule_30_packages\tstep_should_run_always\tfatal\tInstall non-optional base packages and configure the base shell before optional selections.'
-  $'optional-packages\tOptional Packages\tmodule_32_optional_packages\tstep_should_run_always\tcontinue\tInstall optional Fedora and Flatpak packages from the generated plan.'
-  $'custom-actions\tCustom Actions\tmodule_35_custom_actions\tstep_should_run_always\tcontinue\tRun selected direct installers and package-manager actions.'
-  $'dotfiles\tDotfiles\tmodule_60_dotfiles\tstep_should_run_dotfiles\tfatal\tStow managed configuration into the target home directory.'
+  $'optional-packages\tOptional Packages\tmodule_32_optional_packages\tstep_should_run_optional_software\tcontinue\tInstall optional Fedora and Flatpak packages from the generated plan.'
+  $'custom-actions\tCustom Actions\tmodule_35_custom_actions\tstep_should_run_optional_software\tcontinue\tRun selected direct installers and package-manager actions.'
+  $'user-config\tUser Configuration\tmodule_60_user_config\tstep_should_run_always\tfatal\tInstall product-owned links and seed user-owned configuration.'
   $'post-actions\tPost Actions\tmodule_80_post_actions\tstep_should_run_always\tcontinue\tApply defaults, desktop associations, and final user/system tweaks.'
   $'doctor\tDoctor\tmodule_90_doctor\tstep_should_run_doctor\tfatal\tRun the final verification checks and environment summary.'
 )
@@ -161,7 +164,8 @@ exec_setup_as_root_if_needed() {
     "ZZ_NO_TUI=$NO_TUI"
     "ZZ_INSTALL_WEAK_DEPS=$INSTALL_WEAK_DEPS"
     "ZZ_VERIFY_INSTALLS=$VERIFY_INSTALLS"
-    "ZZ_SKIP_DOTFILES=$SKIP_DOTFILES"
+    "ZZ_SKIP_USER_CONFIG=$SKIP_USER_CONFIG"
+    "ZZ_UPDATE_MODE=$UPDATE_MODE"
   )
   local optional_env
   for optional_env in \

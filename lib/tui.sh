@@ -367,14 +367,14 @@ tui_show_install_plan() {
     return 0
   fi
 
-  local native_backend native_packages flatpaks actions sources services dotfiles native_base flatpak_base action_base source_base conflicts first_run
+  local native_backend native_packages flatpaks actions sources services config_components native_base flatpak_base action_base source_base conflicts first_run
   native_backend="$(native_backend)"
   native_packages="$(count_plan_entries "$(package_file_for_backend "$native_backend")")"
   flatpaks="$(count_plan_entries "$PLAN_DIR/flatpak/apps.flatpaks")"
   actions="$(count_plan_entries "$PLAN_DIR/actions/actions.list")"
   sources="$(tui_count_plan_group "$PLAN_DIR"/sources/*.list)"
   services="$(tui_count_plan_group "$PLAN_DIR"/services/*.list)"
-  dotfiles="$(count_plan_entries "$PLAN_DIR/stow/packages.list")"
+  config_components="$(count_plan_entries "$PLAN_DIR/config/components.list")"
   native_base="$(base_rationale_count "$native_backend")"
   flatpak_base="$(base_rationale_count flatpak)"
   action_base="$(base_rationale_count action)"
@@ -406,7 +406,7 @@ tui_show_install_plan() {
   [[ "$actions" -gt 0 ]] && printf '  %s Actions: %s base, %s optional\n' "$(gum style --foreground 2 '+')" "$action_base" "$((actions - action_base))"
   [[ "$sources" -gt 0 ]] && printf '  %s Sources: %s required/base, %s optional\n' "$(gum style --foreground 2 '+')" "$source_base" "$((sources - source_base))"
   [[ "$services" -gt 0 ]] && printf '  %s %s service action%s\n' "$(gum style --foreground 2 '+')" "$services" "$([[ "$services" -eq 1 ]] && printf '' || printf 's')"
-  [[ "$dotfiles" -gt 0 ]] && printf '  %s %s dotfile package%s\n' "$(gum style --foreground 2 '+')" "$dotfiles" "$([[ "$dotfiles" -eq 1 ]] && printf '' || printf 's')"
+  [[ "$config_components" -gt 0 ]] && printf '  %s %s config component%s\n' "$(gum style --foreground 2 '+')" "$config_components" "$([[ "$config_components" -eq 1 ]] && printf '' || printf 's')"
   [[ "$conflicts" -gt 0 ]] && printf '  %s %s managed config conflict%s will be backed up\n' "$(gum style --foreground 11 '!')" "$conflicts" "$([[ "$conflicts" -eq 1 ]] && printf '' || printf 's')"
   [[ "$first_run" -gt 0 ]] && printf '  %s %s first-run config task%s\n' "$(gum style --foreground 12 '→')" "$first_run" "$([[ "$first_run" -eq 1 ]] && printf '' || printf 's')"
 

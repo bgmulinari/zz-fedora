@@ -22,7 +22,7 @@ This is the living checkpoint for the Noctalia v5 integration. Update it every t
 
 ## 2026-07-12 native Niri Outputs plugin
 
-- Added the local `local/niri-outputs` Noctalia v5 plugin under the managed `noctalia` Stow package. It provides a lightweight bar launcher, optional Control Center shortcut, and fixed-size panel that attaches to the bar and opens near its launcher by default. The panel queries Niri when opened, refreshed, reset, or reconciled after keep or restore; no plugin process polls in the background.
+- Added the local `local/niri-outputs` Noctalia v5 plugin under the product-owned `noctalia` config tree. It provides a lightweight bar launcher, optional Control Center shortcut, and fixed-size panel that attaches to the bar and opens near its launcher by default. The panel queries Niri when opened, refreshed, reset, or reconciled after keep or restore; no plugin process polls in the background.
 - The panel reads connected outputs and their modes from `niri msg -j outputs`, then exposes native Noctalia controls for enablement, mode, scale, transform, logical position, automatic horizontal arrangement, and VRR.
 - Preview renders the draft into temporary KDL under `$XDG_RUNTIME_DIR` and switches Niri once to a temporary top-level config beside the normal config. That file copies `~/.config/niri/config.kdl` but replaces its managed `display.kdl` include, preserving every other relative include without including or watching the persistent output file. Revert and timeout switch once back to the normal config; no per-output IPC commands or captured-state replay are used. Preview never modifies the persistent output file, so restarting Niri or rebooting naturally returns to the normal configuration. A detached watchdog exists only during the confirmation window and retries the single switch back if necessary.
 - Keep copies the already validated temporary output include into `~/.config/niri/cfg/display.kdl`, backs up an existing file as `display.kdl.previous`, and switches Niri back to the normal top-level config. Each switch waits for a successful `ConfigLoaded` event because Niri queues `load-config-file` parsing asynchronously.
@@ -92,10 +92,10 @@ Local Noctalia Greeter replacement:
 Local Settings UI override promotion:
 
 - Promoted portable Noctalia Settings UI preferences into `dotfiles/noctalia/.config/noctalia/config.toml`: the default bar module order, `location.auto_locate`, compact clock format, hidden empty media widget, hidden network label, active-workspace taskbar filtering, taskbar window titles, and hidden weather condition text.
-- Removed those promoted keys from `~/.local/state/noctalia/settings.toml` so the stowed config is again the source of truth.
+- Removed those promoted keys from `~/.local/state/noctalia/settings.toml` so the product config is again the source of truth.
 - Removed the absolute `wallpaper.default.path` GUI override because it was equivalent to the managed portable wallpaper default.
-- Left generated/local state in `~/.local/state/noctalia/settings.toml`, including `lockscreen_widgets`, `wallpaper.last`, and the `wallpaper.monitors.Virtual-1` entry. These still encode runtime or output-specific state and must not be stowed.
-- Validation after the promotion: `noctalia config validate` passed, and the override report showed no remaining state keys overriding the managed dotfile.
+- Left generated/local state in `~/.local/state/noctalia/settings.toml`, including `lockscreen_widgets`, `wallpaper.last`, and the `wallpaper.monitors.Virtual-1` entry. These still encode runtime or output-specific state and must not be committed as product defaults.
+- Validation after the promotion: `noctalia config validate` passed, and the override report showed no remaining state keys overriding the product default.
 
 Custom Catppuccin Mocha palette:
 
@@ -131,7 +131,7 @@ Current repo wiring:
 - At this checkpoint, the Fedora Noctalia action installed or `distro-sync`ed the shell from `copr:lionheartp/Hyprland`.
 - Terra remained enabled for Ghostty, but its competing Noctalia shell provider was excluded so normal DNF updates kept Noctalia on the validated LionHeartP COPR provider.
 - Noctalia remains a custom action instead of a plain `dnf` package manifest because the package provider is part of the integration contract.
-- The base Noctalia bundle now stows `dotfiles/noctalia/.config/noctalia/config.toml` as the hardware-agnostic user config layer, including semi-transparent `0.9` bar, dock, notification, and OSD backgrounds.
+- The base Noctalia bundle loads `dotfiles/noctalia/.config/noctalia/config.toml` from a user-owned include entrypoint, including semi-transparent `0.9` bar, dock, notification, and OSD backgrounds.
 - Qt application theming uses the built-in `kcolorscheme` template consumed by the managed `qt6ct` configuration. The normal `qt` template is disabled because upstream renders it to both Qt5 and Qt6 config roots, while this baseline no longer installs Qt5 theme support.
 - The pre-v5 Yaru icon accent sync has been restored through a v5 user template. Noctalia renders `colors.primary.default.hex` to `~/.cache/noctalia/icon-theme-accent`, then `~/.local/bin/noctalia-sync-icon-theme` maps it to the closest installed Yaru accent and updates GTK, Qt 6, KDE globals, and `QS_ICON_THEME`.
 - The repo still does not manage `~/.local/state/noctalia/settings.toml`; fresh-start lockscreen widget state includes output names and coordinates, so it remains generated state.
@@ -173,7 +173,7 @@ Generated state details:
 - The fresh state file was hardware/session specific. It contained a login box for output `Virtual-1` with VM-specific geometry such as `cx = 932.0`, `cy = 1011.0`, and `output = "Virtual-1"`.
 - Noctalia docs say user/dotfile config belongs in `~/.config/noctalia/*.toml`, while `~/.local/state/noctalia/settings.toml` is app-managed GUI/runtime override state.
 - The v5 lockscreen widget schema requires concrete output names and coordinates for login-box placement. There is no documented hardware-agnostic token for this.
-- A static Stow-managed `settings.toml` is therefore the wrong workaround.
+- A static product-managed `settings.toml` is therefore the wrong workaround.
 - If we need an installer-side workaround before upstream fixes this, it should be a session-time first-run helper that generates state from the active Wayland outputs before launching Noctalia. A retry wrapper is still the wrong shape because it leaves a visible crash and coredump.
 
 Upstream report:
@@ -185,8 +185,8 @@ Upstream report:
 Current decision:
 
 - Use the validated COPR shell package.
-- Stow a curated `~/.config/noctalia/config.toml` user config.
-- Do not add a static Noctalia state seed, and do not stow generated `settings.toml`.
+- Seed a user-owned `~/.config/noctalia/config.toml` entrypoint that includes the live product config and user override directory.
+- Seed only the minimum first-run Noctalia state; do not commit generated or hardware-specific `settings.toml` state.
 - Do not add a simple retry wrapper around Noctalia.
 - Keep forcing the COPR provider and excluding Terra's competing shell package.
 - Before changing Noctalia provider or package wiring again, re-test the candidate from a true missing-`settings.toml` state.
@@ -311,11 +311,11 @@ Niri:
 
 Noctalia config:
 
-- `~/.config/noctalia/config.toml` is stowed from `dotfiles/noctalia/.config/noctalia/config.toml`.
+- `~/.config/noctalia/config.toml` is a user-owned seed that includes the live product default from `dotfiles/noctalia/.config/noctalia/config.toml` and then `~/.config/noctalia/conf.d`.
 - The managed config is intentionally portable: polkit agent, telemetry off, `~/.local/share/backgrounds`, the bundled `Alpenglow.jpg` wallpaper, custom Catppuccin Mocha Blue dark theme, default bar module order, selected widget display preferences, Noctalia bar end margin, semi-transparent shell surface backgrounds, selected built-in templates, and selected community templates.
 - The managed config also declares `[theme.templates.user.icon_theme]` to restore the pre-v5 desktop icon accent sync without reintroducing v4 `user-templates.toml`.
-- GUI/runtime overrides remain app-managed in `~/.local/state/noctalia/settings.toml` and load after the stowed config.
-- Do not put lockscreen widgets, desktop widgets, monitor names, output names, connector lists, resolutions, coordinates, or generated setup state in the stowed config.
+- GUI/runtime overrides remain app-managed in `~/.local/state/noctalia/settings.toml` and load after the product config.
+- Do not put lockscreen widgets, desktop widgets, monitor names, output names, connector lists, resolutions, coordinates, or generated setup state in the product config.
 - The official Fedora beta3 build runs on the current development host with the managed config, loads the `local/niri-outputs` plugin, and responds over IPC. Config validation and plugin lint report no errors or warnings.
 - If future config grows beyond one file, keep extra root files as sorted `*.toml` files or use the documented `[include]` table for subdirectories.
 

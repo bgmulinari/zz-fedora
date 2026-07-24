@@ -1,6 +1,6 @@
 id = "dev-zed"
 description = "Zed code editor bundle for Fedora"
-stow = ["zed"]
+config = ["zed"]
 
 [choice]
 category = "dev"

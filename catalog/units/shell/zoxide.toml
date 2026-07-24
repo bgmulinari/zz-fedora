@@ -1,6 +1,6 @@
 id = "shell-zoxide"
 description = "Zoxide bundle for Fedora"
-stow = ["shell-zoxide"]
+config = ["shell-zoxide"]
 
 [base]
 order = 240

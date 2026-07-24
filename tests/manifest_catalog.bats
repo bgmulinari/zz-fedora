@@ -694,7 +694,7 @@ TOML
   assert_equal "0" "$BUNDLE_MINIMAL_DESKTOP_SKIP"
   assert_equal "" "$BUNDLE_DEPENDENCIES"
   assert_equal "vendor:brave" "$BUNDLE_SOURCE_IDS"
-  assert_equal "" "$BUNDLE_STOW_PACKAGES"
+  assert_equal "" "$BUNDLE_CONFIG_COMPONENTS"
   assert_equal "dnf" "$BUNDLE_BACKENDS"
   assert_equal "Brave browser bundle for Fedora" "$BUNDLE_DESCRIPTION"
 
@@ -702,7 +702,7 @@ TOML
   assert_equal "1" "$BUNDLE_BASE"
   assert_equal "10" "$BUNDLE_BASE_ORDER"
   assert_equal "1" "$BUNDLE_BASE_EARLY"
-  assert_equal "shell" "$BUNDLE_STOW_PACKAGES"
+  assert_equal "core,shell" "$BUNDLE_CONFIG_COMPONENTS"
 
   load_bundle_descriptor browsers-firefox
   assert_equal "browsers-firefox-pywalfox" "$BUNDLE_DEPENDENCIES"
@@ -1004,24 +1004,31 @@ TOML
   done
 }
 
-@test "every dotfiles directory is referenced by a unit stow declaration" {
-  local bundle_id package package_dir referenced=$'\n'
+@test "every managed config component is referenced by a catalog unit" {
+  local bundle_id component referenced=$'\n' known=$'\n'
+
+  while IFS= read -r component; do
+    known+="${component}"$'\n'
+  done < <(awk -F'\t' '$1 !~ /^#/ && $1 != "" {print $1}' "$ROOT_DIR/config/managed-config.tsv" | sort -u)
 
   while IFS= read -r bundle_id; do
     load_bundle_descriptor "$bundle_id"
-    [[ -n "$BUNDLE_STOW_PACKAGES" ]] || continue
-    while IFS= read -r package; do
-      referenced+="${package}"$'\n'
-    done < <(split_csv "$BUNDLE_STOW_PACKAGES")
+    [[ -n "$BUNDLE_CONFIG_COMPONENTS" ]] || continue
+    while IFS= read -r component; do
+      if [[ "$known" != *$'\n'"$component"$'\n'* ]]; then
+        printf 'unit %s references unknown managed config component: %s\n' "$bundle_id" "$component" >&2
+        return 1
+      fi
+      referenced+="${component}"$'\n'
+    done < <(split_csv "$BUNDLE_CONFIG_COMPONENTS")
   done < <(list_bundle_ids)
 
-  while IFS= read -r package_dir; do
-    package="$(basename "$package_dir")"
-    if [[ "$referenced" != *$'\n'"$package"$'\n'* ]]; then
-      printf 'orphan stow package not referenced by any unit: dotfiles/%s\n' "$package" >&2
+  while IFS= read -r component; do
+    if [[ "$referenced" != *$'\n'"$component"$'\n'* ]]; then
+      printf 'orphan managed config component not referenced by any unit: %s\n' "$component" >&2
       return 1
     fi
-  done < <(find "$ROOT_DIR/dotfiles" -mindepth 1 -maxdepth 1 -type d | sort)
+  done < <(awk -F'\t' '$1 !~ /^#/ && $1 != "" {print $1}' "$ROOT_DIR/config/managed-config.tsv" | sort -u)
 }
 
 @test "source id catalog contains each descriptor exactly once" {
@@ -1095,11 +1102,11 @@ TOML
     '~/.config/niri/cfg/display.kdl' \
     '~/.config/niri/noctalia.kdl' \
     '~/.config/starship.toml'; do
-    if ! awk -F'\t' -v p="$path" '$1==p && $2=="seed-if-missing" && $3=="preserve" {found=1} END {exit !found}' "$policy"; then
+    if ! awk -F'\t' -v p="$path" '$2==p && $3=="seed-if-missing" && $4=="preserve" {found=1} END {exit !found}' "$policy"; then
       printf 'missing seed-if-missing/preserve row for %s\n' "$path" >&2
       return 1
     fi
   done
 
-  awk -F'\t' -v p='~/.config/noctalia/config.toml' '$1==p && $2=="stow" {found=1} END {exit !found}' "$policy"
+  awk -F'\t' -v p='~/.config/noctalia/config.toml' '$2==p && $3=="seed-if-missing" {found=1} END {exit !found}' "$policy"
 }

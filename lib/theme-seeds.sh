@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Desktop asset and theme seed installs applied after packages and dotfiles:
+# Desktop asset and theme seed installs applied after packages and config:
 # wallpapers, Starship prompt, Ghostty/Niri seeds, and Qt/KDE theme config.
 
 install_bundled_wallpapers() {
@@ -39,11 +39,11 @@ install_bundled_wallpapers() {
 # re-derives wallpaper state from the sidecar alone, so the sidecar must
 # also name the wallpaper itself to survive that path — including future
 # upstream version bumps past the pinned value.
-# Both seeds complement the managed config, so --skip-dotfiles keeps
+# Both seeds complement the managed config, so --skip-user-config keeps
 # Noctalia's own first-run experience instead.
 install_noctalia_state_seeds_if_missing() {
   local native_plan destination wallpaper_path
-  [[ "$SKIP_DOTFILES" -eq 1 ]] && return 0
+  [[ "$SKIP_USER_CONFIG" -eq 1 ]] && return 0
   native_plan="$(package_file_for_backend "$(native_backend)")"
   plan_has_any_backend_entry "$native_plan" noctalia || return 0
 

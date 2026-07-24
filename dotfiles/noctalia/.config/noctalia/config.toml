@@ -1,8 +1,9 @@
-# Managed by zz-fedora.
+# Product-owned Noctalia defaults loaded from ~/.zz.
 #
-# Noctalia v5 loads hand-written config from ~/.config/noctalia/*.toml.
+# The user entrypoint is ~/.config/noctalia/config.toml. Hand-written
+# overrides belong under ~/.config/noctalia/conf.d/.
 # Noctalia writes GUI/runtime overrides to ~/.local/state/noctalia/settings.toml,
-# so do not stow generated lockscreen or widget placement state here.
+# so do not put generated lockscreen or widget placement state here.
 
 # Shell and session
 

@@ -27,6 +27,7 @@ setup() {
   assert_contains "$output" "zz defaults"
   assert_contains "$output" "zz dotnet"
   assert_contains "$output" "zz update"
+  assert_contains "$output" "zz refresh"
 
   run bash "$ROOT_DIR/bin/zz" commands --json
   [ "$status" -eq 0 ]
@@ -38,8 +39,10 @@ setup() {
   assert_contains "$output" '"name":"first-run"'
   assert_contains "$output" '"name":"defaults"'
   assert_contains "$output" '"name":"update"'
+  assert_contains "$output" '"name":"refresh"'
   assert_contains "$output" '"usage":"zz dotnet <devcert> [options]"'
   assert_contains "$output" '"usage":"zz doctor [options]"'
+  assert_contains "$output" '"usage":"zz refresh <config-path> | zz refresh --list"'
 }
 
 @test "zz resolves subcommands through a symlinked launcher and rejects unknown commands" {
@@ -105,6 +108,7 @@ setup() {
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "[wizard|install|check|doctor|first-run|defaults|print-plan|list-profiles|list-choices|list-sources] [options]"
+  assert_contains "$output" "--update"
   local command_name
   for command_name in wizard install check doctor first-run defaults print-plan list-profiles list-choices list-sources; do
     grep -E "^  ${command_name}[[:space:]]" <<<"$output" >/dev/null || {
@@ -139,7 +143,7 @@ setup() {
     >>"$repo_copy/catalog/units/media/codecs.toml"
 
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" \
-    bash "$repo_copy/install.sh" print-plan --dry-run --skip-dotfiles --no-tui
+    bash "$repo_copy/install.sh" print-plan --dry-run --skip-user-config --no-tui
 
   [ "$status" -ne 0 ]
   assert_contains "$output" "Unknown custom action 'not-a-registered-action'"

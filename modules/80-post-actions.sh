@@ -2,10 +2,20 @@
 set -Eeuo pipefail
 
 module_80_defaults() {
+  if [[ "$SKIP_USER_CONFIG" -eq 1 ]]; then
+    log_info "Skipping user defaults"
+    return 0
+  fi
   apply_desktop_defaults
 }
 
 module_80_post_actions() {
+  if [[ "$SKIP_USER_CONFIG" -eq 1 ]]; then
+    log_info "Skipping target-user configuration, assets, defaults, and services"
+    write_managed_files_report
+    return 0
+  fi
+
   log_progress "Installing post-install launcher and first-run tasks"
   install_zz_launcher
   # This step runs under the continue-policy: a die in any later seed fails

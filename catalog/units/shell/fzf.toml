@@ -1,6 +1,6 @@
 id = "shell-fzf"
 description = "fzf bundle for Fedora"
-stow = ["shell-fzf"]
+config = ["shell-fzf"]
 
 [base]
 order = 290

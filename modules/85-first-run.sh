@@ -30,7 +30,7 @@ apply_managed_noctalia_app_themes() {
   palette_file="$TARGET_HOME/.config/noctalia/palettes/$palette_name.json"
   mode="$(noctalia_managed_theme_mode)"
 
-  # Missing managed config is expected with --skip-dotfiles.
+  # Missing managed config is expected with --skip-user-config.
   [[ -f "$config_file" && -f "$palette_file" ]] || return 0
 
   log_progress "Rendering first-launch application themes"

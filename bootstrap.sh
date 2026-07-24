@@ -2,7 +2,6 @@
 set -Eeuo pipefail
 
 REPO_URL="https://github.com/bgmulinari/zz-fedora.git"
-REF=""
 INSTALL_DIR="${HOME}/.zz"
 FORWARD_ARGS=()
 DRY_RUN=0
@@ -45,11 +44,7 @@ bootstrap_notice() {
   local packages="ca-certificates curl git gum python3 dnf5-plugins"
   printf 'ZZ Fedora bootstrap\n'
   printf 'This will install Fedora bootstrap packages, clone or update %s, and then launch the installer.\n' "$INSTALL_DIR"
-  if [[ -n "$REF" ]]; then
-    printf 'Ref: %s\n' "$REF"
-  else
-    printf 'Ref: current/default checkout\n'
-  fi
+  printf 'Updates: current upstream Git branch\n'
   printf 'Packages: %s\n' "$packages"
 }
 
@@ -86,28 +81,16 @@ parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --repo)
-        (($# >= 2)) || {
-          printf '%s\n' '--repo requires a value' >&2
-          exit 1
-        }
-        REPO_URL="$2"
-        shift 2
+        printf '%s\n' '--repo is not supported; ZZ is installed and updated from the official Git repository.' >&2
+        exit 1
         ;;
       --ref)
-        (($# >= 2)) || {
-          printf '%s\n' '--ref requires a value' >&2
-          exit 1
-        }
-        REF="$2"
-        shift 2
+        printf '%s\n' '--ref is not supported; ZZ follows the checkout current upstream branch.' >&2
+        exit 1
         ;;
       --dir)
-        (($# >= 2)) || {
-          printf '%s\n' '--dir requires a value' >&2
-          exit 1
-        }
-        INSTALL_DIR="$2"
-        shift 2
+        printf '%s\n' '--dir is not supported; ZZ is installed and updated from ~/.zz.' >&2
+        exit 1
         ;;
       --yes)
         ASSUME_YES=1
@@ -171,35 +154,11 @@ clone_or_update_repo() {
     }
   fi
   if [[ "$DRY_RUN" -eq 0 && -n "$(git -C "$INSTALL_DIR" status --porcelain)" ]]; then
-    printf 'Refusing to update %s because it has uncommitted changes. Commit, stash, or move them before bootstrapping again.\n' "$INSTALL_DIR" >&2
+    printf 'Refusing to update %s because it has uncommitted changes. Stash, move, or discard them before bootstrapping again.\n' "$INSTALL_DIR" >&2
     exit 1
   fi
-  run git -C "$INSTALL_DIR" fetch --all --tags --prune
-  if [[ -n "$REF" ]]; then
-    checkout_ref
-  else
-    update_current_ref
-  fi
-}
-
-checkout_ref() {
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    run git -C "$INSTALL_DIR" checkout "$REF"
-    return 0
-  fi
-
-  if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/remotes/origin/$REF"; then
-    run git -C "$INSTALL_DIR" checkout -B "$REF" "origin/$REF"
-    return 0
-  fi
-
-  if git -C "$INSTALL_DIR" rev-parse --verify --quiet "$REF^{commit}" >/dev/null; then
-    run git -C "$INSTALL_DIR" checkout "$REF"
-    return 0
-  fi
-
-  printf 'Could not resolve ref after fetch: %s\n' "$REF" >&2
-  exit 1
+  run git -C "$INSTALL_DIR" fetch --prune origin
+  update_current_ref
 }
 
 update_current_ref() {
@@ -208,11 +167,11 @@ update_current_ref() {
     return 0
   fi
 
-  local current_branch upstream
+  local current_branch upstream current_commit upstream_commit updated_commit
   current_branch="$(git -C "$INSTALL_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
   if [[ -z "$current_branch" ]]; then
-    printf 'No --ref provided and %s is on a detached HEAD; leaving checkout unchanged.\n' "$INSTALL_DIR"
-    return 0
+    printf 'Refusing to bootstrap from %s because it is on a detached HEAD.\n' "$INSTALL_DIR" >&2
+    return 1
   fi
 
   upstream="$(git -C "$INSTALL_DIR" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
@@ -220,11 +179,32 @@ update_current_ref() {
     upstream="origin/$current_branch"
   fi
   if [[ -z "$upstream" ]]; then
-    printf 'No --ref provided and branch %s has no upstream; leaving checkout unchanged.\n' "$current_branch"
-    return 0
+    printf 'Refusing to bootstrap branch %s because it has no upstream branch.\n' "$current_branch" >&2
+    return 1
   fi
+  [[ "$upstream" == origin/* ]] || {
+    printf 'Refusing to bootstrap branch %s from non-origin upstream %s.\n' \
+      "$current_branch" "$upstream" >&2
+    return 1
+  }
 
+  current_commit="$(git -C "$INSTALL_DIR" rev-parse HEAD)"
+  upstream_commit="$(git -C "$INSTALL_DIR" rev-parse "$upstream")"
+  [[ "$current_commit" == "$upstream_commit" ]] && return 0
+  if ! git -C "$INSTALL_DIR" merge-base --is-ancestor "$current_commit" "$upstream_commit"; then
+    printf 'Refusing to update %s because it contains commits not present in %s.\n' \
+      "$INSTALL_DIR" "$upstream" >&2
+    printf 'Keep development commits in a separate checkout before updating the product tree.\n' >&2
+    return 1
+  fi
   run git -C "$INSTALL_DIR" merge --ff-only "$upstream"
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    updated_commit="$(git -C "$INSTALL_DIR" rev-parse HEAD)"
+    [[ "$updated_commit" == "$upstream_commit" ]] || {
+      printf 'Failed to converge %s to %s.\n' "$INSTALL_DIR" "$upstream" >&2
+      return 1
+    }
+  fi
 }
 
 exec_installer() {
