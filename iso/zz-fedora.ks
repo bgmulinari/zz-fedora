@@ -21,6 +21,7 @@ services --enabled=NetworkManager
 
 %packages
 @core
+@hardware-support
 sudo
 ca-certificates
 curl

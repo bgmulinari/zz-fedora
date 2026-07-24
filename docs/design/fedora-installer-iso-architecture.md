@@ -45,6 +45,10 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
   the image, so an installed ISO can be correlated with repository state.
 - The Kickstart leaves disk partitioning, locale, timezone, hostname, root
   password, user creation, and ZZ Fedora execution to Anaconda.
+- The Kickstart selects Fedora's core and hardware-support groups for the
+  target system. The latter makes device firmware part of the installed
+  package set rather than relying on firmware available only in Anaconda's
+  runtime environment.
 - The embedded checkout is a tracked runtime snapshot, not a copy of the
   developer repository's `.git` directory. It provides the stable loader that
   refreshes `main` before the ZZ Fedora choices become available.

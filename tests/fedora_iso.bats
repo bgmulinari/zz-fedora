@@ -953,6 +953,7 @@ SH
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "addon_data_dir="
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "usr/share/anaconda/dbus/confs"
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "org.fedoraproject.Anaconda.Addons.ZZFedora.service"
+  assert_contains "$package_lines" "@hardware-support"
   assert_contains "$package_lines" "git"
   assert_contains "$package_lines" "dnf5-plugins"
   assert_contains "$package_lines" "python3"
@@ -1013,6 +1014,7 @@ SH
   assert_file_contains "$script" 'etc/zz-fedora/desktop-app-profile'
   assert_file_contains "$script" "Desktop app profile: %s"
   assert_file_contains "$script" "%pre --interpreter=/usr/bin/bash"
+  assert_file_contains "$script" $'@core\n@hardware-support'
   assert_file_contains "$script" $'curl\ngit\ndnf5-plugins\npython3'
   assert_file_contains "$script" "addon_data_dir="
   assert_file_contains "$script" "usr/share/anaconda/dbus/services"

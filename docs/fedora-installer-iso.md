@@ -142,8 +142,10 @@ can resolve different repository revisions.
 
 System services are enabled for first boot during ISO installs instead of being
 started inside the Anaconda chroot. Anaconda installs Fedora packages from the
-release and updates repositories in one transaction before the add-on enables
-RPM Fusion, COPR, Terra, vendor repositories, or Flathub.
+release and updates repositories in one transaction, including Fedora's
+hardware-support group so the installed system receives its device firmware,
+before the add-on enables RPM Fusion, COPR, Terra, vendor repositories, or
+Flathub.
 First-login/session-sensitive work remains registered through the existing
 `zz first-run` path. Extra-data flatpaks (for example Spotify and Zoom) cannot
 run their sandboxed apply step inside the chroot, so the installer records them
