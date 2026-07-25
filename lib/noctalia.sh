@@ -2,9 +2,8 @@
 set -Eeuo pipefail
 
 # Shared readers for the managed Noctalia configuration. The greeter
-# appearance seed, the Noctalia state seeds, and first-run app theming all
-# derive palette, mode, and wallpaper from this single source so they cannot
-# drift from each other.
+# appearance and Noctalia state seeds derive palette, mode, and wallpaper
+# from this single source so they cannot drift from each other.
 
 noctalia_managed_config_file() {
   printf '%s/dotfiles/noctalia/.config/noctalia/config.toml\n' "$ROOT_DIR"

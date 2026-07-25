@@ -151,7 +151,15 @@ First-login/session-sensitive work remains registered through the existing
 run their sandboxed apply step inside the chroot, so the installer records them
 on a deferred list in the target user's state directory and `zz first-run`
 installs them in the first login session, retrying on later logins (with a
-bounded attempt budget) if an install fails.
+bounded attempt budget) if an install fails. First-run session actions keep
+independent completion markers, Noctalia template application is delegated as
+one checkpointed IPC request using the current resolved theme, and the deferred
+Flatpak list removes each successful app independently. Noctalia's checkpoint
+waits for its final managed template acknowledgment instead of treating IPC
+queue acceptance as completion. Plan-dependent checkpoints also carry input
+fingerprints. A retry therefore resumes only unfinished work and cannot reapply
+the completed theme action merely because a Flatpak failed or substitute the
+product-default palette for the user's current Noctalia theme.
 
 ## VM Validation
 

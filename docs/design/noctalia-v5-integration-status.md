@@ -313,7 +313,7 @@ Noctalia config:
 
 - `~/.config/noctalia/config.toml` is a user-owned seed that includes the live product default from `dotfiles/noctalia/.config/noctalia/config.toml` and then `~/.config/noctalia/conf.d`.
 - The managed config is intentionally portable: polkit agent, telemetry off, `~/.local/share/backgrounds`, the bundled `Alpenglow.jpg` wallpaper, custom Catppuccin Mocha Blue dark theme, default bar module order, selected widget display preferences, Noctalia bar end margin, semi-transparent shell surface backgrounds, selected built-in templates, and selected community templates.
-- The managed config also declares `[theme.templates.user.icon_theme]` to restore the pre-v5 desktop icon accent sync without reintroducing v4 `user-templates.toml`.
+- The managed config declares `[theme.templates.user.icon_theme]` to restore the pre-v5 desktop icon accent sync and `[theme.templates.user.template_apply_ack]` to expose template-worker completion without reintroducing v4 `user-templates.toml`.
 - GUI/runtime overrides remain app-managed in `~/.local/state/noctalia/settings.toml` and load after the product config.
 - Do not put lockscreen widgets, desktop widgets, monitor names, output names, connector lists, resolutions, coordinates, or generated setup state in the product config.
 - The official Fedora beta3 build runs on the current development host with the managed config, loads the `local/niri-outputs` plugin, and responds over IPC. Config validation and plugin lint report no errors or warnings.
@@ -323,8 +323,11 @@ Templates:
 
 - Built-in templates enabled by the managed config: `niri`, `ghostty`, `starship`, `btop`, `gtk3`, `gtk4`, `qt`, and `kcolorscheme`.
 - Community templates enabled by the managed config: `pywalfox`, `zen-browser`, `neovim`, `vscode`, `zed`, and `yazi`. No v4 plugins, QuickShell config, or migration shims are present.
+- First-run asks the running Noctalia instance to apply its configured templates through `noctalia msg templates-apply`. Noctalia owns the effective palette, template set, and client applicability checks, so ZZ neither substitutes the product-default palette nor special-cases applications such as Pywalfox or VS Code.
+- In Noctalia `v5.0.0-beta.3`, `templates-apply` returns `ok` as soon as `TemplateApplyService::reapplyLast()` queues a forced worker request. It does not wait for `applyRequest()`, and the IPC path intentionally does not fire `colors_changed`. The managed `template_apply_ack` user template therefore runs at the maximum template index and writes a generic cache acknowledgment after the worker reaches the end of its configured template pass. First-run waits for the startup acknowledgment, verifies every selected community-template catalog file is present, clears the acknowledgment, sends one IPC request, and checkpoints only after Noctalia recreates it.
+- The Noctalia action has one durable marker independent of every other action and the deferred Flatpak queue. Plan-dependent service, interface, and desktop-default markers include input fingerprints so they are reused only for the plan/profile they completed.
 - The managed Zed settings select `Noctalia Light` and `Noctalia Dark`, matching the variants rendered to `~/.config/zed/themes/noctalia.json` by Noctalia's enabled Zed community template.
-- User templates enabled by the managed config: `icon_theme`.
+- User templates enabled by the managed config: `ghostty`, `icon_theme`, and the generic `template_apply_ack` completion output.
 
 Related managed files:
 
@@ -346,6 +349,8 @@ Primary files:
 - `lib/fedora.sh` (Terra provider exclusions)
 - `lib/actions/noctalia-greeter.sh` (Noctalia Greeter action; `lib/actions.sh` holds the action registry and the thin `modules/35-custom-actions.sh` orchestrates it)
 - `modules/80-post-actions.sh`
+- `modules/85-first-run.sh`
+- `lib/first-run.sh`
 - `modules/90-doctor.sh`
 - `config/base-responsibility.tsv`
 - `config/managed-config.tsv`
@@ -353,6 +358,7 @@ Primary files:
 - `.agents/skills/promote-noctalia-config/scripts/noctalia_override_report.py`
 - `dotfiles/noctalia/.config/noctalia/config.toml`
 - `dotfiles/noctalia/.config/noctalia/templates/icon-theme-accent`
+- `dotfiles/noctalia/.config/noctalia/templates/template-apply-ack`
 - `dotfiles/noctalia/.local/share/noctalia/plugins/niri-outputs/`
 - `dotfiles/noctalia/.local/bin/noctalia-sync-icon-theme`
 - `dotfiles/niri/.config/niri/cfg/autostart.kdl`
@@ -366,6 +372,7 @@ Tests covering this checkpoint:
 - `tests/packages_actions.bats`
 - `tests/packages_orchestration.bats`
 - `tests/post_actions.bats`
+- `tests/post_actions_installer_iso.bats`
 - `tests/doctor_hardening.bats`
 - `tests/cli_smoke.bats`
 - `tests/noctalia_niri_outputs_plugin.bats`

@@ -196,3 +196,11 @@ post_hook = "$HOME/.local/bin/noctalia-reload-ghostty"
 input_path = "$XDG_CONFIG_HOME/noctalia/templates/icon-theme-accent"
 output_path = "$XDG_CACHE_HOME/noctalia/icon-theme-accent"
 post_hook = "$HOME/.local/bin/noctalia-sync-icon-theme"
+
+# Noctalia's templates-apply IPC acknowledges queueing, not completion. Keep a
+# final generic output so first-run can wait for the template worker without
+# knowing about individual applications.
+[theme.templates.user.template_apply_ack]
+input_path = "~/.zz/dotfiles/noctalia/.config/noctalia/templates/template-apply-ack"
+output_path = "$XDG_CACHE_HOME/zz-fedora/noctalia-template-apply.done"
+index = 2147483647

@@ -98,12 +98,14 @@ EOF
 }
 
 configure_default_applications() {
+  local failed=0
   if [[ "$(resolved_desktop_app_profile)" == "full" ]]; then
-    configure_default_applications_from_tsv
+    configure_default_applications_from_tsv || failed=1
   else
     log_info "Skipping full desktop default applications for desktop app profile: $(resolved_desktop_app_profile)"
   fi
-  configure_xdg_terminal_defaults
+  configure_xdg_terminal_defaults || failed=1
+  return "$failed"
 }
 
 set_default_browser() {
@@ -155,6 +157,8 @@ configure_selected_browser_default() {
 }
 
 apply_desktop_defaults() {
-  configure_default_applications
-  configure_selected_browser_default
+  local failed=0
+  configure_default_applications || failed=1
+  configure_selected_browser_default || failed=1
+  return "$failed"
 }

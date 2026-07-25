@@ -152,6 +152,183 @@ setup() {
   [[ ! -e "$(flatpak_deferred_attempts_file)" ]]
 }
 
+@test "a deferred Flatpak retry does not repeat completed first-run actions" {
+  build_test_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/independent-first-run-home"
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  command_log="$TEST_ROOT/independent-first-run-commands.log"
+
+  printf 'com.spotify.Client\n' >"$(flatpak_deferred_plan_file)"
+
+  stub_run_cmd_as_user "$command_log"
+  stub_user_cmd_intercept() {
+    [[ "$1" != "flatpak" ]]
+  }
+  register_first_run_hook
+
+  local output status
+  capture_without_bats_debug_trap output status module_85_first_run
+  [ "$status" -ne 0 ]
+  [[ -f "$(first_run_action_marker session-services)" ]]
+  [[ -f "$(first_run_action_marker user-directories)" ]]
+  [[ -f "$(first_run_action_marker desktop-interface)" ]]
+  [[ -f "$(first_run_action_marker desktop-defaults)" ]]
+  [[ -f "$(first_run_action_marker noctalia-templates)" ]]
+  [[ ! -f "$(first_run_marker)" ]]
+  assert_file_contains "$command_log" "noctalia msg templates-apply"
+
+  : >"$command_log"
+  capture_without_bats_debug_trap output status module_85_first_run
+  [ "$status" -ne 0 ]
+
+  assert_file_contains "$command_log" "flatpak install -y --or-update --system flathub com.spotify.Client"
+  refute_file_contains "$command_log" "noctalia msg templates-apply"
+  refute_file_contains "$command_log" "systemctl --user daemon-reload"
+  refute_file_contains "$command_log" "xdg-user-dirs-update"
+  refute_file_contains "$command_log" "gsettings set"
+  refute_file_contains "$command_log" "xdg-mime default"
+}
+
+@test "plan-dependent first-run checkpoints rerun only when their inputs change" {
+  build_test_plan "browser=firefox"
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/input-aware-first-run-home"
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  command_log="$TEST_ROOT/input-aware-first-run-commands.log"
+
+  printf 'com.spotify.Client\n' >"$(flatpak_deferred_plan_file)"
+  stub_run_cmd_as_user "$command_log"
+  stub_user_cmd_intercept() {
+    [[ "$1" != "flatpak" ]]
+  }
+  register_first_run_hook
+
+  local output status
+  capture_without_bats_debug_trap output status module_85_first_run
+  [ "$status" -ne 0 ]
+  [[ -f "$(first_run_action_marker session-services)" ]]
+  [[ -f "$(first_run_action_marker desktop-interface)" ]]
+  [[ -f "$(first_run_action_marker desktop-defaults)" ]]
+  [[ -f "$(first_run_action_marker noctalia-templates)" ]]
+  local previous_services_marker previous_interface_marker previous_defaults_marker
+  previous_services_marker="$(cat "$(first_run_action_marker session-services)")"
+  previous_interface_marker="$(cat "$(first_run_action_marker desktop-interface)")"
+  previous_defaults_marker="$(cat "$(first_run_action_marker desktop-defaults)")"
+
+  printf 'test-new-session.service\n' >>"$PLAN_DIR/services/user-enable.list"
+  DESKTOP_APP_PROFILE=minimal
+  apply_desktop_defaults() {
+    printf 'desktop-defaults-ran\n' >>"$command_log"
+  }
+  : >"$command_log"
+  capture_without_bats_debug_trap output status module_85_first_run
+  [ "$status" -ne 0 ]
+
+  assert_file_contains "$command_log" "systemctl --user enable --now test-new-session.service"
+  assert_file_contains "$command_log" "desktop-defaults-ran"
+  refute_file_contains "$command_log" "gsettings set"
+  refute_file_contains "$command_log" "noctalia msg templates-apply"
+  refute_file_contains "$command_log" "xdg-user-dirs-update"
+  [[ "$(cat "$(first_run_action_marker session-services)")" != "$previous_services_marker" ]]
+  [[ "$(cat "$(first_run_action_marker desktop-interface)")" != "$previous_interface_marker" ]]
+  [[ "$(cat "$(first_run_action_marker desktop-defaults)")" != "$previous_defaults_marker" ]]
+}
+
+@test "completed first-run state does not hide changed checkpoint inputs" {
+  build_test_plan "browser=firefox,brave"
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/completed-input-change-home"
+  PREFERRED_BROWSER=firefox
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  command_log="$TEST_ROOT/completed-input-change-commands.log"
+
+  stub_run_cmd_as_user "$command_log"
+  register_first_run_hook
+  run_without_bats_debug_trap module_85_first_run
+
+  [[ -f "$(first_run_marker)" ]]
+  local previous_defaults_marker
+  previous_defaults_marker="$(cat "$(first_run_action_marker desktop-defaults)")"
+
+  PREFERRED_BROWSER=brave
+  register_first_run_hook
+  : >"$command_log"
+  run_without_bats_debug_trap module_85_first_run
+
+  assert_file_contains "$command_log" "xdg-settings set default-web-browser brave-browser.desktop"
+  refute_file_contains "$command_log" "systemctl --user daemon-reload"
+  refute_file_contains "$command_log" "xdg-user-dirs-update"
+  refute_file_contains "$command_log" "gsettings set"
+  refute_file_contains "$command_log" "noctalia msg templates-apply"
+  [[ "$(cat "$(first_run_action_marker desktop-defaults)")" != "$previous_defaults_marker" ]]
+  [[ -f "$(first_run_marker)" ]]
+  [[ ! -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
+}
+
+@test "a failed Noctalia template request does not block independently checkpointed Flatpaks" {
+  build_test_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/independent-flatpak-home"
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  command_log="$TEST_ROOT/independent-flatpak-commands.log"
+
+  printf 'us.zoom.Zoom\n' >"$(flatpak_deferred_plan_file)"
+  stub_run_cmd_as_user "$command_log"
+  apply_noctalia_templates() {
+    return 1
+  }
+  register_first_run_hook
+
+  local output status
+  capture_without_bats_debug_trap output status module_85_first_run
+  [ "$status" -ne 0 ]
+
+  assert_file_contains "$command_log" "flatpak install -y --or-update --system flathub us.zoom.Zoom"
+  [[ ! -e "$(flatpak_deferred_plan_file)" ]]
+  [[ ! -f "$(first_run_action_marker noctalia-templates)" ]]
+  [[ ! -f "$(first_run_marker)" ]]
+  [[ -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
+}
+
+@test "a failed desktop-defaults action is not checkpointed as complete" {
+  build_test_plan "browser=firefox" "dev=vscode"
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/failed-desktop-defaults-home"
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  command_log="$TEST_ROOT/failed-desktop-defaults-commands.log"
+
+  stub_run_cmd_as_user "$command_log"
+  configure_default_applications_from_tsv() {
+    return 1
+  }
+  configure_xdg_terminal_defaults() {
+    printf 'terminal-defaults-continued\n' >>"$command_log"
+    return 0
+  }
+  configure_selected_browser_default() {
+    printf 'browser-defaults-continued\n' >>"$command_log"
+    return 0
+  }
+  register_first_run_hook
+
+  local output status
+  capture_without_bats_debug_trap output status module_85_first_run
+  [ "$status" -ne 0 ]
+
+  assert_file_contains "$command_log" "terminal-defaults-continued"
+  assert_file_contains "$command_log" "browser-defaults-continued"
+  [[ ! -f "$(first_run_action_marker desktop-defaults)" ]]
+  [[ -f "$(first_run_action_marker noctalia-templates)" ]]
+  [[ ! -f "$(first_run_marker)" ]]
+  [[ -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
+}
+
 @test "deferred flatpaks are dropped with a warning after the retry budget is spent" {
   build_test_plan
   TARGET_USER="test-user"
@@ -194,16 +371,18 @@ setup() {
   DRY_RUN=0
   command_log="$TEST_ROOT/late-deferral-commands.log"
 
-  mkdir -p "$(dirname "$(first_run_marker)")"
-  printf 'completed_at=test\n' >"$(first_run_marker)"
-  printf 'us.zoom.Zoom\n' >"$(flatpak_deferred_plan_file)"
   stub_run_cmd_as_user "$command_log"
   register_first_run_hook
+  run_without_bats_debug_trap module_85_first_run
+  [[ -f "$(first_run_marker)" ]]
 
+  printf 'us.zoom.Zoom\n' >"$(flatpak_deferred_plan_file)"
+  register_first_run_hook
+  : >"$command_log"
   run_without_bats_debug_trap module_85_first_run
 
-  # The marker short-circuit still drains the queue and clears the
-  # re-registered hook without re-running the rest of first-run.
+  # Valid aggregate and per-action checkpoints still drain the queue and clear
+  # the re-registered hook without re-running the rest of first-run.
   assert_file_contains "$command_log" "user:test-user:flatpak install -y --or-update --system flathub us.zoom.Zoom"
   refute_file_contains "$command_log" "systemctl --user daemon-reload"
   [[ ! -e "$(flatpak_deferred_plan_file)" ]]
@@ -289,6 +468,46 @@ EOF
   refute_file_contains "$command_log" "unexpected-metadata-probe"
   assert_file_contains "$command_log" "com.spotify.Client"
   assert_file_contains "$command_log" "us.zoom.Zoom"
+}
+
+@test "a failed session-service action remains pending and retries independently" {
+  build_test_plan "browser=firefox"
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/failed-session-service-home"
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  command_log="$TEST_ROOT/failed-session-service-commands.log"
+
+  stub_run_cmd_as_user "$command_log"
+  stub_user_cmd_intercept() {
+    [[ "$*" != "systemctl --user enable --now pywalfox-theme-sync.path" ]]
+  }
+  register_first_run_hook
+
+  local output status
+  capture_without_bats_debug_trap output status module_85_first_run
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Could not enable user service: pywalfox-theme-sync.path"
+  [[ ! -f "$(first_run_action_marker session-services)" ]]
+  [[ -f "$(first_run_action_marker user-directories)" ]]
+  [[ -f "$(first_run_action_marker desktop-interface)" ]]
+  [[ -f "$(first_run_action_marker desktop-defaults)" ]]
+  [[ -f "$(first_run_action_marker noctalia-templates)" ]]
+  [[ ! -f "$(first_run_marker)" ]]
+  [[ -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
+
+  unset -f stub_user_cmd_intercept
+  : >"$command_log"
+  run_without_bats_debug_trap module_85_first_run
+
+  assert_file_contains "$command_log" "systemctl --user enable --now pywalfox-theme-sync.path"
+  refute_file_contains "$command_log" "xdg-user-dirs-update"
+  refute_file_contains "$command_log" "gsettings set"
+  refute_file_contains "$command_log" "xdg-mime default"
+  refute_file_contains "$command_log" "noctalia msg templates-apply"
+  [[ -f "$(first_run_action_marker session-services)" ]]
+  [[ -f "$(first_run_marker)" ]]
+  [[ ! -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
 }
 
 @test "deferred enable failure for a home-deployed unit warns, then first-run converges it" {

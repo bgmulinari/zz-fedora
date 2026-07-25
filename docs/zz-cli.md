@@ -9,7 +9,7 @@
 | `zz doctor` | Check desktop and installation readiness. |
 | `zz logs` | Print the path to the latest installer log. |
 | `zz debug` | Create a sanitized local debug bundle. |
-| `zz first-run` | Rerun idempotent first-login setup. |
+| `zz first-run` | Resume unfinished first-login actions using independent, input-aware completion state. |
 | `zz defaults` | Reapply default applications and browser preferences. |
 | `zz dotnet` | Manage .NET development utilities. |
 | `zz refresh` | Replace one user-owned config with the current ZZ default, backing it up first. |

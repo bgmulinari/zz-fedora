@@ -38,12 +38,21 @@ enable_user_service() {
 }
 
 enable_user_services() {
-  local service_name
+  local failure_mode="${1:-warn}"
+  local service_name failed=0
+  case "$failure_mode" in
+    warn|strict) ;;
+    *) die "Unsupported user-service failure mode: $failure_mode" ;;
+  esac
   while IFS= read -r service_name; do
     [[ -n "$service_name" ]] || continue
     log_progress "Enabling user service: $service_name"
-    enable_user_service "$service_name" || log_warn "Could not enable user service: $service_name"
+    if ! enable_user_service "$service_name"; then
+      log_warn "Could not enable user service: $service_name"
+      [[ "$failure_mode" == "strict" ]] && failed=1
+    fi
   done < <(user_services_from_plan)
+  return "$failed"
 }
 
 systemd_unit_file_exists() {

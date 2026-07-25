@@ -609,6 +609,19 @@ EOF
     local user="$1"
     shift
     printf 'user:%s:%s\n' "$user" "$*" >>"$TEST_ROOT/first-run-commands.log"
+    if [[ "$*" == "noctalia msg color-scheme-get" ]]; then
+      mkdir -p "$(dirname "$(noctalia_template_apply_ack_file)")"
+      printf 'initial-pass\n' >"$(noctalia_template_apply_ack_file)"
+      return 0
+    fi
+    if [[ "$*" == "noctalia config export full" ]]; then
+      printf '[theme.templates]\nenable_community_templates = false\n'
+      return 0
+    fi
+    if [[ "$*" == "noctalia msg templates-apply" ]]; then
+      printf 'requested-pass\n' >"$(noctalia_template_apply_ack_file)"
+      return 0
+    fi
     case "$1" in
       mkdir|rm|sh|install|cp)
         "$@"
@@ -620,48 +633,176 @@ EOF
   }
 
   register_first_run_hook
-  assert_file_contains "$TARGET_HOME/.config/autostart/zz-first-run.desktop" "Exec=$TARGET_HOME/.local/bin/zz first-run"
+  assert_file_contains "$TARGET_HOME/.config/autostart/zz-first-run.desktop" \
+    "Exec=$TARGET_HOME/.local/bin/zz first-run --use-saved"
 
   run_without_bats_debug_trap module_85_first_run
   [[ -f "$(first_run_marker)" ]]
   [[ ! -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
+  [[ -f "$(first_run_action_marker session-services)" ]]
+  [[ -f "$(first_run_action_marker user-directories)" ]]
+  [[ -f "$(first_run_action_marker desktop-interface)" ]]
+  [[ -f "$(first_run_action_marker desktop-defaults)" ]]
+  [[ -f "$(first_run_action_marker noctalia-templates)" ]]
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user daemon-reload"
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user enable --now app-com.mitchellh.ghostty.service"
+  assert_file_contains "$TEST_ROOT/first-run-commands.log" "noctalia msg templates-apply"
 
   : >"$TEST_ROOT/first-run-commands.log"
   run_without_bats_debug_trap module_85_first_run
   [[ ! -s "$TEST_ROOT/first-run-commands.log" ]]
 }
 
-@test "managed Noctalia app themes render synchronously and skip without managed config" {
-  build_test_plan "browser=firefox" "dev=vscode"
+@test "first-run hook restores saved selection inputs in a fresh process" {
+  build_test_plan "browser=firefox,brave"
+  PREFERRED_BROWSER=brave
+  DRY_RUN=0
+  save_selections
+  register_first_run_hook
+
+  run bash -c '
+    set -Eeuo pipefail
+    root_dir="$1"
+    source "$root_dir/lib/common.sh"
+    source "$root_dir/lib/cli.sh"
+    parse_cli first-run --use-saved
+    [[ "$USE_SAVED_SELECTIONS" -eq 1 ]]
+    load_saved_selections
+    printf "preferred=%s\n" "$PREFERRED_BROWSER"
+    effective_choice_ids browsers
+  ' _ "$ROOT_DIR"
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "preferred=brave"
+  assert_contains "$output" "firefox"
+  assert_contains "$output" "brave"
+}
+
+@test "first-run waits for Noctalia to finish the requested template pass" {
+  build_test_plan
   TARGET_USER="theme-user"
   DRY_RUN=0
-  command_log="$TEST_ROOT/noctalia-app-theme-commands.log"
-  palette_file="$TARGET_HOME/.config/noctalia/palettes/catppuccin-mocha-blue.json"
-  config_file="$TARGET_HOME/.config/noctalia/config.toml"
-  pywalfox_config="$XDG_STATE_HOME/noctalia/community-templates/pywalfox/template.toml"
-  vscode_config="$XDG_STATE_HOME/noctalia/community-templates/vscode/template.toml"
-  mkdir -p "$(dirname "$palette_file")" "$(dirname "$pywalfox_config")" "$(dirname "$vscode_config")"
-  touch "$palette_file" "$config_file" "$pywalfox_config" "$vscode_config"
+  command_log="$TEST_ROOT/noctalia-template-commands.log"
+  readiness_attempts=0
+  sleep() { :; }
 
   run_cmd_as_user() {
     local user="$1"
     shift
     printf '%s:%s\n' "$user" "$*" >>"$command_log"
+    case "$*" in
+      "noctalia msg color-scheme-get")
+        readiness_attempts=$((readiness_attempts + 1))
+        if [[ "$readiness_attempts" -ge 3 ]]; then
+          mkdir -p "$(dirname "$(noctalia_template_apply_ack_file)")"
+          printf 'initial-pass\n' >"$(noctalia_template_apply_ack_file)"
+          return 0
+        fi
+        return 1
+        ;;
+      "noctalia config export full")
+        printf '[theme.templates]\nenable_community_templates = false\n'
+        ;;
+      "noctalia msg templates-apply")
+        [[ ! -f "$(noctalia_template_apply_ack_file)" ]]
+        printf 'requested-pass\n' >"$(noctalia_template_apply_ack_file)"
+        ;;
+    esac
   }
 
-  apply_managed_noctalia_app_themes
+  apply_noctalia_templates
 
-  assert_file_contains "$command_log" \
-    "theme-user:noctalia theme --theme-json $palette_file --default-mode dark -c $pywalfox_config"
-  assert_file_contains "$command_log" \
-    "theme-user:noctalia theme --theme-json $palette_file --default-mode dark -c $vscode_config"
+  assert_equal "3" "$readiness_attempts"
+  assert_equal "requested-pass" "$(cat "$(noctalia_template_apply_ack_file)")"
+  assert_file_line "$command_log" "theme-user:noctalia msg color-scheme-get"
+  assert_file_line "$command_log" "theme-user:noctalia config export full"
+  assert_file_line "$command_log" "theme-user:noctalia msg templates-apply"
+}
 
-  rm -f "$config_file"
-  : >"$command_log"
-  apply_managed_noctalia_app_themes
-  [[ ! -s "$command_log" ]]
+@test "Noctalia template application rejects an uncleared stale acknowledgment" {
+  build_test_plan
+  TARGET_USER="theme-user"
+  DRY_RUN=0
+  command_log="$TEST_ROOT/noctalia-stale-ack-commands.log"
+  ack_file="$(noctalia_template_apply_ack_file)"
+  mkdir -p "$(dirname "$ack_file")"
+  printf 'stale-pass\n' >"$ack_file"
+
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf '%s:%s\n' "$user" "$*" >>"$command_log"
+    case "$*" in
+      "noctalia msg color-scheme-get")
+        return 0
+        ;;
+      "noctalia config export full")
+        printf '[theme.templates]\nenable_community_templates = false\n'
+        ;;
+      "noctalia msg templates-apply")
+        return 0
+        ;;
+    esac
+  }
+  rm() {
+    if [[ "$#" -eq 2 && "$1" == "-f" && "$2" == "$ack_file" ]]; then
+      return 1
+    fi
+    command rm "$@"
+  }
+
+  local output status
+  capture_without_bats_debug_trap output status apply_noctalia_templates
+  command rm -f "$ack_file"
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Could not clear the Noctalia template acknowledgment"
+  refute_file_contains "$command_log" "noctalia msg templates-apply"
+}
+
+@test "Noctalia template readiness requires every selected community cache file" {
+  build_test_plan
+  DRY_RUN=0
+  config_snapshot="$TEST_ROOT/noctalia-effective.toml"
+  NOCTALIA_STATE_HOME="$TEST_ROOT/noctalia-state-base"
+  state_home="$NOCTALIA_STATE_HOME/noctalia"
+  mkdir -p "$state_home/community-templates/vscode"
+  printf '%s\n' \
+    '[theme.templates]' \
+    'enable_community_templates = true' \
+    'community_ids = [ "vscode" ]' >"$config_snapshot"
+  printf '%s\n' \
+    '[{"name":"vscode","files":[{"name":"template.toml"},{"name":"vscode.json"}]}]' \
+    >"$state_home/community-templates/catalog.json"
+  printf '[templates.vscode]\ninput_path = "vscode.json"\n' \
+    >"$state_home/community-templates/vscode/template.toml"
+
+  ! noctalia_community_templates_ready "$config_snapshot"
+
+  printf '{}\n' >"$state_home/community-templates/vscode/vscode.json"
+  noctalia_community_templates_ready "$config_snapshot"
+}
+
+@test "managed Noctalia template acknowledgment runs after all normal user templates" {
+  local config="$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml"
+  local input="$ROOT_DIR/dotfiles/noctalia/.config/noctalia/templates/template-apply-ack"
+
+  run python3 - "$config" "$input" <<'PY'
+import pathlib
+import sys
+import tomllib
+
+with open(sys.argv[1], "rb") as config_file:
+    config = tomllib.load(config_file)
+
+ack = config["theme"]["templates"]["user"]["template_apply_ack"]
+assert ack["input_path"] == "~/.zz/dotfiles/noctalia/.config/noctalia/templates/template-apply-ack"
+assert ack["output_path"] == "$XDG_CACHE_HOME/zz-fedora/noctalia-template-apply.done"
+assert ack["index"] == 2_147_483_647
+assert pathlib.Path(sys.argv[2]).is_file()
+PY
+
+  [ "$status" -eq 0 ]
 }
 
 @test "managed Zed settings select the enabled Noctalia theme variants" {

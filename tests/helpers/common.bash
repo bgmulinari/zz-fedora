@@ -132,6 +132,20 @@ stub_run_cmd_as_user() {
     if declare -F stub_user_cmd_intercept >/dev/null 2>&1 && ! stub_user_cmd_intercept "$@"; then
       return 1
     fi
+    if [[ "$*" == "noctalia msg color-scheme-get" ]]; then
+      mkdir -p "$(dirname "$(noctalia_template_apply_ack_file)")"
+      printf 'initial-pass\n' >"$(noctalia_template_apply_ack_file)"
+      return 0
+    fi
+    if [[ "$*" == "noctalia config export full" ]]; then
+      printf '[theme.templates]\nenable_community_templates = false\n'
+      return 0
+    fi
+    if [[ "$*" == "noctalia msg templates-apply" ]]; then
+      mkdir -p "$(dirname "$(noctalia_template_apply_ack_file)")"
+      printf 'requested-pass\n' >"$(noctalia_template_apply_ack_file)"
+      return 0
+    fi
     case "$1" in
       mkdir|rm|sh|install|cp)
         "$@"
