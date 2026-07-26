@@ -30,6 +30,7 @@ dnf	noctalia	noctalia	Noctalia v5 shell	Installs the official Fedora package lau
 dnf	ghostty	default-app	default terminal	Provides the default terminal used by keybindings and xdg-terminal-exec.
 dnf	ghostty-shell-integration	default-app	terminal shell integration	Provides Ghostty shell integration scripts for working-directory reporting, prompt marking, and shell-aware terminal behavior.
 action	jetbrains-mono-nerd-font	theme-font	terminal and prompt rendering	Installs the pinned Nerd Font used by Ghostty and Starship glyphs.
+action	desktop-cursor-theme	theme-font	Niri and graphical applications	Installs the pinned cursor theme selected by the managed Niri and desktop environment defaults.
 flatpak	org.gtk.Gtk3theme.adw-gtk3	theme-font	Flatpak GTK apps	Matches Flatpak GTK3 apps to the base GTK theme.
 flatpak	org.gtk.Gtk3theme.adw-gtk3-dark	theme-font	Flatpak GTK apps	Matches Flatpak GTK3 apps to the base dark GTK theme.
 dnf	xwayland-satellite	niri	Xwayland apps under Niri	Provides Xwayland compatibility for the Niri session.

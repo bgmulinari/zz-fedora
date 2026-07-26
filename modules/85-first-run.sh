@@ -148,9 +148,14 @@ first_run_update_user_directories() {
 }
 
 first_run_apply_desktop_interface() {
+  local cursor_theme
+  cursor_theme="$(desktop_cursor_theme_name)"
+
   if [[ "$(resolved_desktop_app_profile)" == "full" ]]; then
     run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark || true
     run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface color-scheme prefer-dark || true
+    run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface cursor-theme "$cursor_theme" || true
+    run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface cursor-size "$DESKTOP_CURSOR_THEME_SIZE" || true
   fi
 }
 
@@ -159,8 +164,11 @@ first_run_session_services_fingerprint() {
 }
 
 first_run_desktop_interface_fingerprint() {
-  printf 'desktop_app_profile=%s\n' "$(resolved_desktop_app_profile)" |
-    first_run_fingerprint
+  {
+    printf 'desktop_app_profile=%s\n' "$(resolved_desktop_app_profile)"
+    printf 'cursor_theme=%s\n' "$(desktop_cursor_theme_name)"
+    printf 'cursor_size=%s\n' "$DESKTOP_CURSOR_THEME_SIZE"
+  } | first_run_fingerprint
 }
 
 first_run_desktop_defaults_fingerprint() {

@@ -18,11 +18,6 @@ environment {
     XDG_SESSION_TYPE "wayland"
 }
 
-cursor {
-    xcursor-theme "Adwaita"
-    xcursor-size 24
-}
-
 debug {
     honor-xdg-activation-with-invalid-serial
 }

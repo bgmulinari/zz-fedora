@@ -64,6 +64,8 @@ source "$ROOT_DIR/lib/actions/docker.sh"
 source "$ROOT_DIR/lib/actions/dotnet.sh"
 # shellcheck source=./actions/fonts.sh
 source "$ROOT_DIR/lib/actions/fonts.sh"
+# shellcheck source=./actions/cursor-theme.sh
+source "$ROOT_DIR/lib/actions/cursor-theme.sh"
 # shellcheck source=./actions/noctalia-greeter.sh
 source "$ROOT_DIR/lib/actions/noctalia-greeter.sh"
 # shellcheck source=./actions/media.sh

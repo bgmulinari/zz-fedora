@@ -646,6 +646,9 @@ EOF
   [[ -f "$(first_run_action_marker noctalia-templates)" ]]
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user daemon-reload"
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user enable --now app-com.mitchellh.ghostty.service"
+  assert_file_contains "$TEST_ROOT/first-run-commands.log" \
+    "gsettings set org.gnome.desktop.interface cursor-theme $(desktop_cursor_theme_name)"
+  assert_file_contains "$TEST_ROOT/first-run-commands.log" "gsettings set org.gnome.desktop.interface cursor-size 24"
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "noctalia msg templates-apply"
 
   : >"$TEST_ROOT/first-run-commands.log"

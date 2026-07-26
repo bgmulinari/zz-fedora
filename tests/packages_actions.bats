@@ -63,6 +63,132 @@ setup() {
   done < <(read_plan_file "$base_action_plan")
 }
 
+@test "desktop cursor theme action installs and verifies the pinned compiled payload" {
+  local fixture_commit="0123456789abcdef0123456789abcdef01234567"
+  local fixture_theme="Qogir-$fixture_commit"
+  local fixture_root="$TEST_ROOT/Qogir-icon-theme-$fixture_commit"
+  local fixture_archive="$TEST_ROOT/cursor-theme.tar.gz"
+  local theme_dir real_mktemp
+
+  setup_fake_bin
+  real_mktemp="$(command -v mktemp)"
+  write_fake_command mktemp <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"$TEST_ROOT/cursor-mktemp.log"
+exec "$real_mktemp" "\$@"
+EOF
+  PATH="$FAKE_BIN:$PATH"
+
+  mkdir -p "$fixture_root/src/cursors/dist/cursors"
+  printf 'fixture license\n' >"$fixture_root/src/cursors/LICENSE"
+  printf '[Icon Theme]\nName=Qogir Cursors\n' \
+    >"$fixture_root/src/cursors/dist/index.theme"
+  printf 'compiled cursor\n' \
+    >"$fixture_root/src/cursors/dist/cursors/default"
+  ln -s default "$fixture_root/src/cursors/dist/cursors/left_ptr"
+  tar -czf "$fixture_archive" -C "$TEST_ROOT" "$(basename "$fixture_root")"
+
+  DESKTOP_CURSOR_THEME_COMMIT="$fixture_commit"
+  DESKTOP_CURSOR_THEME_ARCHIVE_SHA256="$(sha256sum "$fixture_archive" | awk '{print $1}')"
+  DESKTOP_CURSOR_THEME_ARCHIVE_URL="file://$fixture_archive"
+  DRY_RUN=0
+
+  run install_desktop_cursor_theme
+  [ "$status" -eq 0 ]
+
+  theme_dir="$(desktop_cursor_theme_dir)"
+  [[ -s "$theme_dir/LICENSE" ]]
+  [[ -s "$theme_dir/zz-niri.kdl" ]]
+  [[ -s "$theme_dir/cursors/default" ]]
+  [[ -L "$theme_dir/cursors/left_ptr" ]]
+  assert_file_contains "$theme_dir/zz-niri.kdl" "    xcursor-theme \"$fixture_theme\""
+  assert_file_contains "$theme_dir/zz-niri.kdl" '    xcursor-size 24'
+  assert_file_contains "$TEST_ROOT/cursor-mktemp.log" \
+    "-d $TARGET_HOME/.local/share/icons/.zz-cursor-theme.XXXXXX"
+  [[ -z "$(find "$TARGET_HOME/.local/share/icons" -maxdepth 1 -name '.zz-cursor-theme.*' -print -quit)" ]]
+  assert_equal "$fixture_commit" "$(<"$theme_dir/.zz-source-commit")"
+  run desktop_cursor_theme_installed
+  [ "$status" -eq 0 ]
+
+  printf 'different-commit\n' >"$theme_dir/.zz-source-commit"
+  run desktop_cursor_theme_installed
+  [ "$status" -ne 0 ]
+}
+
+@test "managed Niri cursor config appears only with the installed theme payload" {
+  local theme_name
+  theme_name="$(desktop_cursor_theme_name)"
+
+  assert_file_contains "$ROOT_DIR/dotfiles/niri/.config/niri/defaults.kdl" \
+    "include optional=true \"~/.local/share/icons/$theme_name/zz-niri.kdl\""
+  assert_file_contains "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-niri-gtk.conf" \
+    "XCURSOR_THEME=$theme_name"
+  refute_file_contains "$ROOT_DIR/dotfiles/niri/.config/niri/cfg/misc.kdl" \
+    'xcursor-theme'
+}
+
+@test "desktop cursor theme action preserves an unmanaged dangling destination symlink" {
+  local theme_dir
+  theme_dir="$(desktop_cursor_theme_dir)"
+  mkdir -p "${theme_dir%/*}"
+  ln -s missing-user-theme "$theme_dir"
+
+  run install_desktop_cursor_theme
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Cursor theme destination already exists and is not installer-managed"
+  [[ -L "$theme_dir" ]]
+  assert_equal "missing-user-theme" "$(readlink "$theme_dir")"
+}
+
+@test "desktop cursor theme action restores the previous managed payload when activation fails" {
+  local fixture_commit="0123456789abcdef0123456789abcdef01234567"
+  local fixture_root="$TEST_ROOT/Qogir-icon-theme-$fixture_commit"
+  local fixture_archive="$TEST_ROOT/cursor-theme-rollback.tar.gz"
+  local theme_dir real_mv
+
+  mkdir -p "$fixture_root/src/cursors/dist/cursors"
+  printf 'fixture license\n' >"$fixture_root/src/cursors/LICENSE"
+  printf '[Icon Theme]\nName=Qogir Cursors\n' \
+    >"$fixture_root/src/cursors/dist/index.theme"
+  printf 'compiled cursor\n' \
+    >"$fixture_root/src/cursors/dist/cursors/default"
+  ln -s default "$fixture_root/src/cursors/dist/cursors/left_ptr"
+  tar -czf "$fixture_archive" -C "$TEST_ROOT" "$(basename "$fixture_root")"
+
+  DESKTOP_CURSOR_THEME_COMMIT="$fixture_commit"
+  DESKTOP_CURSOR_THEME_ARCHIVE_SHA256="$(sha256sum "$fixture_archive" | awk '{print $1}')"
+  DESKTOP_CURSOR_THEME_ARCHIVE_URL="file://$fixture_archive"
+  DRY_RUN=0
+
+  theme_dir="$(desktop_cursor_theme_dir)"
+  mkdir -p "$theme_dir"
+  printf 'previous payload\n' >"$theme_dir/previous"
+  printf 'previous-commit\n' >"$theme_dir/.zz-source-commit"
+
+  setup_fake_bin
+  real_mv="$(command -v mv)"
+  write_fake_command mv <<EOF
+#!/usr/bin/env bash
+set -Eeuo pipefail
+count=0
+[[ ! -f "$TEST_ROOT/mv-count" ]] || count="\$(<"$TEST_ROOT/mv-count")"
+count=\$((count + 1))
+printf '%s\n' "\$count" >"$TEST_ROOT/mv-count"
+if [[ "\$count" -eq 2 ]]; then
+  exit 42
+fi
+exec "$real_mv" "\$@"
+EOF
+  PATH="$FAKE_BIN:$PATH"
+
+  run install_desktop_cursor_theme
+  [ "$status" -ne 0 ]
+  assert_file_contains "$theme_dir/previous" "previous payload"
+  assert_equal "previous-commit" "$(<"$theme_dir/.zz-source-commit")"
+  [[ -z "$(find "$TARGET_HOME/.local/share/icons" -maxdepth 1 -name '.zz-cursor-theme.*' -print -quit)" ]]
+}
+
 @test "unregistered custom actions fail dispatch with a fatal error" {
   run run_custom_action no-such-action
   [ "$status" -ne 0 ]

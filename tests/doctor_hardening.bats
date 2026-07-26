@@ -109,6 +109,7 @@ step_table_failure_policy() {
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tpavucontrol\tdefault-app\taudio mixer\tProvides a GUI mixer fallback for standalone Niri sessions.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tcopr:lionheartp/Hyprland\tdesktop-service\tNoctalia Greeter and Qt theme\tProvides Noctalia Greeter and qt6ct-kde for the required base desktop.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tnoctalia-greeter\tdesktop-service\tgraphical login\tInstalls Noctalia Greeter from COPR, configures greetd and its SELinux-labeled state, seeds the managed appearance, and enables the fallback graphical login.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tdesktop-cursor-theme\ttheme-font\tNiri and graphical applications\tInstalls the pinned cursor theme selected by the managed Niri and desktop environment defaults.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tpolicycoreutils-python-utils\tdesktop-service\tgraphical login\tProvides semanage for the Noctalia Greeter SELinux state-directory policy.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tnoctalia\tnoctalia\tNoctalia v5 shell\tInstalls the official Fedora package launched by Niri autostart.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tterra\tdefault-app\tGhostty\tBootstraps Terra release packages for required Ghostty packages.'

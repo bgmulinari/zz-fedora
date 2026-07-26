@@ -1,0 +1,10 @@
+id = "base-desktop-cursor-theme"
+description = "Pinned desktop cursor theme for the Niri session and graphical applications"
+
+[base]
+order = 195
+
+[[install]]
+backend = "action"
+sources = ["artifact:desktop-cursor-theme"]
+actions = ["desktop-cursor-theme"]

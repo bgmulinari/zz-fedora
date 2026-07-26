@@ -1,0 +1,8 @@
+id = "artifact:desktop-cursor-theme"
+kind = "artifact"
+label = "Pinned Qogir cursor theme"
+project = "https://github.com/vinceliuice/Qogir-icon-theme@c633057ba0d27a504b3255144071c9691ed0264a"
+required = true
+description = "Compiled XCursor payload used by the required desktop cursor theme action"
+gpg_policy = "sha256"
+reason = "Provides a reviewed immutable cursor archive verified by its repository-pinned SHA-256 checksum"
