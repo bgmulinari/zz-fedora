@@ -2,6 +2,12 @@
 
 This is the living checkpoint for the Noctalia v5 integration. Update it every time this repo changes its Noctalia v5 packages, sources, config, Niri wiring, templates, tests, or assumptions.
 
+## 2026-07-26 Niri overview backdrop
+
+- Promoted the portable Noctalia Settings UI preference `backdrop.enabled = true` into the managed config.
+- Updated the Niri layer rule to match Noctalia's `^noctalia-backdrop` namespace, allowing the blurred and tinted wallpaper surface to appear inside Niri's overview backdrop.
+- Removed the promoted state key plus baseline-equivalent theme mode and default wallpaper path overrides from `~/.local/state/noctalia/settings.toml`. Noctalia's internal `config_version`, wallpaper favorite/last/per-output data, and generated widget/output state remain app-managed or hardware-specific.
+
 ## 2026-07-25 beta4 integration
 
 - Upstream `v5.0.0-beta.4` resolves to signed tag commit `4c2dcd0995f9c570c0ced95561bf5e4685e2ad1b`. Fedora 44 Updates carries `noctalia-5.0.0~beta.4-1.fc44`, and that package is installed on the development host. The running shell reports `noctalia v5.0.0 (v5.0.0-beta.4)`, responds over IPC, has no Noctalia coredump since the update, and has no warning-or-higher user-journal entries since release day.

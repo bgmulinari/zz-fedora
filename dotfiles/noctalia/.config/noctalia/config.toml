@@ -136,6 +136,9 @@ transition_on_startup = true
 [wallpaper.default]
 path = "~/.local/share/backgrounds/Alpenglow.jpg"
 
+[backdrop]
+enabled = true
+
 # Idle behavior
 
 [idle]
