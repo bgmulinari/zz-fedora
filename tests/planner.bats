@@ -310,6 +310,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "noctalia"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-keyring"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-keyring-pam"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-terminal-exec"

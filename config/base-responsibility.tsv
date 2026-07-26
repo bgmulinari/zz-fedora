@@ -36,6 +36,7 @@ dnf	xwayland-satellite	niri	Xwayland apps under Niri	Provides Xwayland compatibi
 dnf	xdg-desktop-portal-gtk	desktop-service	GTK portals	Provides GTK portal implementations for file pickers and settings.
 dnf	xdg-desktop-portal-gnome	desktop-service	GNOME portal integration	Provides portal coverage expected by GTK/GNOME applications.
 dnf	gnome-keyring	noctalia	Noctalia encrypted persistence	Provides the Secret Service used for durable credentials and encrypted shell state.
+dnf	gnome-keyring-pam	noctalia	Noctalia encrypted persistence	Unlocks the login keyring from the graphical login password so encrypted state opens without a separate prompt.
 dnf	NetworkManager	desktop-service	network service	Provides the base network management service.
 dnf	NetworkManager-wifi	desktop-service	network service	Adds Wi-Fi support to NetworkManager.
 dnf	NetworkManager-bluetooth	desktop-service	network service	Adds Bluetooth networking support to NetworkManager.
