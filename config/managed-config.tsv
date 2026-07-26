@@ -34,5 +34,3 @@ btop	~/.config/btop/btop.conf	seed-if-missing	preserve	dotfiles/btop/.config/bto
 nvim	~/.local/share/applications/nvim.desktop	product-link	backup-before-link	dotfiles/nvim/.local/share/applications/nvim.desktop	nvim	Links the managed terminal-editor desktop entry.
 vscode	~/.config/Code/User/settings.json	seed-if-missing	preserve	dotfiles/vscode/.config/Code/User/settings.json	code	Seeds user-owned Visual Studio Code settings.
 zed	~/.config/zed/settings.json	seed-if-missing	preserve	dotfiles/zed/.config/zed/settings.json	zed	Seeds user-owned Zed settings.
-pywalfox	/usr/lib/systemd/user/pywalfox-theme-sync.path	system-file	regenerate	dotfiles/pywalfox/.config/systemd/user/pywalfox-theme-sync.path	-	Installs the product-owned Pywalfox path unit.
-pywalfox	/usr/lib/systemd/user/pywalfox-theme-sync.service	system-file	regenerate	dotfiles/pywalfox/.config/systemd/user/pywalfox-theme-sync.service	-	Installs the product-owned Pywalfox synchronization service.

@@ -171,9 +171,6 @@ build_plan_from_selections() {
   if plan_file_has_entry "$(package_file_for_backend "$(native_backend)")" "ghostty"; then
     append_plan_entries "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
   fi
-  if plan_file_has_entry "$PLAN_DIR/actions/actions.list" "pywalfox"; then
-    append_plan_entries "$PLAN_DIR/services/user-enable.list" "pywalfox-theme-sync.path"
-  fi
   append_managed_file "~/.local/share/backgrounds"
   append_managed_file "~/.local/state/noctalia/.setup-complete"
   append_managed_file "~/.local/state/noctalia/settings.toml"

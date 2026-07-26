@@ -1,0 +1,7 @@
+id = "browsers-firefox-theme"
+description = "Noctalia theme synchronization for Firefox"
+
+[[install]]
+backend = "action"
+sources = ["artifact:firefox-theme-extension"]
+actions = ["firefox-theme"]

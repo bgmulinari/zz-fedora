@@ -8,4 +8,4 @@ minimal_desktop_skip = true
 
 [[install]]
 backend = "dnf"
-packages = ["gnome-keyring", "xdg-desktop-portal-gnome", "xdg-desktop-portal-gtk"]
+packages = ["xdg-desktop-portal-gnome", "xdg-desktop-portal-gtk"]

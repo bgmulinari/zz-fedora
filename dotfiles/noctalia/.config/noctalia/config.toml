@@ -179,7 +179,7 @@ builtin_ids = [
 ]
 enable_community_templates = true
 community_ids = [
-  "pywalfox",
+  "pywalfox-beta4",
   "zen-browser",
   "neovim",
   "vscode",

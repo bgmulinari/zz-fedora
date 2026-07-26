@@ -1,0 +1,7 @@
+id = "artifact:firefox-theme-extension"
+kind = "artifact"
+label = "Firefox theme extension"
+project = "https://addons.mozilla.org/firefox/addon/pywalfox/"
+description = "Optional browser extension for Noctalia theme synchronization"
+gpg_policy = "tls-only"
+reason = "Firefox fetches the signed extension from Mozilla Add-ons when the user enables it"

@@ -48,8 +48,8 @@ source "$ROOT_DIR/lib/actions/homebrew.sh"
 source "$ROOT_DIR/lib/actions/npm.sh"
 # shellcheck source=./actions/vscode.sh
 source "$ROOT_DIR/lib/actions/vscode.sh"
-# shellcheck source=./actions/pywalfox.sh
-source "$ROOT_DIR/lib/actions/pywalfox.sh"
+# shellcheck source=./actions/firefox-theme.sh
+source "$ROOT_DIR/lib/actions/firefox-theme.sh"
 # shellcheck source=./actions/claude-code.sh
 source "$ROOT_DIR/lib/actions/claude-code.sh"
 # shellcheck source=./actions/jetbrains.sh

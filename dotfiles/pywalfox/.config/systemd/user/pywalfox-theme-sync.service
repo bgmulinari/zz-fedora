@@ -1,6 +1,0 @@
-[Unit]
-Description=Apply the current desktop palette to Firefox
-
-[Service]
-Type=oneshot
-ExecStart=%h/.local/bin/pywalfox update

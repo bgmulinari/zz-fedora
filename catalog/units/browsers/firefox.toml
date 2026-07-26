@@ -1,6 +1,6 @@
 id = "browsers-firefox"
 description = "Firefox browser bundle for Fedora"
-requires = ["browsers-firefox-pywalfox"]
+requires = ["browsers-firefox-theme"]
 
 [choice]
 category = "browsers"

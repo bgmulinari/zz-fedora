@@ -480,14 +480,14 @@ EOF
 
   stub_run_cmd_as_user "$command_log"
   stub_user_cmd_intercept() {
-    [[ "$*" != "systemctl --user enable --now pywalfox-theme-sync.path" ]]
+    [[ "$*" != "systemctl --user enable --now app-com.mitchellh.ghostty.service" ]]
   }
   register_first_run_hook
 
   local output status
   capture_without_bats_debug_trap output status module_85_first_run
   [ "$status" -ne 0 ]
-  assert_contains "$output" "Could not enable user service: pywalfox-theme-sync.path"
+  assert_contains "$output" "Could not enable user service: app-com.mitchellh.ghostty.service"
   [[ ! -f "$(first_run_action_marker session-services)" ]]
   [[ -f "$(first_run_action_marker user-directories)" ]]
   [[ -f "$(first_run_action_marker desktop-interface)" ]]
@@ -500,7 +500,7 @@ EOF
   : >"$command_log"
   run_without_bats_debug_trap module_85_first_run
 
-  assert_file_contains "$command_log" "systemctl --user enable --now pywalfox-theme-sync.path"
+  assert_file_contains "$command_log" "systemctl --user enable --now app-com.mitchellh.ghostty.service"
   refute_file_contains "$command_log" "xdg-user-dirs-update"
   refute_file_contains "$command_log" "gsettings set"
   refute_file_contains "$command_log" "xdg-mime default"
@@ -510,7 +510,7 @@ EOF
   [[ ! -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
 }
 
-@test "deferred enable failure for a home-deployed unit warns, then first-run converges it" {
+@test "deferred enable failure warns, then first-run converges the planned service" {
   build_test_plan "browser=firefox"
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/deferred-first-run-home"
@@ -518,21 +518,20 @@ EOF
   DRY_RUN=0
   command_log="$TEST_ROOT/deferred-first-run-commands.log"
 
-  # Phase 1: deferred chroot install. systemctl --global cannot see units
-  # installed as managed configuration, so the Pywalfox unit fails while
-  # RPM-shipped units keep working; the run warns and continues.
+  # Phase 1: deferred chroot install cannot enable one planned user unit, so
+  # the run warns and continues.
   ZZ_INSTALLER_DEFER_START_SERVICES=1
   run_cmd_as_root() {
     printf 'root:%s\n' "$*" >>"$command_log"
-    [[ "$*" != *"pywalfox-theme-sync.path"* ]]
+    [[ "$*" != *"app-com.mitchellh.ghostty.service"* ]]
   }
   stub_run_cmd_as_user "$command_log"
 
   local output status
   capture_without_bats_debug_trap output status enable_user_services
   [ "$status" -eq 0 ]
-  assert_contains "$output" "Could not enable user service: pywalfox-theme-sync.path"
-  assert_file_contains "$command_log" "root:systemctl --global enable pywalfox-theme-sync.path"
+  assert_contains "$output" "Could not enable user service: app-com.mitchellh.ghostty.service"
+  assert_file_contains "$command_log" "root:systemctl --global enable app-com.mitchellh.ghostty.service"
   refute_file_contains "$command_log" "user:test-user"
 
   # Phase 2: first login runs in the user's real session against the durable
@@ -546,7 +545,6 @@ EOF
 
   [[ -f "$(first_run_marker)" ]]
   [[ ! -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
-  assert_file_contains "$command_log" "user:test-user:systemctl --user enable --now pywalfox-theme-sync.path"
   assert_file_contains "$command_log" "user:test-user:systemctl --user enable --now app-com.mitchellh.ghostty.service"
 
   # Repeated logins stay clean: the marker short-circuits first-run.

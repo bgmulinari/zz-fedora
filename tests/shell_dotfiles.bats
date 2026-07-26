@@ -48,7 +48,20 @@ EOF
     sh "$ROOT_DIR/dotfiles/shell/.profile"
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" "PATH=$home_dir/.local/bin:$FAKE_BIN:/usr/bin"
+  # The generator also reads /usr/lib/environment.d, so a host with the product
+  # environment file installed legitimately prepends the same user bin a second
+  # time. The inherited PATH must survive intact underneath, and every element
+  # ahead of it must still be that one directory.
+  local path_line="${output%%$'\n'*}"
+  [[ "$path_line" == PATH=* ]]
+  path_line="${path_line#PATH=}"
+  [[ "$path_line" == *":$FAKE_BIN:/usr/bin" ]]
+  local prepended="${path_line%":$FAKE_BIN:/usr/bin"}"
+  while [[ -n "$prepended" ]]; do
+    assert_equal "$home_dir/.local/bin" "${prepended%%:*}"
+    [[ "$prepended" == *:* ]] || break
+    prepended="${prepended#*:}"
+  done
   assert_contains "$output" "NIRI=$FAKE_BIN/niri-session"
   refute_contains "$output" '${HOME}'
   refute_contains "$output" '${PATH:-'

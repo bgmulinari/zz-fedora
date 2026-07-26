@@ -705,7 +705,7 @@ TOML
   assert_equal "core,shell" "$BUNDLE_CONFIG_COMPONENTS"
 
   load_bundle_descriptor browsers-firefox
-  assert_equal "browsers-firefox-pywalfox" "$BUNDLE_DEPENDENCIES"
+  assert_equal "browsers-firefox-theme" "$BUNDLE_DEPENDENCIES"
 
   bundle_exists browsers-brave
   run bundle_exists no-such-bundle

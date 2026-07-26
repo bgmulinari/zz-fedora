@@ -136,7 +136,13 @@ setup() {
 @test "print-plan fails fast when the catalog references an unregistered action" {
   local repo_copy="$TEST_ROOT/repo-copy"
   mkdir -p "$repo_copy/assets/wallpapers"
-  git -C "$ROOT_DIR" ls-files -z -- . ':!assets' \
+  # Copy the working tree, not HEAD, so uncommitted catalog and action work is
+  # exercised too: untracked-but-not-ignored files are included, and files
+  # deleted from the working tree are dropped even while still in the index.
+  git -C "$ROOT_DIR" ls-files -z --cached --others --exclude-standard -- . ':!assets' \
+    | while IFS= read -r -d '' path; do
+      [[ -e "$ROOT_DIR/$path" ]] && printf '%s\0' "$path"
+    done \
     | tar --null -cf - -C "$ROOT_DIR" -T - \
     | tar -xf - -C "$repo_copy"
   printf '\n[[install]]\nbackend = "action"\nactions = ["not-a-registered-action"]\n' \

@@ -7,4 +7,4 @@ order = 80
 
 [[install]]
 backend = "dnf"
-packages = ["noctalia"]
+packages = ["gnome-keyring", "noctalia"]

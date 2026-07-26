@@ -132,58 +132,110 @@ setup() {
   assert_equal "1" "$(grep -Fc 'code-user:code --install-extension noctalia.noctaliatheme' "$command_log")"
   assert_file_contains "$command_log" "code-user:code --list-extensions"
 }
-@test "Pywalfox action installs native host and user-disableable Firefox extension policy" {
+@test "Firefox theme action registers Noctalia's native host and user-disableable extension policy" {
   DRY_RUN=0
   TARGET_USER="firefox-user"
   TARGET_HOME="$TEST_ROOT/firefox-home"
-  FIREFOX_POLICIES_FILE="$TEST_ROOT/firefox-policy/policies.json"
-  command_log="$TEST_ROOT/pywalfox-commands.log"
-  mkdir -p "$TARGET_HOME" "$(dirname "$FIREFOX_POLICIES_FILE")"
-  printf '{"policies":{"DisableTelemetry":true}}\n' >"$FIREFOX_POLICIES_FILE"
+  ZZ_FIREFOX_POLICIES_FILE="$TEST_ROOT/firefox-policy/policies.json"
+  command_log="$TEST_ROOT/firefox-theme-commands.log"
+  noctalia_bin="$TEST_ROOT/bin/noctalia"
+  mkdir -p "$TARGET_HOME" "$(dirname "$ZZ_FIREFOX_POLICIES_FILE")" "$(dirname "$noctalia_bin")"
+  printf '{"policies":{"DisableTelemetry":true}}\n' >"$ZZ_FIREFOX_POLICIES_FILE"
+  printf '#!/usr/bin/env bash\n' >"$noctalia_bin"
+  chmod +x "$noctalia_bin"
 
-  run_user_login_shell() {
-    printf '%s\n' "$1" >>"$command_log"
-    mkdir -p "$TARGET_HOME/.local/bin"
-    printf '#!/usr/bin/env bash\n' >"$TARGET_HOME/.local/bin/pywalfox"
-    chmod +x "$TARGET_HOME/.local/bin/pywalfox"
+  firefox_theme_noctalia_bin() {
+    printf '%s\n' "$noctalia_bin"
   }
   run_cmd_as_user() {
     local user="$1"
     shift
     printf '%s:%s\n' "$user" "$*" >>"$command_log"
-    if [[ "$*" == "$TARGET_HOME/.local/bin/pywalfox install --executable $TARGET_HOME/.local/bin/pywalfox" ]]; then
+    if [[ "$*" == "env HOME=$TARGET_HOME $noctalia_bin firefox-theme install" ]]; then
       mkdir -p "$TARGET_HOME/.mozilla/native-messaging-hosts"
       jq -n \
-        --arg executable "$TARGET_HOME/.local/bin/pywalfox" \
-        --arg extension_id "$PYWALFOX_EXTENSION_ID" \
+        --arg executable "$noctalia_bin" \
+        --arg extension_id "$FIREFOX_THEME_EXTENSION_ID" \
         '{path: $executable, allowed_extensions: [$extension_id]}' \
         >"$TARGET_HOME/.mozilla/native-messaging-hosts/pywalfox.json"
     fi
   }
 
-  run install_pywalfox
+  run install_firefox_theme
   [ "$status" -eq 0 ]
-  run verify_custom_action pywalfox
+  run verify_custom_action firefox-theme
   [ "$status" -eq 0 ]
 
-  assert_file_contains "$command_log" "pipx upgrade pywalfox || pipx install --force pywalfox"
-  assert_file_contains "$command_log" "firefox-user:$TARGET_HOME/.local/bin/pywalfox install --executable $TARGET_HOME/.local/bin/pywalfox"
-  jq -e '.policies.DisableTelemetry == true' "$FIREFOX_POLICIES_FILE" >/dev/null
-  jq -e '.policies.ExtensionSettings["pywalfox@frewacom.org"].installation_mode == "normal_installed"' "$FIREFOX_POLICIES_FILE" >/dev/null
-  jq -e '.policies.ExtensionSettings["pywalfox@frewacom.org"].install_url == "https://addons.mozilla.org/firefox/downloads/latest/pywalfox/latest.xpi"' "$FIREFOX_POLICIES_FILE" >/dev/null
+  assert_file_contains "$command_log" \
+    "firefox-user:env HOME=$TARGET_HOME $noctalia_bin firefox-theme install"
+  jq -e '.policies.DisableTelemetry == true' "$ZZ_FIREFOX_POLICIES_FILE" >/dev/null
+  jq -e '.policies.ExtensionSettings["pywalfox@frewacom.org"].installation_mode == "normal_installed"' "$ZZ_FIREFOX_POLICIES_FILE" >/dev/null
+  jq -e '.policies.ExtensionSettings["pywalfox@frewacom.org"].install_url == "https://addons.mozilla.org/firefox/downloads/latest/pywalfox/latest.xpi"' "$ZZ_FIREFOX_POLICIES_FILE" >/dev/null
 }
-@test "Pywalfox theme sync follows native host socket changes" {
-  path_unit="$ROOT_DIR/dotfiles/pywalfox/.config/systemd/user/pywalfox-theme-sync.path"
-  service_unit="$ROOT_DIR/dotfiles/pywalfox/.config/systemd/user/pywalfox-theme-sync.service"
+@test "Firefox theme verification accepts any Noctalia-owned host and replaces a foreign one" {
+  DRY_RUN=0
+  TARGET_HOME="$TEST_ROOT/firefox-host-home"
+  ZZ_FIREFOX_POLICIES_FILE="$TEST_ROOT/firefox-host-policy/policies.json"
+  manifest="$TARGET_HOME/.mozilla/native-messaging-hosts/pywalfox.json"
+  mkdir -p "$(dirname "$manifest")" "$(dirname "$ZZ_FIREFOX_POLICIES_FILE")" \
+    "$TARGET_HOME/.local/bin" "$TEST_ROOT/session-prefix/bin"
+  jq -n \
+    --arg extension_id "$FIREFOX_THEME_EXTENSION_ID" \
+    --arg extension_url "$FIREFOX_THEME_EXTENSION_URL" \
+    '{policies: {ExtensionSettings: {($extension_id): {
+      installation_mode: "normal_installed",
+      install_url: $extension_url
+    }}}}' >"$ZZ_FIREFOX_POLICIES_FILE"
 
-  assert_file_contains "$path_unit" "PathChanged=/tmp/pywalfox_socket_%U"
-  assert_file_contains "$path_unit" "Unit=pywalfox-theme-sync.service"
-  assert_file_contains "$service_unit" "ExecStart=%h/.local/bin/pywalfox update"
+  write_manifest_host() {
+    jq -n \
+      --arg executable "$1" \
+      --arg extension_id "$FIREFOX_THEME_EXTENSION_ID" \
+      '{path: $executable, allowed_extensions: [$extension_id]}' >"$manifest"
+  }
+
+  # Noctalia rewrites its own manifest from whichever binary is running, so a
+  # host outside the installer's resolution stays converged.
+  session_bin="$TEST_ROOT/session-prefix/bin/noctalia"
+  printf '#!/usr/bin/env bash\n' >"$session_bin"
+  chmod +x "$session_bin"
+  write_manifest_host "$session_bin"
+  run verify_custom_action firefox-theme
+  [ "$status" -eq 0 ]
+
+  # A host Noctalia does not own is not converged, so the action reinstalls it.
+  foreign_bin="$TARGET_HOME/.local/bin/pywalfox"
+  printf '#!/usr/bin/env bash\n' >"$foreign_bin"
+  chmod +x "$foreign_bin"
+  write_manifest_host "$foreign_bin"
+  run verify_custom_action firefox-theme
+  [ "$status" -ne 0 ]
+
+  # A manifest naming a host that is no longer installed is not converged.
+  write_manifest_host "$TEST_ROOT/session-prefix/bin/noctalia-removed"
+  run verify_custom_action firefox-theme
+  [ "$status" -ne 0 ]
 }
-@test "managed graphical session exposes pipx-installed Pywalfox to Noctalia" {
-  environment_file="$ROOT_DIR/dotfiles/environment/.config/environment.d/10-niri-gtk.conf"
+@test "Firefox theme policy installation uses root only where the destination needs it" {
+  DRY_RUN=0
+  ZZ_FIREFOX_POLICIES_FILE="$TEST_ROOT/writable-policy/policies.json"
+  command_log="$TEST_ROOT/firefox-policy-commands.log"
+  mkdir -p "$(dirname "$ZZ_FIREFOX_POLICIES_FILE")"
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*" >>"$command_log"
+  }
 
-  assert_file_line "$environment_file" 'PATH=${HOME}/.local/bin:${PATH:-/usr/local/bin:/usr/bin}'
+  run install_firefox_theme_policy
+  [ "$status" -eq 0 ]
+  [[ ! -e "$command_log" ]]
+  jq -e '.policies.ExtensionSettings["pywalfox@frewacom.org"].installation_mode == "normal_installed"' \
+    "$ZZ_FIREFOX_POLICIES_FILE" >/dev/null
+
+  # An override pointing at a path the caller cannot write still escalates.
+  ZZ_FIREFOX_POLICIES_FILE="/etc/zz-firefox-policy-test/policies.json"
+  run install_firefox_theme_policy
+  [ "$status" -eq 0 ]
+  assert_file_contains "$command_log" "root:mkdir -p /etc/zz-firefox-policy-test"
 }
 @test "pinned Git checkout is verified as its target user" {
   DRY_RUN=0
