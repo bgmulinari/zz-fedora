@@ -2,18 +2,6 @@
 
 This is the living checkpoint for the Noctalia v5 integration. Update it every time this repo changes its Noctalia v5 packages, sources, config, Niri wiring, templates, tests, or assumptions.
 
-## 2026-07-26 desktop cursor theme
-
-- Replaced the Adwaita cursor default with the standard Qogir XCursor theme at size 24 in the managed Niri config, the desktop session environment, and the first-login GTK interface settings.
-- Added a required base action that installs only Qogir's ready-built standard cursor payload from upstream commit `c633057ba0d27a504b3255144071c9691ed0264a`; the archive is pinned by SHA-256 and the installed payload carries a commit marker for idempotent verification.
-- Verified the configuration contract against Niri `v26.04` (`8ed0da44d974c32c6877d2f4630c314da0717ecb`): Niri calls `CursorManager::reload`, clears its cursor caches, and updates `XCURSOR_THEME` and `XCURSOR_SIZE` only when the cursor configuration value changes. The managed defaults therefore watch an optional action-generated cursor include that appears atomically with the installed payload, and the installed theme directory and configured theme identity include the pinned commit so both initial installation and future pin changes produce a real cursor configuration transition only after the new payload is readable.
-
-## 2026-07-26 Niri overview backdrop
-
-- Promoted the portable Noctalia Settings UI preference `backdrop.enabled = true` into the managed config.
-- Updated the Niri layer rule to match Noctalia's `^noctalia-backdrop` namespace, allowing the blurred and tinted wallpaper surface to appear inside Niri's overview backdrop.
-- Removed the promoted state key plus baseline-equivalent theme mode and default wallpaper path overrides from `~/.local/state/noctalia/settings.toml`. Noctalia's internal `config_version`, wallpaper favorite/last/per-output data, and generated widget/output state remain app-managed or hardware-specific.
-
 ## 2026-07-25 beta4 integration
 
 - Upstream `v5.0.0-beta.4` resolves to signed tag commit `4c2dcd0995f9c570c0ced95561bf5e4685e2ad1b`. Fedora 44 Updates carries `noctalia-5.0.0~beta.4-1.fc44`, and that package is installed on the development host. The running shell reports `noctalia v5.0.0 (v5.0.0-beta.4)`, responds over IPC, has no Noctalia coredump since the update, and has no warning-or-higher user-journal entries since release day.
