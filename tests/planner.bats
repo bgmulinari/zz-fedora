@@ -104,6 +104,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "boot-splash"
   assert_plan_has "$PLAN_DIR/config/components.list" "noctalia"
+  assert_plan_has "$PLAN_DIR/config/components.list" "fastfetch"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "zsh"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "bash-completion"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "bats"
@@ -130,6 +131,8 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/noctalia/config.toml"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/noctalia/templates/ghostty"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/noctalia/templates/icon-theme-accent"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/fastfetch/config.jsonc"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/fastfetch/zz-fedora.txt"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/noctalia-reload-ghostty"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/noctalia-sync-icon-theme"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-login-manager'

@@ -61,6 +61,31 @@ setup() {
   assert_equal "personal defaults" "$(cat "$destination")"
 }
 
+@test "Fastfetch component seeds user config and links the product logo" {
+  managed_config_required_command_available() {
+    return 0
+  }
+  mkdir -p "$PLAN_DIR/files"
+  : >"$(managed_config_deployment_plan_file)"
+  append_managed_config_component fastfetch
+
+  run apply_managed_config_plan
+
+  [ "$status" -eq 0 ]
+  [ -f "$TARGET_HOME/.config/fastfetch/config.jsonc" ]
+  [[ -L "$TARGET_HOME/.config/fastfetch/zz-fedora.txt" ]]
+  assert_file_contains "$TARGET_HOME/.config/fastfetch/config.jsonc" '"modules": ['
+  assert_file_contains "$TARGET_HOME/.config/fastfetch/config.jsonc" '"title"'
+  assert_file_contains "$TARGET_HOME/.config/fastfetch/config.jsonc" '"colors"'
+  assert_file_contains "$TARGET_HOME/.config/fastfetch/config.jsonc" '"type": "file"'
+  assert_file_contains "$TARGET_HOME/.config/fastfetch/config.jsonc" '"source": "~/.config/fastfetch/zz-fedora.txt"'
+  assert_file_contains "$TARGET_HOME/.config/fastfetch/config.jsonc" '"1": "blue"'
+  assert_file_contains "$TARGET_HOME/.config/fastfetch/config.jsonc" '"2": "white"'
+  assert_equal \
+    "$(readlink -f "$ROOT_DIR/dotfiles/fastfetch/.config/fastfetch/zz-fedora.txt")" \
+    "$(readlink -f "$TARGET_HOME/.config/fastfetch/zz-fedora.txt")"
+}
+
 @test "skip user config leaves home paths alone while system rows still apply" {
   SKIP_USER_CONFIG=1
   mkdir -p "$PLAN_DIR/files"

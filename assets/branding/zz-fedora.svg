@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 960" role="img" aria-labelledby="title desc">
+  <title id="title">ZZ Fedora logo</title>
+  <desc id="desc">An asymmetric blue rounded badge containing two geometric white Z ribbons joined along their straight top and bottom horizontals.</desc>
+  <path
+    d="M480 24C228 24 24 228 24 480V728C24 843 117 936 232 936H480C732 936 936 732 936 480C936 228 732 24 480 24Z"
+    fill="#51A2DA"
+  />
+  <g fill="none" stroke="#fff" stroke-width="96" stroke-linejoin="round">
+    <path d="M406 304H522M438 656H558" stroke-linecap="butt"/>
+    <path d="M162 304H406L198 656H438" stroke-linecap="round"/>
+    <path d="M522 304H766L558 656H798" stroke-linecap="round"/>
+  </g>
+</svg>

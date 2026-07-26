@@ -1,0 +1,19 @@
+$1             .',;::::;,'.
+         .';:cccccccccccc:;,.
+      .;cccccccccccccccccccccc;.
+    .:cccccccccccccccccccccccccc:.
+  .;cccccccccccccccccccccccccccccc;.
+ .:c$2.x0000000000000000000000000o$1ccc:.
+.:cc$2.xMMMMMMMMMMMMMMMMMMMMMMMMMx$1cccc:.
+,ccccccccccc$2xMMM:$1ccccccccc$2oMMMo$1cccccc,
+:ccccccccc$2.0MM0.$1ccccccccc$2oMMM:$1ccccccc:
+:cccccccc$2.0MM0.$1ccccccccc$2xMMM:$1cccccccc:
+cccccccc$2:MMMx$1ccccccccc$2.0MM0.$1ccccccccc;
+ccccccc$2:MMMo$1ccccccccc$2.0MM0$1ccccccccccc'
+cccccc$2oMMMMMMMMMMMMMMMMMMMMMMMMMx.$1cc;
+cccccc$2o0000000000000000000000000x.$1c;
+ccccccccccccccccccccccccccccccccc:,
+ccccccccccccccccccccccccccccccc:,.
+ccccccccccccccccccccccccccccc:'.
+:ccccccccccccccccccccccc:;,..
+ ':cccccccccccccccc::;,.

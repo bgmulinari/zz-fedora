@@ -5,6 +5,8 @@ core	~/.local/share/backgrounds	seed-if-missing	preserve	-	-	Seeds bundled wallp
 shell	~/.bashrc	seed-if-missing	preserve	templates/shell/bashrc	-	Seeds a user-owned Bash entrypoint that loads the live ZZ shell defaults.
 shell	~/.profile	seed-if-missing	preserve	templates/shell/profile	-	Seeds a user-owned login-shell entrypoint that loads the live ZZ environment defaults.
 shell-fastfetch	~/.config/zz-fedora/shell.d/fastfetch	product-link	backup-before-link	dotfiles/shell-fastfetch/.shellrc.d/fastfetch	fastfetch	Links the selected Fastfetch shell integration.
+fastfetch	~/.config/fastfetch/config.jsonc	seed-if-missing	preserve	templates/fastfetch/config.jsonc	fastfetch	Seeds a user-owned Fastfetch configuration that selects the ZZ Fedora logo.
+fastfetch	~/.config/fastfetch/zz-fedora.txt	product-link	backup-before-link	dotfiles/fastfetch/.config/fastfetch/zz-fedora.txt	fastfetch	Links the product-owned ZZ Fedora Fastfetch logo.
 shell-fzf	~/.config/zz-fedora/shell.d/fzf	product-link	backup-before-link	dotfiles/shell-fzf/.shellrc.d/fzf	fzf	Links the selected fzf shell integration.
 shell-starship	~/.config/zz-fedora/shell.d/starship	product-link	backup-before-link	dotfiles/shell-starship/.shellrc.d/starship	starship	Links the selected Starship shell integration.
 shell-yazi	~/.config/zz-fedora/shell.d/yazi	product-link	backup-before-link	dotfiles/shell-yazi/.shellrc.d/yazi	yazi	Links the selected Yazi shell integration.
