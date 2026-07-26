@@ -24,6 +24,7 @@ ghostty	~/.config/ghostty/themes/noctalia	seed-if-missing	preserve	templates/gho
 noctalia	~/.config/noctalia/config.toml	seed-if-missing	preserve	templates/noctalia/config.toml	noctalia	Seeds the user-owned Noctalia include entrypoint.
 noctalia	~/.config/noctalia/conf.d	directory	preserve	-	noctalia	Provides a user-owned Noctalia override directory.
 noctalia	~/.config/noctalia/palettes/catppuccin-mocha-blue.json	product-link	backup-before-link	dotfiles/noctalia/.config/noctalia/palettes/catppuccin-mocha-blue.json	noctalia	Links the managed Noctalia palette.
+noctalia	~/.config/noctalia/palettes/fedora.json	product-link	backup-before-link	dotfiles/noctalia/.config/noctalia/palettes/fedora.json	noctalia	Links the managed Fedora palette.
 noctalia	~/.config/noctalia/templates/ghostty	product-link	backup-before-link	dotfiles/noctalia/.config/noctalia/templates/ghostty	noctalia	Links the managed Ghostty color template.
 noctalia	~/.config/noctalia/templates/icon-theme-accent	product-link	backup-before-link	dotfiles/noctalia/.config/noctalia/templates/icon-theme-accent	noctalia	Links the managed icon-accent template.
 noctalia	~/.local/bin/noctalia-reload-ghostty	product-link	backup-before-link	dotfiles/noctalia/.local/bin/noctalia-reload-ghostty	noctalia	Links the Ghostty reload helper.

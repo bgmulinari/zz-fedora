@@ -2,6 +2,14 @@
 
 This is the living checkpoint for the Noctalia v5 integration. Update it every time this repo changes its Noctalia v5 packages, sources, config, Niri wiring, templates, tests, or assumptions.
 
+## 2026-07-26 Fedora custom palette
+
+- Added `dotfiles/noctalia/.config/noctalia/palettes/fedora.json` as a managed Noctalia custom palette available alongside Catppuccin Mocha Blue. The managed default remains `catppuccin-mocha-blue`; selecting Fedora remains an explicit user preference.
+- The palette contains native dark and light variants anchored to the supplied official Fedora neutral, blue, purple, magenta, orange, and green swatches. The role mapping keeps every paired Noctalia UI color at or above 4.5:1 contrast. Complete terminal maps use the official swatches except for hue-preserving dark green and orange adaptations in light mode, where the supplied originals do not provide enough contrast behind light Starship text.
+- The dark base surface and terminal background use the Fedora website's darkest blue, `rgb(8 13 21 / 1)`, represented as `#080d15`. The raised surface-container role uses its `rgb(12 20 32 / 1)` color, represented as `#0c1420`. Application templates consume these shared roles for main and secondary surfaces, so the adjustments are not application-specific.
+- The dark secondary role uses the official Features Orange `#e59728`, replacing Freedom Purple for Noctalia Settings group labels and every application template that consumes the semantic secondary color. Light mode keeps Fedora Blue in that role because the official orange provides only 2.39:1 contrast on its white surface.
+- Added focused palette schema, contrast, official-swatch, deployment-plan, and dark/light Starship prompt coverage. No Settings UI state or hardware-local Noctalia data was promoted.
+
 ## 2026-07-25 beta4 integration
 
 - Upstream `v5.0.0-beta.4` resolves to signed tag commit `4c2dcd0995f9c570c0ced95561bf5e4685e2ad1b`. Fedora 44 Updates carries `noctalia-5.0.0~beta.4-1.fc44`, and that package is installed on the development host. The running shell reports `noctalia v5.0.0 (v5.0.0-beta.4)`, responds over IPC, has no Noctalia coredump since the update, and has no warning-or-higher user-journal entries since release day.

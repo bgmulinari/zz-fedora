@@ -7,7 +7,7 @@ setup() {
   setup_test_env
 }
 
-@test "Starship prompt uses Noctalia colors with managed and Catppuccin contrast coverage" {
+@test "Starship prompt uses Noctalia colors with managed custom palette contrast coverage" {
   python3 "$ROOT_DIR/tests/support/starship_contrast.py" \
     "$ROOT_DIR/templates/starship.toml" \
     "$ROOT_DIR/tests/fixtures/noctalia-builtin-terminal-palettes.tsv" \

@@ -150,6 +150,15 @@ def custom_palette_row(config_path: Path, palette_name: str, mode: str) -> dict[
     return row
 
 
+def load_custom_palette_rows(config_path: Path) -> list[dict[str, str]]:
+    palette_dir = config_path.parent / "palettes"
+    return [
+        custom_palette_row(config_path, path.stem, mode)
+        for path in sorted(palette_dir.glob("*.json"))
+        for mode in ("dark", "light")
+    ]
+
+
 def load_managed_theme(config_path: Path) -> tuple[str, set[str], list[dict[str, str]]]:
     config = tomllib.loads(config_path.read_text())
     theme = config.get("theme", {})
@@ -157,13 +166,20 @@ def load_managed_theme(config_path: Path) -> tuple[str, set[str], list[dict[str,
     if mode != "dark":
         fail(f"fixture covers the managed dark prompt only, got theme.mode={mode!r}")
 
+    custom_rows = load_custom_palette_rows(config_path)
+    palette_names = {row["palette"] for row in custom_rows}
+    palette_names.add(REPRESENTATIVE_PALETTE)
+
     source = theme.get("source")
     if source == "builtin":
         builtin = require_str(theme, "builtin", "managed Noctalia config")
-        return mode, {builtin, REPRESENTATIVE_PALETTE}, []
+        palette_names.add(builtin)
+        return mode, palette_names, custom_rows
     if source == "custom":
         custom_palette = require_str(theme, "custom_palette", "managed Noctalia config")
-        return mode, {custom_palette, REPRESENTATIVE_PALETTE}, [custom_palette_row(config_path, custom_palette, mode)]
+        if custom_palette not in palette_names:
+            fail(f"managed Noctalia custom palette does not exist: {custom_palette!r}")
+        return mode, palette_names, custom_rows
 
     fail(f"managed Noctalia config must use a builtin or custom palette source, got {source!r}")
 
