@@ -48,6 +48,7 @@ make_fake_sudo_passthrough() {
   assert_contains "$output" "DRY-RUN: sudo $FAKE_BIN/dnf upgrade -y --refresh --offline"
   assert_contains "$output" "DRY-RUN: sudo $FAKE_BIN/flatpak update -y"
   assert_contains "$output" "DRY-RUN: $FAKE_BIN/brew update"
+  assert_contains "$output" "DRY-RUN: $FAKE_BIN/brew upgrade -y"
   assert_contains "$output" "DRY-RUN: sudo $FAKE_BIN/npm update -g"
   assert_contains "$output" "DRY-RUN: install active .NET SDK channels"
   assert_contains "$output" "DRY-RUN: update installed .NET global tools"
@@ -245,6 +246,7 @@ EOF
   assert_file_contains "$COMMAND_LOG" "sudo -n env LC_ALL=C $FAKE_BIN/flatpak update -y"
   assert_file_contains "$COMMAND_LOG" "sudo -n env DNF_SYSTEM_UPGRADE_NO_REBOOT=1 dnf5 -y offline reboot"
   assert_file_contains "$COMMAND_LOG" "brew update"
+  assert_file_contains "$COMMAND_LOG" "brew upgrade -y"
   assert_file_contains "$COMMAND_LOG" "claude update"
 }
 

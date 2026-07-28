@@ -349,7 +349,7 @@ update_brew() {
     command_missing_summary brew brew
     return 0
   }
-  if run_user_cmd "$brew_bin" update && run_user_cmd "$brew_bin" upgrade; then
+  if run_user_cmd "$brew_bin" update && run_user_cmd "$brew_bin" upgrade -y; then
     set_update_summary brew ok "updates completed"
     return 0
   fi
