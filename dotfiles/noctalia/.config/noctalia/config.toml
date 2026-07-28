@@ -69,12 +69,13 @@ end = [
   "volume",
   "brightness",
   "battery",
-  "default-spacer",
+  "group:g1",
   "wallpaper",
   "niri-outputs",
   "settings",
   "session",
 ]
+font_family = "JetBrainsMono NF"
 margin_edge = 0
 margin_ends = 0
 radius = 0
@@ -83,11 +84,22 @@ radius_bottom_right = 10
 concave_edge_corners = true
 background_opacity = 0.9
 
+[[bar.default.capsule_group]]
+enabled = true
+fill = "surface_variant"
+id = "g1"
+members = [ "cpu", "temp", "ram" ]
+opacity = 0.0
+padding = 6.0
+
 [dock]
 background_opacity = 0.9
 
 [widget.clock]
 format = "{:%b %d %H:%M}"
+
+[widget.cpu]
+display = "text"
 
 [widget.default-spacer]
 type = "spacer"
@@ -101,12 +113,23 @@ hide_when_no_media = true
 [widget.network]
 show_label = false
 
+[widget.ram]
+display = "text"
+
 [widget.taskbar]
 only_active_workspace = true
-show_window_title = true
+show_window_title = false
+
+[widget.temp]
+display = "text"
 
 [widget.weather]
 show_condition = false
+
+[widget.workspaces]
+active_pill_size = 1.0
+font_weight = 800
+style = "minimal"
 
 # Local plugins
 
@@ -134,7 +157,7 @@ directory = "~/.local/share/backgrounds"
 transition_on_startup = true
 
 [wallpaper.default]
-path = "~/.local/share/backgrounds/Alpenglow.jpg"
+path = "~/.local/share/backgrounds/CraterBlue.jpg"
 
 [backdrop]
 enabled = true
@@ -182,11 +205,16 @@ builtin_ids = [
 ]
 enable_community_templates = true
 community_ids = [
+  "opencode",
   "pywalfox-beta4",
   "zen-browser",
   "neovim",
   "vscode",
   "zed",
+  "heroiclauncher",
+  "obs",
+  "bat",
+  "lazygit",
   "yazi",
 ]
 

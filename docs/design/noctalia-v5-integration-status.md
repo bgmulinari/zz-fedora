@@ -2,6 +2,12 @@
 
 This is the living checkpoint for the Noctalia v5 integration. Update it every time this repo changes its Noctalia v5 packages, sources, config, Niri wiring, templates, tests, or assumptions.
 
+## 2026-07-27 Settings UI preference promotion
+
+- Promoted the current portable Noctalia Settings UI preferences into the managed baseline: a transparent CPU/temperature/RAM capsule in the bar, the JetBrains Mono Nerd Font bar face, text readouts for those system widgets, compact minimal workspaces, hidden taskbar window titles, and the expanded community template selection.
+- Changed the portable default wallpaper from `Alpenglow.jpg` to `CraterBlue.jpg`.
+- Removed the promoted keys from the app-managed state file. Recent, favorite, and per-output wallpaper data, lockscreen layout, and pinned taskbar applications remain local state rather than product defaults.
+
 ## 2026-07-25 beta4 integration
 
 - Upstream `v5.0.0-beta.4` resolves to signed tag commit `4c2dcd0995f9c570c0ced95561bf5e4685e2ad1b`. Fedora 44 Updates carries `noctalia-5.0.0~beta.4-1.fc44`, and that package is installed on the development host. The running shell reports `noctalia v5.0.0 (v5.0.0-beta.4)`, responds over IPC, has no Noctalia coredump since the update, and has no warning-or-higher user-journal entries since release day.

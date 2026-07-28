@@ -294,7 +294,7 @@ setup() {
   # The sidecar carries the managed default wallpaper so sidecar migrations
   # (including future config_version bumps) cannot drop it.
   assert_file_contains "$TARGET_HOME/.local/state/noctalia/settings.toml" '[wallpaper.default]'
-  assert_file_contains "$TARGET_HOME/.local/state/noctalia/settings.toml" 'path = "~/.local/share/backgrounds/Alpenglow.jpg"'
+  assert_file_contains "$TARGET_HOME/.local/state/noctalia/settings.toml" 'path = "~/.local/share/backgrounds/CraterBlue.jpg"'
 }
 
 @test "Noctalia state seeds preserve existing user state" {
