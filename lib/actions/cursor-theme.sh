@@ -10,7 +10,7 @@ DESKTOP_CURSOR_THEME_ARCHIVE_SHA256="4e13a959ddae29c95eac6d339217565df88e5a1ff3d
 DESKTOP_CURSOR_THEME_ARCHIVE_URL="https://github.com/vinceliuice/Qogir-icon-theme/archive/${DESKTOP_CURSOR_THEME_COMMIT}.tar.gz"
 
 desktop_cursor_theme_name() {
-  printf '%s-%s\n' "$DESKTOP_CURSOR_THEME_BASE_NAME" "$DESKTOP_CURSOR_THEME_COMMIT"
+  printf '%s\n' "$DESKTOP_CURSOR_THEME_BASE_NAME"
 }
 
 desktop_cursor_theme_dir() {

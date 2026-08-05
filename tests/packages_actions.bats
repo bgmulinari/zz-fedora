@@ -65,7 +65,7 @@ setup() {
 
 @test "desktop cursor theme action installs and verifies the pinned compiled payload" {
   local fixture_commit="0123456789abcdef0123456789abcdef01234567"
-  local fixture_theme="Qogir-$fixture_commit"
+  local fixture_theme="Qogir"
   local fixture_root="$TEST_ROOT/Qogir-icon-theme-$fixture_commit"
   local fixture_archive="$TEST_ROOT/cursor-theme.tar.gz"
   local theme_dir real_mktemp
