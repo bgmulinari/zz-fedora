@@ -12,7 +12,7 @@ shell-starship	~/.config/zz-fedora/shell.d/starship	product-link	backup-before-l
 shell-yazi	~/.config/zz-fedora/shell.d/yazi	product-link	backup-before-link	dotfiles/shell-yazi/.shellrc.d/yazi	yazi	Links the selected Yazi shell integration.
 shell-zoxide	~/.config/zz-fedora/shell.d/zoxide	product-link	backup-before-link	dotfiles/shell-zoxide/.shellrc.d/zoxide	zoxide	Links the selected zoxide shell integration.
 zsh	~/.zshrc	seed-if-missing	preserve	templates/shell/zshrc	zsh	Seeds a user-owned Zsh entrypoint that loads the live ZZ shell defaults.
-environment	/usr/lib/environment.d/10-zz-desktop.conf	system-file	regenerate	dotfiles/environment/.config/environment.d/10-niri-gtk.conf	-	Installs the product-owned desktop session environment.
+environment	/usr/lib/environment.d/10-zz-desktop.conf	system-file	regenerate	dotfiles/environment/.config/environment.d/10-zz-desktop.conf	-	Installs the product-owned desktop session environment.
 portals	/etc/xdg/xdg-desktop-portal/niri-portals.conf	system-file	regenerate	dotfiles/portals/.config/xdg-desktop-portal/niri-portals.conf	-	Installs the product-owned desktop portal preference map.
 niri	~/.config/niri/config.kdl	seed-if-missing	preserve	dotfiles/niri/.config/niri/config.kdl	niri	Seeds the user-owned Niri entrypoint over the live ZZ defaults.
 niri	~/.config/niri/cfg/display.kdl	seed-if-missing	preserve	templates/niri/display.kdl	niri	Seeds hardware-specific Niri display configuration.

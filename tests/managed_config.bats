@@ -92,7 +92,7 @@ setup() {
   printf 'personal bashrc\n' >"$TARGET_HOME/.bashrc"
   {
     printf 'shell\t~/.bashrc\tseed-if-missing\tpreserve\ttemplates/shell/bashrc\t-\tShell\n'
-    printf 'environment\t/usr/lib/environment.d/test.conf\tsystem-file\tregenerate\tdotfiles/environment/.config/environment.d/10-niri-gtk.conf\t-\tEnvironment\n'
+    printf 'environment\t/usr/lib/environment.d/test.conf\tsystem-file\tregenerate\tdotfiles/environment/.config/environment.d/10-zz-desktop.conf\t-\tEnvironment\n'
   } >"$(managed_config_deployment_plan_file)"
   install_system_config_file() {
     printf '%s -> %s\n' "$1" "$2" >"$TEST_ROOT/system-install"

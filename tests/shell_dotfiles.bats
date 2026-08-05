@@ -35,8 +35,8 @@ setup() {
   setup_fake_bin
   local home_dir="$TEST_ROOT/profile-home"
   mkdir -p "$home_dir/.config/environment.d" "$home_dir/.local/bin"
-  cp "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-niri-gtk.conf" \
-    "$home_dir/.config/environment.d/10-niri-gtk.conf"
+  cp "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-zz-desktop.conf" \
+    "$home_dir/.config/environment.d/10-zz-desktop.conf"
   write_fake_command niri-session <<'EOF'
 #!/usr/bin/env sh
 EOF
@@ -49,19 +49,29 @@ EOF
 
   [ "$status" -eq 0 ]
   # The generator also reads /usr/lib/environment.d, so a host with the product
-  # environment file installed legitimately prepends the same user bin a second
-  # time. The inherited PATH must survive intact underneath, and every element
-  # ahead of it must still be that one directory.
+  # environment file installed may prepend the managed entries more than once.
+  # The inherited PATH must survive intact underneath, and only the managed
+  # desktop-session entries may appear ahead of it.
   local path_line="${output%%$'\n'*}"
   [[ "$path_line" == PATH=* ]]
   path_line="${path_line#PATH=}"
   [[ "$path_line" == *":$FAKE_BIN:/usr/bin" ]]
-  local prepended="${path_line%":$FAKE_BIN:/usr/bin"}"
+  local prepended="${path_line%":$FAKE_BIN:/usr/bin"}" path_entry
+  local saw_local_bin=0 saw_brew_bin=0 saw_brew_sbin=0
   while [[ -n "$prepended" ]]; do
-    assert_equal "$home_dir/.local/bin" "${prepended%%:*}"
+    path_entry="${prepended%%:*}"
+    case "$path_entry" in
+      "$home_dir/.local/bin") saw_local_bin=1 ;;
+      /home/linuxbrew/.linuxbrew/bin) saw_brew_bin=1 ;;
+      /home/linuxbrew/.linuxbrew/sbin) saw_brew_sbin=1 ;;
+      *) return 1 ;;
+    esac
     [[ "$prepended" == *:* ]] || break
     prepended="${prepended#*:}"
   done
+  [ "$saw_local_bin" -eq 1 ]
+  [ "$saw_brew_bin" -eq 1 ]
+  [ "$saw_brew_sbin" -eq 1 ]
   assert_contains "$output" "NIRI=$FAKE_BIN/niri-session"
   refute_contains "$output" '${HOME}'
   refute_contains "$output" '${PATH:-'

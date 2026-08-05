@@ -121,7 +121,7 @@ EOF
 
   assert_file_contains "$ROOT_DIR/dotfiles/niri/.config/niri/defaults.kdl" \
     "include optional=true \"~/.local/share/icons/$theme_name/zz-niri.kdl\""
-  assert_file_contains "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-niri-gtk.conf" \
+  assert_file_contains "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-zz-desktop.conf" \
     "XCURSOR_THEME=$theme_name"
   refute_file_contains "$ROOT_DIR/dotfiles/niri/.config/niri/cfg/misc.kdl" \
     'xcursor-theme'
