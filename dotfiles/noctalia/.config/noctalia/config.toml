@@ -57,19 +57,24 @@ variant = "destructive"
 # Bar, dock, and widgets
 
 [bar.default]
-start = [ "launcher", "workspaces", "default-spacer", "taskbar" ]
+start = [ "launcher", "workspaces", "default-spacer", "taskbar", "default-spacer", "media" ]
 center = [ "default-spacer", "clock", "default-spacer", "weather", "default-spacer" ]
 end = [
-  "media",
   "tray",
+  "default-spacer",
+  "cpu",
+  "temp",
+  "ram",
+  "default-spacer",
+  "volume",
+  "brightness",
+  "battery",
+  "default-spacer",
   "notifications",
   "clipboard",
   "network",
   "bluetooth",
-  "volume",
-  "brightness",
-  "battery",
-  "group:g1",
+  "default-spacer",
   "wallpaper",
   "niri-outputs",
   "settings",
@@ -84,16 +89,18 @@ radius_bottom_right = 10
 concave_edge_corners = true
 background_opacity = 0.9
 
-[[bar.default.capsule_group]]
-enabled = true
-fill = "surface_variant"
-id = "g1"
-members = [ "cpu", "temp", "ram" ]
-opacity = 0.0
-padding = 6.0
-
 [dock]
 background_opacity = 0.9
+enabled = true
+icon_size = 32
+inactive_opacity = 1.0
+launcher_icon = "search"
+launcher_position = "start"
+pinned = [ "org.gnome.Nautilus", "com.mitchellh.ghostty" ]
+radius = 32
+reserve_space = false
+show_dots = true
+smart_auto_hide = true
 
 [widget.clock]
 format = "{:%b %d %H:%M}"
@@ -115,6 +122,7 @@ show_label = false
 
 [widget.ram]
 display = "text"
+stat = "ram_pct"
 
 [widget.taskbar]
 only_active_workspace = true
