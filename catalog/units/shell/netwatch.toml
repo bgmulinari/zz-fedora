@@ -1,0 +1,10 @@
+id = "shell-netwatch"
+description = "Netwatch network diagnostics bundle from Homebrew"
+
+[base]
+order = 275
+
+[[install]]
+backend = "action"
+sources = ["artifact:homebrew"]
+actions = ["brew:netwatch"]

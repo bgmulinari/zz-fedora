@@ -103,6 +103,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:desktop-cursor-theme"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "boot-splash"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "brew:netwatch"
   assert_plan_has "$PLAN_DIR/config/components.list" "noctalia"
   assert_plan_has "$PLAN_DIR/config/components.list" "fastfetch"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "zsh"
@@ -144,6 +145,7 @@ assert_all_bundles_reachable() {
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbats\tbase-bootstrap\tdevelopment-tool\trepository regression suite'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tdnf5-plugins\tbase-bootstrap\tinstaller-bootstrap\tFedora source setup and installer reruns'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnss-tools\tbase-bootstrap\tinstaller-bootstrap\tbrowser certificate trust'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tbrew:netwatch\tshell-netwatch\tinstaller-bootstrap\tnetwork diagnostics'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24-npm\tbase-nodejs'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tddcutil\tbase-wayland-tools\tnoctalia\texternal display brightness'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tpavucontrol\tbase-desktop-controls\tdefault-app\taudio mixer'

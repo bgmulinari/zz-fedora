@@ -84,6 +84,7 @@ dnf	zoxide	installer-bootstrap	shell navigation	Provides directory jumping in th
 dnf	fastfetch	installer-bootstrap	shell diagnostics	Provides quick system summary command.
 dnf	gh	installer-bootstrap	GitHub workflow	Provides GitHub CLI for development and diagnostics.
 dnf	btop	installer-bootstrap	system monitor	Provides terminal system monitoring.
+action	brew:netwatch	installer-bootstrap	network diagnostics	Provides terminal network monitoring and diagnostics.
 dnf	fd-find	installer-bootstrap	shell search	Provides fast file search.
 dnf	fzf	installer-bootstrap	shell picker	Provides fuzzy finding for shell workflows.
 dnf	bat	installer-bootstrap	shell pager	Provides syntax-highlighted file viewing.
