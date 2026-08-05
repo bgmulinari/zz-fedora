@@ -6,15 +6,15 @@ shell	~/.bashrc	seed-if-missing	preserve	templates/shell/bashrc	-	Seeds a user-o
 shell	~/.profile	seed-if-missing	preserve	templates/shell/profile	-	Seeds a user-owned login-shell entrypoint that loads the live ZZ environment defaults.
 shell-fastfetch	~/.config/zz-fedora/shell.d/fastfetch	product-link	backup-before-link	dotfiles/shell-fastfetch/.shellrc.d/fastfetch	fastfetch	Links the selected Fastfetch shell integration.
 fastfetch	~/.config/fastfetch/config.jsonc	seed-if-missing	preserve	templates/fastfetch/config.jsonc	fastfetch	Seeds a user-owned Fastfetch configuration that selects the ZZ Fedora logo.
-fastfetch	~/.config/fastfetch/zz-fedora.txt	product-link	backup-before-link	dotfiles/fastfetch/.config/fastfetch/zz-fedora.txt	fastfetch	Links the product-owned ZZ Fedora Fastfetch logo.
+fastfetch	~/.config/fastfetch/zz-fedora.txt	product-link	backup-before-link	dotfiles/fastfetch/.config/fastfetch/zz-fedora.txt	fastfetch	Links the ZZ-managed ZZ Fedora Fastfetch logo.
 shell-fzf	~/.config/zz-fedora/shell.d/fzf	product-link	backup-before-link	dotfiles/shell-fzf/.shellrc.d/fzf	fzf	Links the selected fzf shell integration.
 shell-starship	~/.config/zz-fedora/shell.d/starship	product-link	backup-before-link	dotfiles/shell-starship/.shellrc.d/starship	starship	Links the selected Starship shell integration.
 shell-yazi	~/.config/zz-fedora/shell.d/yazi	product-link	backup-before-link	dotfiles/shell-yazi/.shellrc.d/yazi	yazi	Links the selected Yazi shell integration.
 shell-zoxide	~/.config/zz-fedora/shell.d/zoxide	product-link	backup-before-link	dotfiles/shell-zoxide/.shellrc.d/zoxide	zoxide	Links the selected zoxide shell integration.
 zsh	~/.zshrc	seed-if-missing	preserve	templates/shell/zshrc	zsh	Seeds a user-owned Zsh entrypoint that loads the live ZZ shell defaults.
-zsh	~/.zprofile	product-link	backup-before-link	dotfiles/zsh/.zprofile	zsh	Links the product-owned Zsh login environment so Niri and user services inherit the managed desktop session variables.
-environment	/usr/lib/environment.d/10-zz-desktop.conf	system-file	regenerate	dotfiles/environment/.config/environment.d/10-zz-desktop.conf	-	Installs the product-owned desktop session environment.
-portals	/etc/xdg/xdg-desktop-portal/niri-portals.conf	system-file	regenerate	dotfiles/portals/.config/xdg-desktop-portal/niri-portals.conf	-	Installs the product-owned desktop portal preference map.
+zsh	~/.zprofile	product-link	backup-before-link	dotfiles/zsh/.zprofile	zsh	Links the ZZ-managed Zsh login environment so Niri and user services inherit the managed desktop session variables.
+environment	/usr/lib/environment.d/10-zz-desktop.conf	system-file	regenerate	dotfiles/environment/.config/environment.d/10-zz-desktop.conf	-	Installs the ZZ-managed desktop session environment.
+portals	/etc/xdg/xdg-desktop-portal/niri-portals.conf	system-file	regenerate	dotfiles/portals/.config/xdg-desktop-portal/niri-portals.conf	-	Installs the ZZ-managed desktop portal preference map.
 niri	~/.config/niri/config.kdl	seed-if-missing	preserve	dotfiles/niri/.config/niri/config.kdl	niri	Seeds the user-owned Niri entrypoint over the live ZZ defaults.
 niri	~/.config/niri/cfg/display.kdl	seed-if-missing	preserve	templates/niri/display.kdl	niri	Seeds hardware-specific Niri display configuration.
 niri	~/.config/niri/noctalia.kdl	seed-if-missing	preserve	templates/niri/noctalia.kdl	niri	Seeds the generated Noctalia Niri theme include.
@@ -30,7 +30,7 @@ noctalia	~/.config/noctalia/templates/ghostty	product-link	backup-before-link	do
 noctalia	~/.config/noctalia/templates/icon-theme-accent	product-link	backup-before-link	dotfiles/noctalia/.config/noctalia/templates/icon-theme-accent	noctalia	Links the managed icon-accent template.
 noctalia	~/.local/bin/noctalia-reload-ghostty	product-link	backup-before-link	dotfiles/noctalia/.local/bin/noctalia-reload-ghostty	noctalia	Links the Ghostty reload helper.
 noctalia	~/.local/bin/noctalia-sync-icon-theme	product-link	backup-before-link	dotfiles/noctalia/.local/bin/noctalia-sync-icon-theme	noctalia	Links the icon-theme synchronization helper.
-noctalia	~/.local/share/noctalia/plugins/niri-outputs	product-link	backup-before-link	dotfiles/noctalia/.local/share/noctalia/plugins/niri-outputs	noctalia	Links the product-owned Niri outputs plugin.
+noctalia	~/.local/share/noctalia/plugins/niri-outputs	product-link	backup-before-link	dotfiles/noctalia/.local/share/noctalia/plugins/niri-outputs	noctalia	Links the ZZ-managed Niri outputs plugin.
 noctalia	~/.local/state/noctalia/.setup-complete	seed-if-missing	preserve	-	noctalia	Marks the Noctalia first-run setup complete.
 noctalia	~/.local/state/noctalia/settings.toml	seed-if-missing	preserve	-	noctalia	Seeds the app-writable Noctalia settings sidecar.
 starship	~/.config/starship.toml	seed-if-missing	preserve	templates/starship.toml	starship	Seeds a user-owned Starship configuration.

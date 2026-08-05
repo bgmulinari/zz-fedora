@@ -4,7 +4,7 @@ ZZ keeps the product checkout at `~/.zz`. Git owns that tree, and
 `zz update zz` fast-forwards that checkout, rebuilds the current plan from
 saved selections, and applies its required and configuration work in update
 mode. Optional software installation is skipped. User configuration lives
-outside the checkout and is never silently replaced; product-owned links into
+outside the checkout and is never silently replaced; ZZ-managed links into
 `~/.zz` see updated defaults immediately, and newly declared links are created
 when the refreshed plan is applied.
 
@@ -42,7 +42,7 @@ them during the User Configuration step.
 The entrypoint for each configurable application is user-owned. It loads the
 live ZZ defaults first and a user override last:
 
-| Surface | User-owned entrypoint or override | Product-owned default |
+| Surface | User-owned entrypoint or override | ZZ-managed default |
 | --- | --- | --- |
 | Niri | `~/.config/niri/config.kdl`, plus optional `~/.config/niri/local.kdl` | `dotfiles/niri/.config/niri/defaults.kdl` and its `cfg/` includes |
 | Noctalia | `~/.config/noctalia/config.toml` and `~/.config/noctalia/conf.d` | `dotfiles/noctalia/.config/noctalia/config.toml`; Settings UI state remains under `~/.local/state/noctalia/` and loads last |
@@ -74,7 +74,7 @@ zz refresh niri/config.kdl
 
 If the current file differs, `zz refresh` first creates an adjacent
 `<filename>.bak.<timestamp>` copy, installs the current default, and prints
-the diff. Product-owned links are intentionally excluded from this command
+the diff. ZZ-managed links are intentionally excluded from this command
 because updating `~/.zz` already refreshes them.
 
 ## Adding configuration

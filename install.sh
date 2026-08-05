@@ -125,7 +125,7 @@ declare -ag INSTALL_STEP_TABLE=(
   $'base-setup\tBase Setup\tmodule_30_packages\tstep_should_run_always\tfatal\tInstall non-optional base packages and configure the base shell before optional selections.'
   $'optional-packages\tOptional Packages\tmodule_32_optional_packages\tstep_should_run_optional_software\tcontinue\tInstall optional Fedora and Flatpak packages from the generated plan.'
   $'custom-actions\tCustom Actions\tmodule_35_custom_actions\tstep_should_run_optional_software\tcontinue\tRun selected direct installers and package-manager actions.'
-  $'user-config\tUser Configuration\tmodule_60_user_config\tstep_should_run_always\tfatal\tInstall product-owned links and seed user-owned configuration.'
+  $'user-config\tUser Configuration\tmodule_60_user_config\tstep_should_run_always\tfatal\tInstall ZZ-managed links and seed user-owned configuration.'
   $'post-actions\tPost Actions\tmodule_80_post_actions\tstep_should_run_always\tcontinue\tApply defaults, desktop associations, and final user/system tweaks.'
   $'doctor\tDoctor\tmodule_90_doctor\tstep_should_run_doctor\tfatal\tRun the final verification checks and environment summary.'
 )

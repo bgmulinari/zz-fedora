@@ -16,7 +16,7 @@ bootstrap.sh  Installs prerequisites, clones the repo, hands off to install.sh
 modules/      Ordered install steps (preflight, sources, plan, packages, ...)
 lib/          Shared Bash logic, plus lib/catalog.py, the catalog validator/compiler
 catalog/      One TOML file per unit and per software source; the data-driven installer API
-dotfiles/     Product-owned defaults and assets loaded or linked from ~/.zz
+dotfiles/     ZZ-managed defaults and assets loaded or linked from ~/.zz
 templates/    Seeds for user-owned files and installer-rendered inputs
 bin/          The installed zz post-install launcher and its subcommands
 iso/          Fedora installer ISO integration (Kickstart, Anaconda add-on)
@@ -34,7 +34,7 @@ and compiles it to flat TSVs that the Bash planner consumes through
 
 - Keep ordered install orchestration in `modules/NN-name.sh`; put reusable Bash logic in `lib/` and keep modules thin.
 - Treat the `catalog/` tree as the data-driven installer API: put install units in `catalog/units/<group>/<name>.toml` and repository definitions in `catalog/sources/<kind>/<name>.toml`. Unit group directories are organizational; semantics come from each unit's tables.
-- Put product-owned live defaults and assets under `dotfiles/`. Reserve `templates/` for user-owned seeds and rendered inputs. `config/managed-config.tsv` is the authoritative map of components, paths, ownership modes, and conflict behavior; see `docs/dotfiles-layering.md`.
+- Put ZZ-managed live defaults and assets under `dotfiles/`. Reserve `templates/` for user-owned seeds and rendered inputs. `config/managed-config.tsv` is the authoritative map of components, paths, ownership modes, and conflict behavior; see `docs/dotfiles-layering.md`.
 - Put regression tests in `tests/`; share Bash test helpers through `tests/helpers/` and put non-Bash test harnesses in `tests/support/`.
 - When upstream reference code or docs are needed, consult the upstream project's repository or documentation instead of package decompilation or ad hoc reverse engineering.
 

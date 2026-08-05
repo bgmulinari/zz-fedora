@@ -64,7 +64,7 @@ setup() {
   [ -n "$backup" ]
 }
 
-@test "zz refresh rejects product-owned link paths" {
+@test "zz refresh rejects ZZ-managed link paths" {
   run env HOME="$TARGET_HOME" bash "$ROOT_DIR/bin/zz" refresh ghostty/zz-defaults
 
   [ "$status" -ne 0 ]

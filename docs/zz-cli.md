@@ -55,7 +55,7 @@ zz update all --cleanup
 
 `zz update zz` is intentionally separate from `zz update all`. It requires a
 clean `~/.zz` Git checkout, fetches its upstream branch, and fast-forwards the
-product-owned tree. It then loads the saved selections, builds a fresh plan
+ZZ-managed tree. It then loads the saved selections, builds a fresh plan
 from the updated catalog and configuration manifest, and applies that plan
 idempotently. This may request root privileges when the current ZZ plan
 requires system changes.
@@ -89,5 +89,5 @@ zz refresh ghostty/config
 
 `zz refresh` only exposes user-owned seeded files. If the existing file
 differs, it writes an adjacent `.bak.<timestamp>` backup before installing
-the default from `~/.zz`. Product-owned linked files update directly with
+the default from `~/.zz`. ZZ-managed linked files update directly with
 Git and are not refresh targets.
