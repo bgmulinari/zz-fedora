@@ -86,6 +86,24 @@ setup() {
     "$(readlink -f "$TARGET_HOME/.config/fastfetch/zz-fedora.txt")"
 }
 
+@test "Zsh component links the product login environment" {
+  managed_config_required_command_available() {
+    return 0
+  }
+  mkdir -p "$PLAN_DIR/files"
+  : >"$(managed_config_deployment_plan_file)"
+  append_managed_config_component zsh
+
+  run apply_managed_config_plan
+
+  [ "$status" -eq 0 ]
+  [ -f "$TARGET_HOME/.zshrc" ]
+  [[ -L "$TARGET_HOME/.zprofile" ]]
+  assert_equal \
+    "$(readlink -f "$ROOT_DIR/dotfiles/zsh/.zprofile")" \
+    "$(readlink -f "$TARGET_HOME/.zprofile")"
+}
+
 @test "skip user config leaves home paths alone while system rows still apply" {
   SKIP_USER_CONFIG=1
   mkdir -p "$PLAN_DIR/files"

@@ -76,3 +76,28 @@ EOF
   refute_contains "$output" '${HOME}'
   refute_contains "$output" '${PATH:-'
 }
+
+@test "Zsh login profile imports the managed desktop environment" {
+  local home_dir="$TEST_ROOT/zsh-login-home"
+  mkdir -p "$home_dir/.config/environment.d" "$home_dir/.local/bin"
+  ln -s "$ROOT_DIR" "$home_dir/.zz"
+  ln -s "$ROOT_DIR/dotfiles/zsh/.zprofile" "$home_dir/.zprofile"
+  cp "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-zz-desktop.conf" \
+    "$home_dir/.config/environment.d/10-zz-desktop.conf"
+
+  run env -i \
+    HOME="$home_dir" \
+    USER=zz-test \
+    LOGNAME=zz-test \
+    SHELL=/bin/zsh \
+    PATH=/usr/local/bin:/usr/bin \
+    /bin/zsh -lc 'printf "PATH=%s\nTERMINAL=%s\n" "$PATH" "$TERMINAL"'
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "$home_dir/.local/bin"
+  assert_contains "$output" "/home/linuxbrew/.linuxbrew/bin"
+  assert_contains "$output" "/home/linuxbrew/.linuxbrew/sbin"
+  assert_contains "$output" "TERMINAL=xdg-terminal-exec"
+  refute_contains "$output" '${HOME}'
+  refute_contains "$output" '${PATH:-'
+}
