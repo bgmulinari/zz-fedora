@@ -3,7 +3,6 @@ source	rpmfusion-free	desktop-service	Fedora package manager	Required source met
 source	rpmfusion-nonfree	desktop-service	Fedora package manager	Required source metadata for RPM Fusion Nonfree packages and appstream data.
 source	flathub	theme-font	Flatpak theme runtimes	Required remote for base GTK Flatpak theme runtimes and optional Flatpak apps.
 source	cisco-openh264	desktop-service	Fedora package manager	Enables Fedora OpenH264 metadata for desktop media compatibility.
-source	copr:yalter/niri	niri	Niri session	Provides the required Niri compositor package.
 source	copr:lionheartp/Hyprland	desktop-service	Noctalia Greeter and Qt theme	Provides Noctalia Greeter and qt6ct-kde for the required base desktop.
 source	terra	default-app	Ghostty	Bootstraps Terra release packages for required Ghostty packages.
 source	copr:atim/starship	theme-font	Starship prompt	Provides the Starship package used by the base shell prompt.
