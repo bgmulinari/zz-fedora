@@ -126,6 +126,8 @@ EOF
   fixture_root="$TEST_ROOT/worktree-checkout"
   mkdir -p "$fixture_root/config" "$fixture_root/home"
   touch "$fixture_root/.git"
+  # Modules read the shared runtime globals declared in lib/common.sh.
+  source_core
   # shellcheck source=../modules/00-preflight.sh
   source "$ROOT_DIR/modules/00-preflight.sh"
 
@@ -151,6 +153,8 @@ EOF
 @test "preflight accepts Git metadata discoverable above the repository root" {
   fixture_root="$ROOT_DIR/tests"
   [[ ! -e "$fixture_root/.git" ]]
+  # Modules read the shared runtime globals declared in lib/common.sh.
+  source_core
   # shellcheck source=../modules/00-preflight.sh
   source "$ROOT_DIR/modules/00-preflight.sh"
 

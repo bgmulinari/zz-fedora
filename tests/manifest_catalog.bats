@@ -15,7 +15,9 @@ setup() {
 }
 
 catalog_validate() {
-  python3 "$ROOT_DIR/lib/catalog.py" --root "$1" validate
+  # Validate with the interpreter production uses (lib/catalog.sh), not a
+  # PATH lookup that can resolve to Homebrew's unrequested python@3.x.
+  "$SYSTEM_PYTHON" "$ROOT_DIR/lib/catalog.py" --root "$1" validate
 }
 
 # write_catalog_file <sandbox> <relative-path-under-catalog/> reads the file

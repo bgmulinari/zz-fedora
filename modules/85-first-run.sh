@@ -15,7 +15,7 @@ noctalia_community_templates_ready() {
   local state_home
   state_home="$(noctalia_state_home)"
 
-  python3 - "$effective_config" "$state_home" <<'PY'
+  "$SYSTEM_PYTHON" - "$effective_config" "$state_home" <<'PY'
 import json
 import pathlib
 import re

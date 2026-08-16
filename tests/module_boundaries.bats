@@ -97,16 +97,61 @@ functions_defined_in() {
   done
 }
 
+# One root list shared by every "defined/invoked only in one place" invariant
+# below, so a new source root cannot silently fall out of one test's coverage.
+installer_source_roots() {
+  printf '%s\n' \
+    "$ROOT_DIR/lib" \
+    "$ROOT_DIR/modules" \
+    "$ROOT_DIR/bin" \
+    "$ROOT_DIR/scripts" \
+    "$ROOT_DIR/install.sh" \
+    "$ROOT_DIR/bootstrap.sh"
+}
+
+assert_defined_only_in() {
+  local owner="$1" symbol="$2" matches
+  local -a roots
+  mapfile -t roots < <(installer_source_roots)
+  matches="$(grep -rlE "^${symbol}=" "${roots[@]}" | sort)"
+  assert_equal "$owner" "$matches"
+}
+
+@test "installer runtime invokes Python only through SYSTEM_PYTHON" {
+  # Homebrew's python@3.x arrives as an unrequested transitive dependency of
+  # other formulae, and the installer cannot assume the caller's PATH order,
+  # so a bare `python3` in command position is not guaranteed to resolve to
+  # the interpreter bootstrap.sh installs. The pattern covers python3 at the
+  # start of a command (line start, `;`, `&`, `|`, `(`, `$(`, backtick) and
+  # after the wrapper words this repository runs commands through; package
+  # name lists (`dnf install ... python3`) end the line or precede another
+  # package, so requiring trailing whitespace keeps them out.
+  local raw invocations status=0
+  local -a roots
+  mapfile -t roots < <(installer_source_roots)
+  raw="$(grep -rnE \
+    '((^|[;&|(`]|\$\()[[:space:]]*|(run_cmd|run_cmd_as_root|run|sudo|exec|env|xargs|command|timeout|if|elif|while|until|then|else|do)[[:space:]]+|run_cmd_as_user[[:space:]]+[^[:space:]]+[[:space:]]+)python3[[:space:]]' \
+    "${roots[@]}")" || status=$?
+  # grep exits 1 on "no matches" and >1 on a real error (missing root,
+  # unreadable file); a broken scan must fail the test, not pass it.
+  [[ "$status" -le 1 ]] || {
+    printf 'python3 invocation scan failed with status %d\n' "$status" >&2
+    return 1
+  }
+  invocations="$(grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' <<<"$raw" || true)"
+  if [[ -n "$invocations" ]]; then
+    printf 'invoke Python through "$SYSTEM_PYTHON", not a bare python3:\n%s\n' "$invocations" >&2
+    return 1
+  fi
+}
+
+@test "SYSTEM_PYTHON is defined only in lib/common.sh" {
+  assert_defined_only_in "$ROOT_DIR/lib/common.sh" 'SYSTEM_PYTHON'
+}
+
 @test "dotnet install-script pins are defined only in lib/dotnet.sh" {
-  local pin matches
+  local pin
   for pin in DOTNET_INSTALL_COMMIT DOTNET_INSTALL_SHA256; do
-    matches="$(grep -rlE "^${pin}=" \
-      "$ROOT_DIR/lib" \
-      "$ROOT_DIR/modules" \
-      "$ROOT_DIR/bin" \
-      "$ROOT_DIR/scripts" \
-      "$ROOT_DIR/install.sh" \
-      "$ROOT_DIR/bootstrap.sh" | sort)"
-    assert_equal "$ROOT_DIR/lib/dotnet.sh" "$matches"
+    assert_defined_only_in "$ROOT_DIR/lib/dotnet.sh" "$pin"
   done
 }

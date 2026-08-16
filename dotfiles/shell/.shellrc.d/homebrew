@@ -1,5 +1,25 @@
 # Managed by zz-fedora.
 
 if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
-  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+  # Homebrew only supplies tools Fedora does not package, so its prefix stays
+  # behind the distro directories: `brew shellenv` always prepends the prefix,
+  # which would let unrequested formula duplicates (python3 especially) shadow
+  # /usr/bin. environment.d already appends the prefix
+  # (dotfiles/environment/.config/environment.d/10-zz-desktop.conf), so keep
+  # the PATH we already have, take the rest of shellenv (HOMEBREW_*, MANPATH,
+  # INFOPATH), and append each prefix directory ourselves when it is missing.
+  # shellenv emits nothing once HOMEBREW_PREFIX is exported, so nested shells
+  # skip the subprocess entirely.
+  if [ "${HOMEBREW_PREFIX-}" != /home/linuxbrew/.linuxbrew ]; then
+    homebrew_saved_path="$PATH"
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    export PATH="$homebrew_saved_path"
+    unset homebrew_saved_path
+  fi
+  for homebrew_dir in /home/linuxbrew/.linuxbrew/bin /home/linuxbrew/.linuxbrew/sbin; do
+    if [[ ":$PATH:" != *":$homebrew_dir:"* ]]; then
+      export PATH="$PATH:$homebrew_dir"
+    fi
+  done
+  unset homebrew_dir
 fi

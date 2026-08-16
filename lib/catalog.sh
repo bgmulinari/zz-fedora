@@ -56,14 +56,13 @@ catalog_reset_cache() {
 
 catalog_ensure_loaded() {
   [[ "$CATALOG_LOADED" -eq 1 ]] && return 0
-  command -v python3 >/dev/null 2>&1 ||
-    die "python3 is required to load the catalog; install it and rerun (bootstrap.sh installs it on fresh systems)"
+  require_system_python
 
   local compiled_dir
   compiled_dir="$(catalog_compiled_dir)"
   rm -rf "$compiled_dir"
   mkdir -p "$compiled_dir"
-  python3 "$ROOT_DIR/lib/catalog.py" --root "$ROOT_DIR" compile --out "$compiled_dir" ||
+  "$SYSTEM_PYTHON" "$ROOT_DIR/lib/catalog.py" --root "$ROOT_DIR" compile --out "$compiled_dir" ||
     die "Catalog validation failed; fix the errors above and rerun"
 
   local line id early skip

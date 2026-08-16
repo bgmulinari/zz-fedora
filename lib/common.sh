@@ -7,6 +7,23 @@ set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# The installer always runs lib/catalog.py and its other Python helpers on
+# Fedora's interpreter, addressed by absolute path rather than resolved
+# through PATH. bootstrap.sh installs the python3 package as a prerequisite,
+# and that is the only interpreter whose presence and version this repository
+# controls. The caller's PATH is not ours to trust: Homebrew links an
+# unrequested python3 (a transitive dependency of brew formulae) into its
+# prefix, and any shell that orders that prefix ahead of /usr/bin hands a
+# bare `python3` to an interpreter that `brew autoremove` can take away or a
+# Homebrew major-version bump can change underneath us. The managed PATH
+# keeps the prefix behind the distro directories for the same reason.
+SYSTEM_PYTHON="/usr/bin/python3"
+
+require_system_python() {
+  [[ -x "$SYSTEM_PYTHON" ]] ||
+    die "$SYSTEM_PYTHON is required to load the catalog; install the python3 package and rerun (bootstrap.sh installs it on fresh systems)"
+}
+
 # shellcheck source=../config/defaults.sh
 source "$ROOT_DIR/config/defaults.sh"
 # shellcheck source=./log.sh

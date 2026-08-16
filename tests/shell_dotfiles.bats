@@ -48,26 +48,36 @@ EOF
     sh "$ROOT_DIR/dotfiles/shell/.profile"
 
   [ "$status" -eq 0 ]
-  # The generator also reads /usr/lib/environment.d, so a host with the product
-  # environment file installed may prepend the managed entries more than once.
-  # The inherited PATH must survive intact underneath, and only the managed
-  # desktop-session entries may appear ahead of it.
+  # The managed entries wrap the inherited PATH: ~/.local/bin lands ahead of
+  # it and the Homebrew prefix behind it, so distro binaries keep winning
+  # lookups over Homebrew's unrequested duplicates (python3 especially). The
+  # generator also reads /usr/lib/environment.d, so a host with the product
+  # environment file installed may apply the managed entries more than once;
+  # the inherited PATH must survive intact between them.
   local path_line="${output%%$'\n'*}"
   [[ "$path_line" == PATH=* ]]
   path_line="${path_line#PATH=}"
-  [[ "$path_line" == *":$FAKE_BIN:/usr/bin" ]]
-  local prepended="${path_line%":$FAKE_BIN:/usr/bin"}" path_entry
+  [[ "$path_line" == *":$FAKE_BIN:/usr/bin"* ]]
+  local prepended="${path_line%%":$FAKE_BIN:/usr/bin"*}"
+  local appended="${path_line#*"$FAKE_BIN:/usr/bin"}" path_entry
+  appended="${appended#:}"
   local saw_local_bin=0 saw_brew_bin=0 saw_brew_sbin=0
   while [[ -n "$prepended" ]]; do
     path_entry="${prepended%%:*}"
+    [[ "$path_entry" == "$home_dir/.local/bin" ]] || return 1
+    saw_local_bin=1
+    [[ "$prepended" == *:* ]] || break
+    prepended="${prepended#*:}"
+  done
+  while [[ -n "$appended" ]]; do
+    path_entry="${appended%%:*}"
     case "$path_entry" in
-      "$home_dir/.local/bin") saw_local_bin=1 ;;
       /home/linuxbrew/.linuxbrew/bin) saw_brew_bin=1 ;;
       /home/linuxbrew/.linuxbrew/sbin) saw_brew_sbin=1 ;;
       *) return 1 ;;
     esac
-    [[ "$prepended" == *:* ]] || break
-    prepended="${prepended#*:}"
+    [[ "$appended" == *:* ]] || break
+    appended="${appended#*:}"
   done
   [ "$saw_local_bin" -eq 1 ]
   [ "$saw_brew_bin" -eq 1 ]
@@ -75,6 +85,70 @@ EOF
   assert_contains "$output" "NIRI=$FAKE_BIN/niri-session"
   refute_contains "$output" '${HOME}'
   refute_contains "$output" '${PATH:-'
+}
+
+# The fragment hardcodes the real Homebrew prefix, which a test cannot create.
+# Rewrite that prefix to a sandbox copy carrying a fake brew whose shellenv
+# output matches the real one, so the PATH handling itself is exercised.
+stage_homebrew_fragment() {
+  local prefix="$1"
+  local fragment="$TEST_ROOT/homebrew-fragment"
+  mkdir -p "$prefix/bin" "$prefix/sbin"
+  cat >"$prefix/bin/brew" <<EOF
+#!/usr/bin/env bash
+printf 'export HOMEBREW_PREFIX="%s";\n' "$prefix"
+printf 'export HOMEBREW_CELLAR="%s/Cellar";\n' "$prefix"
+printf 'export PATH="%s/bin:%s/sbin\${PATH+:\$PATH}";\n' "$prefix" "$prefix"
+EOF
+  chmod +x "$prefix/bin/brew"
+  sed "s#/home/linuxbrew/.linuxbrew#$prefix#g" \
+    "$ROOT_DIR/dotfiles/shell/.shellrc.d/homebrew" >"$fragment"
+  printf '%s\n' "$fragment"
+}
+
+@test "Homebrew fragment keeps the managed PATH order when the prefix is already present" {
+  local prefix="$TEST_ROOT/brew-prefix" fragment
+  fragment="$(stage_homebrew_fragment "$prefix")"
+  local managed_path="$TEST_ROOT/home/.local/bin:/usr/bin:$prefix/bin:$prefix/sbin"
+
+  run env PATH="$managed_path" bash -c \
+    '. "$1"; printf "PATH=%s\nPREFIX=%s\n" "$PATH" "$HOMEBREW_PREFIX"' bash "$fragment"
+
+  [ "$status" -eq 0 ]
+  # environment.d put the prefix behind the distro directories; shellenv must
+  # not promote it above them, nor repeat the prefix entries. Exact equality:
+  # a substring check would miss duplicated entries appended after the match.
+  assert_equal "PATH=$managed_path" "${lines[0]}"
+  # The non-PATH half of shellenv still has to be applied.
+  assert_contains "$output" "PREFIX=$prefix"
+}
+
+@test "Homebrew fragment appends the prefix when the managed PATH omits it" {
+  local prefix="$TEST_ROOT/brew-prefix-absent" fragment
+  fragment="$(stage_homebrew_fragment "$prefix")"
+
+  run env PATH="/usr/bin" bash -c \
+    '. "$1"; printf "PATH=%s\nPREFIX=%s\n" "$PATH" "$HOMEBREW_PREFIX"' bash "$fragment"
+
+  [ "$status" -eq 0 ]
+  # Homebrew only supplies tools Fedora does not package, so the prefix goes
+  # behind the distro directories, never in front of them.
+  assert_equal "PATH=/usr/bin:$prefix/bin:$prefix/sbin" "${lines[0]}"
+  assert_contains "$output" "PREFIX=$prefix"
+}
+
+@test "Homebrew fragment completes a PATH carrying bin without sbin" {
+  local prefix="$TEST_ROOT/brew-prefix-partial" fragment
+  fragment="$(stage_homebrew_fragment "$prefix")"
+
+  # lib/actions.sh login shells append only the bin directory; the fragment
+  # must still supply sbin instead of treating the prefix as fully present.
+  run env PATH="/usr/bin:$prefix/bin" bash -c \
+    '. "$1"; printf "PATH=%s\nPREFIX=%s\n" "$PATH" "$HOMEBREW_PREFIX"' bash "$fragment"
+
+  [ "$status" -eq 0 ]
+  assert_equal "PATH=/usr/bin:$prefix/bin:$prefix/sbin" "${lines[0]}"
+  assert_contains "$output" "PREFIX=$prefix"
 }
 
 @test "Zsh login profile imports the managed desktop environment" {

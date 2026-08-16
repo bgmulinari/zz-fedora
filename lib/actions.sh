@@ -39,7 +39,11 @@ run_user_login_shell() {
   printf -v dotnet_root '%q' "$TARGET_HOME/$DOTNET_INSTALL_DIR_NAME"
   printf -v dotnet_tools '%q' "$TARGET_HOME/$DOTNET_INSTALL_DIR_NAME/tools"
   printf -v brew_bin '%q' "$BREW_PREFIX/bin"
-  run_cmd_as_user "$TARGET_USER" bash -lc "export PATH=$local_bin:$dotnet_root:$dotnet_tools:$brew_bin:\"\$PATH\"; $script"
+  # The Homebrew prefix stays behind the inherited PATH so distro binaries
+  # keep winning lookups inside action scripts, python3 especially; it is
+  # appended at all because a fresh install's login shell may predate the
+  # managed environment.d PATH.
+  run_cmd_as_user "$TARGET_USER" bash -lc "export PATH=$local_bin:$dotnet_root:$dotnet_tools:\"\$PATH\":$brew_bin; $script"
 }
 
 # shellcheck source=./actions/homebrew.sh

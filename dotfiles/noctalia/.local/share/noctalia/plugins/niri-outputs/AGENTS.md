@@ -40,7 +40,7 @@ Run focused checks from the repository root after behavior changes:
 ```bash
 noctalia plugins lint dotfiles/noctalia/.local/share/noctalia/plugins/niri-outputs
 bats tests/noctalia_niri_outputs_plugin.bats
-python3 -c 'import ast, pathlib; ast.parse(pathlib.Path("dotfiles/noctalia/.local/share/noctalia/plugins/niri-outputs/backend.py").read_text())'
+/usr/bin/python3 -c 'import ast, pathlib; ast.parse(pathlib.Path("dotfiles/noctalia/.local/share/noctalia/plugins/niri-outputs/backend.py").read_text())'
 noctalia config validate
 git diff --check
 ```

@@ -193,7 +193,9 @@ end
 local function runBackend(arguments, callback)
   busy = true
   render()
-  local command = "python3 " .. shellQuote(backend) .. " " .. arguments
+  -- Pin the Fedora interpreter: a session PATH may resolve a bare python3 to
+  -- Homebrew's unrequested python formula, which brew autoremove can drop.
+  local command = "/usr/bin/python3 " .. shellQuote(backend) .. " " .. arguments
   local started = noctalia.runAsync(command, function(result)
     busy = false
     callback(result)

@@ -279,7 +279,10 @@ module_90_doctor() {
     [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
       doctor_check_contains "$niri_config_home/config.kdl" 'include "./noctalia.kdl"'
     doctor_check_contains "$desktop_environment_file" 'TERMINAL=xdg-terminal-exec'
-    doctor_check_contains "$desktop_environment_file" 'PATH=${HOME}/.local/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH:-/usr/local/bin:/usr/bin}'
+    # Derive the expected PATH line from the product file the installer ships
+    # so the check verifies deployment instead of a hand-synced copy.
+    doctor_check_contains "$desktop_environment_file" \
+      "$(grep '^PATH=' "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-zz-desktop.conf")"
     if doctor_plan_has_entry "$native_plan" "nautilus"; then
       doctor_check_contains "$product_niri_home/cfg/keybinds.kdl" 'spawn "nautilus"'
     fi
