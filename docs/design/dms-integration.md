@@ -131,9 +131,9 @@ with the blue accent (latte + blue in light mode).
   keep GTK apps synchronized on every theme change.
 - The icon theme follows the accent automatically (ported from the
   previous shell's icon sync): a ZZ matugen drop-in
-  (`~/.config/DankMaterialShell/matugen/dms/configs/zz-icon-theme.toml` —
-  DMS appends every `*.toml` in that directory to its merged matugen
-  config) renders the primary color to
+  (`~/.config/matugen/dms/configs/zz-icon-theme.toml` — DMS appends every
+  `*.toml` in that directory, under its `configDir` of `~/.config`, to
+  its merged matugen config) renders the primary color to
   `~/.cache/DankMaterialShell/icon-theme-accent`, and its post-hook runs
   `zz-sync-icon-theme`, which picks the hue-nearest Yaru variant and
   applies it to gsettings, qt6ct, kdeglobals, and the shell's own icon

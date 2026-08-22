@@ -78,9 +78,9 @@ setup() {
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" \
     $'~/.local/bin/zz-sync-icon-theme\tproduct-link\tbackup-before-link\tdotfiles/dms/.local/bin/zz-sync-icon-theme'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" \
-    $'~/.config/DankMaterialShell/matugen/dms/configs/zz-icon-theme.toml\tproduct-link'
+    $'~/.config/matugen/dms/configs/zz-icon-theme.toml\tproduct-link'
   [[ -x "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-icon-theme" ]]
-  assert_file_contains "$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/matugen/dms/configs/zz-icon-theme.toml" \
+  assert_file_contains "$ROOT_DIR/dotfiles/dms/.config/matugen/dms/configs/zz-icon-theme.toml" \
     "post_hook = 'sh -c \"command -v zz-sync-icon-theme"
 }
 
