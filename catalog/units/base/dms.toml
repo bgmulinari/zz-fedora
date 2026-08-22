@@ -13,11 +13,16 @@ user_wants = ["niri.service/dms.service"]
 [base]
 order = 80
 
+# quickshell is named explicitly even though the dms RPM depends on it:
+# the dependency is the boolean "(quickshell or quickshell-git)", which any
+# package with a "Provides: quickshell" satisfies, leaving dnf free to keep
+# a wrong provider instead of installing the DankLinux COPR build.
 [[install]]
 backend = "dnf"
 sources = ["copr:avengemedia/dms", "copr:avengemedia/danklinux"]
 packages = [
   "dms",
+  "quickshell",
   "matugen",
   "danksearch",
   "cava",

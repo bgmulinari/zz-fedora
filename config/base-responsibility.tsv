@@ -29,6 +29,7 @@ dnf	plymouth	desktop-service	graphical boot and disk unlock	Provides the Plymout
 dnf	plymouth-system-theme	desktop-service	graphical boot and disk unlock	Provides Fedora's default bgrt and spinner splash themes and their render plugins.
 dnf	grubby	desktop-service	graphical boot and disk unlock	Adds the rhgb and quiet kernel arguments that enable the graphical boot splash.
 dnf	dms	dms	DMS shell	Installs the DMS (DankMaterialShell) desktop shell started by the dms.service user unit under the Niri session.
+dnf	quickshell	dms	DMS shell	Provides the Quickshell runtime DMS runs on, named explicitly so the DankLinux COPR build is installed instead of whatever package happens to satisfy the dms RPM's "(quickshell or quickshell-git)" dependency.
 dnf	matugen	dms	DMS app theming	Generates the per-application color themes (Ghostty, Niri, GTK, Qt, editors) from the active DMS theme.
 dnf	danksearch	dms	DMS launcher file search	Provides the file-search backend used by the DMS spotlight launcher.
 dnf	cava	dms	DMS audio visualizer	Provides the audio visualizer backend used by DMS media widgets.
