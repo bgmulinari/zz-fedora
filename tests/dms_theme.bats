@@ -84,6 +84,28 @@ setup() {
     "post_hook = 'sh -c \"command -v zz-sync-icon-theme"
 }
 
+@test "btop theme is wired through the matugen drop-in with a matching fallback" {
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" \
+    $'~/.config/btop/themes/dank.theme\tseed-if-missing\tpreserve\ttemplates/btop/dank.theme'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" \
+    $'~/.config/matugen/dms/configs/zz-btop.toml\tproduct-link'
+  assert_file_contains "$ROOT_DIR/dotfiles/dms/.config/matugen/dms/configs/zz-btop.toml" \
+    "output_path = '~/.config/btop/themes/dank.theme'"
+  assert_file_contains "$ROOT_DIR/dotfiles/btop/.config/btop/btop.conf" 'color_theme = "dank"'
+
+  # The static fallback must carry exactly the keys the matugen template
+  # renders, so the seed-to-generated handoff never changes theme shape.
+  local template_keys fallback_keys
+  template_keys="$(grep -o '^theme\[[a-z_]*\]' "$ROOT_DIR/dotfiles/dms/.config/matugen/templates/btop.theme" | sort)"
+  fallback_keys="$(grep -o '^theme\[[a-z_]*\]' "$ROOT_DIR/templates/btop/dank.theme" | sort)"
+  [ -n "$template_keys" ]
+  assert_equal "$template_keys" "$fallback_keys"
+
+  # Every fallback value is a concrete color or an empty gradient stop.
+  run grep -Ev '^(#|$)|^theme\[[a-z_]+\]="(#[0-9a-fA-F]{6})?"$' "$ROOT_DIR/templates/btop/dank.theme"
+  [ "$status" -ne 0 ]
+}
+
 @test "DMS settings seed selects the vendored theme with blue accents in both modes" {
   local seed
   seed="$(dms_settings_seed_json)"

@@ -361,6 +361,7 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "btop"; then
     doctor_warn_command btop
     doctor_warn_file "$user_config_home/btop/btop.conf"
+    [[ "$SKIP_USER_CONFIG" -eq 1 ]] || doctor_warn_file "$user_config_home/btop/themes/dank.theme"
   fi
   if doctor_plan_has_entry "$native_plan" "fd-find"; then
     doctor_warn_command fd

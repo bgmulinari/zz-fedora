@@ -1,0 +1,6 @@
+# ZZ-managed matugen drop-in. DMS has no btop template of its own; render
+# the managed one so btop follows the theme directly instead of leaning on
+# the terminal ANSI palette, whose generated slots are not a classic ramp.
+[templates.zzbtop]
+input_path = '~/.zz/dotfiles/dms/.config/matugen/templates/btop.theme'
+output_path = '~/.config/btop/themes/dank.theme'

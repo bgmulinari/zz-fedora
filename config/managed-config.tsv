@@ -28,6 +28,8 @@ dms	~/.config/matugen/dms/configs/zz-icon-theme.toml	product-link	backup-before-
 dms	~/.local/bin/zz-sync-icon-theme	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-icon-theme	dms	Links the icon-theme synchronization helper.
 starship	~/.config/starship.toml	seed-if-missing	preserve	templates/starship.toml	starship	Seeds a user-owned Starship configuration.
 btop	~/.config/btop/btop.conf	seed-if-missing	preserve	dotfiles/btop/.config/btop/btop.conf	btop	Seeds a user-owned btop configuration.
+btop	~/.config/btop/themes/dank.theme	seed-if-missing	preserve	templates/btop/dank.theme	btop	Seeds a fallback btop theme until DMS regenerates it.
+btop	~/.config/matugen/dms/configs/zz-btop.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-btop.toml	btop	Links the managed btop matugen drop-in.
 nvim	~/.local/share/applications/nvim.desktop	product-link	backup-before-link	dotfiles/nvim/.local/share/applications/nvim.desktop	nvim	Links the managed terminal-editor desktop entry.
 vscode	~/.config/Code/User/settings.json	seed-if-missing	preserve	dotfiles/vscode/.config/Code/User/settings.json	code	Seeds user-owned Visual Studio Code settings.
 zed	~/.config/zed/settings.json	seed-if-missing	preserve	dotfiles/zed/.config/zed/settings.json	zed	Seeds user-owned Zed settings.

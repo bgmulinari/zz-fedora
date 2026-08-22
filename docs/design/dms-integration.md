@@ -142,6 +142,12 @@ with the blue accent (latte + blue in light mode).
 - Editors select the matugen-generated themes by name: VS Code
   `Dynamic Base16 DankShell` (extension `danklinux.dms-theme`), Zed
   `DankShell Dark` / `DankShell Light`.
+- btop has no upstream DMS template and its `TTY` builtin leans on the
+  terminal ANSI palette, whose generated slots are not a classic ramp; a
+  ZZ matugen drop-in (`zz-btop.toml`) renders the managed
+  `templates/btop/dank.theme`-shaped theme to
+  `~/.config/btop/themes/dank.theme` (seeded statically as a fallback)
+  and the btop config selects it as `dank`.
 - Firefox theming (optional `browsers-firefox-theme` unit) uses Pywalfox:
   the native host is pip-installed per user (Fedora does not package it;
   the unit installs `python3-pip`, which Fedora's `python3` does not
