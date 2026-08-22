@@ -126,6 +126,16 @@ apply_dms_gtk_baseline() {
   fi
 }
 
+# The stable-channel dms-greeter is only the greeter launcher; the
+# per-user profile slot sync is a later addition. Probe the installed CLI
+# so the checkpoint completes on releases without it (the greeter already
+# follows the theme through the root-side cache symlinks) instead of
+# retrying a nonexistent subcommand at every login.
+dms_greeter_supports_profile_sync() {
+  command -v dms-greeter >/dev/null 2>&1 || return 1
+  dms-greeter --help 2>&1 | grep -qw "sync"
+}
+
 # Populate this user's greeter cache slot (wallpaper snapshot, theme,
 # avatar) once the shell state exists. The slot sync is sudo-free; the
 # root-side cache and access grants were prepared by the dms-greeter
@@ -138,6 +148,11 @@ apply_dms_greeter_profile_sync() {
 
   if ! plan_file_has_entry "$(package_file_for_backend action)" "dms-greeter" ||
     dms_greeter_action_skipped || dms_greeter_user_sync_skipped; then
+    return 0
+  fi
+
+  if ! dms_greeter_supports_profile_sync; then
+    log_info "The installed DMS Greeter has no per-user profile sync; skipping"
     return 0
   fi
 

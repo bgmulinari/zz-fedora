@@ -161,7 +161,11 @@ adds only what the package cannot know:
   skip) when another display manager is already enabled.
 
 The sudo-free per-user preview slot (`dms-greeter sync --profile`) runs as
-a first-run checkpoint once the user's shell state exists.
+a first-run checkpoint once the user's shell state exists — gated on a
+capability probe, because the stable-channel `dms-greeter` is only the
+greeter launcher and gained the sync subcommands later; on releases
+without it the checkpoint completes and the greeter follows the theme
+through the cache symlinks alone.
 
 ## First-run contract
 

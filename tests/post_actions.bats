@@ -392,6 +392,14 @@ setup() {
   TARGET_HOME="$TEST_ROOT/first-run-home"
   mkdir -p "$TARGET_HOME"
   DRY_RUN=0
+  stub_dms_shell_payload
+  setup_fake_bin
+  write_fake_command dms-greeter <<'EOF'
+#!/usr/bin/env bash
+[[ "${1:-}" == "--help" ]] && printf 'Commands:\n  sync    Sync greeter profile data\n'
+exit 0
+EOF
+  PATH="$FAKE_BIN:$PATH"
   run_cmd_as_user() {
     local user="$1"
     shift
@@ -611,6 +619,31 @@ setup() {
 
   assert_file_contains "$command_log" \
     "theme-user:bash $payload_dir/scripts/gtk.sh $TARGET_HOME/.config apply false $payload_dir"
+}
+
+@test "first-run greeter profile sync completes when the installed CLI cannot sync" {
+  build_test_plan
+  TARGET_USER="theme-user"
+  DRY_RUN=0
+  command_log="$TEST_ROOT/dms-greeter-nosync-commands.log"
+  # The stable-channel dms-greeter is only the launcher: no sync command.
+  setup_fake_bin
+  write_fake_command dms-greeter <<'EOF'
+#!/usr/bin/env bash
+[[ "${1:-}" == "--help" ]] && printf 'Usage: dms-greeter --command COMPOSITOR [OPTIONS]\n'
+exit 0
+EOF
+  PATH="$FAKE_BIN:$PATH"
+
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf '%s:%s\n' "$user" "$*" >>"$command_log"
+  }
+
+  apply_dms_greeter_profile_sync
+
+  [[ ! -e "$command_log" ]]
 }
 
 @test "first-run greeter profile sync is skipped when the greeter action was skipped" {
