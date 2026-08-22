@@ -1,14 +1,14 @@
 id = "base-login-manager"
-description = "Noctalia Greeter login manager for Fedora"
+description = "DMS Greeter login manager for Fedora"
 
 [base]
 order = 60
 
 [[install]]
 backend = "dnf"
-packages = ["policycoreutils-python-utils"]
+packages = ["policycoreutils-python-utils", "acl", "greetd"]
 
 [[install]]
 backend = "action"
-sources = ["copr:lionheartp/Hyprland"]
-actions = ["noctalia-greeter"]
+sources = ["copr:avengemedia/danklinux"]
+actions = ["dms-greeter"]

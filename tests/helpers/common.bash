@@ -34,8 +34,8 @@ source_core() {
   source "$ROOT_DIR/lib/packages.sh"
   # shellcheck source=../../lib/dotnet.sh
   source "$ROOT_DIR/lib/dotnet.sh"
-  # shellcheck source=../../lib/noctalia.sh
-  source "$ROOT_DIR/lib/noctalia.sh"
+  # shellcheck source=../../lib/dms.sh
+  source "$ROOT_DIR/lib/dms.sh"
   # shellcheck source=../../lib/actions.sh
   source "$ROOT_DIR/lib/actions.sh"
   # shellcheck source=../../lib/sources.sh
@@ -116,11 +116,21 @@ write_fake_command() {
   chmod +x "$FAKE_BIN/$name"
 }
 
+# Materialize the theme artifacts DMS would generate after the shell comes
+# up, so the dms-theme first-run checkpoint can complete in tests.
+stub_dms_theme_artifacts() {
+  mkdir -p "$TARGET_HOME/.config/ghostty/themes" "$TARGET_HOME/.local/share/color-schemes"
+  printf 'palette = 0=#11111b\n' >"$TARGET_HOME/.config/ghostty/themes/dankcolors"
+  printf '[General]\nColorScheme=DankMatugen\n' >"$TARGET_HOME/.local/share/color-schemes/DankMatugen.colors"
+}
+
 # Shared run_cmd_as_user stub for first-run/session tests: executes real
-# filesystem commands, no-ops everything else, and logs each invocation as
-# "user:<user>:<args>" when a log file is given. Tests that need failure
-# injection define stub_user_cmd_intercept; a non-zero return from it becomes
-# the command's status. Call `unset -f stub_user_cmd_intercept` to clear it.
+# filesystem commands, answers the DMS shell readiness probe (materializing
+# the generated theme artifacts), no-ops everything else, and logs each
+# invocation as "user:<user>:<args>" when a log file is given. Tests that
+# need failure injection define stub_user_cmd_intercept; a non-zero return
+# from it becomes the command's status. Call `unset -f
+# stub_user_cmd_intercept` to clear it.
 stub_run_cmd_as_user() {
   STUB_RUN_CMD_AS_USER_LOG="${1:-}"
   run_cmd_as_user() {
@@ -132,18 +142,8 @@ stub_run_cmd_as_user() {
     if declare -F stub_user_cmd_intercept >/dev/null 2>&1 && ! stub_user_cmd_intercept "$@"; then
       return 1
     fi
-    if [[ "$*" == "noctalia msg color-scheme-get" ]]; then
-      mkdir -p "$(dirname "$(noctalia_template_apply_ack_file)")"
-      printf 'initial-pass\n' >"$(noctalia_template_apply_ack_file)"
-      return 0
-    fi
-    if [[ "$*" == "noctalia config export full" ]]; then
-      printf '[theme.templates]\nenable_community_templates = false\n'
-      return 0
-    fi
-    if [[ "$*" == "noctalia msg templates-apply" ]]; then
-      mkdir -p "$(dirname "$(noctalia_template_apply_ack_file)")"
-      printf 'requested-pass\n' >"$(noctalia_template_apply_ack_file)"
+    if [[ "$*" == "dms ipc call wallpaper get" ]]; then
+      stub_dms_theme_artifacts
       return 0
     fi
     case "$1" in

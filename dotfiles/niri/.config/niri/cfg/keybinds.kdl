@@ -4,30 +4,33 @@ binds {
     Mod+E hotkey-overlay-title="Open File Manager: Nautilus" { spawn "nautilus" "--new-window"; }
     Mod+C hotkey-overlay-title="Open Calculator" { spawn "gnome-calculator"; }
     Mod+B hotkey-overlay-title="Open btop" { spawn "ghostty" "+new-window" "-e" "btop"; }
-    Mod+N hotkey-overlay-title="Open netwatch" { spawn "ghostty" "+new-window" "-e" "netwatch"; }
+    Mod+Shift+N hotkey-overlay-title="Open netwatch" { spawn "ghostty" "+new-window" "-e" "netwatch"; }
     Mod+W hotkey-overlay-title="Open Browser" { spawn-sh "xdg-open about:blank"; }
 
     // Desktop shell
-    Mod+D hotkey-overlay-title="Noctalia Launcher" { spawn-sh "noctalia msg panel-toggle launcher"; }
-    Mod+Space hotkey-overlay-title="Noctalia Launcher" { spawn-sh "noctalia msg panel-toggle launcher"; }
-    Mod+S hotkey-overlay-title="Noctalia Control Center" { spawn-sh "noctalia msg panel-toggle control-center"; }
-    Mod+Comma hotkey-overlay-title="Noctalia Settings" { spawn-sh "noctalia msg settings-toggle"; }
-    Mod+Shift+Q hotkey-overlay-title="Noctalia Session Menu" { spawn-sh "noctalia msg panel-toggle session"; }
-    Mod+Alt+L hotkey-overlay-title="Noctalia Lock Screen" { spawn-sh "noctalia msg session lock"; }
-    Print hotkey-overlay-title="Noctalia Screenshot: Region" { spawn-sh "noctalia msg screenshot-region"; }
-    Mod+Shift+S { spawn-sh "noctalia msg screenshot-region"; }
+    Mod+D hotkey-overlay-title="DMS Launcher" { spawn-sh "dms ipc call spotlight toggle"; }
+    Mod+Space hotkey-overlay-title="DMS Launcher" { spawn-sh "dms ipc call spotlight toggle"; }
+    Mod+S hotkey-overlay-title="DMS Control Center" { spawn-sh "dms ipc call control-center toggle"; }
+    Mod+Comma hotkey-overlay-title="DMS Settings" { spawn-sh "dms ipc call settings focusOrToggle"; }
+    Mod+V hotkey-overlay-title="DMS Clipboard History" { spawn-sh "dms ipc call clipboard toggle"; }
+    Mod+N hotkey-overlay-title="DMS Notifications" { spawn-sh "dms ipc call notifications toggle"; }
+    Mod+M hotkey-overlay-title="DMS Process List" { spawn-sh "dms ipc call processlist focusOrToggle"; }
+    Mod+Shift+Q hotkey-overlay-title="DMS Power Menu" { spawn-sh "dms ipc call powermenu toggle"; }
+    Mod+Alt+L hotkey-overlay-title="DMS Lock Screen" { spawn-sh "dms ipc call lock lock"; }
+    Print hotkey-overlay-title="DMS Screenshot: Region" { spawn-sh "dms ipc call niri screenshot"; }
+    Mod+Shift+S { spawn-sh "dms ipc call niri screenshot"; }
 
     // Audio, media, and brightness
-    XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "noctalia msg volume-up"; }
-    XF86AudioLowerVolume allow-when-locked=true { spawn-sh "noctalia msg volume-down"; }
-    XF86AudioMute allow-when-locked=true { spawn-sh "noctalia msg volume-mute"; }
-    XF86AudioMicMute allow-when-locked=true { spawn-sh "noctalia msg mic-mute"; }
-    XF86AudioNext allow-when-locked=true { spawn-sh "noctalia msg media next"; }
-    XF86AudioPrev allow-when-locked=true { spawn-sh "noctalia msg media previous"; }
-    XF86AudioPlay allow-when-locked=true { spawn-sh "noctalia msg media toggle"; }
-    XF86AudioPause allow-when-locked=true { spawn-sh "noctalia msg media toggle"; }
-    XF86MonBrightnessUp allow-when-locked=true { spawn-sh "noctalia msg brightness-up"; }
-    XF86MonBrightnessDown allow-when-locked=true { spawn-sh "noctalia msg brightness-down"; }
+    XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "dms ipc call audio increment 3"; }
+    XF86AudioLowerVolume allow-when-locked=true { spawn-sh "dms ipc call audio decrement 3"; }
+    XF86AudioMute allow-when-locked=true { spawn-sh "dms ipc call audio mute"; }
+    XF86AudioMicMute allow-when-locked=true { spawn-sh "dms ipc call mic mute"; }
+    XF86AudioNext allow-when-locked=true { spawn-sh "dms ipc call mpris next"; }
+    XF86AudioPrev allow-when-locked=true { spawn-sh "dms ipc call mpris previous"; }
+    XF86AudioPlay allow-when-locked=true { spawn-sh "dms ipc call mpris playPause"; }
+    XF86AudioPause allow-when-locked=true { spawn-sh "dms ipc call mpris playPause"; }
+    XF86MonBrightnessUp allow-when-locked=true { spawn-sh "dms ipc call brightness increment 5 ''"; }
+    XF86MonBrightnessDown allow-when-locked=true { spawn-sh "dms ipc call brightness decrement 5 ''"; }
 
     // Window focus
     Mod+Left { focus-column-left; }

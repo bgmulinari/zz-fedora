@@ -47,6 +47,41 @@ mark_first_run_action_complete() {
   } >"$marker"
 }
 
+# Failed-attempt counter for actions that wait on external state: lets an
+# action degrade to a one-time warning instead of re-paying its timeout at
+# every login when the awaited state never materializes.
+first_run_action_attempts_file() {
+  local action_id="$1"
+  [[ "$action_id" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] ||
+    die "Invalid first-run action ID: $action_id"
+  printf '%s/%s.attempts\n' "$(first_run_action_state_dir)" "$action_id"
+}
+
+first_run_action_attempt_count() {
+  local attempts_file count=""
+  attempts_file="$(first_run_action_attempts_file "$1")"
+  [[ -f "$attempts_file" ]] && count="$(tr -cd '0-9' <"$attempts_file")"
+  [[ "$count" =~ ^[0-9]+$ ]] || count=0
+  printf '%s\n' "$count"
+}
+
+first_run_record_action_attempt() {
+  local action_id="$1"
+  local attempts_file count
+  attempts_file="$(first_run_action_attempts_file "$action_id")"
+  [[ "$DRY_RUN" -eq 1 ]] && return 0
+  count="$(first_run_action_attempt_count "$action_id")"
+  mkdir -p "$(dirname "$attempts_file")"
+  printf '%s\n' "$((count + 1))" >"$attempts_file"
+}
+
+first_run_clear_action_attempts() {
+  local attempts_file
+  attempts_file="$(first_run_action_attempts_file "$1")"
+  [[ "$DRY_RUN" -eq 1 ]] && return 0
+  rm -f "$attempts_file"
+}
+
 run_first_run_action_once() {
   local action_id="$1"
   shift

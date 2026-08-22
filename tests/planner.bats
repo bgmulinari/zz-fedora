@@ -93,7 +93,8 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/bundles.list" "base-source-rpmfusion-nonfree"
   assert_plan_has "$PLAN_DIR/bundles.list" "base-source-flathub"
   assert_plan_has "$PLAN_DIR/bundles.list" "base-source-cisco-openh264"
-  assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:lionheartp/Hyprland"
+  assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:avengemedia/dms"
+  assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:avengemedia/danklinux"
   assert_plan_has "$PLAN_DIR/sources/terra.list" "terra"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:oh-my-zsh"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:zsh-autosuggestions"
@@ -101,10 +102,10 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "jetbrains-mono-nerd-font"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "desktop-cursor-theme"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:desktop-cursor-theme"
-  assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "dms-greeter"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "boot-splash"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "brew:netwatch"
-  assert_plan_has "$PLAN_DIR/config/components.list" "noctalia"
+  assert_plan_has "$PLAN_DIR/config/components.list" "dms"
   assert_plan_has "$PLAN_DIR/config/components.list" "fastfetch"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "zsh"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "bash-completion"
@@ -112,7 +113,9 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "dnf5-plugins"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nss-tools"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nodejs24-npm"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "noctalia"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "dms"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "matugen"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "danksearch"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "starship"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "yazi"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
@@ -120,25 +123,28 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-nautilus"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "plymouth"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "plymouth-system-theme"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "wtype"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ddcutil"
+    assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ddcutil"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt6ct-kde"
   assert_plan_has "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
+  assert_plan_has "$PLAN_DIR/services/user-enable.list" "dsearch.service"
+  # DMS is bound to the Niri unit, never enabled: enabling would hook
+  # graphical-session.target and start the shell inside GNOME/KDE sessions.
+  assert_tsv_row "$PLAN_DIR/services/user-wants.tsv" $'niri.service\tdms.service'
+  refute_plan_has "$PLAN_DIR/services/user-enable.list" "dms.service"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/zz"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/autostart/zz-first-run.desktop"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/ghostty/themes/noctalia"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/noctalia/config.toml"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/noctalia/templates/ghostty"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/noctalia/templates/icon-theme-accent"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/ghostty/themes/dankcolors"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/DankMaterialShell/settings.json"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/state/DankMaterialShell/session.json"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/DankMaterialShell/themes/catppuccin/theme.json"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/fastfetch/config.jsonc"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/fastfetch/zz-fedora.txt"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/noctalia-reload-ghostty"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/noctalia-sync-icon-theme"
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-login-manager'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-greeter\tbase-login-manager\tdesktop-service\tgraphical login'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnoctalia\tbase-noctalia\tnoctalia\tNoctalia v5 shell'
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/niri/dms/colors.kdl"
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:avengemedia/danklinux\tbase-login-manager'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tdms-greeter\tbase-login-manager\tdesktop-service\tgraphical login'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tdms\tbase-dms\tdms\tDMS shell'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-ghostty'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tghostty-shell-integration\tbase-ghostty\tdefault-app\tterminal shell integration'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbash-completion\tbase-bootstrap\tshell-tool\tinteractive Bash'
@@ -147,7 +153,7 @@ assert_all_bundles_reachable() {
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnss-tools\tbase-bootstrap\tinstaller-bootstrap\tbrowser certificate trust'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tbrew:netwatch\tshell-netwatch\tinstaller-bootstrap\tnetwork diagnostics'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24-npm\tbase-nodejs'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tddcutil\tbase-wayland-tools\tnoctalia\texternal display brightness'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tddcutil\tbase-wayland-tools\tdms\texternal display brightness'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tpavucontrol\tbase-desktop-controls\tdefault-app\taudio mixer'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tsystem-config-printer\tbase-desktop-controls\tdefault-app\tprint UI'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tjetbrains-mono-nerd-font\tbase-jetbrains-mono-nerd-font'
@@ -232,11 +238,11 @@ assert_all_bundles_reachable() {
   for installer_owned in avahi bluez udisks2; do
     assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$installer_owned"
   done
-  assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "dms-greeter"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tavahi\tbase-system-services\tdesktop-service\tnetwork discovery'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbluez\tbase-system-services\tdesktop-service\tBluetooth service'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tudisks2\tbase-file-integration\tfile-integration\tremovable media'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-greeter\tbase-login-manager\tdesktop-service\tgraphical login'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tdms-greeter\tbase-login-manager\tdesktop-service\tgraphical login'
 }
 
 @test "minimal desktop keeps explicit services whose dependency parents are skipped" {
@@ -311,12 +317,14 @@ assert_all_bundles_reachable() {
   build_test_plan
 
   assert_plan_has "$PLAN_DIR/bundles.list" "base-desktop-niri"
-  assert_plan_has "$PLAN_DIR/bundles.list" "base-noctalia"
+  assert_plan_has "$PLAN_DIR/bundles.list" "base-dms"
   assert_plan_has "$PLAN_DIR/bundles.list" "base-ghostty"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "niri"
-  assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "dms-greeter"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "desktop-cursor-theme"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "noctalia"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "dms"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "matugen"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "danksearch"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-keyring"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-keyring-pam"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty"
@@ -379,7 +387,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "code"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "zed"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "lazygit"
-  assert_plan_has "$PLAN_DIR/actions/actions.list" "vscode-extension:noctalia.noctaliatheme"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "vscode-extension:danklinux.dms-theme"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "firefox-theme"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "npm-global:@openai/codex"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:npm"

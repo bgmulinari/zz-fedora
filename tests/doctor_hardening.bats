@@ -28,7 +28,7 @@ setup() {
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "Readiness:"
-  assert_contains "$output" "noctalia command:noctalia"
+  assert_contains "$output" "dms command:dms"
   assert_contains "$output" "managed-config ~/.config/autostart/zz-first-run.desktop: first-run"
   assert_contains "$output" "Fatal readiness issues:"
   assert_contains "$output" "package-manager "
@@ -104,27 +104,20 @@ step_table_failure_policy() {
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tbats\tdevelopment-tool\trepository regression suite\tKeeps the repository\'s Bats test suites runnable out of the box on the development-focused desktop.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tdnf5-plugins\tinstaller-bootstrap\tFedora source setup and installer reruns\tProvides the DNF5 COPR and config-manager commands used during source setup.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tnss-tools\tinstaller-bootstrap\tbrowser certificate trust\tProvides certutil for importing development CAs into Firefox-style browser profiles.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\twtype\tnoctalia\tclipboard auto-paste\tProvides the upstream-supported text-injection fallback for clipboard auto-paste.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tddcutil\tnoctalia\texternal display brightness\tProvides Noctalia\'s optional DDC/CI backend for compatible external displays.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tddcutil\tdms\texternal display brightness\tShips the i2c udev rules that grant the /dev/i2c-* access DMS\'s native DDC/CI brightness control needs, plus the debugging CLI.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tpavucontrol\tdefault-app\taudio mixer\tProvides a GUI mixer fallback for standalone Niri sessions.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tcopr:lionheartp/Hyprland\tdesktop-service\tNoctalia Greeter and Qt theme\tProvides Noctalia Greeter and qt6ct-kde for the required base desktop.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tnoctalia-greeter\tdesktop-service\tgraphical login\tInstalls Noctalia Greeter from COPR, configures greetd and its SELinux-labeled state, seeds the managed appearance, and enables the fallback graphical login.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tcopr:avengemedia/danklinux\tdesktop-service\tDMS ecosystem and Qt theme\tProvides quickshell, matugen, danksearch, DMS Greeter, and qt6ct-kde for the required base desktop.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tdms-greeter\tdesktop-service\tgraphical login\tInstalls DMS Greeter from COPR, ensures the greetd session config, grants the greeter user read access to the target user\'s DMS theme state, and enables the fallback graphical login.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tdesktop-cursor-theme\ttheme-font\tNiri and graphical applications\tInstalls the pinned cursor theme selected by the managed Niri and desktop environment defaults.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tpolicycoreutils-python-utils\tdesktop-service\tgraphical login\tProvides semanage for the Noctalia Greeter SELinux state-directory policy.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tnoctalia\tnoctalia\tNoctalia v5 shell\tInstalls the official Fedora package launched by Niri autostart.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tpolicycoreutils-python-utils\tdesktop-service\tgraphical login\tProvides the SELinux policy tooling the DMS Greeter package scriptlets use for its binary and state-directory contexts.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tdms\tdms\tDMS shell\tInstalls the DMS (DankMaterialShell) desktop shell started by the dms.service user unit under the Niri session.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tterra\tdefault-app\tGhostty\tBootstraps Terra release packages for required Ghostty packages.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tghostty-shell-integration\tdefault-app\tterminal shell integration\tProvides Ghostty shell integration scripts for working-directory reporting, prompt marking, and shell-aware terminal behavior.'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/config.toml\tseed-if-missing\tpreserve\ttemplates/noctalia/config.toml'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/state/noctalia/.setup-complete\tseed-if-missing\tpreserve\t-\tnoctalia'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/state/noctalia/settings.toml\tseed-if-missing\tpreserve\t-\tnoctalia'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/templates/ghostty\tproduct-link\tbackup-before-link\t'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/noctalia/templates/icon-theme-accent\tproduct-link\tbackup-before-link\t'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/bin/noctalia-reload-ghostty\tproduct-link\tbackup-before-link\t'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/bin/noctalia-sync-icon-theme\tproduct-link\tbackup-before-link\t'
-  assert_file_contains "$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml" "[shell.greeter_sync]"
-  assert_file_contains "$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml" "auto_sync = false"
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/ghostty/themes/dankcolors\tseed-if-missing\tpreserve'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/niri/dms/colors.kdl\tseed-if-missing\tpreserve\ttemplates/niri/dms-colors.kdl'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/DankMaterialShell/settings.json\tseed-if-missing\tpreserve\t-\tdms'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/state/DankMaterialShell/session.json\tseed-if-missing\tpreserve\t-\tdms'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/DankMaterialShell/themes/catppuccin/theme.json\tproduct-link\tbackup-before-link\t'
 }
 
 @test "managed config conflicts and base rationale are generated in plan" {
@@ -137,17 +130,13 @@ step_table_failure_policy() {
 
   assert_file_contains "$PLAN_DIR/files/config-conflicts.tsv" "~/.config/ghostty/zz-defaults"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'flatpak\torg.gtk.Gtk3theme.adw-gtk3\tbase-source-flathub\ttheme-font'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:lionheartp/Hyprland\tbase-login-manager\tdesktop-service'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tnoctalia-greeter\tbase-login-manager\tdesktop-service'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnoctalia\tbase-noctalia\tnoctalia'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:avengemedia/danklinux\tbase-login-manager\tdesktop-service'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tdms-greeter\tbase-login-manager\tdesktop-service'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tdms\tbase-dms\tdms'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.bashrc\tseed-if-missing\tpreserve\tshell'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/niri/cfg/display.kdl\tseed-if-missing\tpreserve\tniri'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/ghostty/themes/noctalia\tseed-if-missing\tpreserve\tghostty'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/config.toml\tseed-if-missing\tpreserve\tnoctalia'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/templates/ghostty\tproduct-link\tbackup-before-link\tnoctalia'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/noctalia/templates/icon-theme-accent\tproduct-link\tbackup-before-link\tnoctalia'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.local/bin/noctalia-reload-ghostty\tproduct-link\tbackup-before-link\tnoctalia'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.local/bin/noctalia-sync-icon-theme\tproduct-link\tbackup-before-link\tnoctalia'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/ghostty/themes/dankcolors\tseed-if-missing\tpreserve\tghostty'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/DankMaterialShell/settings.json\tseed-if-missing\tpreserve\tdms'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/DankMaterialShell/themes/catppuccin/theme.json\tproduct-link\tbackup-before-link\tdms'
 }
 
 @test "readiness treats handled backup-before-link conflicts as informational" {
@@ -161,6 +150,29 @@ step_table_failure_policy() {
 
   assert_file_contains "$(readiness_file)" $'config-conflict\t~/.config/ghostty/zz-defaults\tplanned-backup\tinfo\tghostty:backup-before-link'
   refute_file_contains "$(readiness_file)" $'config-conflict\t~/.config/ghostty/zz-defaults\tconflict\twarn'
+}
+
+@test "readiness grades session-bound wanted units by their wants symlink, never fatal" {
+  TARGET_HOME="$TEST_ROOT/wants-home"
+  mkdir -p "$TARGET_HOME"
+  build_test_plan
+  DRY_RUN=0
+  COMMAND=doctor
+
+  # The binding is applied at first login, so its absence is a warning on a
+  # healthy pre-first-login system; a system-scope is-enabled would report
+  # the user unit missing and had graded it fatal.
+  run_without_bats_debug_trap readiness_reset
+  run_without_bats_debug_trap readiness_generate_services
+  assert_file_contains "$(readiness_file)" $'service\tdms.service\tmissing\twarn\twanted by niri.service'
+  refute_file_contains "$(readiness_file)" $'service\tdms.service\tmissing\tfatal'
+
+  mkdir -p "$TARGET_HOME/.config/systemd/user/niri.service.wants"
+  ln -sfn /usr/lib/systemd/user/dms.service \
+    "$TARGET_HOME/.config/systemd/user/niri.service.wants/dms.service"
+  run_without_bats_debug_trap readiness_reset
+  run_without_bats_debug_trap readiness_generate_services
+  assert_file_contains "$(readiness_file)" $'service\tdms.service\tbound\tinfo\twanted by niri.service'
 }
 
 @test "doctor accepts globally enabled user services" {
@@ -266,7 +278,7 @@ step_table_failure_policy() {
   assert_contains "$output" "Fatal desktop readiness checks failed"
 }
 
-@test "doctor accepts an existing display manager when Noctalia Greeter is planned" {
+@test "doctor accepts an existing display manager when DMS Greeter is planned" {
   build_test_plan
   COMMAND=doctor
   DRY_RUN=0
@@ -310,11 +322,11 @@ step_table_failure_policy() {
   build_test_plan
   COMMAND=doctor
   DRY_RUN=0
-  record_system_skip action noctalia-greeter "existing display manager: greetd.service"
+  record_system_skip action dms-greeter "existing display manager: greetd.service"
 
   output="$({
     doctor_check_command() {
-      if [[ "$1" == noctalia-greeter* ]]; then
+      if [[ "$1" == dms-greeter* ]]; then
         printf '[warn] missing command %s\n' "$1"
         return 1
       fi
@@ -342,17 +354,17 @@ step_table_failure_policy() {
   } 2>&1)"
 
   assert_contains "$output" "[ok] existing display manager greetd.service"
-  refute_contains "$output" "missing command noctalia-greeter"
+  refute_contains "$output" "missing command dms-greeter"
   refute_contains "$output" "Fatal desktop readiness checks failed"
   assert_contains "$output" "Reboot, open your display manager, and choose the Niri session."
 }
 
-@test "doctor fails when managed greetd config does not use Noctalia Greeter" {
+@test "doctor fails when managed greetd config does not use DMS Greeter" {
   build_test_plan
   COMMAND=doctor
   DRY_RUN=0
-  NOCTALIA_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
-  printf '[default_session]\ncommand = "agreety --cmd niri"\n' >"$NOCTALIA_GREETD_CONFIG"
+  DMS_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
+  printf '[default_session]\ncommand = "agreety --cmd niri"\n' >"$DMS_GREETD_CONFIG"
 
   set +e
   output="$({
@@ -389,19 +401,21 @@ step_table_failure_policy() {
   set -e
 
   [ "$status" -ne 0 ]
-  assert_contains "$output" "$NOCTALIA_GREETD_CONFIG missing pattern noctalia-greeter-session"
+  assert_contains "$output" "$DMS_GREETD_CONFIG missing pattern dms-greeter"
   assert_contains "$output" "Fatal desktop readiness checks failed"
 }
 
-@test "doctor requires the Noctalia Greeter hardware cursor workaround" {
-  NOCTALIA_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
-  printf '[default_session]\ncommand = "/usr/bin/noctalia-greeter-session"\n' >"$NOCTALIA_GREETD_CONFIG"
+@test "doctor greeter setup passes on a managed greetd config and warns on sync state" {
+  DMS_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
+  printf '[default_session]\ncommand = "/usr/bin/dms-greeter --command niri"\nuser = "greeter"\n' >"$DMS_GREETD_CONFIG"
   doctor_check_command() { return 0; }
-  doctor_check_file() { return 0; }
-  doctor_warn_file() { return 0; }
+  doctor_check_file() {
+    printf '[ok] file %s\n' "$1"
+  }
 
-  run doctor_check_noctalia_greeter_setup
+  run doctor_check_dms_greeter_setup
 
-  [ "$status" -ne 0 ]
-  assert_contains "$output" "$NOCTALIA_GREETD_CONFIG missing pattern WLR_NO_HARDWARE_CURSORS=1"
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "/var/cache/dms-greeter/settings.json"
+  assert_contains "$output" "/var/cache/dms-greeter/colors.json"
 }

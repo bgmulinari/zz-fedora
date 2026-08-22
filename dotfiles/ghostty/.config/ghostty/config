@@ -20,4 +20,4 @@ copy-on-select = clipboard
 bold-color = bright
 confirm-close-surface = false
 quit-after-last-window-closed = false
-theme = noctalia
+theme = dankcolors

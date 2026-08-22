@@ -2,6 +2,10 @@
 // Product defaults update with ~/.zz; personal overrides load last.
 
 include "~/.zz/dotfiles/niri/.config/niri/defaults.kdl"
-include "./cfg/display.kdl"
-include "./noctalia.kdl"
+include "./dms/colors.kdl"
+include optional=true "./dms/layout.kdl"
+include optional=true "./dms/input.kdl"
+include optional=true "./dms/cursor.kdl"
+include optional=true "./dms/outputs.kdl"
+include optional=true "./dms/windowrules.kdl"
 include optional=true "./local.kdl"

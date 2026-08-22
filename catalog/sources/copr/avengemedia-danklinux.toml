@@ -1,0 +1,11 @@
+id = "copr:avengemedia/danklinux"
+kind = "copr"
+label = "COPR: avengemedia/danklinux"
+project = "avengemedia/danklinux"
+required = true
+description = "DankLinux ecosystem Fedora COPR (quickshell, matugen, danksearch, dms-greeter, qt6ct-kde)"
+gpg_policy = "copr-plugin"
+reason = "Provides quickshell, matugen, danksearch, DMS Greeter, and qt6ct-kde for the required base desktop"
+# The DankLinux COPR also builds Ghostty; Terra owns Ghostty here, so keep
+# the COPR from ever shadowing it.
+excludepkgs = ["ghostty", "ghostty-shell-integration", "ghostty-nautilus"]

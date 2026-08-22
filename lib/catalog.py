@@ -22,7 +22,10 @@ The compiled layout under --out:
   steps.tsv             bundle_id, step_index, backend, sources
   items.tsv             bundle_id, step_index, backend, item
   sources.tsv           id, kind, label, project, required, gpg_policy,
-                        bootstrap_exception, description, reason
+                        bootstrap_exception, description, reason, excludepkgs
+  user-services.tsv     bundle_id, kind (enable|wants), unit, parent
+                        (parent is set only for wants rows and stays the
+                        last column so tab-IFS readers survive it empty)
   choices/<cat>.tsv     choice_id, label, default, units, description
   categories.list       one category name per line
 
@@ -74,7 +77,17 @@ CHOICE_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 CATEGORY_RE = re.compile(r"^[a-z0-9-]+$")
 CATEGORY_ALIASES = {"browser": "browsers", "source": "sources"}
 
-UNIT_KEYS = {"id", "description", "requires", "config", "base", "choice", "install"}
+UNIT_KEYS = {
+    "id",
+    "description",
+    "requires",
+    "config",
+    "base",
+    "choice",
+    "install",
+    "user_services",
+    "user_wants",
+}
 BASE_KEYS = {"order", "early", "minimal_desktop_skip"}
 CHOICE_KEYS = {"category", "id", "label", "default", "order", "description", "also"}
 INSTALL_KEYS = {"backend", "sources", "packages", "flatpaks", "actions"}
@@ -88,7 +101,12 @@ SOURCE_KEYS = {
     "gpg_policy",
     "bootstrap_exception",
     "reason",
+    "excludepkgs",
 }
+
+# Only these source kinds enable a dnf repository whose id the installer
+# can derive, so only they may carry an excludepkgs ownership list.
+EXCLUDEPKGS_KINDS = ("copr", "terra")
 
 
 class Errors:
@@ -205,6 +223,7 @@ class Source:
         self.required = optional_bool(errors, where, table, "required")
         self.bootstrap_exception = optional_bool(errors, where, table, "bootstrap_exception")
         self.project = clean_string(errors, where, "project", table.get("project", ""))
+        self.excludepkgs = string_list(errors, where, table, "excludepkgs")
 
         if self.id and not SOURCE_ID_RE.match(self.id):
             errors.add(where, f"invalid source id '{self.id}'")
@@ -219,6 +238,13 @@ class Source:
                 errors.add(where, f"'project' is required for {self.kind} sources")
         elif self.project:
             errors.add(where, "'project' is only valid for copr and artifact sources")
+        if self.excludepkgs and self.kind not in EXCLUDEPKGS_KINDS:
+            errors.add(
+                where,
+                "'excludepkgs' is only valid for "
+                + " and ".join(EXCLUDEPKGS_KINDS)
+                + " sources",
+            )
 
 
 class InstallStep:
@@ -250,6 +276,21 @@ class Unit:
         self.description = required_string(errors, where, table, "description")
         self.requires = string_list(errors, where, table, "requires")
         self.config = string_list(errors, where, table, "config")
+        # Session-scoped systemd wiring the unit's payload needs once
+        # planned: user_services entries are user units to enable, and
+        # user_wants entries are "parent/wanted" pairs bound with
+        # add-wants so the wanted unit starts only inside that session.
+        self.user_services = string_list(errors, where, table, "user_services")
+        self.user_wants: list[tuple[str, str]] = []
+        for entry in string_list(errors, where, table, "user_wants"):
+            parent, sep, wanted = entry.partition("/")
+            if not sep or not parent or not wanted or "/" in wanted:
+                errors.add(
+                    where,
+                    f"'user_wants' entry '{entry}' must be '<parent-unit>/<wanted-unit>'",
+                )
+                continue
+            self.user_wants.append((parent, wanted))
         self.base: dict | None = None
         self.choice: dict | None = None
         self.steps: list[InstallStep] = []
@@ -471,6 +512,7 @@ def compile_catalog(catalog: Catalog, out_dir: Path) -> None:
     bundle_rows: list[str] = []
     step_rows: list[str] = []
     item_rows: list[str] = []
+    user_service_rows: list[str] = []
     for unit_id in sorted(catalog.units):
         unit = catalog.units[unit_id]
         base = unit.base or {}
@@ -496,6 +538,10 @@ def compile_catalog(catalog: Catalog, out_dir: Path) -> None:
             )
             for item in sorted(step.items):
                 item_rows.append("\t".join((unit.id, str(step.index), step.backend, item)))
+        for service in unit.user_services:
+            user_service_rows.append("\t".join((unit.id, "enable", service, "")))
+        for parent, wanted in unit.user_wants:
+            user_service_rows.append("\t".join((unit.id, "wants", wanted, parent)))
 
     source_rows: list[str] = []
     for source_id in sorted(catalog.sources):
@@ -512,6 +558,7 @@ def compile_catalog(catalog: Catalog, out_dir: Path) -> None:
                     flag(source.bootstrap_exception),
                     source.description,
                     source.reason,
+                    ",".join(source.excludepkgs),
                 )
             )
         )
@@ -532,6 +579,7 @@ def compile_catalog(catalog: Catalog, out_dir: Path) -> None:
     write_lines(out_dir / "steps.tsv", step_rows)
     write_lines(out_dir / "items.tsv", item_rows)
     write_lines(out_dir / "sources.tsv", source_rows)
+    write_lines(out_dir / "user-services.tsv", user_service_rows)
 
     categories = catalog.categories()
     for stale in (out_dir / "choices").glob("*.tsv"):

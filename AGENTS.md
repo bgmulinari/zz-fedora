@@ -2,7 +2,7 @@
 
 ## Scope and invariants
 
-- This repository is a Fedora post-install bootstrapper for the Niri and Noctalia desktop.
+- This repository is a Fedora post-install bootstrapper for the Niri and DMS (DankMaterialShell) desktop.
 - `install.sh` owns setup. `bootstrap.sh` only installs prerequisites, clones or updates the repository, and hands off to `install.sh`.
 - The installed `zz` launcher is for post-install operations. Do not add install, wizard, plan, check, or repair wrappers under `bin/zz.d/`. Discover its supported commands with `./bin/zz commands --json`.
 - The installer is under active development. Do not add migrations, compatibility shims, existing-install preservation, or regression guards for previous behavior unless the user explicitly requests them.
@@ -40,13 +40,13 @@ and compiles it to flat TSVs that the Bash planner consumes through
 
 ## Preserve catalog contracts
 
-- Every unit file declares a catalog-unique `id` and a `description`, optionally `requires` (unit IDs pulled in by dependency expansion) and `config` (managed configuration components selected from `config/managed-config.tsv`), and at least one `[[install]]` step. `lib/catalog.py` validation fails on unknown keys at any level; run `/usr/bin/python3 lib/catalog.py --root . validate` after catalog edits.
+- Every unit file declares a catalog-unique `id` and a `description`, optionally `requires` (unit IDs pulled in by dependency expansion) and `config` (managed configuration components selected from `config/managed-config.tsv`), and at least one `[[install]]` step. Units may also declare session-scoped systemd wiring: `user_services` (user units enabled with `systemctl --user enable --now` at first login) and `user_wants` (`"<parent-unit>/<wanted-unit>"` pairs bound with `systemctl --user add-wants` so the wanted unit starts only inside that session). `lib/catalog.py` validation fails on unknown keys at any level; run `/usr/bin/python3 lib/catalog.py --root . validate` after catalog edits.
 - Each `[[install]]` step declares `backend` (`dnf`, `flatpak`, or `action`), optional `sources` (source IDs the step needs), and a payload key that must match the backend: `packages` for `dnf`, `flatpaks` for `flatpak`, `actions` for `action`.
 - Base membership is the `[base]` table: a required integer `order` unique across the catalog, plus optional `early = true` and `minimal_desktop_skip = true`. Every unit under `catalog/units/base/` must declare `[base]`; `[base]` units may also live in other groups (the `shell-*` units do). A unit must not declare both `[base]` and `[choice]`: base units are planned before optional units and never appear in a wizard category. Use `DEFAULT_BUNDLE_IDS` only for broader defaults outside the choice catalogs.
 - Wizard visibility is the `[choice]` table: required `category`, `id` (unique within the category), `label`, and `description` (the wizard copy), plus optional `default`, `order` (rows sort by `order`, then `id`), and `also` (extra unit IDs the choice selects).
 - The default install selects every non-browser catalog choice and only Firefox from the browsers category. Express optional defaults through `[choice]` `default = true`.
 - Give every base-owning unit a useful `description`; base package and action work must remain explainable in the generated `base-rationale.tsv` (its format is unchanged).
-- Source descriptors declare `id`, `kind` (`official`, `copr`, `terra`, `rpmfusion`, `cisco-openh264`, `vendor`, `flatpak`, or `artifact`), `label`, `required`, `description`, and trust metadata: `gpg_policy` (one of `distro-managed`, `copr-plugin`, `rpm-gpg-import`, `repo-gpg-key`, `flatpak-gpg`, `unsigned-bootstrap`, `pinned-commit`, `sha256`, `tls-only`), `bootstrap_exception` (must be `true` when `gpg_policy` is `unsigned-bootstrap`), and `reason`.
+- Source descriptors declare `id`, `kind` (`official`, `copr`, `terra`, `rpmfusion`, `cisco-openh264`, `vendor`, `flatpak`, or `artifact`), `label`, `required`, `description`, and trust metadata: `gpg_policy` (one of `distro-managed`, `copr-plugin`, `rpm-gpg-import`, `repo-gpg-key`, `flatpak-gpg`, `unsigned-bootstrap`, `pinned-commit`, `sha256`, `tls-only`), `bootstrap_exception` (must be `true` when `gpg_policy` is `unsigned-bootstrap`), and `reason`. `copr` and `terra` sources may add `excludepkgs`, a package-ownership list applied to the enabled dnf repository so overlapping repositories cannot shadow each other's packages.
 - `project` is kind-scoped: required for `copr` sources (the COPR project to enable) and `artifact` sources (the fetch origin, optionally pinned as `url@commit`), and forbidden for every other kind.
 - Units reference sources only through the per-step `sources` lists; unknown source IDs fail catalog validation. Dedicated `source-*` base units own base-required sources; optional units declare their own source needs on their install steps (source enablement is idempotent, so overlap with base sources is fine).
 
@@ -59,7 +59,7 @@ and compiles it to flat TSVs that the Bash planner consumes through
 - Give every externally-settable environment override the `ZZ_` prefix (for example `ZZ_DRY_RUN`, `ZZ_ASSUME_YES`, `ZZ_NO_TUI`); unprefixed uppercase names are internal runtime globals only and must not be read from the caller's environment as installer knobs.
 - Keep required base actions idempotent and give them explicit verification checks.
 - Keep GUI defaults that require a logged-in user session in the first-run path rather than the system install path.
-- For Noctalia changes, keep portable product defaults in the managed config and do not commit generated, monitor-specific, or hardware-specific state from `~/.local/state/noctalia/`.
+- For DMS changes, keep portable product defaults in the managed seeds and do not commit generated, monitor-specific, or hardware-specific state from `~/.local/state/DankMaterialShell/` or `~/.cache/DankMaterialShell/`.
 
 ## Fedora installer ISO
 

@@ -13,6 +13,10 @@ user_services_from_plan() {
   read_plan_file "$PLAN_DIR/services/user-enable.list"
 }
 
+user_service_wants_from_plan() {
+  read_plan_file "$PLAN_DIR/services/user-wants.tsv"
+}
+
 enable_user_service() {
   local service_name="$1"
   if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -37,9 +41,41 @@ enable_user_service() {
   run_cmd_as_root systemctl --global enable "$service_name"
 }
 
+# Bind a user unit to a specific parent unit with add-wants instead of
+# enabling its [Install] target. add-wants only records the dependency, so
+# when the parent unit is already running (a live session) the unit is
+# also started explicitly.
+add_user_service_want() {
+  local parent_unit="$1"
+  local wanted_unit="$2"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    if [[ "${ZZ_INSTALLER_DEFER_START_SERVICES:-0}" -eq 1 ]]; then
+      printf 'DRY-RUN: systemctl --global add-wants %s %s\n' "$parent_unit" "$wanted_unit"
+    else
+      printf 'DRY-RUN: systemctl --user add-wants %s %s\n' "$parent_unit" "$wanted_unit"
+    fi
+    return 0
+  fi
+
+  if [[ "${ZZ_INSTALLER_DEFER_START_SERVICES:-0}" -eq 1 ]]; then
+    run_cmd_as_root systemctl --global add-wants "$parent_unit" "$wanted_unit"
+    return $?
+  fi
+
+  if run_cmd_as_user "$TARGET_USER" systemctl --user add-wants "$parent_unit" "$wanted_unit"; then
+    if run_cmd_as_user "$TARGET_USER" systemctl --user is-active "$parent_unit" >/dev/null 2>&1; then
+      run_cmd_as_user "$TARGET_USER" systemctl --user start "$wanted_unit" || return 1
+    fi
+    return 0
+  fi
+
+  [[ "$EUID" -eq 0 ]] || return 1
+  run_cmd_as_root systemctl --global add-wants "$parent_unit" "$wanted_unit"
+}
+
 enable_user_services() {
   local failure_mode="${1:-warn}"
-  local service_name failed=0
+  local service_name parent_unit wanted_unit failed=0
   case "$failure_mode" in
     warn|strict) ;;
     *) die "Unsupported user-service failure mode: $failure_mode" ;;
@@ -52,6 +88,14 @@ enable_user_services() {
       [[ "$failure_mode" == "strict" ]] && failed=1
     fi
   done < <(user_services_from_plan)
+  while IFS=$'\t' read -r parent_unit wanted_unit; do
+    [[ -n "$parent_unit" && -n "$wanted_unit" ]] || continue
+    log_progress "Binding user service to its session unit: $wanted_unit -> $parent_unit"
+    if ! add_user_service_want "$parent_unit" "$wanted_unit"; then
+      log_warn "Could not bind user service: $wanted_unit -> $parent_unit"
+      [[ "$failure_mode" == "strict" ]] && failed=1
+    fi
+  done < <(user_service_wants_from_plan)
   return "$failed"
 }
 

@@ -1,17 +1,28 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Noctalia native messaging host and Firefox extension policy action.
+# Pywalfox native messaging host and Firefox extension policy action.
+#
+# DMS themes Firefox through Pywalfox: its matugen template renders
+# ~/.cache/wal/dank-pywalfox.json and its post-hook runs `pywalfox update`
+# whenever the theme changes. Fedora does not package the Pywalfox native
+# host, so it is installed per-user with pip; the ~/.cache/wal/colors.json
+# symlink is the upstream-documented bridge between the DMS template
+# output and the palette file Pywalfox reads.
 
 FIREFOX_THEME_EXTENSION_ID="pywalfox@frewacom.org"
 FIREFOX_THEME_EXTENSION_URL="https://addons.mozilla.org/firefox/downloads/latest/pywalfox/latest.xpi"
 
-firefox_theme_noctalia_bin() {
-  command -v noctalia
-}
-
 firefox_theme_native_manifest() {
   printf '%s\n' "$TARGET_HOME/.mozilla/native-messaging-hosts/pywalfox.json"
+}
+
+firefox_theme_wal_colors_link() {
+  printf '%s\n' "$TARGET_HOME/.cache/wal/colors.json"
+}
+
+firefox_theme_wal_colors_target() {
+  printf '%s\n' "$TARGET_HOME/.cache/wal/dank-pywalfox.json"
 }
 
 firefox_theme_policies_file() {
@@ -31,15 +42,12 @@ firefox_theme_policies_writable() {
   [[ ! -e "$target" || -w "$target" ]]
 }
 
-# Noctalia claims any manifest whose host program is named after it and leaves
-# every other host alone, rewriting its own in place from whichever binary is
-# running. Mirror that ownership test instead of pinning one resolved path, so a
-# manifest written by the running shell still verifies while a foreign host is
-# still replaced.
+# Pywalfox rewrites its own manifest from whichever install is running, so
+# accept any executable Pywalfox host instead of pinning one resolved path.
 firefox_theme_manifest_host_owned() {
   local host="$1"
   case "${host##*/}" in
-    noctalia|noctalia-pywalfox) [[ -x "$host" ]] ;;
+    pywalfox|pywalfox.py|pywalfox-daemon|main.py) [[ -e "$host" ]] ;;
     *) return 1 ;;
   esac
 }
@@ -91,20 +99,33 @@ install_firefox_theme_policy() {
   rm -f "$temp_file"
 }
 
+# The colors.json symlink may dangle until DMS renders its Pywalfox
+# template; the DMS post-hook checks for the file before updating, so a
+# dangling link simply defers theming to the first render. A pre-existing
+# regular file is a standalone-pywal palette the user owns: back it up
+# before the link replaces it.
+install_firefox_theme_wal_link() {
+  local link
+  link="$(firefox_theme_wal_colors_link)"
+  run_cmd_as_user "$TARGET_USER" mkdir -p "$TARGET_HOME/.cache/wal"
+  if [[ -e "$link" && ! -L "$link" ]]; then
+    backup_user_file_if_needed "$link"
+  fi
+  run_cmd_as_user "$TARGET_USER" ln -sfn "$(firefox_theme_wal_colors_target)" "$link"
+}
+
 install_firefox_theme() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: register Noctalia Firefox theme host -> %s\n' "$(firefox_theme_native_manifest)"
+    printf 'DRY-RUN: install the Pywalfox native host with pip and register %s\n' "$(firefox_theme_native_manifest)"
+    printf 'DRY-RUN: link %s -> %s\n' "$(firefox_theme_wal_colors_link)" "$(firefox_theme_wal_colors_target)"
     install_firefox_theme_policy
     return 0
   fi
 
-  local executable
-  if ! executable="$(firefox_theme_noctalia_bin)"; then
-    log_warn "Noctalia is not installed; cannot register the Firefox theme host."
-    return 1
-  fi
-  log_progress "Registering Noctalia Firefox theme host"
-  run_cmd_as_user "$TARGET_USER" env HOME="$TARGET_HOME" "$executable" firefox-theme install || return 1
+  log_progress "Installing the Pywalfox native host"
+  run_cmd_as_user "$TARGET_USER" env HOME="$TARGET_HOME" "$SYSTEM_PYTHON" -m pip install --user --quiet pywalfox || return 1
+  run_cmd_as_user "$TARGET_USER" env HOME="$TARGET_HOME" "$SYSTEM_PYTHON" -m pywalfox install || return 1
+  install_firefox_theme_wal_link
   install_firefox_theme_policy
 }
 
@@ -120,6 +141,7 @@ firefox_theme_installed() {
     "$manifest" >/dev/null 2>&1 || return 1
   manifest_host="$(jq -r '.path // empty' "$manifest" 2>/dev/null)"
   firefox_theme_manifest_host_owned "$manifest_host" || return 1
+  [[ -L "$(firefox_theme_wal_colors_link)" ]] || return 1
   jq -e \
     --arg extension_id "$FIREFOX_THEME_EXTENSION_ID" \
     --arg extension_url "$FIREFOX_THEME_EXTENSION_URL" \

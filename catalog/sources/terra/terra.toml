@@ -6,3 +6,15 @@ description = "Terra repository for Ghostty"
 gpg_policy = "unsigned-bootstrap"
 bootstrap_exception = true
 reason = "Bootstraps Terra release packages before installing required Ghostty packages"
+# Terra also packages the DMS stack; the DankLinux COPRs own it here, so
+# keep Terra from ever shadowing those builds.
+excludepkgs = [
+  "quickshell",
+  "quickshell-git",
+  "matugen",
+  "dgop",
+  "danksearch",
+  "dms",
+  "dms-cli",
+  "dms-greeter",
+]

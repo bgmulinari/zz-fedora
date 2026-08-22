@@ -1,6 +1,0 @@
-// Use `niri msg outputs` to get the correct output names for your system.
-// Remove the `/-` marker and adjust values before enabling a custom output block.
-/- output "DP-1" {
-    mode "2560x1440@144.000"
-    scale 1
-}

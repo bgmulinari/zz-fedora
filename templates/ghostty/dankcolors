@@ -1,5 +1,5 @@
-# Fallback Noctalia Ghostty theme.
-# Noctalia can overwrite this file from the managed Ghostty user template.
+# Fallback DMS Ghostty theme (Catppuccin Mocha, blue accent).
+# DMS overwrites this file from its matugen ghostty template.
 palette = 0=#11111b
 palette = 1=#f38ba8
 palette = 2=#a6e3a1

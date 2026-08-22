@@ -70,8 +70,8 @@ source "$ROOT_DIR/lib/actions/dotnet.sh"
 source "$ROOT_DIR/lib/actions/fonts.sh"
 # shellcheck source=./actions/cursor-theme.sh
 source "$ROOT_DIR/lib/actions/cursor-theme.sh"
-# shellcheck source=./actions/noctalia-greeter.sh
-source "$ROOT_DIR/lib/actions/noctalia-greeter.sh"
+# shellcheck source=./actions/dms-greeter.sh
+source "$ROOT_DIR/lib/actions/dms-greeter.sh"
 # shellcheck source=./actions/media.sh
 source "$ROOT_DIR/lib/actions/media.sh"
 # shellcheck source=./actions/boot-splash.sh

@@ -7,11 +7,9 @@ setup() {
   setup_test_env
 }
 
-@test "Starship prompt uses Noctalia colors with managed custom palette contrast coverage" {
+@test "Starship prompt uses the static ZZ palette with contrast coverage" {
   python3 "$ROOT_DIR/tests/support/starship_contrast.py" \
-    "$ROOT_DIR/templates/starship.toml" \
-    "$ROOT_DIR/tests/fixtures/noctalia-builtin-terminal-palettes.tsv" \
-    "$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml"
+    "$ROOT_DIR/templates/starship.toml"
 }
 
 @test "Starship prompt hides optional section separators when sections are empty" {

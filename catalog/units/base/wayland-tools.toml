@@ -6,4 +6,4 @@ order = 180
 
 [[install]]
 backend = "dnf"
-packages = ["ddcutil", "wtype"]
+packages = ["ddcutil"]

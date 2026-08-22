@@ -136,8 +136,32 @@ readiness_generate_sources() {
   done
 }
 
+# A wanted user unit is bound with `systemctl --user add-wants` at first
+# login (or `--global add-wants` from the installer chroot); neither
+# binding is visible to the system manager's is-enabled, so grade it by
+# the wants symlink the two scopes create. Missing is warn, not fatal:
+# before the first login the binding legitimately does not exist yet.
+readiness_user_want_status() {
+  local parent_unit="$1"
+  local wanted_unit="$2"
+  local link
+  if readiness_planned_install_context; then
+    printf 'planned'
+    return 0
+  fi
+  for link in \
+    "$TARGET_HOME/.config/systemd/user/$parent_unit.wants/$wanted_unit" \
+    "/etc/systemd/user/$parent_unit.wants/$wanted_unit"; do
+    if [[ -L "$link" || -e "$link" ]]; then
+      printf 'bound'
+      return 0
+    fi
+  done
+  printf 'missing'
+}
+
 readiness_generate_services() {
-  local service_file service_name status severity
+  local service_file service_name status severity parent_unit wanted_unit
   for service_file in "$PLAN_DIR"/services/*.list; do
     [[ -f "$service_file" ]] || continue
     while IFS= read -r service_name; do
@@ -148,6 +172,13 @@ readiness_generate_services() {
       readiness_record "service" "$service_name" "$status" "$severity" ""
     done < <(read_plan_file "$service_file")
   done
+  while IFS=$'\t' read -r parent_unit wanted_unit; do
+    [[ -n "$parent_unit" && -n "$wanted_unit" ]] || continue
+    status="$(readiness_user_want_status "$parent_unit" "$wanted_unit")"
+    severity="info"
+    [[ "$status" == "missing" ]] && severity="warn"
+    readiness_record "service" "$wanted_unit" "$status" "$severity" "wanted by $parent_unit"
+  done < <(read_plan_file "$PLAN_DIR/services/user-wants.tsv")
 }
 
 readiness_generate_display_manager_conflicts() {
@@ -155,7 +186,7 @@ readiness_generate_display_manager_conflicts() {
   while IFS= read -r service_name; do
     [[ -n "$service_name" && "$service_name" != "display-manager.service" ]] || continue
     if [[ "$DRY_RUN" -eq 0 ]] && systemctl is-enabled "$service_name" >/dev/null 2>&1; then
-      readiness_record "display-manager" "$service_name" "enabled" "warn" "Noctalia Greeter fallback will be skipped"
+      readiness_record "display-manager" "$service_name" "enabled" "warn" "DMS Greeter fallback will be skipped"
     fi
   done < <(known_display_manager_units)
 }
@@ -257,8 +288,7 @@ readiness_generate_desktop_files() {
 
   for item in \
     "$user_config_home/niri/config.kdl" \
-    "$niri_config_home/cfg/display.kdl" \
-    "$niri_config_home/noctalia.kdl" \
+    "$niri_config_home/dms/colors.kdl" \
     "$product_niri_home/defaults.kdl" \
     "$product_niri_home/cfg/autostart.kdl" \
     "$product_niri_home/cfg/keybinds.kdl" \
@@ -267,8 +297,7 @@ readiness_generate_desktop_files() {
     "/usr/lib/environment.d/10-zz-desktop.conf"; do
     if [[ "$SKIP_USER_CONFIG" -eq 1 ]] && {
       [[ "$item" == "$user_config_home/niri/config.kdl" ]] ||
-        [[ "$item" == "$niri_config_home/cfg/display.kdl" ]] ||
-        [[ "$item" == "$niri_config_home/noctalia.kdl" ]]
+        [[ "$item" == "$niri_config_home/dms/colors.kdl" ]]
     }; then
       readiness_record "file" "$item" "skipped" "info" "user configuration skipped"
       continue
@@ -303,11 +332,11 @@ readiness_generate_desktop_files() {
   if readiness_planned_install_context; then
     status="planned"
   else
-    status="$(readiness_status_for_command noctalia)"
+    status="$(readiness_status_for_command dms)"
   fi
   severity="info"
   [[ "$status" == "missing" ]] && severity="fatal"
-  readiness_record "noctalia" "command:noctalia" "$status" "$severity" "Expected package: noctalia"
+  readiness_record "dms" "command:dms" "$status" "$severity" "Expected package: dms"
 }
 
 readiness_generate_target_home() {

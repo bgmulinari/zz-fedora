@@ -100,6 +100,22 @@ metadata_expire=1h
 EOF
 }
 
+# The dnf repo id the copr plugin derives for an enabled "owner/project".
+fedora_copr_repo_id() {
+  local project="$1"
+  printf 'copr:copr.fedorainfracloud.org:%s\n' "${project//\//:}"
+}
+
+# Apply the source descriptor's excludepkgs list (compiled from the
+# catalog TOML) to the dnf repo the source enables, so repository
+# ownership rules live next to the source definition instead of being
+# hard-coded per source id here.
+fedora_apply_source_excludepkgs() {
+  local repo_id="$1"
+  [[ -n "${SOURCE_EXCLUDEPKGS:-}" ]] || return 0
+  run_cmd_as_root dnf config-manager setopt "${repo_id}.excludepkgs=${SOURCE_EXCLUDEPKGS}"
+}
+
 fedora_enable_sources() {
   local source_id="$1"
   load_source_descriptor "$source_id" || die "Unknown Fedora source: $source_id"
@@ -115,6 +131,7 @@ fedora_enable_sources() {
         log_progress "Enabling Fedora COPR source: $SOURCE_PROJECT"
         run_cmd_as_root dnf copr enable -y "$SOURCE_PROJECT"
       fi
+      fedora_apply_source_excludepkgs "$(fedora_copr_repo_id "$SOURCE_PROJECT")"
       ;;
     terra)
       if ! fedora_repo_enabled "$SOURCE_ID"; then
@@ -128,7 +145,7 @@ fedora_enable_sources() {
         run_cmd_as_root rpm --import "/etc/pki/rpm-gpg/RPM-GPG-KEY-terra${fedora_release}"
       fi
       run_cmd_as_root dnf config-manager setopt terra.repo_gpgcheck=0
-      run_cmd_as_root dnf config-manager setopt terra.excludepkgs=noctalia,noctalia-greeter
+      fedora_apply_source_excludepkgs terra
       ;;
     rpmfusion)
       case "$SOURCE_ID" in

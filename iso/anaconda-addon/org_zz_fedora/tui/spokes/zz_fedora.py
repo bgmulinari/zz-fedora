@@ -139,7 +139,7 @@ class ZZFedoraSpoke(NormalTUISpoke):
         self._container.add(
             CheckboxWidget(
                 title=_(
-                    "Minimal desktop apps - keep the Niri and Noctalia "
+                    "Minimal desktop apps - keep the Niri and DMS "
                     "baseline without default desktop applications"
                 ),
                 completed=self._desktop_app_profile == "minimal",

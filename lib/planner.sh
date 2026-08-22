@@ -168,17 +168,40 @@ build_plan_from_selections() {
 
   append_plan_entries "$PLAN_DIR/services/system-enable-now.list" "${DEFAULT_SYSTEM_SERVICES[@]}"
   : >"$PLAN_DIR/services/user-enable.list"
-  if plan_file_has_entry "$(package_file_for_backend "$(native_backend)")" "ghostty"; then
-    append_plan_entries "$PLAN_DIR/services/user-enable.list" "app-com.mitchellh.ghostty.service"
-  fi
+  : >"$PLAN_DIR/services/user-wants.tsv"
+  # Session-scoped systemd wiring comes from the catalog's per-unit
+  # user_services (plain enables) and user_wants (session-bound add-wants
+  # pairs) declarations, so it lives next to the packages providing the
+  # units; see catalog/units/base/dms.toml for the add-wants rationale.
+  local service_kind service_parent service_unit
+  for bundle_id in "${selected_bundle_ids[@]:-}"; do
+    [[ -n "$bundle_id" ]] || continue
+    while IFS=$'\t' read -r service_kind service_unit service_parent; do
+      [[ -n "$service_kind" ]] || continue
+      case "$service_kind" in
+        enable)
+          append_plan_entries "$PLAN_DIR/services/user-enable.list" "$service_unit"
+          ;;
+        wants)
+          printf '%s\t%s\n' "$service_parent" "$service_unit" >>"$PLAN_DIR/services/user-wants.tsv"
+          ;;
+        *)
+          die "Unknown catalog user-service kind '$service_kind' for bundle: $bundle_id"
+          ;;
+      esac
+    done < <(bundle_user_services "$bundle_id")
+  done
+  sort -u "$PLAN_DIR/services/user-wants.tsv" -o "$PLAN_DIR/services/user-wants.tsv"
+  local managed_path
   append_managed_file "~/.local/share/backgrounds"
-  append_managed_file "~/.local/state/noctalia/.setup-complete"
-  append_managed_file "~/.local/state/noctalia/settings.toml"
-  append_managed_file "~/.config/niri/cfg/display.kdl"
-  append_managed_file "~/.config/niri/noctalia.kdl"
+  for managed_path in "$(dms_settings_file)" "$(dms_session_file)"; do
+    append_managed_file "~${managed_path#"$TARGET_HOME"}"
+  done
+  append_managed_file "~/.config/niri/dms/colors.kdl"
   append_managed_file "~/.config/starship.toml"
   if plan_file_has_entry "$(package_file_for_backend "$(native_backend)")" "ghostty"; then
-    append_managed_file "~/.config/ghostty/themes/noctalia"
+    managed_path="$(dms_ghostty_theme_file)"
+    append_managed_file "~${managed_path#"$TARGET_HOME"}"
   fi
   append_managed_file "~/.config/autostart/zz-first-run.desktop"
   append_managed_file "~/.local/bin/zz"
@@ -402,6 +425,9 @@ write_plan_summary() {
     if [[ -f "$PLAN_DIR/services/user-enable.list" ]]; then
       sed 's/^/  - /' "$PLAN_DIR/services/user-enable.list"
     fi
+    if [[ -f "$PLAN_DIR/services/user-wants.tsv" ]]; then
+      awk -F'\t' 'NF>=2 {printf "  - %s (wanted by %s)\n", $2, $1}' "$PLAN_DIR/services/user-wants.tsv"
+    fi
 
     printf '\nFiles:\n'
     if [[ -f "$PLAN_DIR/files/managed-files.list" ]]; then
@@ -494,6 +520,24 @@ json_warnings_array() {
     printf '"%s"' "$(json_escape "$warning")"
     first=0
   done
+  printf ']'
+}
+
+json_user_service_wants_array() {
+  local file="$PLAN_DIR/services/user-wants.tsv"
+  local first=1
+  local parent_unit wanted_unit
+  printf '['
+  if [[ -f "$file" ]]; then
+    while IFS=$'\t' read -r parent_unit wanted_unit; do
+      [[ -n "$parent_unit" && -n "$wanted_unit" ]] || continue
+      [[ "$first" -eq 1 ]] || printf ','
+      printf '{"unit":"%s","wants":"%s"}' \
+        "$(json_escape "$parent_unit")" \
+        "$(json_escape "$wanted_unit")"
+      first=0
+    done <"$file"
+  fi
   printf ']'
 }
 
@@ -612,6 +656,8 @@ print_plan_json() {
   json_array_from_file "$PLAN_DIR/services/system-enable.list"
   printf ',"user_enable":'
   json_array_from_file "$PLAN_DIR/services/user-enable.list"
+  printf ',"user_wants":'
+  json_user_service_wants_array
   printf '},"config_components":'
   json_array_from_file "$PLAN_DIR/config/components.list"
   printf ',"managed_files":'

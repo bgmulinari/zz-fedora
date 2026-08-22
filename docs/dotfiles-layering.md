@@ -45,7 +45,7 @@ live ZZ defaults first and a user override last:
 | Surface | User-owned entrypoint or override | ZZ-managed default |
 | --- | --- | --- |
 | Niri | `~/.config/niri/config.kdl`, plus optional `~/.config/niri/local.kdl` | `dotfiles/niri/.config/niri/defaults.kdl` and its `cfg/` includes |
-| Noctalia | `~/.config/noctalia/config.toml` and `~/.config/noctalia/conf.d` | `dotfiles/noctalia/.config/noctalia/config.toml`; Settings UI state remains under `~/.local/state/noctalia/` and loads last |
+| DMS | `~/.config/DankMaterialShell/settings.json` (seeded once, then owned by the Settings UI) | `dotfiles/dms/.config/DankMaterialShell/themes/catppuccin/theme.json`, linked as the selected registry theme; session state stays under `~/.local/state/DankMaterialShell/` |
 | Ghostty | `~/.config/ghostty/config` and optional `~/.config/ghostty/local` | `dotfiles/ghostty/.config/ghostty/config`, linked as `~/.config/ghostty/zz-defaults` |
 | Fastfetch | `~/.config/fastfetch/config.jsonc` | `dotfiles/fastfetch/.config/fastfetch/zz-fedora.txt`, linked into the Fastfetch config directory |
 | Bash | `~/.bashrc` and `~/.shellrc.d/` | `dotfiles/shell/.bashrc`; selected product integrations are linked under `~/.config/zz-fedora/shell.d/` |
@@ -58,9 +58,9 @@ integration directory, and each fragment also checks for its corresponding
 command before enabling anything.
 
 Hardware-specific and generated values stay in user or state files. For
-example, Niri display settings are seeded from
-`templates/niri/display.kdl`, while Noctalia-generated monitor and widget state
-stays out of the repository.
+example, Niri display settings live in the DMS-managed
+`~/.config/niri/dms/outputs.kdl`, and DMS-generated monitor and widget
+state stays out of the repository.
 
 ## Resetting a user-owned file
 
@@ -89,5 +89,7 @@ because updating `~/.zz` already refreshes them.
 5. Add focused planner and apply tests for preservation, backup, and link
    behavior.
 
-Use the `promote-noctalia-config` skill for Noctalia Settings UI changes so
-portable defaults are promoted without committing hardware-specific state.
+To promote a DMS Settings UI change into the managed baseline, diff the
+user's `~/.config/DankMaterialShell/settings.json` against the seed emitted
+by `dms_settings_seed_json` (`lib/dms.sh`) and move only portable keys into
+the seed, leaving monitor- and hardware-specific state in the user file.

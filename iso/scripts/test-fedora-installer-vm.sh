@@ -24,7 +24,7 @@ The default graphical installer UI uses a local QEMU VNC display; use
 Use --graphics egl-headless for a headless virtio GL device suitable for
 post-install Niri/Wayland validation.
 The desktop app profile defaults to full; use --desktop-app-profile minimal
-to exercise the minimal Niri/Noctalia baseline.
+to exercise the minimal Niri/DMS baseline.
 EOF
 }
 
