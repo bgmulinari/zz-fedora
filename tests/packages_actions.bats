@@ -272,7 +272,7 @@ EOF
     local user="$1"
     shift
     printf '%s:%s\n' "$user" "$*" >>"$command_log"
-    if [[ "$*" == "env HOME=$TARGET_HOME $SYSTEM_PYTHON -m pywalfox install" ]]; then
+    if [[ "$*" == "env HOME=$TARGET_HOME $SYSTEM_PYTHON -m pywalfox install --executable $TARGET_HOME/.local/bin/pywalfox" ]]; then
       printf '#!/usr/bin/env bash\n' >"$pywalfox_bin"
       chmod +x "$pywalfox_bin"
       mkdir -p "$TARGET_HOME/.mozilla/native-messaging-hosts"
@@ -297,7 +297,7 @@ EOF
   assert_file_contains "$command_log" \
     "firefox-user:env HOME=$TARGET_HOME $SYSTEM_PYTHON -m pip install --user --quiet pywalfox"
   assert_file_contains "$command_log" \
-    "firefox-user:env HOME=$TARGET_HOME $SYSTEM_PYTHON -m pywalfox install"
+    "firefox-user:env HOME=$TARGET_HOME $SYSTEM_PYTHON -m pywalfox install --executable $TARGET_HOME/.local/bin/pywalfox"
   # The wal colors bridge points Pywalfox at the DMS template output.
   [ -L "$TARGET_HOME/.cache/wal/colors.json" ]
   assert_equal "$TARGET_HOME/.cache/wal/dank-pywalfox.json" "$(readlink "$TARGET_HOME/.cache/wal/colors.json")"

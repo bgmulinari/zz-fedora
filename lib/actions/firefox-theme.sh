@@ -124,7 +124,11 @@ install_firefox_theme() {
 
   log_progress "Installing the Pywalfox native host"
   run_cmd_as_user "$TARGET_USER" env HOME="$TARGET_HOME" "$SYSTEM_PYTHON" -m pip install --user --quiet pywalfox || return 1
-  run_cmd_as_user "$TARGET_USER" env HOME="$TARGET_HOME" "$SYSTEM_PYTHON" -m pywalfox install || return 1
+  # pip --user installs the entry point to ~/.local/bin, which is not on
+  # the action runner's PATH, so name the executable explicitly instead of
+  # letting the pywalfox installer search for it.
+  run_cmd_as_user "$TARGET_USER" env HOME="$TARGET_HOME" "$SYSTEM_PYTHON" -m pywalfox install \
+    --executable "$TARGET_HOME/.local/bin/pywalfox" || return 1
   install_firefox_theme_wal_link
   install_firefox_theme_policy
 }
