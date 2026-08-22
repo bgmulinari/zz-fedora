@@ -24,7 +24,7 @@ setup() {
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "root:dnf config-manager setopt terra.repo_gpgcheck=0"
-  assert_contains "$output" "root:dnf config-manager setopt terra.excludepkgs=quickshell,quickshell-git,matugen,dgop,danksearch,dms,dms-cli,dms-greeter"
+  assert_contains "$output" "root:dnf config-manager setopt terra.excludepkgs=quickshell,quickshell-git,noctalia-qs,matugen,dgop,danksearch,dms,dms-cli,dms-greeter"
 }
 
 @test "DankLinux COPR cannot replace Terra Ghostty" {

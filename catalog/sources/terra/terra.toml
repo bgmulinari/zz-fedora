@@ -7,10 +7,14 @@ gpg_policy = "unsigned-bootstrap"
 bootstrap_exception = true
 reason = "Bootstraps Terra release packages before installing required Ghostty packages"
 # Terra also packages the DMS stack; the DankLinux COPRs own it here, so
-# keep Terra from ever shadowing those builds.
+# keep Terra from ever shadowing those builds. noctalia-qs declares
+# "Provides: quickshell", so without its exclusion the solver can pick it
+# from Terra to satisfy the dms RPM's "(quickshell or quickshell-git)"
+# dependency in place of the real COPR quickshell.
 excludepkgs = [
   "quickshell",
   "quickshell-git",
+  "noctalia-qs",
   "matugen",
   "dgop",
   "danksearch",

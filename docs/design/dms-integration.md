@@ -25,9 +25,13 @@ an `excludepkgs` list on the source's own catalog TOML, compiled into
 migration updates the ownership rule together with the source definition:
 
 - `catalog/sources/terra/terra.toml` excludes
-  `quickshell,quickshell-git,matugen,dgop,danksearch,dms,dms-cli,dms-greeter`
+  `quickshell,quickshell-git,noctalia-qs,matugen,dgop,danksearch,dms,dms-cli,dms-greeter`
   so the DMS stack always resolves from the DankLinux COPRs (Terra also
-  packages quickshell; DMS requires the COPR's newer build).
+  packages quickshell, and its `noctalia-qs` declares
+  `Provides: quickshell`, which the solver would otherwise accept for the
+  dms RPM's `(quickshell or quickshell-git)` dependency). `base-dms` also
+  names `quickshell` explicitly so the real package is installed rather
+  than trusting provider resolution of that boolean dependency.
 - `catalog/sources/copr/avengemedia-danklinux.toml` excludes
   `ghostty,ghostty-shell-integration,ghostty-nautilus` so Terra always
   owns Ghostty (the COPR also builds it).
