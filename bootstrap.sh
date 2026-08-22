@@ -4,6 +4,7 @@ set -Eeuo pipefail
 REPO_URL="https://github.com/bgmulinari/zz-fedora.git"
 INSTALL_DIR="${HOME}/.zz"
 FORWARD_ARGS=()
+BOOTSTRAP_REF=""
 DRY_RUN=0
 ASSUME_YES=0
 NO_TUI=0
@@ -44,7 +45,11 @@ bootstrap_notice() {
   local packages="ca-certificates curl git gum python3 dnf5-plugins"
   printf 'ZZ Fedora bootstrap\n'
   printf 'This will install Fedora bootstrap packages, clone or update %s, and then launch the installer.\n' "$INSTALL_DIR"
-  printf 'Updates: current upstream Git branch\n'
+  if [[ -n "$BOOTSTRAP_REF" ]]; then
+    printf 'Updates: origin branch %s (--ref)\n' "$BOOTSTRAP_REF"
+  else
+    printf 'Updates: current upstream Git branch\n'
+  fi
   printf 'Packages: %s\n' "$packages"
 }
 
@@ -85,8 +90,20 @@ parse_args() {
         exit 1
         ;;
       --ref)
-        printf '%s\n' '--ref is not supported; ZZ follows the checkout current upstream branch.' >&2
-        exit 1
+        if [[ $# -lt 2 || -z "${2:-}" || "${2:0:1}" == "-" ]]; then
+          printf '%s\n' '--ref requires an origin branch name.' >&2
+          exit 1
+        fi
+        BOOTSTRAP_REF="$2"
+        shift 2
+        ;;
+      --ref=*)
+        BOOTSTRAP_REF="${1#--ref=}"
+        [[ -n "$BOOTSTRAP_REF" ]] || {
+          printf '%s\n' '--ref requires an origin branch name.' >&2
+          exit 1
+        }
+        shift
         ;;
       --dir)
         printf '%s\n' '--dir is not supported; ZZ is installed and updated from ~/.zz.' >&2
@@ -124,6 +141,10 @@ bootstrap_fedora() {
 }
 
 clone_or_update_repo() {
+  if [[ -n "$BOOTSTRAP_REF" ]] && ! git check-ref-format --branch "$BOOTSTRAP_REF" >/dev/null 2>&1; then
+    printf 'Invalid branch name for --ref: %s\n' "$BOOTSTRAP_REF" >&2
+    exit 1
+  fi
   if [[ -d "$INSTALL_DIR" && ! -d "$INSTALL_DIR/.git" ]]; then
     if [[ -f "$INSTALL_DIR/config/iso-payload.conf" ]]; then
       local snapshot_backup
@@ -140,7 +161,9 @@ clone_or_update_repo() {
     fi
   fi
   if [[ ! -d "$INSTALL_DIR/.git" ]]; then
-    run git clone --filter=blob:none --depth=1 "$REPO_URL" "$INSTALL_DIR"
+    local -a clone_args=(--filter=blob:none --depth=1)
+    [[ -n "$BOOTSTRAP_REF" ]] && clone_args+=(--branch "$BOOTSTRAP_REF")
+    run git clone "${clone_args[@]}" "$REPO_URL" "$INSTALL_DIR"
   else
     local existing_origin
     existing_origin="$(git -C "$INSTALL_DIR" remote get-url origin 2>/dev/null || true)"
@@ -158,7 +181,34 @@ clone_or_update_repo() {
     exit 1
   fi
   run git -C "$INSTALL_DIR" fetch --prune origin
+  switch_to_bootstrap_ref || return 1
   update_current_ref
+}
+
+# Check out the branch requested with --ref on an existing install. The
+# bootstrap clone is a single-branch shallow clone whose fetch refspec only
+# covers its original branch, so the requested branch is registered in the
+# refspec (letting later `fetch --prune origin` runs keep updating it) and
+# fetched explicitly before switching to it.
+switch_to_bootstrap_ref() {
+  [[ -n "$BOOTSTRAP_REF" ]] || return 0
+  local current_branch refspec
+  current_branch="$(git -C "$INSTALL_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  [[ "$current_branch" == "$BOOTSTRAP_REF" ]] && return 0
+  refspec="+refs/heads/$BOOTSTRAP_REF:refs/remotes/origin/$BOOTSTRAP_REF"
+  if ! git -C "$INSTALL_DIR" config --get-all remote.origin.fetch 2>/dev/null |
+    grep -Fxq -e "$refspec" -e '+refs/heads/*:refs/remotes/origin/*'; then
+    run git -C "$INSTALL_DIR" config --add remote.origin.fetch "$refspec"
+  fi
+  run git -C "$INSTALL_DIR" fetch origin "$refspec" || {
+    printf 'Could not fetch branch %s from origin.\n' "$BOOTSTRAP_REF" >&2
+    return 1
+  }
+  if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$BOOTSTRAP_REF"; then
+    run git -C "$INSTALL_DIR" switch "$BOOTSTRAP_REF"
+  else
+    run git -C "$INSTALL_DIR" switch --track "origin/$BOOTSTRAP_REF"
+  fi
 }
 
 update_current_ref() {

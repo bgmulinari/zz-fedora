@@ -14,6 +14,12 @@ The easiest way to get started is the bootstrap script:
 curl -fsSL https://zz.036477.xyz | bash
 ```
 
+To install from a specific branch, pass `--ref`:
+
+```bash
+curl -fsSL https://zz.036477.xyz | bash -s -- --ref <branch>
+```
+
 To install from a local checkout instead:
 
 ```bash

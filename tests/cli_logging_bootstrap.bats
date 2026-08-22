@@ -9,7 +9,9 @@ setup() {
 @test "bootstrap defaults to a shallow hidden checkout" {
   assert_file_contains "$ROOT_DIR/bootstrap.sh" 'INSTALL_DIR="${HOME}/.zz"'
   assert_file_contains "$ROOT_DIR/bootstrap.sh" \
-    'git clone --filter=blob:none --depth=1 "$REPO_URL" "$INSTALL_DIR"'
+    'local -a clone_args=(--filter=blob:none --depth=1)'
+  assert_file_contains "$ROOT_DIR/bootstrap.sh" \
+    'run git clone "${clone_args[@]}" "$REPO_URL" "$INSTALL_DIR"'
   assert_file_contains "$ROOT_DIR/bootstrap.sh" 'fetch --prune origin'
 }
 
@@ -338,6 +340,86 @@ EOF
   clone_or_update_repo
   [[ -d "$INSTALL_DIR/.git" ]]
   compgen -G "$TEST_ROOT/iso-snapshot-install.iso-snapshot.*" >/dev/null
+}
+
+@test "bootstrap --ref clones and switches to the requested origin branch" {
+  command -v git >/dev/null 2>&1 || skip "git is not installed"
+  source_bootstrap_functions
+
+  git -c init.defaultBranch=main init --bare "$TEST_ROOT/ref-origin.git" >/dev/null
+  git -c init.defaultBranch=main init "$TEST_ROOT/ref-source" >/dev/null
+  git -C "$TEST_ROOT/ref-source" config user.email test@example.invalid
+  git -C "$TEST_ROOT/ref-source" config user.name "Test User"
+  printf 'main\n' >"$TEST_ROOT/ref-source/version.txt"
+  git -C "$TEST_ROOT/ref-source" add version.txt
+  git -C "$TEST_ROOT/ref-source" commit -m main >/dev/null
+  git -C "$TEST_ROOT/ref-source" remote add origin "$TEST_ROOT/ref-origin.git"
+  git -C "$TEST_ROOT/ref-source" push -u origin main >/dev/null 2>&1
+  git -C "$TEST_ROOT/ref-source" switch -c desktop >/dev/null 2>&1
+  printf 'desktop\n' >"$TEST_ROOT/ref-source/version.txt"
+  git -C "$TEST_ROOT/ref-source" commit -am desktop >/dev/null
+  git -C "$TEST_ROOT/ref-source" push -u origin desktop >/dev/null 2>&1
+  desktop_commit="$(git -C "$TEST_ROOT/ref-source" rev-parse HEAD)"
+
+  REPO_URL="$TEST_ROOT/ref-origin.git"
+  BOOTSTRAP_REF="desktop"
+
+  # Fresh machine: the clone lands directly on the requested branch.
+  INSTALL_DIR="$TEST_ROOT/ref-install-fresh"
+  clone_or_update_repo
+  assert_equal "desktop" "$(git -C "$INSTALL_DIR" branch --show-current)"
+  assert_equal "$desktop_commit" "$(git -C "$INSTALL_DIR" rev-parse HEAD)"
+
+  # Existing shallow single-branch checkout on another branch: the requested
+  # branch is fetched explicitly (the clone's refspec only covers its
+  # original branch) and checked out.
+  INSTALL_DIR="$TEST_ROOT/ref-install-existing"
+  git clone --depth=1 --branch main "$REPO_URL" "$INSTALL_DIR" >/dev/null 2>&1
+  clone_or_update_repo
+  assert_equal "desktop" "$(git -C "$INSTALL_DIR" branch --show-current)"
+  assert_equal "$desktop_commit" "$(git -C "$INSTALL_DIR" rev-parse HEAD)"
+  assert_equal "desktop" "$(cat "$INSTALL_DIR/version.txt")"
+
+  # A branch origin does not have fails instead of silently keeping the
+  # current branch.
+  BOOTSTRAP_REF="missing-branch"
+  set +e
+  output="$(clone_or_update_repo 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Could not fetch branch missing-branch"
+
+  # Invalid ref names are rejected before any git state changes.
+  BOOTSTRAP_REF=".."
+  set +e
+  output="$(clone_or_update_repo 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Invalid branch name for --ref"
+}
+
+@test "bootstrap --ref parsing requires a branch name and is not forwarded" {
+  # Write the sourceable bootstrap functions without sourcing them here:
+  # bootstrap.sh defines its own run(), which would shadow the bats run.
+  sed '$d' "$ROOT_DIR/bootstrap.sh" >"$TEST_ROOT/bootstrap-source.sh"
+
+  run bash -c "source '$TEST_ROOT/bootstrap-source.sh'; parse_args --ref"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "requires an origin branch name"
+
+  run bash -c "source '$TEST_ROOT/bootstrap-source.sh'; parse_args --ref --yes"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "requires an origin branch name"
+
+  run bash -c "source '$TEST_ROOT/bootstrap-source.sh'; parse_args --ref=desktop --yes; printf 'ref=%s forward=%s\n' \"\$BOOTSTRAP_REF\" \"\${FORWARD_ARGS[*]}\""
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "ref=desktop forward=--yes"
+
+  run bash -c "source '$TEST_ROOT/bootstrap-source.sh'; parse_args --ref desktop; printf 'ref=%s\n' \"\$BOOTSTRAP_REF\""
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "ref=desktop"
 }
 
 @test "bootstrap requires an origin-tracking branch before installer handoff" {
