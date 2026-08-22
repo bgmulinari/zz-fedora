@@ -120,7 +120,15 @@ with the blue accent (latte + blue in light mode).
   values as the generated `~/.config/ghostty/themes/dankcolors` and
   `~/.config/niri/dms/colors.kdl` that later overwrite them.
 - qt6ct and kdeglobals point at the matugen-generated
-  `~/.local/share/color-schemes/DankMatugen.colors` KColorScheme.
+  `~/.local/share/color-schemes/DankMatugen.colors` KColorScheme — the
+  same wiring the Settings "Apply Qt Colors" button would write, so Qt
+  apps follow the theme with no manual step.
+- GTK/libadwaita apps follow the theme through the upstream one-time
+  opt-in: the `dms-gtk-theme` first-run checkpoint runs the shell's own
+  `scripts/gtk.sh apply` (what the Settings "Apply GTK Colors" button
+  invokes), which imports the generated `dank-colors.css` from the user
+  `gtk.css` files. After that, DMS's automatic `patch`/regeneration passes
+  keep GTK apps synchronized on every theme change.
 - Editors select the matugen-generated themes by name: VS Code
   `Dynamic Base16 DankShell` (extension `danklinux.dms-theme`), Zed
   `DankShell Dark` / `DankShell Light`.
@@ -168,6 +176,9 @@ a first-run checkpoint once the user's shell state exists.
   seed. Timeouts warn and retry at next login, bounded at three failed
   logins — after that the checkpoint completes with a warning instead of
   taxing every login, and the doctor checks surface the missing artifacts.
+- `dms-gtk-theme` runs the shell payload's `gtk.sh apply` once the
+  generated GTK colors exist, applying the same one-time GTK opt-in as
+  the Settings button so GTK theming is automatic from the first login.
 - `dms-greeter-profile` runs `dms-greeter sync --profile` unless the
   greeter action (or its user sync) was skip-recorded.
 

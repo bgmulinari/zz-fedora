@@ -304,6 +304,9 @@ module_90_doctor() {
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
       doctor_check_contains "$(dms_settings_file)" '"currentThemeCategory": "registry"'
       doctor_check_contains "$(dms_theme_file)" '"id": "catppuccin"'
+      # The first-run GTK baseline imports the generated colors so GTK
+      # apps follow the theme automatically.
+      doctor_check_contains "$user_config_home/gtk-4.0/gtk.css" 'dank-colors.css'
     fi
   fi
   if doctor_plan_has_entry "$native_plan" "xdg-terminal-exec"; then

@@ -583,6 +583,36 @@ setup() {
   [[ ! -e "$command_log" ]]
 }
 
+@test "first-run applies the GTK color baseline through the shell's own applier" {
+  build_test_plan
+  TARGET_USER="theme-user"
+  TARGET_HOME="$TEST_ROOT/dms-gtk-home"
+  DRY_RUN=0
+  command_log="$TEST_ROOT/dms-gtk-commands.log"
+
+  local payload_dir="$TEST_ROOT/dms-shell-payload"
+  mkdir -p "$TARGET_HOME/.config/gtk-4.0"
+  stub_dms_shell_payload
+
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf '%s:%s\n' "$user" "$*" >>"$command_log"
+  }
+
+  # Before the shell generates the GTK colors, the baseline retries.
+  local output status
+  capture_without_bats_debug_trap output status apply_dms_gtk_baseline
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "has not generated the GTK colors yet"
+
+  printf '@define-color accent #89b4fa;\n' >"$TARGET_HOME/.config/gtk-4.0/dank-colors.css"
+  apply_dms_gtk_baseline
+
+  assert_file_contains "$command_log" \
+    "theme-user:bash $payload_dir/scripts/gtk.sh $TARGET_HOME/.config apply false $payload_dir"
+}
+
 @test "first-run greeter profile sync is skipped when the greeter action was skipped" {
   build_test_plan
   TARGET_USER="theme-user"

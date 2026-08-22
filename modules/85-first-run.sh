@@ -85,6 +85,47 @@ apply_dms_theme() {
   return 1
 }
 
+# The Settings "Apply GTK Colors" button is a one-time opt-in: it runs the
+# shell's gtk.sh, which imports the generated dank-colors.css from the
+# user gtk.css files (and links the adw-gtk3 assets); after that every
+# theme change refreshes GTK apps automatically. Run the same script here
+# so GTK/libadwaita apps follow the DMS theme without a manual click. The
+# Qt side needs no equivalent: the managed qt6ct.conf already carries what
+# the "Apply Qt Colors" button would write.
+apply_dms_gtk_baseline() {
+  local native_plan shell_dir is_light="false"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: apply the DMS GTK color baseline\n'
+    return 0
+  fi
+
+  [[ "$SKIP_USER_CONFIG" -eq 1 ]] && return 0
+  native_plan="$(package_file_for_backend "$(native_backend)")"
+  plan_has_any_backend_entry "$native_plan" dms || return 0
+
+  shell_dir="$(dms_shell_dir)"
+  if [[ ! -f "$shell_dir/scripts/gtk.sh" ]]; then
+    log_warn "DMS shell payload has no gtk.sh applier; skipping the GTK color baseline"
+    return 0
+  fi
+  if [[ ! -s "$TARGET_HOME/.config/gtk-4.0/dank-colors.css" ]]; then
+    log_warn "DMS has not generated the GTK colors yet; retrying at next login"
+    return 1
+  fi
+
+  if [[ -f "$(dms_session_file)" ]]; then
+    is_light="$(jq -r 'if .isLightMode == true then "true" else "false" end' "$(dms_session_file)" 2>/dev/null || printf 'false')"
+  fi
+
+  log_progress "Applying the DMS GTK color baseline"
+  if ! run_cmd_as_user "$TARGET_USER" bash "$shell_dir/scripts/gtk.sh" \
+    "$TARGET_HOME/.config" apply "$is_light" "$shell_dir"; then
+    log_warn "The DMS GTK color baseline failed; retrying at next login"
+    return 1
+  fi
+}
+
 # Populate this user's greeter cache slot (wallpaper snapshot, theme,
 # avatar) once the shell state exists. The slot sync is sudo-free; the
 # root-side cache and access grants were prepared by the dms-greeter
@@ -184,6 +225,7 @@ module_85_first_run() {
     first_run_action_completed desktop-interface "$desktop_interface_fingerprint" &&
     first_run_action_completed desktop-defaults "$desktop_defaults_fingerprint" &&
     first_run_action_completed dms-theme &&
+    first_run_action_completed dms-gtk-theme &&
     first_run_action_completed dms-greeter-profile; then
     log_info "First-run tasks already completed: $marker"
     # A deferred Flatpak queue can appear after first-run already completed
@@ -205,6 +247,7 @@ module_85_first_run() {
   run_first_run_action_once_for_input \
     desktop-defaults "$desktop_defaults_fingerprint" apply_desktop_defaults || failed=1
   run_first_run_action_once dms-theme apply_dms_theme || failed=1
+  run_first_run_action_once dms-gtk-theme apply_dms_gtk_baseline || failed=1
   run_first_run_action_once dms-greeter-profile apply_dms_greeter_profile_sync || failed=1
 
   # The deferred list and its per-app removal are already the Flatpak action's

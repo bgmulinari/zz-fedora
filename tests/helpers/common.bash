@@ -119,9 +119,20 @@ write_fake_command() {
 # Materialize the theme artifacts DMS would generate after the shell comes
 # up, so the dms-theme first-run checkpoint can complete in tests.
 stub_dms_theme_artifacts() {
-  mkdir -p "$TARGET_HOME/.config/ghostty/themes" "$TARGET_HOME/.local/share/color-schemes"
+  mkdir -p "$TARGET_HOME/.config/ghostty/themes" "$TARGET_HOME/.local/share/color-schemes" \
+    "$TARGET_HOME/.config/gtk-4.0"
   printf 'palette = 0=#11111b\n' >"$TARGET_HOME/.config/ghostty/themes/dankcolors"
   printf '[General]\nColorScheme=DankMatugen\n' >"$TARGET_HOME/.local/share/color-schemes/DankMatugen.colors"
+  printf '@define-color accent #89b4fa;\n' >"$TARGET_HOME/.config/gtk-4.0/dank-colors.css"
+}
+
+# Point the first-run GTK baseline at a sandbox shell payload so the tests
+# never depend on (or touch) a real DMS installation on the host.
+stub_dms_shell_payload() {
+  local payload_dir="$TEST_ROOT/dms-shell-payload"
+  mkdir -p "$payload_dir/scripts"
+  printf '#!/usr/bin/env bash\n' >"$payload_dir/scripts/gtk.sh"
+  eval "dms_shell_dir() { printf '%s\n' '$payload_dir'; }"
 }
 
 # Shared run_cmd_as_user stub for first-run/session tests: executes real
@@ -133,6 +144,7 @@ stub_dms_theme_artifacts() {
 # stub_user_cmd_intercept` to clear it.
 stub_run_cmd_as_user() {
   STUB_RUN_CMD_AS_USER_LOG="${1:-}"
+  stub_dms_shell_payload
   run_cmd_as_user() {
     local user="$1"
     shift

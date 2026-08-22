@@ -179,6 +179,28 @@ setup() {
   assert_equal "{}" "$(jq -c '.' "$TARGET_HOME/.cache/DankMaterialShell/dms-colors.json")"
 }
 
+@test "an action that drains stdin does not starve the remaining actions" {
+  build_test_plan
+  DRY_RUN=0
+
+  stdin_eater_install() {
+    cat >/dev/null
+  }
+  second_action_install() {
+    printf 'second-action-ran\n' >>"$TEST_ROOT/stdin-actions.log"
+  }
+  action_ok() { return 0; }
+  register_action "test-stdin-eater" stdin_eater_install action_ok
+  register_action "test-second-action" second_action_install action_ok
+
+  local action_plan="$TEST_ROOT/stdin-actions.list"
+  printf 'test-stdin-eater\ntest-second-action\n' >"$action_plan"
+
+  run_without_bats_debug_trap run_actions_from_plan_file "$action_plan" optional "stdin test actions"
+
+  assert_file_contains "$TEST_ROOT/stdin-actions.log" "second-action-ran"
+}
+
 @test "DMS Greeter access grants skip the recursive walk when already granted" {
   build_test_plan
   DRY_RUN=0

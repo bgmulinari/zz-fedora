@@ -140,7 +140,11 @@ run_actions_from_plan_file() {
   [[ -f "$plan_file" ]] || return 0
 
   local action
-  while IFS= read -r action; do
+  # Feed the loop through fd 3: actions inherit stdin, and any action whose
+  # child process drains it (a Homebrew formula's installer, a piped
+  # payload) would otherwise swallow the remaining action names and
+  # silently end the loop with the tail of the plan never executed.
+  while IFS= read -r -u 3 action; do
     [[ -n "$action" ]] || continue
     printf 'action: %s\n' "$action"
     log_progress "Starting $label action: $action"
@@ -154,5 +158,5 @@ run_actions_from_plan_file() {
     fi
     log_warn "Optional custom action failed and will be skipped for now: $action"
     append_warning "Optional custom action failed and was skipped: $action"
-  done < <(read_plan_file "$plan_file")
+  done 3< <(read_plan_file "$plan_file")
 }

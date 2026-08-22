@@ -52,6 +52,12 @@ dms_icon_theme() {
   printf 'Yaru-blue\n'
 }
 
+# The packaged shell payload; its scripts/ directory carries the upstream
+# gtk.sh/qt.sh appliers the Settings UI buttons invoke.
+dms_shell_dir() {
+  printf '/usr/share/quickshell/dms\n'
+}
+
 # Partial settings seed: keys absent here fall back to the DMS defaults.
 # Selects the vendored Catppuccin registry theme with the blue accent in
 # both modes and aligns fonts and icon theme with the managed desktop.
