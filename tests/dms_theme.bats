@@ -30,6 +30,60 @@ setup() {
     "~/.config/DankMaterialShell/themes/catppuccin/theme.json"
 }
 
+@test "icon-theme sync selects the hue-nearest Yaru variant and applies it everywhere" {
+  local home="$TEST_ROOT/icon-sync-home"
+  mkdir -p "$home/.cache/DankMaterialShell" \
+    "$home/.local/share/icons/Yaru" \
+    "$home/.local/share/icons/Yaru-blue" \
+    "$home/.local/share/icons/Yaru-red" \
+    "$home/.local/share/icons/Yaru-yellow"
+  printf '#e01b24\n' >"$home/.cache/DankMaterialShell/icon-theme-accent"
+  setup_fake_bin
+  make_fake_command gsettings
+  make_fake_command dms
+  make_fake_command kwriteconfig6
+
+  run env PATH="$FAKE_BIN:$PATH" HOME="$home" XDG_CACHE_HOME="$home/.cache" \
+    XDG_DATA_DIRS="$home/.local/share" \
+    "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-icon-theme"
+
+  [ "$status" -eq 0 ]
+  assert_file_contains "$home/.config/qt6ct/qt6ct.conf" "icon_theme=Yaru-red"
+  assert_file_contains "$COMMAND_LOG" "gsettings set org.gnome.desktop.interface icon-theme Yaru-red"
+  assert_file_contains "$COMMAND_LOG" "dms ipc call settings set iconThemeDark Yaru-red"
+  assert_file_contains "$COMMAND_LOG" "dms ipc call settings set iconThemeLight Yaru-red"
+}
+
+@test "icon-theme sync falls back to a neutral variant for low-chroma accents" {
+  local home="$TEST_ROOT/icon-sync-gray-home"
+  mkdir -p "$home/.cache/DankMaterialShell" \
+    "$home/.local/share/icons/Yaru" \
+    "$home/.local/share/icons/Yaru-dark" \
+    "$home/.local/share/icons/Yaru-blue"
+  printf '#808080\n' >"$home/.cache/DankMaterialShell/icon-theme-accent"
+  setup_fake_bin
+  make_fake_command gsettings
+  make_fake_command dms
+  make_fake_command kwriteconfig6
+
+  run env PATH="$FAKE_BIN:$PATH" HOME="$home" XDG_CACHE_HOME="$home/.cache" \
+    XDG_DATA_DIRS="$home/.local/share" \
+    "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-icon-theme"
+
+  [ "$status" -eq 0 ]
+  assert_file_contains "$COMMAND_LOG" "gsettings set org.gnome.desktop.interface icon-theme Yaru-dark"
+}
+
+@test "DMS component links the icon sync helper and matugen drop-in" {
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" \
+    $'~/.local/bin/zz-sync-icon-theme\tproduct-link\tbackup-before-link\tdotfiles/dms/.local/bin/zz-sync-icon-theme'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" \
+    $'~/.config/DankMaterialShell/matugen/dms/configs/zz-icon-theme.toml\tproduct-link'
+  [[ -x "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-icon-theme" ]]
+  assert_file_contains "$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/matugen/dms/configs/zz-icon-theme.toml" \
+    "post_hook = 'sh -c \"command -v zz-sync-icon-theme"
+}
+
 @test "DMS settings seed selects the vendored theme with blue accents in both modes" {
   local seed
   seed="$(dms_settings_seed_json)"

@@ -24,6 +24,8 @@ ghostty	~/.config/ghostty/themes/dankcolors	seed-if-missing	preserve	templates/g
 dms	~/.config/DankMaterialShell/settings.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS settings with the managed Catppuccin registry theme.
 dms	~/.local/state/DankMaterialShell/session.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS session state with the managed default wallpaper.
 dms	~/.config/DankMaterialShell/themes/catppuccin/theme.json	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/themes/catppuccin/theme.json	dms	Links the vendored Catppuccin registry theme.
+dms	~/.config/DankMaterialShell/matugen/dms/configs/zz-icon-theme.toml	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/matugen/dms/configs/zz-icon-theme.toml	dms	Links the managed icon-accent matugen drop-in.
+dms	~/.local/bin/zz-sync-icon-theme	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-icon-theme	dms	Links the icon-theme synchronization helper.
 starship	~/.config/starship.toml	seed-if-missing	preserve	templates/starship.toml	starship	Seeds a user-owned Starship configuration.
 btop	~/.config/btop/btop.conf	seed-if-missing	preserve	dotfiles/btop/.config/btop/btop.conf	btop	Seeds a user-owned btop configuration.
 nvim	~/.local/share/applications/nvim.desktop	product-link	backup-before-link	dotfiles/nvim/.local/share/applications/nvim.desktop	nvim	Links the managed terminal-editor desktop entry.

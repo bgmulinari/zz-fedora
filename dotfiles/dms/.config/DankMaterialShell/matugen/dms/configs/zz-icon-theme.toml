@@ -1,0 +1,8 @@
+# ZZ-managed matugen drop-in. DMS appends every *.toml in this directory
+# to its merged matugen configuration, so this template renders with the
+# shell's own theme pipeline: the accent color lands in the cache file and
+# the post-hook selects the matching icon-theme variant.
+[templates.zzicontheme]
+input_path = '~/.zz/dotfiles/dms/.config/DankMaterialShell/matugen/templates/icon-theme-accent'
+output_path = '~/.cache/DankMaterialShell/icon-theme-accent'
+post_hook = 'sh -c "command -v zz-sync-icon-theme >/dev/null 2>&1 && zz-sync-icon-theme || true"'
