@@ -142,6 +142,14 @@ with the blue accent (latte + blue in light mode).
 - Editors select the matugen-generated themes by name: VS Code
   `Dynamic Base16 DankShell` (extension `danklinux.dms-theme`), Zed
   `DankShell Dark` / `DankShell Light`.
+- Starship follows the theme through the same drop-in mechanism
+  (`zz-starship.toml`): starship cannot include external files, so the
+  palette renders to `~/.cache/DankMaterialShell/starship-palette.toml`
+  and the post-hook `zz-sync-starship-palette` splices it into the
+  marker-delimited `[palettes.zz]` block of the user-owned
+  `starship.toml` (everything outside the markers is preserved; removing
+  the markers opts out). The static palette in `templates/starship.toml`
+  is the pre-first-render fallback.
 - btop has no upstream DMS template and its `TTY` builtin leans on the
   terminal ANSI palette, whose generated slots are not a classic ramp; a
   ZZ matugen drop-in (`zz-btop.toml`) renders the managed
