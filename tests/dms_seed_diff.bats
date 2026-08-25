@@ -215,7 +215,10 @@ PY
   DERIVED_FACTS='{"settings":{"iconThemeDark":"Yaru-blue"},"session":{}}'
   # One pinned scalar, one unseeded key that drifted, one derived key, one key
   # whose DMS default is an empty container, and one key nobody reports.
-  write_live '{"cornerRadius":12,"greeterAutoLogin":true,"iconThemeDark":"Papirus-Dark","workspaceNameIcons":{"1":"term"},"popupTransparency":0.8}'
+  # Left at its seeded value, whatever that is, so it is never a difference.
+  local seeded_popup
+  seeded_popup="$(jq -r '.popupTransparency' "$FIX/root/templates/dms/settings-seed.json")"
+  write_live '{"cornerRadius":12,"greeterAutoLogin":true,"iconThemeDark":"Papirus-Dark","workspaceNameIcons":{"1":"term"}}'
   local live="$FIX/home/.config/DankMaterialShell/settings.json"
 
   run seed_diff --reset
@@ -226,8 +229,7 @@ PY
   assert_equal "Yaru-blue" "$(jq -r '.iconThemeDark' "$live")"
   # No leaf to restore, so the whole key goes back to the empty default.
   assert_equal "{}" "$(jq -c '.workspaceNameIcons' "$live")"
-  # Seeded already, so it was never a difference and must survive untouched.
-  assert_equal "0.8" "$(jq -r '.popupTransparency' "$live")"
+  assert_equal "$seeded_popup" "$(jq -r '.popupTransparency' "$live")"
 
   # The previous contents are recoverable.
   local backup

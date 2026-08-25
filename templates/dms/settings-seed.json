@@ -16,7 +16,7 @@
   "fontFamily": "JetBrainsMono Nerd Font",
   "monoFontFamily": "JetBrainsMono Nerd Font",
   "cornerRadius": 0,
-  "popupTransparency": 0.8,
+  "popupTransparency": 0.9,
   "widgetBackgroundColor": "sth",
   "blurEnabled": true,
   "blurWallpaperOnOverview": true,
@@ -56,7 +56,7 @@
       ],
       "spacing": 0,
       "innerPadding": 0,
-      "transparency": 0.8,
+      "transparency": 0.9,
       "squareCorners": true,
       "noBackground": true,
       "fontScale": 1.2
