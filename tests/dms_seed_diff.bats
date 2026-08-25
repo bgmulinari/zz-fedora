@@ -276,6 +276,65 @@ PY
   assert_contains "$output" "opposites"
 }
 
+@test "keybinds diff by bind rather than by file text" {
+  seed_diff_fixture
+  write_live '{}'
+  local seed='{"binds":{"Execute":[{"key":"Mod+Return","action":"spawn ghostty"},{"key":"Mod+E","action":"spawn nautilus"}]}}'
+  # Same binds, reordered and regrouped the way DMS rewrites the fragment.
+  local same='{"binds":{"Other":[{"key":"Mod+E","action":"spawn nautilus"}],"Execute":[{"key":"Mod+Return","action":"spawn ghostty"}]}}'
+  BINDS_PAYLOAD="$(jq -n --argjson a "$seed" --argjson b "$same" '{seed:$a,live:$b}')"
+  run seed_diff --binds "$BINDS_PAYLOAD"
+  [ "$status" -eq 0 ]
+
+  local changed='{"binds":{"Execute":[{"key":"Mod+Return","action":"spawn kitty"},{"key":"Mod+E","action":"spawn nautilus"}]}}'
+  BINDS_PAYLOAD="$(jq -n --argjson a "$seed" --argjson b "$changed" '{seed:$a,live:$b}')"
+  run seed_diff --binds "$BINDS_PAYLOAD"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Mod+Return"
+  assert_contains "$output" "bound to a different action"
+}
+
+@test "keybind added and removed binds are both reported" {
+  seed_diff_fixture
+  write_live '{}'
+  local seed='{"binds":{"Execute":[{"key":"Mod+Return","action":"spawn ghostty"}]}}'
+  local live='{"binds":{"Execute":[{"key":"Mod+G","action":"spawn gimp"}]}}'
+  BINDS_PAYLOAD="$(jq -n --argjson a "$seed" --argjson b "$live" '{seed:$a,live:$b}')"
+  run seed_diff --binds "$BINDS_PAYLOAD"
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Mod+G"
+  assert_contains "$output" "Mod+Return"
+}
+
+@test "promoting keybinds keeps the seed's comment header" {
+  seed_diff_fixture
+  printf '// managed header\n// second line\n\nbinds {\n    Mod+Return { spawn "ghostty"; }\n}\n' \
+    >"$FIX/binds-seed.kdl"
+  printf 'binds {\n    Mod+Return { spawn "kitty"; }\n}\n' >"$FIX/binds-live.kdl"
+
+  "$SYSTEM_PYTHON" - "$ROOT_DIR" "$FIX" <<'PY'
+import pathlib, sys
+sys.path.insert(0, sys.argv[1] + "/lib")
+from dms_seed_diff import copy_binds
+fix = pathlib.Path(sys.argv[2])
+copy_binds(fix / "binds-live.kdl", fix / "binds-seed.kdl", keep_header=True)
+PY
+
+  assert_file_contains "$FIX/binds-seed.kdl" '// managed header'
+  assert_file_contains "$FIX/binds-seed.kdl" 'spawn "kitty"'
+  refute_file_contains "$FIX/binds-seed.kdl" 'spawn "ghostty"'
+  # Resetting the other way must not graft the header onto the live fragment.
+  "$SYSTEM_PYTHON" - "$ROOT_DIR" "$FIX" <<'PY'
+import pathlib, sys
+sys.path.insert(0, sys.argv[1] + "/lib")
+from dms_seed_diff import copy_binds
+fix = pathlib.Path(sys.argv[2])
+copy_binds(fix / "binds-seed.kdl", fix / "binds-live.kdl", keep_header=False)
+PY
+  refute_file_contains "$FIX/binds-live.kdl" '// managed header'
+  assert_file_contains "$FIX/binds-live.kdl" 'spawn "kitty"'
+}
+
 @test "a missing DMS spec fails with an actionable message" {
   seed_diff_fixture
   write_live '{}'

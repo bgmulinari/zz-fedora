@@ -64,12 +64,50 @@ derived_facts="$(jq -n \
     session: {wallpaperPath: $wallpaper}
   }')"
 
+BINDS_SEED="$ROOT_DIR/templates/niri/dms-binds.kdl"
+BINDS_LIVE="$TARGET_HOME/.config/niri/dms/binds.kdl"
+
+# Parse both sides with DMS's own parser rather than diffing KDL text: DMS
+# rewrites the fragment on the first UI edit, re-sorting binds and dropping
+# the seed's comments, so a textual diff would report churn forever. Staging
+# the seed under a throwaway XDG_CONFIG_HOME is what lets `dms keybinds show`
+# read it as though it were the live fragment.
+keybind_payloads() {
+  local stage
+  stage="$(mktemp -d)" || return 1
+  mkdir -p "$stage/niri/dms"
+  cp "$ROOT_DIR/dotfiles/niri/.config/niri/config.kdl" "$stage/niri/config.kdl"
+  cp "$ROOT_DIR/templates/niri/dms-colors.kdl" "$stage/niri/dms/colors.kdl"
+  cp "$BINDS_SEED" "$stage/niri/dms/binds.kdl"
+
+  local seed_json live_json
+  seed_json="$(XDG_CONFIG_HOME="$stage" dms keybinds show niri 2>/dev/null)" || seed_json=""
+  live_json="$(dms keybinds show niri 2>/dev/null)" || live_json=""
+  rm -rf "$stage"
+
+  [[ -n "$seed_json" && -n "$live_json" ]] || return 1
+  jq -n --argjson seed "$seed_json" --argjson live "$live_json" \
+    '{seed: $seed, live: $live}'
+}
+
+binds_payload=""
+if [[ -r "$BINDS_SEED" && -r "$BINDS_LIVE" ]] && command -v dms >/dev/null 2>&1; then
+  binds_payload="$(keybind_payloads)" || binds_payload=""
+fi
+if [[ -z "$binds_payload" ]]; then
+  printf 'note: skipping the keybind comparison (needs the dms CLI and %s).\n' \
+    "$BINDS_LIVE" >&2
+fi
+
 run_report() {
   "$SYSTEM_PYTHON" "$ROOT_DIR/lib/dms_seed_diff.py" \
     --root "$ROOT_DIR" \
     --home "$TARGET_HOME" \
     --spec-dir "${ZZ_DMS_SPEC_DIR:-$(dms_shell_dir)/Common/settings}" \
     --derived "$derived_facts" \
+    --binds "$binds_payload" \
+    --binds-seed "$BINDS_SEED" \
+    --binds-live "$BINDS_LIVE" \
     "${py_args[@]}"
 }
 

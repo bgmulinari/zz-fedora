@@ -134,6 +134,15 @@ Changing the icon theme or the wallpaper is reported too, but as a key
 helper to edit (`dms_icon_theme`, `dms_default_wallpaper`, `dms_theme_file`)
 and `--apply` never writes an absolute host path into a seed.
 
+Keybinds are compared too, against `templates/niri/dms-binds.kdl`. Both sides
+are parsed by `dms keybinds show` rather than diffed as text, because DMS
+rewrites the fragment on the first UI edit — re-sorting binds and dropping the
+seed's comments — so a textual diff would report churn forever. Keybinds move
+as a whole file rather than per bind, since re-emitting individual binds would
+mean reimplementing DMS's KDL writer; promoting them preserves the seed's
+comment header. `--reset` needs no shell restart for them, as niri watches its
+own config.
+
 DMS writes every key it knows into `settings.json`, so a plain diff reports
 hundreds of untouched defaults. The script reads the installed shell's own
 specs (`Common/settings/*Spec.js`) to tell a deliberate change from a default

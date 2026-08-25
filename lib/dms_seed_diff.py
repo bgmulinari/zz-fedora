@@ -95,6 +95,12 @@ SPEC_FILES = {
     "session": "SessionSpec.js",
 }
 
+SCOPES = ("settings", "session", "keybinds")
+
+# Bind attributes worth comparing; anything else DMS reports is presentation.
+BIND_FIELDS = ("action", "desc", "allowWhenLocked", "allowInhibiting",
+               "cooldownMs", "repeat")
+
 
 def load_json(path: pathlib.Path) -> dict:
     try:
@@ -127,6 +133,36 @@ def flatten(value, prefix: tuple = ()) -> dict:
             out.update(flatten(item, prefix + (index,)))
         return out
     return {prefix: value}
+
+
+def index_binds(payload) -> dict:
+    """Map DMS's `keybinds show` output to {key: {field: value}}."""
+    out = {}
+    for group in (payload or {}).get("binds", {}).values():
+        for bind in group:
+            out[bind["key"]] = {f: bind.get(f) for f in BIND_FIELDS}
+    return out
+
+
+def compare_binds(seed: dict, live: dict) -> list[dict]:
+    """Diff two `keybinds show` payloads by bind key.
+
+    Both sides are parsed by DMS itself, so the seed's comments and ordering
+    -- which DMS discards the first time a bind is edited in its UI -- never
+    register as differences.
+    """
+    seed_binds, live_binds = index_binds(seed), index_binds(live)
+    rows = []
+    for key in sorted(set(seed_binds) | set(live_binds)):
+        before, after = seed_binds.get(key), live_binds.get(key)
+        if before == after:
+            continue
+        kind = ("bind-added" if before is None else
+                "bind-removed" if after is None else "bind-changed")
+        rows.append({"key": key, "kind": kind,
+                     "seed": None if before is None else before["action"],
+                     "live": None if after is None else after["action"]})
+    return rows
 
 
 def render_path(path: tuple) -> str:
@@ -241,6 +277,13 @@ def main() -> int:
     ap.add_argument("--derived", default="{}",
                     help="JSON of the host facts lib/dms.sh overlays onto the "
                          "seeds, as {scope: {key: value}}")
+    ap.add_argument("--binds", default="",
+                    help="JSON as {seed: <keybinds show>, live: <keybinds "
+                         "show>}; omit to skip the keybind comparison")
+    ap.add_argument("--binds-seed", type=pathlib.Path,
+                    help="the keybind seed file, written by --apply")
+    ap.add_argument("--binds-live", type=pathlib.Path,
+                    help="the live keybind fragment, written by --reset")
     ap.add_argument("keys", nargs="*",
                     help="limit to these keys (default: all reported keys)")
     args = ap.parse_args()
@@ -267,6 +310,15 @@ def main() -> int:
         raise SystemExit(f"--derived is not valid JSON: {exc}")
 
     report = {}
+    for scope in SCOPES:
+        report[scope] = []
+    if args.binds:
+        try:
+            payload = json.loads(args.binds)
+        except json.JSONDecodeError as exc:
+            raise SystemExit(f"--binds is not valid JSON: {exc}")
+        report["keybinds"] = compare_binds(payload.get("seed"),
+                                           payload.get("live"))
     for scope in ("settings", "session"):
         spec_file = args.spec_dir / SPEC_FILES[scope]
         if not spec_file.is_file():
@@ -276,13 +328,14 @@ def main() -> int:
                 "upstream default. Install DankMaterialShell or pass --spec-dir."
             )
         upstream = defaults(parse_spec(spec_file.read_text()))
-        rows = compare(scope, load_json(seed_paths[scope]),
-                       load_json(live_paths[scope]), upstream,
-                       derived.get(scope, {}))
-        if args.keys:
-            wanted = set(args.keys)
-            rows = [r for r in rows if r["key"] in wanted]
-        report[scope] = rows
+        report[scope] = compare(scope, load_json(seed_paths[scope]),
+                                load_json(live_paths[scope]), upstream,
+                                derived.get(scope, {}))
+
+    if args.keys:
+        wanted = set(args.keys)
+        for scope in SCOPES:
+            report[scope] = [r for r in report[scope] if r["key"] in wanted]
 
     if args.json:
         serialisable = {
@@ -299,8 +352,10 @@ def main() -> int:
             print(f"warning: no difference reported for {missing}", file=sys.stderr)
 
     total = sum(len(rows) for rows in report.values())
+    binds_seed, binds_live = args.binds_seed, args.binds_live
+
     if args.reset:
-        return reset(report, live_paths)
+        return reset(report, live_paths, binds_seed, binds_live)
     if not args.apply:
         return 1 if total else 0
 
@@ -315,6 +370,12 @@ def main() -> int:
         path.write_text(json.dumps(seed, indent=2) + "\n")
         # stderr, so --json --apply still emits a single parseable document.
         print(f"updated {path} ({len(rows)} key{'s' if len(rows) != 1 else ''})",
+              file=sys.stderr)
+    if report.get("keybinds") and binds_seed and binds_live:
+        saved = copy_binds(binds_live, binds_seed, keep_header=True)
+        note = f"; previous contents saved as {saved}" if saved else ""
+        print(f"updated {binds_seed} "
+              f"({len(report['keybinds'])} bind change(s), whole file){note}",
               file=sys.stderr)
     stale = [r["key"] for rows in report.values() for r in rows if r["kind"] == "stale"]
     if stale:
@@ -335,7 +396,37 @@ def backup(path: pathlib.Path) -> pathlib.Path:
     return candidate
 
 
-def reset(report: dict, live_paths: dict) -> int:
+def copy_binds(source: pathlib.Path, destination: pathlib.Path,
+               keep_header: bool) -> pathlib.Path | None:
+    """Replace `destination`'s binds block with `source`'s.
+
+    Keybinds move as a whole file rather than per bind: DMS rewrites the
+    fragment wholesale on any edit, and re-emitting individual binds would
+    mean reimplementing its KDL writer. When promoting into the seed the
+    destination's comment header is preserved, because DMS strips it.
+    """
+    body = source.read_text()
+    marker = body.find("binds {")
+    if marker == -1:
+        raise SystemExit(f"{source}: no binds block found")
+    body = body[marker:]
+
+    saved = None
+    if destination.exists():
+        saved = backup(destination)
+        if keep_header:
+            existing = destination.read_text()
+            head = existing.find("binds {")
+            if head > 0:
+                body = existing[:head] + body
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(body)
+    return saved
+
+
+def reset(report: dict, live_paths: dict,
+          binds_seed: pathlib.Path | None = None,
+          binds_live: pathlib.Path | None = None) -> int:
     """Write each reported default back onto the live DMS files.
 
     DMS holds its settings in memory and rewrites the file on any change, so
@@ -358,6 +449,15 @@ def reset(report: dict, live_paths: dict) -> int:
         touched += len(rows)
         print(f"reset {path} ({len(rows)} value{'s' if len(rows) != 1 else ''}); "
               f"previous contents saved as {saved}", file=sys.stderr)
+    if report.get("keybinds") and binds_seed and binds_live:
+        # niri watches its config, so the restored binds apply without the
+        # shell restart that settings.json needs.
+        saved = copy_binds(binds_seed, binds_live, keep_header=False)
+        note = f"; previous contents saved as {saved}" if saved else ""
+        touched += len(report["keybinds"])
+        print(f"reset {binds_live} "
+              f"({len(report['keybinds'])} bind change(s), whole file){note}",
+              file=sys.stderr)
     if not touched:
         print("Nothing to reset: the live DMS state already matches the "
               "defaults.", file=sys.stderr)
@@ -370,15 +470,21 @@ def render(report: dict, applying: bool) -> None:
         "new": "not in the seed, changed from the DMS default",
         "derived": "rendered by lib/dms.sh, promote by editing the helper",
         "stale": "in the seed but absent from the live file",
+        "bind-changed": "bound to a different action",
+        "bind-added": "not in the seed",
+        "bind-removed": "in the seed but no longer bound",
     }
     total = 0
-    for scope in ("settings", "session"):
+    for scope in SCOPES:
         rows = report[scope]
         if not rows:
             continue
         total += len(rows)
         print(f"\n{scope}:")
-        for kind in ("changed", "new", "derived", "stale"):
+        if scope == "keybinds":
+            print("  (keybinds move as a whole file, not per bind)")
+        for kind in ("changed", "new", "derived", "stale",
+                     "bind-changed", "bind-added", "bind-removed"):
             group = [r for r in rows if r["kind"] == kind]
             if not group:
                 continue
