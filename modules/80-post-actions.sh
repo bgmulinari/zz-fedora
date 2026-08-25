@@ -34,6 +34,7 @@ module_80_post_actions() {
   install_starship_config
   install_ghostty_theme_seed_if_missing
   install_niri_dms_colors_seed_if_missing
+  install_niri_dms_binds_seed_if_missing
   install_qt_theme_config
   configure_flatpak_theme_access
   log_progress "Enabling user services"

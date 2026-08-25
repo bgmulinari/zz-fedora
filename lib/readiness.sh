@@ -289,15 +289,16 @@ readiness_generate_desktop_files() {
   for item in \
     "$user_config_home/niri/config.kdl" \
     "$niri_config_home/dms/colors.kdl" \
+    "$niri_config_home/dms/binds.kdl" \
     "$product_niri_home/defaults.kdl" \
     "$product_niri_home/cfg/autostart.kdl" \
-    "$product_niri_home/cfg/keybinds.kdl" \
     "$product_niri_home/cfg/misc.kdl" \
     "/etc/xdg/xdg-desktop-portal/niri-portals.conf" \
     "/usr/lib/environment.d/10-zz-desktop.conf"; do
     if [[ "$SKIP_USER_CONFIG" -eq 1 ]] && {
       [[ "$item" == "$user_config_home/niri/config.kdl" ]] ||
-        [[ "$item" == "$niri_config_home/dms/colors.kdl" ]]
+        [[ "$item" == "$niri_config_home/dms/colors.kdl" ]] ||
+        [[ "$item" == "$niri_config_home/dms/binds.kdl" ]]
     }; then
       readiness_record "file" "$item" "skipped" "info" "user configuration skipped"
       continue

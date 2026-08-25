@@ -17,6 +17,7 @@ environment	/usr/lib/environment.d/10-zz-desktop.conf	system-file	regenerate	dot
 portals	/etc/xdg/xdg-desktop-portal/niri-portals.conf	system-file	regenerate	dotfiles/portals/.config/xdg-desktop-portal/niri-portals.conf	-	Installs the ZZ-managed desktop portal preference map.
 niri	~/.config/niri/config.kdl	seed-if-missing	preserve	dotfiles/niri/.config/niri/config.kdl	niri	Seeds the user-owned Niri entrypoint over the live ZZ defaults.
 niri	~/.config/niri/dms/colors.kdl	seed-if-missing	preserve	templates/niri/dms-colors.kdl	niri	Seeds the generated DMS Niri theme include.
+niri	~/.config/niri/dms/binds.kdl	seed-if-missing	preserve	templates/niri/dms-binds.kdl	niri	Seeds the ZZ keybind defaults into the DMS-editable Niri binds include.
 ghostty	~/.config/ghostty/config	seed-if-missing	preserve	templates/ghostty/config	ghostty	Seeds the user-owned Ghostty entrypoint.
 ghostty	~/.config/ghostty/zz-defaults	product-link	backup-before-link	dotfiles/ghostty/.config/ghostty/config	ghostty	Links Ghostty to the live ZZ defaults.
 ghostty	~/.config/ghostty/shaders/cursor_tail.glsl	product-link	backup-before-link	dotfiles/ghostty/.config/ghostty/shaders/cursor_tail.glsl	ghostty	Links the managed Ghostty shader.

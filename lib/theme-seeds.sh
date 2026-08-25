@@ -116,6 +116,20 @@ install_niri_dms_colors_seed_if_missing() {
   install_file_if_changed user "$ROOT_DIR/templates/niri/dms-colors.kdl" "$destination"
 }
 
+# The keybind defaults are seeded rather than linked from the product tree
+# because DMS rewrites this file whenever a bind is changed in
+# Settings -> Keybinds, and it is the only niri fragment its UI reads.
+install_niri_dms_binds_seed_if_missing() {
+  local native_plan destination
+  native_plan="$(package_file_for_backend "$(native_backend)")"
+  plan_has_any_backend_entry "$native_plan" niri || return 0
+
+  destination="$TARGET_HOME/.config/niri/dms/binds.kdl"
+  [[ -e "$destination" || -L "$destination" ]] && return 0
+  log_progress "Installing Niri DMS keybinds seed"
+  install_file_if_changed user "$ROOT_DIR/templates/niri/dms-binds.kdl" "$destination"
+}
+
 install_qt6ct_config() {
   local config_file color_file
 

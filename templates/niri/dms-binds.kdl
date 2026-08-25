@@ -1,3 +1,17 @@
+// ZZ keybind defaults, seeded into ~/.config/niri/dms/binds.kdl.
+//
+// This file is user-owned: DMS reads it for Settings -> Keybinds and writes
+// back to it when a bind is changed there. The first write rewrites the whole
+// file, dropping the comments and section grouping below while keeping every
+// bind, so treat that layout as seed-time formatting only.
+//
+// DMS shows only what lives in this fragment; binds in other niri config
+// files are invisible to its UI. Keep ZZ's defaults here, not in
+// dotfiles/niri/.config/niri/cfg/, or they drop out of the Settings UI.
+//
+// Re-seed the shipped defaults over a modified file with:
+//   zz refresh niri/dms/binds.kdl
+
 binds {
     // Application launchers
     Mod+Return hotkey-overlay-title="Open Terminal" { spawn "ghostty" "+new-window"; }

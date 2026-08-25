@@ -240,10 +240,10 @@ module_90_doctor() {
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
       doctor_warn_file "$niri_config_home/config.kdl"
       doctor_warn_file "$niri_config_home/dms/colors.kdl"
+      doctor_warn_file "$niri_config_home/dms/binds.kdl"
     fi
     doctor_warn_file "$product_niri_home/defaults.kdl"
     doctor_warn_file "$product_niri_home/cfg/autostart.kdl"
-    doctor_warn_file "$product_niri_home/cfg/keybinds.kdl"
     doctor_warn_file "$product_niri_home/cfg/misc.kdl"
     doctor_warn_file "$desktop_environment_file"
   fi
@@ -276,19 +276,36 @@ module_90_doctor() {
 
   log_progress "Checking managed configuration contents"
   if doctor_plan_has_entry "$native_plan" "niri"; then
-    doctor_check_contains "$product_niri_home/cfg/keybinds.kdl" 'dms ipc call spotlight toggle'
-    doctor_check_contains "$product_niri_home/cfg/keybinds.kdl" 'spawn "ghostty" "+new-window"'
+    # Keybinds live in the user-owned DMS fragment so Settings -> Keybinds can
+    # edit them; DMS reads no other niri file. It rewrites the fragment on the
+    # first UI edit, so check for the bind actions rather than the seed layout.
+    if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
+      doctor_check_contains "$niri_config_home/dms/binds.kdl" 'dms ipc call spotlight toggle'
+      doctor_check_contains "$niri_config_home/dms/binds.kdl" 'spawn "ghostty" "+new-window"'
+    fi
     [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
       doctor_check_contains "$niri_config_home/config.kdl" 'include "~/.zz/dotfiles/niri/.config/niri/defaults.kdl"'
     [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
-      doctor_check_contains "$niri_config_home/config.kdl" 'include "./dms/colors.kdl"'
+      doctor_check_contains "$niri_config_home/config.kdl" 'include "dms/colors.kdl"'
+    # The Settings pages for layout, cursor, displays, and keybinds gate
+    # themselves on `dms config resolve-include` and go read-only when their
+    # fragment is not included, so the entrypoint must carry every fragment
+    # DMS regenerates.
+    if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
+      local fragment
+      for fragment in layout alttab binds cursor outputs windowrules wpblur; do
+        doctor_check_contains "$niri_config_home/config.kdl" \
+          "include optional=true \"dms/${fragment}.kdl\""
+      done
+    fi
     doctor_check_contains "$desktop_environment_file" 'TERMINAL=xdg-terminal-exec'
     # Derive the expected PATH line from the product file the installer ships
     # so the check verifies deployment instead of a hand-synced copy.
     doctor_check_contains "$desktop_environment_file" \
       "$(grep '^PATH=' "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-zz-desktop.conf")"
     if doctor_plan_has_entry "$native_plan" "nautilus"; then
-      doctor_check_contains "$product_niri_home/cfg/keybinds.kdl" 'spawn "nautilus"'
+      [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
+        doctor_check_contains "$niri_config_home/dms/binds.kdl" 'spawn "nautilus"'
     fi
     if doctor_plan_has_entry "$native_plan" "qt6ct" || doctor_plan_has_entry "$native_plan" "qt6ct-kde"; then
       doctor_check_contains "$desktop_environment_file" 'QT_QPA_PLATFORMTHEME=qt6ct'
@@ -329,10 +346,10 @@ module_90_doctor() {
     doctor_check_file /usr/share/wayland-sessions/niri.desktop || ((++fatal_checks))
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
       doctor_check_file "$niri_config_home/config.kdl" || ((++fatal_checks))
+      doctor_check_file "$niri_config_home/dms/binds.kdl" || ((++fatal_checks))
     fi
     doctor_check_file "$product_niri_home/defaults.kdl" || ((++fatal_checks))
     doctor_check_file "$product_niri_home/cfg/autostart.kdl" || ((++fatal_checks))
-    doctor_check_file "$product_niri_home/cfg/keybinds.kdl" || ((++fatal_checks))
     doctor_check_file "$product_niri_home/cfg/misc.kdl" || ((++fatal_checks))
   fi
 

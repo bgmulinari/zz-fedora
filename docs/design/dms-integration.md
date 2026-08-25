@@ -70,14 +70,64 @@ or `/etc/systemd/user/niri.service.wants/`) at warn severity — a
 system-scope `is-enabled` cannot see a user binding, and before the first
 login the binding legitimately does not exist yet.
 
-The niri entrypoint includes every DMS-writable fragment the Settings UI
-manages at runtime — `dms/colors.kdl` (matugen), plus optional
-`dms/layout.kdl`, `dms/input.kdl`, `dms/cursor.kdl`, `dms/outputs.kdl`,
-and `dms/windowrules.kdl` — because each Settings page gates itself on
-`dms config resolve-include` and goes read-only when its fragment is not
-included. `dms/binds.kdl` and `dms/alttab.kdl` are intentionally not
-included: the repository owns keybinds, and the alttab fragment only adds
-a cosmetic recent-windows radius already covered by the colors seed.
+The niri entrypoint includes every fragment DMS regenerates under
+`~/.config/niri/dms/` — `dms/colors.kdl` (matugen), plus optional
+`dms/layout.kdl`, `dms/alttab.kdl`, `dms/binds.kdl`, `dms/cursor.kdl`,
+`dms/outputs.kdl`, `dms/windowrules.kdl`, and `dms/wpblur.kdl` — because
+each Settings page gates itself on `dms config resolve-include` and goes
+read-only when its fragment is not included. Fragment paths are written
+without a `./` prefix: `KeybindsService` detects its own include with the
+literal pattern `include.*"dms/binds.kdl"`, and the `./` form fails that
+match, which makes DMS offer to "repair" the user-owned entrypoint by
+backing it up and appending its own include line.
+
+`dms/input.kdl` is deliberately absent: DMS has no writer for it and
+never creates it, so the include only resolved to nothing. Niri input
+belongs to `cfg/input.kdl`.
+
+`dms/binds.kdl` is the *only* niri file the Settings → Keybinds page
+reads. `dms keybinds show niri` parses that fragment alone, so binds kept
+anywhere else — including a product-owned `cfg/keybinds.kdl` — are
+invisible to the UI and the page renders empty. Including the fragment is
+therefore necessary but not sufficient: the shipped keybinds have to live
+*in* it.
+
+So ZZ's keybind defaults are seeded into `~/.config/niri/dms/binds.kdl`
+from `templates/niri/dms-binds.kdl`, and the niri defaults tree carries no
+keybinds at all. DMS parses the seeded KDL directly, preserving
+`hotkey-overlay-title`, `allow-when-locked`, `allow-inhibiting`, and
+`cooldown-ms`, and sorts the binds into its own categories for display.
+
+DMS's default-vs-override layering does not reach niri, so ZZ's seed
+cannot act as a revertible default layer. The niri provider tags a bind
+`dms-default` when it comes from `dms/binds.kdl` and `config` otherwise,
+and never emits `dms` (`core/internal/keybinds/providers/niri.go`); the
+Settings UI computes `isOverride` as `source === "dms"`
+(`Services/KeybindsService.qml`). The Overrides filter is therefore always
+empty on niri no matter what the seed contains or what the user changes.
+Hyprland gets the two-layer model — `dms/binds.lua` for DMS defaults and
+`dms/binds-user.lua` for overrides — and only its provider produces the
+`dms` source. Consequently the per-bind "Reset to Default" action deletes
+the bind on niri rather than restoring anything, despite prompt wording
+that says the DMS default will re-apply. The supported revert is
+whole-file: `zz refresh niri/dms/binds.kdl`. Revisit this if a DMS release
+adds a niri user-override fragment.
+
+This makes keybinds user-owned rather than product-owned, with two
+consequences. Changed defaults no longer reach an existing install
+automatically; `zz refresh niri/dms/binds.kdl` re-seeds them, backing up
+the current file first. And the first edit made in the Settings UI
+rewrites the whole fragment, discarding the seed's comments and section
+grouping while keeping every bind — so the seed's layout is a
+seed-time convenience, not a format DMS maintains.
+
+Settings the repository could set in KDL but DMS also owns are left to
+DMS, so the Settings UI stays the single place they change. `cfg/layout.kdl`
+therefore sets no gaps, no border or focus-ring width, and no colors:
+`niriLayoutGapsOverride` and `niriLayoutBorderSize` in the DMS settings
+seed drive them through `dms/layout.kdl`, and every color comes from
+`dms/colors.kdl`. Note that DMS writes one width to both `border` and
+`focus-ring`, so the two cannot differ while DMS owns them.
 Display configuration is DMS-owned through `dms/outputs.kdl` (Settings →
 Displays); there is no separate manual display seed. When something must
 beat the DMS-managed configuration, the user-owned `config.kdl`

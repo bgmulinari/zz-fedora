@@ -45,6 +45,7 @@ live ZZ defaults first and a user override last:
 | Surface | User-owned entrypoint or override | ZZ-managed default |
 | --- | --- | --- |
 | Niri | `~/.config/niri/config.kdl`, plus optional `~/.config/niri/local.kdl` | `dotfiles/niri/.config/niri/defaults.kdl` and its `cfg/` includes |
+| Niri keybinds | `~/.config/niri/dms/binds.kdl` (seeded once, then owned by DMS Settings → Keybinds) | `templates/niri/dms-binds.kdl` |
 | DMS | `~/.config/DankMaterialShell/settings.json` (seeded once, then owned by the Settings UI) | `dotfiles/dms/.config/DankMaterialShell/themes/catppuccin/theme.json`, linked as the selected registry theme; session state stays under `~/.local/state/DankMaterialShell/` |
 | Ghostty | `~/.config/ghostty/config` and optional `~/.config/ghostty/local` | `dotfiles/ghostty/.config/ghostty/config`, linked as `~/.config/ghostty/zz-defaults` |
 | Fastfetch | `~/.config/fastfetch/config.jsonc` | `dotfiles/fastfetch/.config/fastfetch/zz-fedora.txt`, linked into the Fastfetch config directory |
@@ -61,6 +62,13 @@ Hardware-specific and generated values stay in user or state files. For
 example, Niri display settings live in the DMS-managed
 `~/.config/niri/dms/outputs.kdl`, and DMS-generated monitor and widget
 state stays out of the repository.
+
+Niri keybinds are seeded rather than linked because DMS both reads and
+writes `~/.config/niri/dms/binds.kdl`: it is the only niri file
+Settings → Keybinds parses, so binds kept in the product `cfg/` tree
+would not appear in the UI at all. The trade is that updated keybind
+defaults reach an existing install only through
+`zz refresh niri/dms/binds.kdl`.
 
 ## Resetting a user-owned file
 

@@ -28,7 +28,8 @@ setup() {
   for fn in install_zz_launcher configure_default_applications \
     install_bundled_wallpapers install_starship_config \
     install_ghostty_theme_seed_if_missing \
-    install_niri_dms_colors_seed_if_missing configure_flatpak_theme_access \
+    install_niri_dms_colors_seed_if_missing install_niri_dms_binds_seed_if_missing \
+    configure_flatpak_theme_access \
     enable_user_services register_first_run_hook write_managed_files_report \
     install_dms_state_seeds_if_missing; do
     eval "$fn() { printf '$fn\n' >>'$TEST_ROOT/order.log'; }"
@@ -271,6 +272,78 @@ setup() {
 
   assert_file_contains "$TARGET_HOME/.config/ghostty/themes/dankcolors" 'background = #000000'
   refute_file_contains "$TARGET_HOME/.config/ghostty/themes/dankcolors" 'palette = 0=#11111b'
+}
+
+@test "Niri keybinds seed lands in the only fragment the DMS UI reads" {
+  build_test_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/niri-binds-home"
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_niri_dms_binds_seed_if_missing
+
+  local binds="$TARGET_HOME/.config/niri/dms/binds.kdl"
+  assert_file_contains "$binds" 'dms ipc call spotlight toggle'
+  assert_file_contains "$binds" 'spawn "ghostty" "+new-window"'
+  assert_file_contains "$binds" 'spawn "nautilus" "--new-window"'
+  # Attributes DMS round-trips through its Settings UI.
+  assert_file_contains "$binds" 'allow-when-locked=true'
+  assert_file_contains "$binds" 'cooldown-ms=150'
+  assert_file_contains "$binds" 'allow-inhibiting=false'
+}
+
+@test "Niri keybinds seed preserves binds the user changed in the DMS UI" {
+  build_test_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/niri-binds-existing-home"
+  mkdir -p "$TARGET_HOME/.config/niri/dms"
+  printf 'binds {\n    Mod+Return { spawn "kitty"; }\n}\n' \
+    >"$TARGET_HOME/.config/niri/dms/binds.kdl"
+  DRY_RUN=0
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_niri_dms_binds_seed_if_missing
+
+  assert_file_contains "$TARGET_HOME/.config/niri/dms/binds.kdl" 'spawn "kitty"'
+  refute_file_contains "$TARGET_HOME/.config/niri/dms/binds.kdl" 'dms ipc call spotlight toggle'
+}
+
+@test "product Niri tree ships no binds so the DMS UI is the single keybind surface" {
+  # DMS parses only ~/.config/niri/dms/binds.kdl. A binds block anywhere in the
+  # product tree would be invisible to Settings -> Keybinds and would collide
+  # with the seeded fragment, so this placement is a contract, not a detail.
+  if grep -rl 'binds {' "$ROOT_DIR/dotfiles/niri" >"$TEST_ROOT/product-binds.txt" 2>&1; then
+    printf 'binds blocks found in the product Niri tree:\n' >&2
+    cat "$TEST_ROOT/product-binds.txt" >&2
+    return 1
+  fi
+  assert_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" 'binds {'
+  refute_file_contains "$ROOT_DIR/dotfiles/niri/.config/niri/defaults.kdl" 'keybinds.kdl'
+}
+
+@test "Niri entrypoint includes every DMS fragment in the form DMS detects" {
+  local config="$ROOT_DIR/dotfiles/niri/.config/niri/config.kdl"
+  # KeybindsService matches the literal pattern include.*"dms/binds.kdl", so a
+  # "./dms/..." path fails detection and makes DMS rewrite the user entrypoint.
+  assert_file_contains "$config" 'include optional=true "dms/binds.kdl"'
+  refute_file_contains "$config" '"./dms/'
+  local fragment
+  for fragment in layout alttab binds cursor outputs windowrules wpblur; do
+    assert_file_contains "$config" "include optional=true \"dms/${fragment}.kdl\""
+  done
+  assert_file_contains "$config" 'include "dms/colors.kdl"'
+  # DMS has no writer for input.kdl; the include resolved to nothing.
+  refute_file_contains "$config" 'dms/input.kdl'
 }
 
 @test "DMS state seeds select the managed theme and wallpaper before first login" {
