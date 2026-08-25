@@ -137,11 +137,11 @@ and `--apply` never writes an absolute host path into a seed.
 Keybinds are compared too, against `templates/niri/dms-binds.kdl`. Both sides
 are parsed by `dms keybinds show` rather than diffed as text, because DMS
 rewrites the fragment on the first UI edit — re-sorting binds and dropping the
-seed's comments — so a textual diff would report churn forever. Keybinds move
-as a whole file rather than per bind, since re-emitting individual binds would
-mean reimplementing DMS's KDL writer; promoting them preserves the seed's
-comment header. `--reset` needs no shell restart for them, as niri watches its
-own config.
+seed's comments — so a textual diff would report churn forever. Only the
+changed binds are spliced, line by line, so the seed keeps its comments,
+grouping, and ordering — promoting one rebind must not reflow the file into
+DMS's sorted, comment-free layout. `--reset` needs no shell restart for
+keybinds, as niri watches its own config.
 
 DMS writes every key it knows into `settings.json`, so a plain diff reports
 hundreds of untouched defaults. The script reads the installed shell's own

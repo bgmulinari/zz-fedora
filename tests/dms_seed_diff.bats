@@ -306,33 +306,69 @@ PY
   assert_contains "$output" "Mod+Return"
 }
 
-@test "promoting keybinds keeps the seed's comment header" {
+@test "promoting a keybind edits only that bind's line" {
   seed_diff_fixture
-  printf '// managed header\n// second line\n\nbinds {\n    Mod+Return { spawn "ghostty"; }\n}\n' \
-    >"$FIX/binds-seed.kdl"
-  printf 'binds {\n    Mod+Return { spawn "kitty"; }\n}\n' >"$FIX/binds-live.kdl"
+  cat >"$FIX/binds-seed.kdl" <<'KDL'
+// managed header
+
+binds {
+    // Launchers
+    Mod+Return hotkey-overlay-title="Open Terminal" { spawn "ghostty"; }
+    Mod+E { spawn "nautilus"; }
+
+    // Shell
+    Mod+N { spawn-sh "dms ipc call notifications toggle"; }
+}
+KDL
+  # DMS rewrites the live fragment: no comments, re-sorted, one bind changed.
+  cat >"$FIX/binds-live.kdl" <<'KDL'
+binds {
+    Mod+E { spawn "nautilus"; }
+    Mod+N hotkey-overlay-title="Launch netwatch" { spawn "ghostty" "-e" "netwatch"; }
+    Mod+Return hotkey-overlay-title="Open Terminal" { spawn "ghostty"; }
+}
+KDL
 
   "$SYSTEM_PYTHON" - "$ROOT_DIR" "$FIX" <<'PY'
 import pathlib, sys
 sys.path.insert(0, sys.argv[1] + "/lib")
-from dms_seed_diff import copy_binds
+from dms_seed_diff import write_binds
 fix = pathlib.Path(sys.argv[2])
-copy_binds(fix / "binds-live.kdl", fix / "binds-seed.kdl", keep_header=True)
+write_binds(fix / "binds-live.kdl", fix / "binds-seed.kdl", ["Mod+N"])
 PY
 
+  # The one bind moved across.
+  assert_file_contains "$FIX/binds-seed.kdl" 'Launch netwatch'
+  # Everything that makes the seed readable survived.
   assert_file_contains "$FIX/binds-seed.kdl" '// managed header'
-  assert_file_contains "$FIX/binds-seed.kdl" 'spawn "kitty"'
-  refute_file_contains "$FIX/binds-seed.kdl" 'spawn "ghostty"'
-  # Resetting the other way must not graft the header onto the live fragment.
+  assert_file_contains "$FIX/binds-seed.kdl" '// Launchers'
+  assert_file_contains "$FIX/binds-seed.kdl" '// Shell'
+  # The seed keeps its own order (Return, E, N) rather than adopting the
+  # live file's alphabetical sort (E, N, Return).
+  assert_equal "Mod+Return Mod+E Mod+N" \
+    "$(grep -oE 'Mod\+[A-Za-z]+' "$FIX/binds-seed.kdl" | tr '\n' ' ' | sed 's/ $//')"
+  assert_equal "3" "$(grep -c 'Mod+' "$FIX/binds-seed.kdl")"
+}
+
+@test "promoting a keybind can add and remove binds without reflowing the file" {
+  seed_diff_fixture
+  printf '// header\n\nbinds {\n    // group\n    Mod+A { spawn "a"; }\n    Mod+B { spawn "b"; }\n}\n' \
+    >"$FIX/binds-seed.kdl"
+  printf 'binds {\n    Mod+A { spawn "a"; }\n    Mod+C { spawn "c"; }\n}\n' \
+    >"$FIX/binds-live.kdl"
+
   "$SYSTEM_PYTHON" - "$ROOT_DIR" "$FIX" <<'PY'
 import pathlib, sys
 sys.path.insert(0, sys.argv[1] + "/lib")
-from dms_seed_diff import copy_binds
+from dms_seed_diff import write_binds
 fix = pathlib.Path(sys.argv[2])
-copy_binds(fix / "binds-seed.kdl", fix / "binds-live.kdl", keep_header=False)
+write_binds(fix / "binds-live.kdl", fix / "binds-seed.kdl", ["Mod+B", "Mod+C"])
 PY
-  refute_file_contains "$FIX/binds-live.kdl" '// managed header'
-  assert_file_contains "$FIX/binds-live.kdl" 'spawn "kitty"'
+
+  assert_file_contains "$FIX/binds-seed.kdl" '// group'
+  assert_file_contains "$FIX/binds-seed.kdl" 'Mod+C'
+  refute_file_contains "$FIX/binds-seed.kdl" 'Mod+B'
+  assert_file_contains "$FIX/binds-seed.kdl" 'Mod+A'
 }
 
 @test "a missing DMS spec fails with an actionable message" {

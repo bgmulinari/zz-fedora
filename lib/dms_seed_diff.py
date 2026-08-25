@@ -372,11 +372,11 @@ def main() -> int:
         print(f"updated {path} ({len(rows)} key{'s' if len(rows) != 1 else ''})",
               file=sys.stderr)
     if report.get("keybinds") and binds_seed and binds_live:
-        saved = copy_binds(binds_live, binds_seed, keep_header=True)
-        note = f"; previous contents saved as {saved}" if saved else ""
-        print(f"updated {binds_seed} "
-              f"({len(report['keybinds'])} bind change(s), whole file){note}",
-              file=sys.stderr)
+        keys = [r["key"] for r in report["keybinds"]]
+        saved = write_binds(binds_live, binds_seed, keys)
+        print(f"updated {binds_seed} ({len(keys)} bind"
+              f"{'s' if len(keys) != 1 else ''}); previous contents saved as "
+              f"{saved}", file=sys.stderr)
     stale = [r["key"] for rows in report.values() for r in rows if r["kind"] == "stale"]
     if stale:
         print("left in place (absent from the live file, remove by hand if "
@@ -396,31 +396,83 @@ def backup(path: pathlib.Path) -> pathlib.Path:
     return candidate
 
 
-def copy_binds(source: pathlib.Path, destination: pathlib.Path,
-               keep_header: bool) -> pathlib.Path | None:
-    """Replace `destination`'s binds block with `source`'s.
+def bind_key_of(line: str) -> str | None:
+    """The bind key a KDL line opens, or None if it is not a bind line."""
+    stripped = line.strip()
+    if not stripped or stripped.startswith("//") or stripped.startswith("}"):
+        return None
+    if stripped.startswith("binds") or "{" not in stripped:
+        return None
+    return stripped.split(None, 1)[0]
 
-    Keybinds move as a whole file rather than per bind: DMS rewrites the
-    fragment wholesale on any edit, and re-emitting individual binds would
-    mean reimplementing its KDL writer. When promoting into the seed the
-    destination's comment header is preserved, because DMS strips it.
+
+def index_bind_lines(text: str) -> dict:
+    """Map {bind key: (start, end)} line spans within a binds fragment.
+
+    A bind is normally one line, but the span is tracked by brace depth so a
+    hand-wrapped multi-line bind is spliced whole rather than truncated.
     """
-    body = source.read_text()
-    marker = body.find("binds {")
-    if marker == -1:
-        raise SystemExit(f"{source}: no binds block found")
-    body = body[marker:]
+    lines = text.splitlines(keepends=True)
+    spans, index = {}, 0
+    while index < len(lines):
+        key = bind_key_of(lines[index])
+        if key is None:
+            index += 1
+            continue
+        depth, end = 0, index
+        while end < len(lines):
+            depth += lines[end].count("{") - lines[end].count("}")
+            end += 1
+            if depth <= 0:
+                break
+        spans[key] = (index, end)
+        index = end
+    return spans
 
-    saved = None
-    if destination.exists():
-        saved = backup(destination)
-        if keep_header:
-            existing = destination.read_text()
-            head = existing.find("binds {")
-            if head > 0:
-                body = existing[:head] + body
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(body)
+
+def splice_binds(seed_text: str, live_text: str, keys) -> str:
+    """Return `seed_text` with only `keys` taken from `live_text`.
+
+    Editing the seed line by line keeps its comments, grouping, and ordering,
+    which a whole-file copy from the DMS-rewritten live fragment destroys:
+    promoting one rebind should not reflow the file.
+    """
+    seed_lines = seed_text.splitlines(keepends=True)
+    live_lines = live_text.splitlines(keepends=True)
+    seed_spans = index_bind_lines(seed_text)
+    live_spans = index_bind_lines(live_text)
+
+    edits = []           # (start, end, replacement lines)
+    additions = []
+    for key in keys:
+        replacement = ([]
+                       if key not in live_spans
+                       else live_lines[slice(*live_spans[key])])
+        if key in seed_spans:
+            edits.append((*seed_spans[key], replacement))
+        elif replacement:
+            additions.append(replacement)
+
+    # Apply from the bottom so earlier spans keep their indices.
+    for start, end, replacement in sorted(edits, reverse=True):
+        seed_lines[start:end] = replacement
+
+    if additions:
+        closing = max(i for i, line in enumerate(seed_lines)
+                      if line.strip() == "}")
+        flat = [line for block in additions for line in block]
+        seed_lines[closing:closing] = flat
+    return "".join(seed_lines)
+
+
+def write_binds(source: pathlib.Path, destination: pathlib.Path,
+                keys) -> pathlib.Path | None:
+    """Splice `keys` from `source` into `destination`, backing it up first."""
+    if not destination.exists():
+        raise SystemExit(f"missing keybind fragment: {destination}")
+    saved = backup(destination)
+    destination.write_text(
+        splice_binds(destination.read_text(), source.read_text(), keys))
     return saved
 
 
@@ -452,12 +504,12 @@ def reset(report: dict, live_paths: dict,
     if report.get("keybinds") and binds_seed and binds_live:
         # niri watches its config, so the restored binds apply without the
         # shell restart that settings.json needs.
-        saved = copy_binds(binds_seed, binds_live, keep_header=False)
-        note = f"; previous contents saved as {saved}" if saved else ""
-        touched += len(report["keybinds"])
-        print(f"reset {binds_live} "
-              f"({len(report['keybinds'])} bind change(s), whole file){note}",
-              file=sys.stderr)
+        keys = [r["key"] for r in report["keybinds"]]
+        saved = write_binds(binds_seed, binds_live, keys)
+        touched += len(keys)
+        print(f"reset {binds_live} ({len(keys)} bind"
+              f"{'s' if len(keys) != 1 else ''}); previous contents saved as "
+              f"{saved}", file=sys.stderr)
     if not touched:
         print("Nothing to reset: the live DMS state already matches the "
               "defaults.", file=sys.stderr)
@@ -481,8 +533,6 @@ def render(report: dict, applying: bool) -> None:
             continue
         total += len(rows)
         print(f"\n{scope}:")
-        if scope == "keybinds":
-            print("  (keybinds move as a whole file, not per bind)")
         for kind in ("changed", "new", "derived", "stale",
                      "bind-changed", "bind-added", "bind-removed"):
             group = [r for r in rows if r["kind"] == kind]
