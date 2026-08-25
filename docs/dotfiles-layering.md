@@ -97,7 +97,50 @@ because updating `~/.zz` already refreshes them.
 5. Add focused planner and apply tests for preservation, backup, and link
    behavior.
 
-To promote a DMS Settings UI change into the managed baseline, diff the
-user's `~/.config/DankMaterialShell/settings.json` against the seed emitted
-by `dms_settings_seed_json` (`lib/dms.sh`) and move only portable keys into
-the seed, leaving monitor- and hardware-specific state in the user file.
+## Promoting a DMS Settings change into the baseline
+
+The portable seed values live in `templates/dms/settings-seed.json` and
+`templates/dms/session-seed.json`. `lib/dms.sh` overlays the keys that render
+to absolute paths (`customThemeFile`, `iconThemeDark`, `iconThemeLight`, and
+`wallpaperPath`) from `dms_theme_file`, `dms_icon_theme`, and
+`dms_default_wallpaper`, which remain the single source for those facts.
+
+Change something in the DMS Settings UI, then:
+
+```bash
+scripts/dms-seed-diff.sh                 # list what moved
+scripts/dms-seed-diff.sh --apply         # live -> seed, keep it as a default
+scripts/dms-seed-diff.sh --reset         # seed -> live, throw the change away
+scripts/dms-seed-diff.sh --apply cornerRadius showDock
+```
+
+`--apply` and `--reset` are the two directions of the same report and cannot
+be combined. `--reset` writes the live DMS files, so it backs each one up as
+`<file>.bak.<epoch>` and then restarts `dms.service`. That restart is required
+rather than cosmetic: DMS holds its settings in memory and rewrites the file
+on any later change, so an unrestarted shell would quietly undo the reset. The
+`dms ipc call settings set` path is not usable here — it rejects objects and
+arrays outright, and it assigns without running the `onChange` hooks, so
+compositor fragments such as `dms/layout.kdl` would not be regenerated. Pass
+`--no-restart` when DMS is not the running session and `--yes` to skip the
+confirmation prompt.
+
+A key the report lists as `not in the seed, changed from the DMS default`
+resets to the DMS default, not to a ZZ value. Keys the report does not mention
+are never touched in either direction.
+
+Changing the icon theme or the wallpaper is reported too, but as a key
+`lib/dms.sh` renders rather than one a seed file holds: the report names the
+helper to edit (`dms_icon_theme`, `dms_default_wallpaper`, `dms_theme_file`)
+and `--apply` never writes an absolute host path into a seed.
+
+DMS writes every key it knows into `settings.json`, so a plain diff reports
+hundreds of untouched defaults. The script reads the installed shell's own
+specs (`Common/settings/*Spec.js`) to tell a deliberate change from a default
+DMS never moved, and compares structured settings field by field so promoting
+one bar property does not freeze the whole backfilled bar schema into the
+seed. Machine-specific and runtime keys — monitor layouts, GPU and device
+identity, weather coordinates, launcher history, sidebar state — are excluded
+and can never be promoted; see `EXCLUDED` in `lib/dms_seed_diff.py`.
+
+It exits non-zero while differences remain, so it can gate a check.

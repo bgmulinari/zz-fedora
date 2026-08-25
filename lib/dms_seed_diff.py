@@ -1,0 +1,407 @@
+"""Compare the live DMS state against the ZZ seed defaults.
+
+DMS writes every known key into settings.json, so a plain diff against the
+seed reports hundreds of untouched defaults. This compares three layers to
+report only what a person actually changed:
+
+  seed      templates/dms/{settings,session}-seed.json, the ZZ defaults
+  upstream  the DMS spec defaults (lib/dms_spec.py)
+  live      the user's ~/.config and ~/.local/state DMS files
+
+A key is reported when the live value differs from the seed (drift in a key
+the seed already pins) or, for keys the seed does not pin, when the live
+value differs from the upstream default (a new candidate default).
+
+Keys that cannot be portable defaults are never reported. See EXCLUDED.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import pathlib
+import shutil
+import sys
+import time
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+from dms_spec import defaults, parse_spec  # noqa: E402
+
+# Rendered from a host fact at seed time, so they must not be frozen into the
+# seed files as absolute paths. lib/dms.sh overlays them. They are still
+# compared, because changing the icon theme or wallpaper in the DMS UI is a
+# real change worth promoting; it just lands in lib/dms.sh rather than in a
+# seed file, so the report names the helper to edit instead of offering
+# --apply.
+DERIVED_HELPER = {
+    "settings": {
+        "customThemeFile": "dms_theme_file",
+        "iconThemeDark": "dms_icon_theme",
+        "iconThemeLight": "dms_icon_theme",
+    },
+    "session": {"wallpaperPath": "dms_default_wallpaper"},
+}
+
+# Values that are real for this machine or this moment but meaningless as a
+# shipped default. Grouped by why they are excluded so the list stays
+# reviewable.
+EXCLUDED = {
+    "settings": {
+        # Monitor, GPU, and device identity.
+        "niriOutputSettings", "hyprlandOutputSettings", "screenPreferences",
+        "showOnLastDisplay", "displayProfiles", "activeDisplayProfile",
+        "connectedFrameBarStyleBackups", "selectedGpuIndex", "enabledGpuPciIds",
+        "systemMonitorGpuPciId", "systemMonitorVariants",
+        "desktopWidgetPositions", "desktopWidgetGridSettings",
+        "desktopWidgetInstances", "desktopWidgetGroups",
+        "desktopClockX", "desktopClockY", "systemMonitorX", "systemMonitorY",
+        # Session-scoped or app-managed runtime state.
+        "greeterSyncPending", "greeterSyncBaseline", "lastAppliedIconTheme",
+        "browserUsageHistory", "filePickerUsageHistory",
+        "spotlightSectionViewModes", "appDrawerSectionViewModes",
+        "launcherPluginVisibility", "launcherPluginOrder",
+        "builtInPluginSettings", "configVersion",
+        # Serialized as a QColor object rather than the spec's hex string, so
+        # they always differ without anyone having changed a colour.
+        "desktopClockCustomColor", "systemMonitorCustomColor",
+        # Credentials and auth wiring.
+        "lockPamPath", "lockU2fPamPath", "lockPamExternallyManaged",
+        "greeterPamExternallyManaged",
+    },
+    "session": {
+        # Where this machine is.
+        "weatherLocation", "weatherCoordinates", "latitude", "longitude",
+        # Devices attached to this machine.
+        "wifiDeviceOverride", "lastBrightnessDevice", "deviceMaxVolumes",
+        "brightnessExponentialDevices", "brightnessUserSetValues",
+        "brightnessExponentValues", "hiddenOutputDeviceNames",
+        "hiddenInputDeviceNames", "selectedGpuIndex", "enabledGpuPciIds",
+        "nvidiaGpuTempEnabled", "nonNvidiaGpuTempEnabled",
+        # What the user did last, not what they chose.
+        "lastPlayerIdentity", "launcherLastQuery", "launcherQueryHistory",
+        "launcherLastMode", "launcherLastFileSearchType", "notepadLastMode",
+        "appDrawerLastMode", "niriOverviewLastMode", "recentColors",
+        "settingsSidebarExpandedIds", "settingsSidebarCollapsedIds",
+        "vpnLastConnected", "doNotDisturb", "doNotDisturbUntil",
+        "monitorWallpapers", "monitorWallpapersLight", "monitorWallpapersDark",
+        "monitorWallpaperFillModes", "monitorCyclingSettings",
+        "configVersion",
+    },
+}
+
+SPEC_FILES = {
+    "settings": "SettingsSpec.js",
+    "session": "SessionSpec.js",
+}
+
+
+def load_json(path: pathlib.Path) -> dict:
+    try:
+        data = json.loads(path.read_text())
+    except FileNotFoundError:
+        raise SystemExit(f"missing file: {path}")
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"{path}: {exc}")
+    if not isinstance(data, dict):
+        raise SystemExit(f"{path}: expected a JSON object")
+    return data
+
+
+def flatten(value, prefix: tuple = ()) -> dict:
+    """Map a nested value to {path: leaf}.
+
+    Dicts and lists of dicts are walked so a structured setting is compared
+    field by field. Comparing whole objects would report barConfigs as changed
+    forever, because DMS backfills bar fields the seed deliberately omits, and
+    promoting it would freeze that whole snapshot into the seed.
+    """
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            out.update(flatten(item, prefix + (key,)))
+        return out
+    if isinstance(value, list) and value and all(isinstance(v, dict) for v in value):
+        out = {}
+        for index, item in enumerate(value):
+            out.update(flatten(item, prefix + (index,)))
+        return out
+    return {prefix: value}
+
+
+def render_path(path: tuple) -> str:
+    text = ""
+    for part in path:
+        if isinstance(part, int):
+            text += f"[{part}]"
+        else:
+            text += f".{part}" if text else str(part)
+    return text
+
+
+def set_path(target: dict, path: tuple, value) -> None:
+    cursor = target
+    for part, nxt in zip(path, path[1:]):
+        if isinstance(part, int):
+            while len(cursor) <= part:
+                cursor.append({})
+            if not isinstance(cursor[part], (dict, list)):
+                cursor[part] = [] if isinstance(nxt, int) else {}
+            cursor = cursor[part]
+            continue
+        if part not in cursor or not isinstance(cursor[part], (dict, list)):
+            cursor[part] = [] if isinstance(nxt, int) else {}
+        cursor = cursor[part]
+    last = path[-1]
+    if isinstance(last, int):
+        while len(cursor) <= last:
+            cursor.append(None)
+    cursor[last] = value
+
+
+def compare(scope: str, seed: dict, live: dict, upstream: dict,
+            derived: dict | None = None) -> list[dict]:
+    """Return the reportable differences for one scope, sorted by path."""
+    skip = EXCLUDED[scope]
+    helpers = DERIVED_HELPER[scope]
+    derived = derived or {}
+    seed_flat = flatten(seed)
+    live_flat = flatten(live)
+    upstream_flat = flatten(upstream)
+    rows = []
+
+    for path, live_value in live_flat.items():
+        if path[0] in skip:
+            continue
+        if path[0] in helpers:
+            # Only comparable when the caller rendered the host fact for us.
+            expected = derived.get(path[0])
+            if expected is not None and live_value != expected:
+                rows.append({"path": path, "kind": "derived", "live": live_value,
+                             "seed": expected, "helper": helpers[path[0]],
+                             "reset_path": path, "reset_value": expected})
+            continue
+        if path in seed_flat:
+            if live_value != seed_flat[path]:
+                rows.append({"path": path, "kind": "changed",
+                             "live": live_value, "seed": seed_flat[path],
+                             "reset_path": path, "reset_value": seed_flat[path]})
+            continue
+        # A field the seed does not pin. Only interesting once it leaves the
+        # DMS default, and only when the spec describes it at all.
+        if path in upstream_flat:
+            if live_value != upstream_flat[path]:
+                rows.append({"path": path, "kind": "new",
+                             "live": live_value, "seed": upstream_flat[path],
+                             "reset_path": path,
+                             "reset_value": upstream_flat[path]})
+        elif path[0] in upstream:
+            # The spec knows this key, but its default carries no such leaf
+            # because the default is an empty object or array. Any live value
+            # here is therefore a departure from the DMS default. Comparing
+            # only against upstream_flat would drop these silently.
+            # There is no leaf to restore, so a reset has to put the whole
+            # key back to the default's empty container.
+            rows.append({"path": path, "kind": "new", "live": live_value,
+                         "seed": None, "seed_absent": True,
+                         "reset_path": (path[0],),
+                         "reset_value": upstream[path[0]]})
+
+    for path, seed_value in seed_flat.items():
+        if path[0] in skip or path[0] in helpers or path in live_flat:
+            continue
+        rows.append({"path": path, "kind": "stale", "live": None,
+                     "seed": seed_value, "reset_path": path,
+                     "reset_value": seed_value})
+
+    for row in rows:
+        row["key"] = render_path(row["path"])
+    return sorted(rows, key=lambda r: r["key"])
+
+
+def fmt(value) -> str:
+    text = json.dumps(value, sort_keys=True)
+    return text if len(text) <= 120 else text[:117] + "..."
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        prog="dms-seed-diff",
+        description="Compare live DMS settings against the ZZ seed defaults.",
+    )
+    ap.add_argument("--root", required=True, type=pathlib.Path)
+    ap.add_argument("--home", required=True, type=pathlib.Path)
+    ap.add_argument("--spec-dir", required=True, type=pathlib.Path)
+    ap.add_argument("--apply", action="store_true",
+                    help="write the reported differences into the seed files")
+    ap.add_argument("--reset", action="store_true",
+                    help="write the defaults back into the live DMS files, "
+                         "backing each up first")
+    ap.add_argument("--json", action="store_true", help="emit the report as JSON")
+    ap.add_argument("--derived", default="{}",
+                    help="JSON of the host facts lib/dms.sh overlays onto the "
+                         "seeds, as {scope: {key: value}}")
+    ap.add_argument("keys", nargs="*",
+                    help="limit to these keys (default: all reported keys)")
+    args = ap.parse_args()
+
+    if args.apply and args.reset:
+        raise SystemExit(
+            "--apply and --reset are opposites: --apply promotes the live "
+            "state into the seed, --reset restores the seed onto the live "
+            "state. Pick one."
+        )
+
+    live_paths = {
+        "settings": args.home / ".config/DankMaterialShell/settings.json",
+        "session": args.home / ".local/state/DankMaterialShell/session.json",
+    }
+    seed_paths = {
+        "settings": args.root / "templates/dms/settings-seed.json",
+        "session": args.root / "templates/dms/session-seed.json",
+    }
+
+    try:
+        derived = json.loads(args.derived)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"--derived is not valid JSON: {exc}")
+
+    report = {}
+    for scope in ("settings", "session"):
+        spec_file = args.spec_dir / SPEC_FILES[scope]
+        if not spec_file.is_file():
+            raise SystemExit(
+                f"missing DMS spec: {spec_file}\n"
+                "The comparison needs the installed shell to know each key's "
+                "upstream default. Install DankMaterialShell or pass --spec-dir."
+            )
+        upstream = defaults(parse_spec(spec_file.read_text()))
+        rows = compare(scope, load_json(seed_paths[scope]),
+                       load_json(live_paths[scope]), upstream,
+                       derived.get(scope, {}))
+        if args.keys:
+            wanted = set(args.keys)
+            rows = [r for r in rows if r["key"] in wanted]
+        report[scope] = rows
+
+    if args.json:
+        serialisable = {
+            scope: [{k: v for k, v in row.items() if k != "path"} for row in rows]
+            for scope, rows in report.items()
+        }
+        print(json.dumps(serialisable, indent=2, sort_keys=True))
+    else:
+        render(report, args.apply or args.reset)
+
+    if args.keys:
+        found = {r["key"] for rows in report.values() for r in rows}
+        for missing in sorted(set(args.keys) - found):
+            print(f"warning: no difference reported for {missing}", file=sys.stderr)
+
+    total = sum(len(rows) for rows in report.values())
+    if args.reset:
+        return reset(report, live_paths)
+    if not args.apply:
+        return 1 if total else 0
+
+    for scope in ("settings", "session"):
+        rows = [r for r in report[scope] if r["kind"] in ("changed", "new")]
+        if not rows:
+            continue
+        path = seed_paths[scope]
+        seed = load_json(path)
+        for row in rows:
+            set_path(seed, row["path"], row["live"])
+        path.write_text(json.dumps(seed, indent=2) + "\n")
+        # stderr, so --json --apply still emits a single parseable document.
+        print(f"updated {path} ({len(rows)} key{'s' if len(rows) != 1 else ''})",
+              file=sys.stderr)
+    stale = [r["key"] for rows in report.values() for r in rows if r["kind"] == "stale"]
+    if stale:
+        print("left in place (absent from the live file, remove by hand if "
+              f"intended): {', '.join(stale)}", file=sys.stderr)
+    return 0
+
+
+def backup(path: pathlib.Path) -> pathlib.Path:
+    """Copy `path` aside using the same .bak.<epoch> convention as zz refresh."""
+    stamp = int(time.time())
+    candidate = path.with_name(f"{path.name}.bak.{stamp}")
+    suffix = 1
+    while candidate.exists():
+        candidate = path.with_name(f"{path.name}.bak.{stamp}.{suffix}")
+        suffix += 1
+    shutil.copy2(path, candidate)
+    return candidate
+
+
+def reset(report: dict, live_paths: dict) -> int:
+    """Write each reported default back onto the live DMS files.
+
+    DMS holds its settings in memory and rewrites the file on any change, so
+    the caller has to restart the shell for this to stick. The IPC setter is
+    not an option: it rejects objects and arrays outright, and it assigns
+    without running the onChange hooks, so compositor fragments would not be
+    regenerated.
+    """
+    touched = 0
+    for scope in ("settings", "session"):
+        rows = [r for r in report[scope] if "reset_path" in r]
+        if not rows:
+            continue
+        path = live_paths[scope]
+        live = load_json(path)
+        saved = backup(path)
+        for row in rows:
+            set_path(live, row["reset_path"], row["reset_value"])
+        path.write_text(json.dumps(live, indent=2) + "\n")
+        touched += len(rows)
+        print(f"reset {path} ({len(rows)} value{'s' if len(rows) != 1 else ''}); "
+              f"previous contents saved as {saved}", file=sys.stderr)
+    if not touched:
+        print("Nothing to reset: the live DMS state already matches the "
+              "defaults.", file=sys.stderr)
+    return 0
+
+
+def render(report: dict, applying: bool) -> None:
+    labels = {
+        "changed": "differs from the seed",
+        "new": "not in the seed, changed from the DMS default",
+        "derived": "rendered by lib/dms.sh, promote by editing the helper",
+        "stale": "in the seed but absent from the live file",
+    }
+    total = 0
+    for scope in ("settings", "session"):
+        rows = report[scope]
+        if not rows:
+            continue
+        total += len(rows)
+        print(f"\n{scope}:")
+        for kind in ("changed", "new", "derived", "stale"):
+            group = [r for r in rows if r["kind"] == kind]
+            if not group:
+                continue
+            print(f"  {labels[kind]}:")
+            for row in group:
+                print(f"    {row['key']}")
+                if row.get("seed_absent"):
+                    print("      seed: (the DMS default carries no such value)")
+                else:
+                    print(f"      seed: {fmt(row['seed'])}")
+                print(f"      live: {fmt(row['live'])}")
+                if row.get("helper"):
+                    print(f"      promote by editing {row['helper']}() "
+                          "in lib/dms.sh")
+    if not total:
+        print("The live DMS state matches the seeded defaults.")
+        return
+    if not applying:
+        print(f"\n{total} difference{'s' if total != 1 else ''}. "
+              "Re-run with --apply to promote them into the seed, or --reset "
+              "to restore the defaults onto the live state. Either accepts "
+              "KEY [KEY...] for a subset.")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
