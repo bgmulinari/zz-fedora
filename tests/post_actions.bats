@@ -372,10 +372,24 @@ setup() {
   assert_equal "blue" "$(jq -r '.registryThemeVariants.catppuccin.dark.accent' "$settings")"
   assert_equal "latte" "$(jq -r '.registryThemeVariants.catppuccin.light.flavor' "$settings")"
   assert_equal "JetBrainsMono Nerd Font" "$(jq -r '.monoFontFamily' "$settings")"
+  assert_equal "JetBrainsMono Nerd Font" "$(jq -r '.fontFamily' "$settings")"
   assert_equal "Yaru-blue" "$(jq -r '.iconThemeDark' "$settings")"
-  assert_equal "$TARGET_HOME/.local/share/backgrounds/CraterBlue.jpg" \
+  # Appearance defaults the managed desktop pins on top of the DMS defaults.
+  assert_equal "0" "$(jq -r '.cornerRadius' "$settings")"
+  assert_equal "sth" "$(jq -r '.widgetBackgroundColor' "$settings")"
+  assert_equal "true" "$(jq -r '.showDock' "$settings")"
+  assert_equal "true" "$(jq -r '.showWorkspaceIndex' "$settings")"
+  assert_equal "false" "$(jq -r '.barElevationEnabled' "$settings")"
+  assert_equal "true" "$(jq -r '.barConfigs[0].squareCorners' "$settings")"
+  assert_equal "1.2" "$(jq -r '.barConfigs[0].fontScale' "$settings")"
+  # DMS owns the Niri gaps and border width so they stay editable in its UI.
+  assert_equal "10" "$(jq -r '.niriLayoutGapsOverride' "$settings")"
+  assert_equal "2" "$(jq -r '.niriLayoutBorderSize' "$settings")"
+  assert_equal "$TARGET_HOME/.local/share/backgrounds/Alpenglow.jpg" \
     "$(jq -r '.wallpaperPath' "$session")"
   assert_equal "false" "$(jq -r '.isLightMode' "$session")"
+  assert_equal "org.gnome.Nautilus com.mitchellh.ghostty" \
+    "$(jq -r '.pinnedApps | join(" ")' "$session")"
   # The colors placeholder keeps the greeter cache symlink from dangling.
   assert_equal "{}" "$(jq -c '.' "$TARGET_HOME/.cache/DankMaterialShell/dms-colors.json")"
 }

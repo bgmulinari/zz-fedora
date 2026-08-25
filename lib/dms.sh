@@ -35,7 +35,7 @@ dms_theme_file() {
 }
 
 dms_default_wallpaper() {
-  printf '%s/.local/share/backgrounds/CraterBlue.jpg\n' "$TARGET_HOME"
+  printf '%s/.local/share/backgrounds/Alpenglow.jpg\n' "$TARGET_HOME"
 }
 
 # Matugen template outputs the install consumes; DMS overwrites the seeded
@@ -58,32 +58,42 @@ dms_shell_dir() {
   printf '/usr/share/quickshell/dms\n'
 }
 
-# Partial settings seed: keys absent here fall back to the DMS defaults.
-# Selects the vendored Catppuccin registry theme with the blue accent in
-# both modes and aligns fonts and icon theme with the managed desktop.
-dms_settings_seed_json() {
-  jq -n --arg themeFile "$(dms_theme_file)" --arg iconTheme "$(dms_icon_theme)" '{
-    currentThemeCategory: "registry",
-    currentThemeName: "custom",
-    customThemeFile: $themeFile,
-    registryThemeVariants: {
-      catppuccin: {
-        dark: {flavor: "mocha", accent: "blue"},
-        light: {flavor: "latte", accent: "blue"}
-      }
-    },
-    monoFontFamily: "JetBrainsMono Nerd Font",
-    iconThemeDark: $iconTheme,
-    iconThemeLight: $iconTheme
-  }'
+# Portable seed values live in templates/dms/{settings,session}-seed.json so
+# scripts/dms-seed-diff.sh can promote a live DMS change into them as a plain
+# JSON edit. Keys absent from a seed fall back to the DMS defaults.
+#
+# Host-derived keys are deliberately not in those files, because they render to
+# absolute paths under $TARGET_HOME: customThemeFile, iconThemeDark, and
+# iconThemeLight here, wallpaperPath in the session seed. They are overlaid
+# below from dms_theme_file, dms_icon_theme, and dms_default_wallpaper, which
+# stay the single source for those facts.
+#
+# niriLayoutGapsOverride and niriLayoutBorderSize in the settings seed hand DMS
+# ownership of the Niri gaps, border, and focus-ring widths so they stay
+# visible under Settings -> Compositor Layout. dotfiles/niri/.config/niri/cfg/
+# layout.kdl deliberately sets none of them.
+dms_settings_seed_file() {
+  printf '%s/templates/dms/settings-seed.json\n' "$ROOT_DIR"
 }
 
-# Partial session seed: pins the managed default wallpaper and dark mode.
+dms_session_seed_file() {
+  printf '%s/templates/dms/session-seed.json\n' "$ROOT_DIR"
+}
+
+dms_settings_seed_json() {
+  jq \
+    --arg themeFile "$(dms_theme_file)" \
+    --arg iconTheme "$(dms_icon_theme)" \
+    '. + {
+      customThemeFile: $themeFile,
+      iconThemeDark: $iconTheme,
+      iconThemeLight: $iconTheme
+    }' "$(dms_settings_seed_file)"
+}
+
 dms_session_seed_json() {
-  jq -n --arg wallpaper "$(dms_default_wallpaper)" '{
-    wallpaperPath: $wallpaper,
-    isLightMode: false
-  }'
+  jq --arg wallpaper "$(dms_default_wallpaper)" \
+    '. + {wallpaperPath: $wallpaper}' "$(dms_session_seed_file)"
 }
 
 # Seed the DMS state files when absent: the partial settings and session

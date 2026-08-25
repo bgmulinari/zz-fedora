@@ -1,0 +1,65 @@
+{
+  "currentThemeCategory": "registry",
+  "currentThemeName": "custom",
+  "registryThemeVariants": {
+    "catppuccin": {
+      "dark": {
+        "flavor": "mocha",
+        "accent": "blue"
+      },
+      "light": {
+        "flavor": "latte",
+        "accent": "blue"
+      }
+    }
+  },
+  "fontFamily": "JetBrainsMono Nerd Font",
+  "monoFontFamily": "JetBrainsMono Nerd Font",
+  "cornerRadius": 0,
+  "popupTransparency": 0.8,
+  "widgetBackgroundColor": "sth",
+  "blurEnabled": true,
+  "blurWallpaperOnOverview": true,
+  "barElevationEnabled": false,
+  "showWorkspaceIndex": true,
+  "showDock": true,
+  "dockSmartAutoHide": true,
+  "animationSpeed": 4,
+  "popoutAnimationSpeed": 4,
+  "customAnimationDuration": 200,
+  "syncComponentAnimationSpeeds": false,
+  "niriLayoutGapsOverride": 10,
+  "niriLayoutBorderSize": 2,
+  "barConfigs": [
+    {
+      "id": "default",
+      "name": "Main Bar",
+      "enabled": true,
+      "leftWidgets": [
+        "launcherButton",
+        "workspaceSwitcher",
+        "focusedWindow"
+      ],
+      "centerWidgets": [
+        "music",
+        "clock",
+        "weather"
+      ],
+      "rightWidgets": [
+        "systemTray",
+        "clipboard",
+        "cpuUsage",
+        "memUsage",
+        "notificationButton",
+        "battery",
+        "controlCenterButton"
+      ],
+      "spacing": 0,
+      "innerPadding": 0,
+      "transparency": 0.8,
+      "squareCorners": true,
+      "noBackground": true,
+      "fontScale": 1.2
+    }
+  ]
+}

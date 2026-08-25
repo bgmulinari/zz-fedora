@@ -173,7 +173,7 @@ setup() {
   # greeter action runs before the post-actions seeding, and its files must
   # not block the theme seeds (the seeder only writes missing files).
   assert_equal "registry" "$(jq -r '.currentThemeCategory' "$TARGET_HOME/.config/DankMaterialShell/settings.json")"
-  assert_equal "$TARGET_HOME/.local/share/backgrounds/CraterBlue.jpg" \
+  assert_equal "$TARGET_HOME/.local/share/backgrounds/Alpenglow.jpg" \
     "$(jq -r '.wallpaperPath' "$TARGET_HOME/.local/state/DankMaterialShell/session.json")"
   # The colors placeholder keeps the greeter cache symlink from dangling.
   assert_equal "{}" "$(jq -c '.' "$TARGET_HOME/.cache/DankMaterialShell/dms-colors.json")"
