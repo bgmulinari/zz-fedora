@@ -62,16 +62,12 @@ dms_shell_dir() {
 # scripts/dms-seed-diff.sh can promote a live DMS change into them as a plain
 # JSON edit. Keys absent from a seed fall back to the DMS defaults.
 #
-# Host-derived keys are deliberately not in those files, because they render to
-# absolute paths under $TARGET_HOME: customThemeFile, iconThemeDark, and
-# iconThemeLight here, wallpaperPath in the session seed. They are overlaid
-# below from dms_theme_file, dms_icon_theme, and dms_default_wallpaper, which
-# stay the single source for those facts.
+# Keys that render to absolute paths under $TARGET_HOME stay out of those
+# files and are overlaid below, so the helpers remain the source for them.
 #
-# niriLayoutGapsOverride and niriLayoutBorderSize in the settings seed hand DMS
-# ownership of the Niri gaps, border, and focus-ring widths so they stay
-# visible under Settings -> Compositor Layout. dotfiles/niri/.config/niri/cfg/
-# layout.kdl deliberately sets none of them.
+# Niri gaps live in cfg/layout.kdl, not here; niriLayoutGapsOverride = -2 is
+# what makes DMS defer to that file. Border width has no such off mode, so it
+# is DMS-owned and only niriLayoutBorderSize can change it.
 dms_settings_seed_file() {
   printf '%s/templates/dms/settings-seed.json\n' "$ROOT_DIR"
 }

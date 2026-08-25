@@ -1,9 +1,16 @@
-// Layout facts DMS does not own. Gaps, border width, focus-ring width, and
-// every color are set by DMS through ~/.config/niri/dms/{layout,colors}.kdl,
-// which load after this file. Setting them here would be dead config and
-// would hide them from the DMS Settings UI, so leave them to DMS.
+// Colors come from dms/colors.kdl, which loads later, so setting them here
+// does nothing.
+//
+// Gaps are ours: the settings seed pins niriLayoutGapsOverride = -2 ("Off"),
+// the only mode where DMS omits its own gaps line and this one applies.
+//
+// Border and focus-ring widths are not ours. DMS writes both unconditionally
+// from niriLayoutBorderSize, falling back to 2 even with the override off, so
+// a width set here would be dead config. Change it in Settings -> Compositor
+// Layout, or pin niriLayoutBorderSize in the settings seed.
 
 layout {
+    gaps 8
     center-focused-column "never"
 
     preset-column-widths {

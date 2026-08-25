@@ -121,13 +121,27 @@ rewrites the whole fragment, discarding the seed's comments and section
 grouping while keeping every bind — so the seed's layout is a
 seed-time convenience, not a format DMS maintains.
 
-Settings the repository could set in KDL but DMS also owns are left to
-DMS, so the Settings UI stays the single place they change. `cfg/layout.kdl`
-therefore sets no gaps, no border or focus-ring width, and no colors:
-`niriLayoutGapsOverride` and `niriLayoutBorderSize` in the DMS settings
-seed drive them through `dms/layout.kdl`, and every color comes from
-`dms/colors.kdl`. Note that DMS writes one width to both `border` and
-`focus-ring`, so the two cannot differ while DMS owns them.
+Colors are DMS's alone: `dms/colors.kdl` loads after `cfg/layout.kdl`, so
+any color set there is dead config.
+
+Gaps are the opposite: DMS models its value as an *override* on top of the
+niri config, so the product baseline belongs in `cfg/layout.kdl` rather than
+being expressed as an override. Border widths look like the same case but are
+not, and the difference decides where each value has to live:
+
+- **Gaps.** Only `niriLayoutGapsOverride = -2`, the UI's "Off" mode, makes
+  DMS omit its `gaps` line. `-1` ("Auto") is not a deferral — it writes
+  `max(4, bar spacing)`, which is `4` under this bar. So the seed pins `-2`.
+- **Border and focus-ring.** There is no equivalent off mode. DMS writes both
+  widths unconditionally from `niriLayoutBorderSize`, falling back to `2` even
+  when the UI's "Override Border Size" toggle is off, so a width in
+  `cfg/layout.kdl` is always dead config. The only ways to ship a width other
+  than `2` are the Settings UI or pinning `niriLayoutBorderSize` in the seed —
+  an override in DMS's model, but the sole mechanism it offers.
+
+DMS writes one width to both `border` and `focus-ring`, so the two cannot
+differ once it is running.
+
 Display configuration is DMS-owned through `dms/outputs.kdl` (Settings →
 Displays); there is no separate manual display seed. When something must
 beat the DMS-managed configuration, the user-owned `config.kdl`
