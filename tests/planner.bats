@@ -293,6 +293,27 @@ assert_all_bundles_reachable() {
 
   local package
   for package in \
+    @standard \
+    @hardware-support \
+    @networkmanager-submodules \
+    @printing \
+    @guest-desktop-agents \
+    bolt \
+    braille-printer-app \
+    cups-filters-driverless \
+    intel-mediasdk \
+    intel-vpl-gpu-rt \
+    kernel-modules-extra \
+    kernel-tools \
+    libcamera-ipa \
+    mesa-vulkan-drivers \
+    pipewire-plugin-libcamera \
+    qatlib-service \
+    sane-backends-drivers-cameras \
+    sane-backends-drivers-scanners \
+    switcheroo-control \
+    thermald \
+    udisks2-btrfs \
     NetworkManager-bluetooth \
     bluez \
     bluez-tools \
@@ -310,6 +331,10 @@ assert_all_bundles_reachable() {
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbluez\tbase-system-services\t'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tcups\tbase-system-services\t'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tddcutil\tbase-wayland-tools\t'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\t@hardware-support\tbase-platform-support\t'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbolt\tbase-platform-support\t'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tlibcamera-ipa\tbase-platform-support\t'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tkernel-modules-extra\tbase-platform-support\t'
 }
 
 @test "minimal desktop app profile keeps Niri baseline but skips full desktop app fill-ins" {

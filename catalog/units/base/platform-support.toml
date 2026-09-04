@@ -1,0 +1,42 @@
+id = "base-platform-support"
+description = "Fedora Workstation-equivalent platform additions not guaranteed by the existing ZZ Fedora base"
+
+[base]
+order = 55
+early = true
+
+# The bootable Fedora base already supplies core, the normal kernel modules,
+# firmware dependencies, and Mesa through the managed desktop packages. The ZZ
+# Fedora ISO also selects hardware-support directly. Keep only the Workstation
+# platform additions that those paths do not otherwise guarantee; retaining
+# hardware-support here gives a normal post-install bootstrap the same result.
+# Workstation gets bolt indirectly because its GNOME packages recommend it and
+# its image resolves recommended dependencies. Niri has no equivalent edge, so
+# keep hardware-facing Workstation recommendations explicit rather than
+# treating hardware-support or an already-installed parent package as
+# sufficient.
+[[install]]
+backend = "dnf"
+packages = [
+  "@standard",
+  "@hardware-support",
+  "@networkmanager-submodules",
+  "@printing",
+  "@guest-desktop-agents",
+  "bolt",
+  "braille-printer-app",
+  "cups-filters-driverless",
+  "intel-mediasdk",
+  "intel-vpl-gpu-rt",
+  "kernel-modules-extra",
+  "kernel-tools",
+  "libcamera-ipa",
+  "mesa-vulkan-drivers",
+  "pipewire-plugin-libcamera",
+  "qatlib-service",
+  "sane-backends-drivers-cameras",
+  "sane-backends-drivers-scanners",
+  "switcheroo-control",
+  "thermald",
+  "udisks2-btrfs",
+]

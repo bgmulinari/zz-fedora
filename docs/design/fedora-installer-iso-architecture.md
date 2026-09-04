@@ -45,10 +45,20 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
   the image, so an installed ISO can be correlated with repository state.
 - The Kickstart leaves disk partitioning, locale, timezone, hostname, root
   password, user creation, and ZZ Fedora execution to Anaconda.
-- The Kickstart selects Fedora's core and hardware-support groups for the
-  target system. The latter makes device firmware part of the installed
-  package set rather than relying on firmware available only in Anaconda's
-  runtime environment.
+- The Kickstart starts from Fedora's bootable core and hardware-support group,
+  then adds only the Workstation platform pieces not otherwise guaranteed by
+  the managed desktop: standard utilities, NetworkManager submodules, printing
+  support, guest agents, Thunderbolt device authorization, extra kernel modules
+  and tools, camera and scanner backends, Intel video and QAT runtimes,
+  driverless and Braille printing helpers, hybrid-GPU switching, Vulkan
+  drivers, thermal support, and UDisks Btrfs integration. The catalog declares
+  the same additions for normal post-install bootstraps, so hardware support
+  does not depend on which Fedora edition the user started from. Hardware-facing
+  Workstation recommendations are rooted explicitly because DNF need not revisit
+  weak dependencies of packages already present on the target. In particular,
+  Workstation obtains `bolt` indirectly from GNOME package recommendations, not
+  from the hardware-support group, and the Niri stack has no equivalent
+  dependency edge.
 - The embedded checkout is a tracked runtime snapshot, not a copy of the
   developer repository's `.git` directory. It provides the stable loader that
   refreshes `main` before the ZZ Fedora choices become available.

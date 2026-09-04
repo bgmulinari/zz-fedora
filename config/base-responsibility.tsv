@@ -8,6 +8,27 @@ source	copr:avengemedia/danklinux	desktop-service	DMS ecosystem and Qt theme	Pro
 source	terra	default-app	Ghostty	Bootstraps Terra release packages for required Ghostty packages.
 source	copr:atim/starship	theme-font	Starship prompt	Provides the Starship package used by the base shell prompt.
 source	copr:lihaohong/yazi	default-app	Yazi shell file manager	Provides the Yazi package used by the base shell tooling.
+dnf	@standard	platform-support	Fedora base system	Matches the standard package group included by Fedora Workstation, including CPU microcode, storage tools, and hardware diagnostics.
+dnf	@hardware-support	hardware-support	physical devices	Installs Fedora's default firmware and hardware utility group.
+dnf	@networkmanager-submodules	hardware-support	network hardware	Adds Fedora's default Wi-Fi, Bluetooth, WWAN, and NetworkManager support packages.
+dnf	@printing	hardware-support	printers and scanners	Adds Fedora's default printer discovery, drivers, filters, and color-management support.
+dnf	@guest-desktop-agents	hardware-support	virtual-machine devices	Adds Fedora's default Hyper-V, KVM, VMware, SPICE, and VirtualBox guest integration.
+dnf	bolt	hardware-support	Thunderbolt devices	Provides the D-Bus-activated boltd service and boltctl utility that Workstation receives through GNOME recommendations, but a Niri installation does not.
+dnf	braille-printer-app	hardware-support	Braille printers	Keeps Workstation's recommended Braille printing application available independently of CUPS weak-dependency resolution.
+dnf	cups-filters-driverless	hardware-support	driverless printers	Keeps Workstation's recommended driverless CUPS backends available independently of CUPS weak-dependency resolution.
+dnf	intel-mediasdk	hardware-support	Intel integrated graphics	Provides Workstation's recommended legacy Intel Media SDK runtime for hardware-accelerated video processing.
+dnf	intel-vpl-gpu-rt	hardware-support	Intel integrated graphics	Provides Workstation's recommended Intel oneVPL GPU runtime for hardware-accelerated video processing.
+dnf	kernel-modules-extra	hardware-support	kernel devices	Provides Fedora's less-common loadable kernel drivers, matching the Workstation image baseline.
+dnf	kernel-tools	hardware-support	CPU and platform devices	Provides Workstation's recommended kernel hardware inspection and control utilities, including cpupower and turbostat.
+dnf	libcamera-ipa	hardware-support	cameras	Provides Workstation's recommended libcamera image-processing algorithms for supported camera hardware.
+dnf	mesa-vulkan-drivers	hardware-support	graphical hardware	Adds the Vulkan drivers selected by Fedora Workstation's base-graphical group; Mesa DRI is already dependency-owned by the managed desktop.
+dnf	pipewire-plugin-libcamera	hardware-support	cameras	Provides Workstation's recommended PipeWire integration for libcamera devices.
+dnf	qatlib-service	hardware-support	Intel QuickAssist devices	Provides Workstation's recommended resource-management daemon and udev integration for Intel QAT hardware.
+dnf	sane-backends-drivers-cameras	hardware-support	cameras and scanners	Provides Workstation's recommended SANE backends for digital-camera devices.
+dnf	sane-backends-drivers-scanners	hardware-support	scanners	Provides the scanner-driver bundle selected by Fedora Workstation's GNOME package group.
+dnf	switcheroo-control	hardware-support	hybrid graphics	Provides the D-Bus service Fedora Workstation uses to launch applications on a non-default GPU.
+dnf	thermald	hardware-support	platform thermals	Provides the Intel thermal-management daemon selected by Fedora Workstation on x86_64.
+dnf	udisks2-btrfs	hardware-support	desktop storage	Adds Btrfs support to the desktop UDisks storage service.
 dnf	ca-certificates	installer-bootstrap	curl/git/source setup	Allows TLS package, source, and bootstrap downloads.
 dnf	nss-tools	installer-bootstrap	browser certificate trust	Provides certutil for importing development CAs into Firefox-style browser profiles.
 dnf	curl	installer-bootstrap	bootstrap and post-actions	Fetches installer prerequisites and shell bootstrap scripts.

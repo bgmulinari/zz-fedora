@@ -953,7 +953,32 @@ SH
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "addon_data_dir="
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "usr/share/anaconda/dbus/confs"
   assert_file_contains "$ROOT_DIR/iso/scripts/build-fedora-installer-iso.sh" "org.fedoraproject.Anaconda.Addons.ZZFedora.service"
-  assert_contains "$package_lines" "@hardware-support"
+  local package
+  for package in \
+    @core \
+    @standard \
+    @hardware-support \
+    @networkmanager-submodules \
+    @printing \
+    @guest-desktop-agents \
+    bolt \
+    braille-printer-app \
+    cups-filters-driverless \
+    intel-mediasdk \
+    intel-vpl-gpu-rt \
+    kernel-modules-extra \
+    kernel-tools \
+    libcamera-ipa \
+    mesa-vulkan-drivers \
+    pipewire-plugin-libcamera \
+    qatlib-service \
+    sane-backends-drivers-cameras \
+    sane-backends-drivers-scanners \
+    switcheroo-control \
+    thermald \
+    udisks2-btrfs; do
+    assert_contains "$package_lines" "$package"
+  done
   assert_contains "$package_lines" "git"
   assert_contains "$package_lines" "dnf5-plugins"
   assert_contains "$package_lines" "python3"
@@ -1014,7 +1039,7 @@ SH
   assert_file_contains "$script" 'etc/zz-fedora/desktop-app-profile'
   assert_file_contains "$script" "Desktop app profile: %s"
   assert_file_contains "$script" "%pre --interpreter=/usr/bin/bash"
-  assert_file_contains "$script" $'@core\n@hardware-support'
+  assert_file_contains "$script" $'@core\n@standard\n@hardware-support\n@networkmanager-submodules\n@printing\n@guest-desktop-agents\nbolt\nbraille-printer-app\ncups-filters-driverless\nintel-mediasdk\nintel-vpl-gpu-rt\nkernel-modules-extra\nkernel-tools\nlibcamera-ipa\nmesa-vulkan-drivers\npipewire-plugin-libcamera\nqatlib-service\nsane-backends-drivers-cameras\nsane-backends-drivers-scanners\nswitcheroo-control\nthermald\nudisks2-btrfs'
   assert_file_contains "$script" $'curl\ngit\ndnf5-plugins\npython3'
   assert_file_contains "$script" "addon_data_dir="
   assert_file_contains "$script" "usr/share/anaconda/dbus/services"

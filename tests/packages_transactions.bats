@@ -100,6 +100,34 @@ EOF
 
   [ "$status" -eq 0 ]
 }
+@test "Fedora package verification accepts installed DNF groups" {
+  setup_fake_bin
+  write_fake_command dnf <<'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == *"group info --installed --hidden hardware-support"* ]]; then
+  printf 'Id                   : hardware-support\n'
+  printf 'Installed            : yes\n'
+fi
+EOF
+  PATH="$FAKE_BIN:$PATH"
+
+  run fedora_package_installed @hardware-support
+
+  [ "$status" -eq 0 ]
+}
+@test "Fedora package verification rejects uninstalled DNF groups" {
+  setup_fake_bin
+  write_fake_command dnf <<'EOF'
+#!/usr/bin/env bash
+printf 'Id                   : standard\n'
+printf 'Installed            : no\n'
+EOF
+  PATH="$FAKE_BIN:$PATH"
+
+  run fedora_package_installed @standard
+
+  [ "$status" -ne 0 ]
+}
 @test "run_cmd_as_user preserves UTF-8 locale variables" {
   TARGET_USER="locale-user"
   TARGET_HOME="$TEST_ROOT/locale-home"

@@ -21,7 +21,27 @@ services --enabled=NetworkManager
 
 %packages
 @core
+@standard
 @hardware-support
+@networkmanager-submodules
+@printing
+@guest-desktop-agents
+bolt
+braille-printer-app
+cups-filters-driverless
+intel-mediasdk
+intel-vpl-gpu-rt
+kernel-modules-extra
+kernel-tools
+libcamera-ipa
+mesa-vulkan-drivers
+pipewire-plugin-libcamera
+qatlib-service
+sane-backends-drivers-cameras
+sane-backends-drivers-scanners
+switcheroo-control
+thermald
+udisks2-btrfs
 sudo
 ca-certificates
 curl

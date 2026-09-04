@@ -284,9 +284,39 @@ fedora_install_flatpaks() {
   done
 }
 
+fedora_group_installed() {
+  local group_spec="$1"
+  local group_id="${group_spec#@}"
+  group_id="${group_id#^}"
+
+  LC_ALL=C dnf --cacheonly --disable-repo='*' group info --installed --hidden "$group_id" 2>/dev/null |
+    awk -F: -v wanted="$group_id" '
+      $1 ~ /^[[:space:]]*Id[[:space:]]*$/ {
+        value = $2
+        sub(/^[[:space:]]+/, "", value)
+        sub(/[[:space:]]+$/, "", value)
+        if (value == wanted) {
+          found_id = 1
+        }
+      }
+      $1 ~ /^[[:space:]]*Installed[[:space:]]*$/ {
+        value = $2
+        sub(/^[[:space:]]+/, "", value)
+        sub(/[[:space:]]+$/, "", value)
+        if (value == "yes") {
+          installed = 1
+        }
+      }
+      END { exit found_id && installed ? 0 : 1 }
+    '
+}
+
 fedora_package_installed() {
   local package_spec="$1"
   case "$package_spec" in
+    @*)
+      fedora_group_installed "$package_spec"
+      ;;
     *.noarch|*.x86_64|*.aarch64|*.i386|*.i486|*.i586|*.i686|*.ppc64le|*.s390x)
       rpm -q "$package_spec" >/dev/null 2>&1
       ;;
