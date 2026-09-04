@@ -18,6 +18,13 @@ there are no compatibility or migration paths.
 | Qt6 theming | `qt6ct-kde` | COPR `avengemedia/danklinux` |
 | Terminal | `ghostty` | Terra |
 
+DMS 1.6 embeds the Quickshell UI in the `dms` binary; the old
+`/usr/share/quickshell/dms` payload is not a packaging contract. At runtime
+the CLI materializes the UI under `$XDG_RUNTIME_DIR/danklinux-shell/`.
+`dms_shell_dir` resolves the active revision from the structured
+`dms doctor --json` result, which supplies both the `scripts/` appliers used
+at first login and the `Common/settings` specs used by the seed-diff tool.
+
 Repo-priority rules keep ownership deterministic. Each rule is declared as
 an `excludepkgs` list on the source's own catalog TOML, compiled into
 `sources.tsv`, and applied generically by `fedora_enable_sources`
@@ -73,7 +80,8 @@ login the binding legitimately does not exist yet.
 The niri entrypoint includes every fragment DMS regenerates under
 `~/.config/niri/dms/` — `dms/colors.kdl` (matugen), plus optional
 `dms/layout.kdl`, `dms/alttab.kdl`, `dms/binds.kdl`, `dms/cursor.kdl`,
-`dms/outputs.kdl`, `dms/windowrules.kdl`, and `dms/wpblur.kdl` — because
+`dms/input.kdl`, `dms/outputs.kdl`, `dms/windowrules.kdl`, and
+`dms/wpblur.kdl` — because
 each Settings page gates itself on `dms config resolve-include` and goes
 read-only when its fragment is not included. Fragment paths are written
 without a `./` prefix: `KeybindsService` detects its own include with the
@@ -81,9 +89,14 @@ literal pattern `include.*"dms/binds.kdl"`, and the `./` form fails that
 match, which makes DMS offer to "repair" the user-owned entrypoint by
 backing it up and appending its own include line.
 
-`dms/input.kdl` is deliberately absent: DMS has no writer for it and
-never creates it, so the include only resolved to nothing. Niri input
-belongs to `cfg/input.kdl`.
+DMS 1.6 generates `dms/input.kdl` from its mouse, touchpad, and keyboard
+settings. Those device directives live only in the generated fragment: DMS
+represents disabled boolean options by omitting their KDL nodes, so an earlier
+product-owned `tap`, `natural-scroll`, or `numlock` would prevent the Settings
+toggle from turning it off. `cfg/input.kdl` retains only the behavior DMS does
+not model (`focus-follows-mouse` and `workspace-auto-back-and-forth`). The
+portable seed pins `keyboardNumlock = true` so moving ownership does not change
+ZZ's default.
 
 `dms/binds.kdl` is the *only* niri file the Settings → Keybinds page
 reads. `dms keybinds show niri` parses that fragment alone, so binds kept
@@ -121,6 +134,13 @@ rewrites the whole fragment, discarding the seed's comments and section
 grouping while keeping every bind — so the seed's layout is a
 seed-time convenience, not a format DMS maintains.
 
+The screenshot defaults use the DMS 1.6 native CLI (`dms screenshot`) rather
+than the legacy niri IPC shim. Print selects a region, Ctrl+Print captures the
+focused output, and Alt+Print captures the focused window; Mod+Shift+S remains
+the alternate region shortcut. This keeps the shipped binds on the path that
+supports 10-bit buffers, cross-output selection, last-region geometry, cursor
+capture, and scroll capture.
+
 Colors are DMS's alone: `dms/colors.kdl` loads after `cfg/layout.kdl`, so
 any color set there is dead config.
 
@@ -135,9 +155,10 @@ not, and the difference decides where each value has to live:
 - **Border and focus-ring.** There is no equivalent off mode. DMS writes both
   widths unconditionally from `niriLayoutBorderSize`, falling back to `2` even
   when the UI's "Override Border Size" toggle is off, so a width in
-  `cfg/layout.kdl` is always dead config. The only ways to ship a width other
-  than `2` are the Settings UI or pinning `niriLayoutBorderSize` in the seed —
-  an override in DMS's model, but the sole mechanism it offers.
+  `cfg/layout.kdl` is always dead config. ZZ accepts the upstream `-1` default
+  and therefore does not pin a redundant seed value. A different product
+  width would have to be selected through the Settings UI or pinned in the
+  seed.
 
 DMS writes one width to both `border` and `focus-ring`, so the two cannot
 differ once it is running.
@@ -171,7 +192,8 @@ with the blue accent (latte + blue in light mode).
   staging, planner, first-run waits, and doctor checks all derive the DMS
   paths from it.
 - `~/.local/state/DankMaterialShell/session.json` is seeded with the
-  managed default wallpaper and dark mode.
+  managed default wallpaper; dark mode and an empty pinned-app list inherit
+  their upstream defaults and are not redundantly serialized.
 - `dms_seed_state_files_if_missing` (`lib/dms.sh`) is the single writer
   for both seeds plus the `dms-colors.json` placeholder. The greeter
   action (module 30) runs before the post-actions seeding (module 80) and
@@ -190,9 +212,10 @@ with the blue accent (latte + blue in light mode).
 - GTK/libadwaita apps follow the theme through the upstream one-time
   opt-in: the `dms-gtk-theme` first-run checkpoint runs the shell's own
   `scripts/gtk.sh apply` (what the Settings "Apply GTK Colors" button
-  invokes), which imports the generated `dank-colors.css` from the user
-  `gtk.css` files. After that, DMS's automatic `patch`/regeneration passes
-  keep GTK apps synchronized on every theme change.
+  invokes) from the runtime-extracted shell payload, which imports the
+  generated `dank-colors.css` from the user `gtk.css` files. After that,
+  DMS's automatic `patch`/regeneration passes keep GTK apps synchronized on
+  every theme change.
 - The icon theme follows the accent automatically (ported from the
   previous shell's icon sync): a ZZ matugen drop-in
   (`~/.config/matugen/dms/configs/zz-icon-theme.toml` — DMS appends every
@@ -230,7 +253,9 @@ with the blue accent (latte + blue in light mode).
 
 ## Greeter
 
-`dms-greeter` (greetd) replaces the previous shell-specific greeter. The
+`dms-greeter` (greetd), maintained in the standalone
+`AvengeMedia/dank-greeter` repository since DMS 1.6, replaces the previous
+shell-specific greeter. The
 RPM scriptlets own the system heavy lifting (greeter user, SELinux
 contexts, `/etc/pam.d/greetd`, greetd config creation/repair,
 graphical.target). The `dms-greeter` action (`lib/actions/dms-greeter.sh`)
@@ -249,11 +274,10 @@ adds only what the package cannot know:
   skip) when another display manager is already enabled.
 
 The sudo-free per-user preview slot (`dms-greeter sync --profile`) runs as
-a first-run checkpoint once the user's shell state exists — gated on a
-capability probe, because the stable-channel `dms-greeter` is only the
-greeter launcher and gained the sync subcommands later; on releases
-without it the checkpoint completes and the greeter follows the theme
-through the cache symlinks alone.
+a first-run checkpoint once the user's shell state exists. The capability
+probe remains as protection against an incomplete or independently packaged
+greeter; without the command, the checkpoint completes and the greeter still
+follows the theme through the cache symlinks.
 
 ## First-run contract
 
@@ -268,7 +292,8 @@ through the cache symlinks alone.
   seed. Timeouts warn and retry at next login, bounded at three failed
   logins — after that the checkpoint completes with a warning instead of
   taxing every login, and the doctor checks surface the missing artifacts.
-- `dms-gtk-theme` runs the shell payload's `gtk.sh apply` once the
+- `dms-gtk-theme` resolves the embedded shell's runtime payload and runs its
+  `gtk.sh apply` once the
   generated GTK colors exist, applying the same one-time GTK opt-in as
   the Settings button so GTK theming is automatic from the first login.
 - `dms-greeter-profile` runs `dms-greeter sync --profile` unless the

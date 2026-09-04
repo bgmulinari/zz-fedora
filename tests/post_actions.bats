@@ -328,6 +328,14 @@ setup() {
     return 1
   fi
   assert_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" 'binds {'
+  assert_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" \
+    'Print hotkey-overlay-title="DMS Screenshot: Region" { spawn "dms" "screenshot"; }'
+  assert_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" \
+    'Ctrl+Print hotkey-overlay-title="DMS Screenshot: Full Screen" { spawn "dms" "screenshot" "full"; }'
+  assert_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" \
+    'Alt+Print hotkey-overlay-title="DMS Screenshot: Window" { spawn "dms" "screenshot" "window"; }'
+  refute_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" \
+    'dms ipc call niri screenshot'
   refute_file_contains "$ROOT_DIR/dotfiles/niri/.config/niri/defaults.kdl" 'keybinds.kdl'
 }
 
@@ -338,12 +346,45 @@ setup() {
   assert_file_contains "$config" 'include optional=true "dms/binds.kdl"'
   refute_file_contains "$config" '"./dms/'
   local fragment
-  for fragment in layout alttab binds cursor outputs windowrules wpblur; do
+  for fragment in layout alttab binds cursor input outputs windowrules wpblur; do
     assert_file_contains "$config" "include optional=true \"dms/${fragment}.kdl\""
   done
   assert_file_contains "$config" 'include "dms/colors.kdl"'
-  # DMS has no writer for input.kdl; the include resolved to nothing.
-  refute_file_contains "$config" 'dms/input.kdl'
+
+  # DMS 1.6 owns device input settings. Product-only behavior stays in the
+  # earlier cfg/input.kdl layer, where it cannot prevent a DMS toggle from
+  # disabling tap, natural scrolling, or Num Lock by omitting the directive.
+  local product_input="$ROOT_DIR/dotfiles/niri/.config/niri/cfg/input.kdl"
+  assert_file_contains "$product_input" 'focus-follows-mouse'
+  assert_file_contains "$product_input" 'workspace-auto-back-and-forth'
+  refute_file_contains "$product_input" 'touchpad {'
+  refute_file_contains "$product_input" 'numlock'
+}
+
+@test "DMS shell directory is resolved from structured doctor output" {
+  setup_fake_bin
+  local payload_dir="$TEST_ROOT/dms-runtime/embedded-revision"
+  mkdir -p "$payload_dir"
+  printf '// shell\n' >"$payload_dir/shell.qml"
+  export DMS_TEST_SHELL_DIR="$payload_dir"
+  write_fake_command dms <<'EOF'
+#!/usr/bin/env bash
+[[ "$*" == "doctor --json" ]] || exit 1
+jq -n --arg path "$DMS_TEST_SHELL_DIR" '{
+  summary: {},
+  results: [{
+    category: "Installation",
+    name: "DMS Configuration",
+    status: "ok",
+    details: $path
+  }]
+}'
+EOF
+  PATH="$FAKE_BIN:$PATH"
+
+  run dms_shell_dir
+  [ "$status" -eq 0 ]
+  assert_equal "$payload_dir" "$output"
 }
 
 @test "DMS state seeds select the managed theme and wallpaper before first login" {
@@ -377,20 +418,22 @@ setup() {
   # Appearance defaults the managed desktop pins on top of the DMS defaults.
   assert_equal "0" "$(jq -r '.cornerRadius' "$settings")"
   assert_equal "sth" "$(jq -r '.widgetBackgroundColor' "$settings")"
-  assert_equal "false" "$(jq -r '.showDock' "$settings")"
+  assert_equal "false" "$(jq -r 'has("showDock")' "$settings")"
   assert_equal "true" "$(jq -r '.showWorkspaceIndex' "$settings")"
   assert_equal "false" "$(jq -r '.barElevationEnabled' "$settings")"
   assert_equal "true" "$(jq -r '.barConfigs[0].squareCorners' "$settings")"
   assert_equal "1.2" "$(jq -r '.barConfigs[0].fontScale' "$settings")"
-  # Gaps and border width are product defaults in cfg/layout.kdl, not seeded
-  # overrides: -2 is the only value that makes DMS defer its gaps line to that
-  # file, and -1 leaves the border width to DMS's own fallback of 2.
+  # Gaps remain a product default in cfg/layout.kdl: -2 is the only value that
+  # makes DMS defer its gaps line. Border width inherits DMS's default -1,
+  # which makes its generated fragment use the upstream fallback of 2.
   assert_equal "-2" "$(jq -r '.niriLayoutGapsOverride' "$settings")"
-  assert_equal "-1" "$(jq -r '.niriLayoutBorderSize' "$settings")"
+  assert_equal "false" "$(jq -r 'has("niriLayoutBorderSize")' "$settings")"
+  # Preserve ZZ's Num Lock default through the DMS-owned input fragment.
+  assert_equal "true" "$(jq -r '.keyboardNumlock' "$settings")"
   assert_equal "$TARGET_HOME/.local/share/backgrounds/Alpenglow.jpg" \
     "$(jq -r '.wallpaperPath' "$session")"
-  assert_equal "false" "$(jq -r '.isLightMode' "$session")"
-  assert_equal "" "$(jq -r '.pinnedApps | join(" ")' "$session")"
+  assert_equal "false" "$(jq -r 'has("isLightMode")' "$session")"
+  assert_equal "false" "$(jq -r 'has("pinnedApps")' "$session")"
   # The colors placeholder keeps the greeter cache symlink from dangling.
   assert_equal "{}" "$(jq -c '.' "$TARGET_HOME/.cache/DankMaterialShell/dms-colors.json")"
 }
@@ -714,7 +757,7 @@ EOF
   TARGET_USER="theme-user"
   DRY_RUN=0
   command_log="$TEST_ROOT/dms-greeter-nosync-commands.log"
-  # The stable-channel dms-greeter is only the launcher: no sync command.
+  # A broken or independently packaged greeter may still lack sync.
   setup_fake_bin
   write_fake_command dms-greeter <<'EOF'
 #!/usr/bin/env bash

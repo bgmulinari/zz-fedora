@@ -104,7 +104,10 @@ apply_dms_gtk_baseline() {
   native_plan="$(package_file_for_backend "$(native_backend)")"
   plan_has_any_backend_entry "$native_plan" dms || return 0
 
-  shell_dir="$(dms_shell_dir)"
+  if ! shell_dir="$(dms_shell_dir)"; then
+    log_warn "Could not resolve the embedded DMS shell payload; retrying the GTK baseline at next login"
+    return 1
+  fi
   if [[ ! -f "$shell_dir/scripts/gtk.sh" ]]; then
     log_warn "DMS shell payload has no gtk.sh applier; skipping the GTK color baseline"
     return 0
@@ -126,11 +129,9 @@ apply_dms_gtk_baseline() {
   fi
 }
 
-# The stable-channel dms-greeter is only the greeter launcher; the
-# per-user profile slot sync is a later addition. Probe the installed CLI
-# so the checkpoint completes on releases without it (the greeter already
-# follows the theme through the root-side cache symlinks) instead of
-# retrying a nonexistent subcommand at every login.
+# DMS 1.6 ships the greeter from its standalone upstream with profile sync.
+# Keep probing the installed CLI so an incomplete or independently packaged
+# greeter cannot strand the first-run checkpoint at every login.
 dms_greeter_supports_profile_sync() {
   command -v dms-greeter >/dev/null 2>&1 || return 1
   dms-greeter --help 2>&1 | grep -qw "sync"

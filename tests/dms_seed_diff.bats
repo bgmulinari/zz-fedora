@@ -29,7 +29,13 @@ var SPEC = {
     availableIconThemes: { def: ["System Default"], persist: false },
     barConfigs: { def: [{ id: "default", fontScale: 1, autoHide: false }] },
     workspaceNameIcons: { def: {} },
-    niriOutputSettings: { def: {} }
+    widgetOverrides: { def: [] },
+    keyboardKeymapFile: { def: "" },
+    greeterWallpaperPath: { def: "" },
+    launcherLogoCustomPath: { def: "" },
+    dockLauncherLogoCustomPath: { def: "" },
+    lockScreenVideoPath: { def: "" },
+    lockScreenWallpaperPath: { def: "" }
 };
 SPEC
   cat >"$SPEC_DIR/SessionSpec.js" <<'SPEC'
@@ -37,7 +43,18 @@ SPEC
 var SPEC = {
     isLightMode: { def: false },
     pinnedApps: { def: [] },
-    weatherCoordinates: { def: "40.7128,-74.0060" }
+    niriOutputSettings: { def: {} },
+    activeDisplayProfileModes: { def: {} },
+    desktopWidgetInstancePositions: { def: {} },
+    builtInPluginState: { def: {} },
+    weatherCoordinates: { def: "40.7128,-74.0060" },
+    nightModeLocationProvider: { def: "" },
+    nightModeLocationName: { def: "" },
+    wallpaperPathLight: { def: "" },
+    wallpaperPathDark: { def: "" },
+    wallpaperCyclingFolderPath: { def: "" },
+    bluetoothAdapterOverride: { def: "" },
+    idleInhibited: { def: false }
 };
 SPEC
 }
@@ -48,9 +65,8 @@ seed_diff() {
     --derived "${DERIVED_FACTS:-{\}}" "$@"
 }
 
-# DMS always writes every key it knows, so a realistic live file is the seed
-# with the test's overrides layered on top. Passing only the overrides would
-# make every unmentioned seeded key look absent.
+# Most tests start from the explicit seed and layer overrides on it. Tests for
+# DMS 1.6's sparse persistence remove keys to exercise specification fallback.
 write_live() {
   local settings_override="$1" session_override="${2:-{\}}"
   jq -s '.[0] * .[1]' "$FIX/root/templates/dms/settings-seed.json" \
@@ -59,6 +75,77 @@ write_live() {
   jq -s '.[0] * .[1]' "$FIX/root/templates/dms/session-seed.json" \
     <(printf '%s' "$session_override") \
     >"$FIX/home/.local/state/DankMaterialShell/session.json"
+}
+
+@test "default-valued seeded keys may be absent from sparse DMS state" {
+  seed_diff_fixture
+  jq '.greeterAutoLogin = false' \
+    "$FIX/root/templates/dms/settings-seed.json" >"$FIX/settings-seed.tmp"
+  mv "$FIX/settings-seed.tmp" "$FIX/root/templates/dms/settings-seed.json"
+  write_live '{}'
+  jq 'del(.greeterAutoLogin)' \
+    "$FIX/home/.config/DankMaterialShell/settings.json" >"$FIX/settings-live.tmp"
+  mv "$FIX/settings-live.tmp" "$FIX/home/.config/DankMaterialShell/settings.json"
+
+  run seed_diff
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "matches the seeded defaults"
+}
+
+@test "an absent seeded override compares against the effective DMS default" {
+  seed_diff_fixture
+  jq '.greeterAutoLogin = true' \
+    "$FIX/root/templates/dms/settings-seed.json" >"$FIX/settings-seed.tmp"
+  mv "$FIX/settings-seed.tmp" "$FIX/root/templates/dms/settings-seed.json"
+  write_live '{}'
+  jq 'del(.greeterAutoLogin)' \
+    "$FIX/home/.config/DankMaterialShell/settings.json" >"$FIX/settings-live.tmp"
+  mv "$FIX/settings-live.tmp" "$FIX/home/.config/DankMaterialShell/settings.json"
+
+  run seed_diff
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "greeterAutoLogin"
+  assert_contains "$output" "live: false"
+
+  run seed_diff --reset greeterAutoLogin
+  [ "$status" -eq 0 ]
+  assert_equal "true" \
+    "$(jq -r '.greeterAutoLogin' "$FIX/home/.config/DankMaterialShell/settings.json")"
+}
+
+@test "promoting an absent seeded scalar removes its override" {
+  seed_diff_fixture
+  local seed="$FIX/root/templates/dms/settings-seed.json"
+  jq '.greeterAutoLogin = true' "$seed" >"$FIX/settings-seed.tmp"
+  mv "$FIX/settings-seed.tmp" "$seed"
+  write_live '{}'
+  jq 'del(.greeterAutoLogin)' \
+    "$FIX/home/.config/DankMaterialShell/settings.json" >"$FIX/settings-live.tmp"
+  mv "$FIX/settings-live.tmp" "$FIX/home/.config/DankMaterialShell/settings.json"
+
+  run seed_diff --apply greeterAutoLogin
+  [ "$status" -eq 0 ]
+  assert_equal "false" "$(jq -r 'has("greeterAutoLogin")' "$seed")"
+
+  run seed_diff
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "matches the seeded defaults"
+}
+
+@test "a seeded key removed from the current DMS spec is stale" {
+  seed_diff_fixture
+  jq '.removedSetting = true' \
+    "$FIX/root/templates/dms/settings-seed.json" >"$FIX/settings-seed.tmp"
+  mv "$FIX/settings-seed.tmp" "$FIX/root/templates/dms/settings-seed.json"
+  write_live '{}'
+  jq 'del(.removedSetting)' \
+    "$FIX/home/.config/DankMaterialShell/settings.json" >"$FIX/settings-live.tmp"
+  mv "$FIX/settings-live.tmp" "$FIX/home/.config/DankMaterialShell/settings.json"
+
+  run seed_diff
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "removedSetting"
+  assert_contains "$output" "not recognized by the DMS spec"
 }
 
 @test "the spec parser reads the literal subset the DMS specs use" {
@@ -91,7 +178,6 @@ live = dict(seed)
 live.update({
     "customThemeFile": "/home/someone/theme.json",
     "iconThemeDark": "Yaru-blue",
-    "niriOutputSettings": {"eDP-1": {"mode": "1920x1200"}},
     "configVersion": 13,
 })
 (fix / "home/.config/DankMaterialShell/settings.json").write_text(json.dumps(live))
@@ -99,6 +185,7 @@ session_seed = json.loads((fix / "root/templates/dms/session-seed.json").read_te
 session = dict(session_seed)
 session["weatherCoordinates"] = "-25.58,-49.40"
 session["wallpaperPath"] = "/home/someone/wall.jpg"
+session["niriOutputSettings"] = {"eDP-1": {"mode": "1920x1200"}}
 (fix / "home/.local/state/DankMaterialShell/session.json").write_text(json.dumps(session))
 PY
   run seed_diff
@@ -108,11 +195,22 @@ PY
 
 @test "host-specific and runtime keys are never promotable" {
   seed_diff_fixture
-  write_live '{"niriOutputSettings":{"eDP-1":{"scale":2}},"configVersion":99,"customThemeFile":"/somewhere/else.json"}' \
-    '{"weatherCoordinates":"-25.58,-49.40","launcherQueryHistory":["a","b"]}'
-  run seed_diff
+  write_live '{"configVersion":99,"customThemeFile":"/somewhere/else.json","keyboardKeymapFile":"/home/someone/keymap.xkb","greeterWallpaperPath":"/home/someone/greeter.png","launcherLogoCustomPath":"/home/someone/logo.svg","dockLauncherLogoCustomPath":"/home/someone/dock.svg","lockScreenVideoPath":"/home/someone/videos","lockScreenWallpaperPath":"/home/someone/lock.png"}' \
+    '{"niriOutputSettings":{"eDP-1":{"scale":2}},"activeDisplayProfileModes":{"niri":{"eDP-1":"1920x1080@60"}},"desktopWidgetInstancePositions":{"clock":{"eDP-1":{"x":8,"y":9}}},"builtInPluginState":{"dankNotepadModule":{"text":"private note"}},"weatherCoordinates":"-25.58,-49.40","nightModeLocationProvider":"geoclue","nightModeLocationName":"Curitiba","wallpaperPathLight":"/home/someone/light.png","wallpaperPathDark":"/home/someone/dark.png","wallpaperCyclingFolderPath":"/home/someone/wallpapers","bluetoothAdapterOverride":"/org/bluez/hci1","idleInhibited":true,"launcherQueryHistory":["a","b"]}'
+  run seed_diff --apply
   [ "$status" -eq 0 ]
   assert_contains "$output" "matches the seeded defaults"
+  local seed="$FIX/root/templates/dms/session-seed.json"
+  assert_equal "false" "$(jq -r 'has("activeDisplayProfileModes")' "$seed")"
+  assert_equal "false" "$(jq -r 'has("desktopWidgetInstancePositions")' "$seed")"
+  assert_equal "false" "$(jq -r 'has("builtInPluginState")' "$seed")"
+  assert_equal "false" "$(jq -r 'has("wallpaperPathLight")' "$seed")"
+  assert_equal "false" "$(jq -r 'has("bluetoothAdapterOverride")' "$seed")"
+  assert_equal "false" "$(jq -r 'has("idleInhibited")' "$seed")"
+  seed="$FIX/root/templates/dms/settings-seed.json"
+  assert_equal "false" "$(jq -r 'has("keyboardKeymapFile")' "$seed")"
+  assert_equal "false" "$(jq -r 'has("greeterWallpaperPath")' "$seed")"
+  assert_equal "false" "$(jq -r 'has("lockScreenWallpaperPath")' "$seed")"
 }
 
 @test "a changed seeded key is reported and promoted by name" {
@@ -175,6 +273,28 @@ PY
   [ "$status" -eq 0 ]
   assert_equal "term" \
     "$(jq -r '.workspaceNameIcons["1"]' "$FIX/root/templates/dms/settings-seed.json")"
+}
+
+@test "promoting absent structured overrides removes them from the seed" {
+  seed_diff_fixture
+  local seed="$FIX/root/templates/dms/settings-seed.json"
+  jq '.workspaceNameIcons = {"1":"term"} |
+      .widgetOverrides = [{"name":"first"},{"name":"second"}]' \
+    "$seed" >"$FIX/settings-seed.tmp"
+  mv "$FIX/settings-seed.tmp" "$seed"
+  write_live '{}'
+  jq 'del(.workspaceNameIcons, .widgetOverrides)' \
+    "$FIX/home/.config/DankMaterialShell/settings.json" >"$FIX/settings-live.tmp"
+  mv "$FIX/settings-live.tmp" "$FIX/home/.config/DankMaterialShell/settings.json"
+
+  run seed_diff --apply
+  [ "$status" -eq 0 ]
+  assert_equal "false" "$(jq -r 'has("workspaceNameIcons")' "$seed")"
+  assert_equal "false" "$(jq -r 'has("widgetOverrides")' "$seed")"
+
+  run seed_diff
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "matches the seeded defaults"
 }
 
 @test "a host-derived key is reported against its helper and never written to a seed" {

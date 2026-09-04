@@ -22,14 +22,13 @@
   "blurWallpaperOnOverview": true,
   "barElevationEnabled": false,
   "showWorkspaceIndex": true,
-  "showDock": false,
   "dockSmartAutoHide": true,
   "animationSpeed": 4,
   "popoutAnimationSpeed": 4,
   "customAnimationDuration": 200,
   "syncComponentAnimationSpeeds": false,
   "niriLayoutGapsOverride": -2,
-  "niriLayoutBorderSize": -1,
+  "keyboardNumlock": true,
   "barConfigs": [
     {
       "id": "default",

@@ -52,10 +52,35 @@ dms_icon_theme() {
   printf 'Yaru-blue\n'
 }
 
-# The packaged shell payload; its scripts/ directory carries the upstream
-# gtk.sh/qt.sh appliers the Settings UI buttons invoke.
+# DMS 1.6 embeds the shell payload in the dms binary and materializes it under
+# XDG_RUNTIME_DIR. Ask the CLI for the path it actually resolved rather than
+# relying on the pre-1.6 /usr/share/quickshell/dms package layout. The payload's
+# scripts/ directory carries the upstream gtk.sh/qt.sh appliers the Settings UI
+# buttons invoke, and Common/settings carries the specs used by the seed diff.
 dms_shell_dir() {
-  printf '/usr/share/quickshell/dms\n'
+  local doctor_json shell_dir
+
+  command -v dms >/dev/null 2>&1 || return 1
+  if declare -F run_cmd_as_user >/dev/null 2>&1 && [[ -n "${TARGET_USER:-}" ]]; then
+    doctor_json="$(run_cmd_as_user "$TARGET_USER" dms doctor --json 2>/dev/null)" || return 1
+  else
+    doctor_json="$(dms doctor --json 2>/dev/null)" || return 1
+  fi
+
+  shell_dir="$(jq -er '
+    first(
+      .results[]
+      | select(
+          .category == "Installation"
+          and .name == "DMS Configuration"
+          and .status == "ok"
+          and (.details | type == "string" and length > 0)
+        )
+      | .details
+    )
+  ' <<<"$doctor_json")" || return 1
+  [[ -f "$shell_dir/shell.qml" ]] || return 1
+  printf '%s\n' "$shell_dir"
 }
 
 # Portable seed values live in templates/dms/{settings,session}-seed.json so

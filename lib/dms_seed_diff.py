@@ -1,8 +1,8 @@
 """Compare the live DMS state against the ZZ seed defaults.
 
-DMS writes every known key into settings.json, so a plain diff against the
-seed reports hundreds of untouched defaults. This compares three layers to
-report only what a person actually changed:
+DMS state is sparse: keys absent from settings.json or session.json inherit
+their specification defaults. This compares three layers to report only what
+a person actually changed:
 
   seed      templates/dms/{settings,session}-seed.json, the ZZ defaults
   upstream  the DMS spec defaults (lib/dms_spec.py)
@@ -48,16 +48,19 @@ DERIVED_HELPER = {
 # reviewable.
 EXCLUDED = {
     "settings": {
+        # File selectors resolve to this host's filesystem. Product assets
+        # belong in managed defaults and must be wired deliberately.
+        "keyboardKeymapFile", "greeterWallpaperPath",
+        "launcherLogoCustomPath", "dockLauncherLogoCustomPath",
+        "lockScreenVideoPath", "lockScreenWallpaperPath",
         # Monitor, GPU, and device identity.
-        "niriOutputSettings", "hyprlandOutputSettings", "screenPreferences",
-        "showOnLastDisplay", "displayProfiles", "activeDisplayProfile",
+        "screenPreferences", "showOnLastDisplay", "displayProfiles",
         "connectedFrameBarStyleBackups", "selectedGpuIndex", "enabledGpuPciIds",
         "systemMonitorGpuPciId", "systemMonitorVariants",
-        "desktopWidgetPositions", "desktopWidgetGridSettings",
+        "desktopWidgetPositions",
         "desktopWidgetInstances", "desktopWidgetGroups",
         "desktopClockX", "desktopClockY", "systemMonitorX", "systemMonitorY",
         # Session-scoped or app-managed runtime state.
-        "greeterSyncPending", "greeterSyncBaseline", "lastAppliedIconTheme",
         "browserUsageHistory", "filePickerUsageHistory",
         "spotlightSectionViewModes", "appDrawerSectionViewModes",
         "launcherPluginVisibility", "launcherPluginOrder",
@@ -72,20 +75,31 @@ EXCLUDED = {
     "session": {
         # Where this machine is.
         "weatherLocation", "weatherCoordinates", "latitude", "longitude",
+        "nightModeLocationProvider", "nightModeLocationName",
+        # File selectors resolve to this host's filesystem. wallpaperPath is
+        # handled separately by dms_default_wallpaper() in lib/dms.sh.
+        "wallpaperPathLight", "wallpaperPathDark",
+        "wallpaperCyclingFolderPath",
         # Devices attached to this machine.
-        "wifiDeviceOverride", "lastBrightnessDevice", "deviceMaxVolumes",
+        "wifiDeviceOverride", "bluetoothAdapterOverride",
+        "lastBrightnessDevice", "deviceMaxVolumes",
         "brightnessExponentialDevices", "brightnessUserSetValues",
         "brightnessExponentValues", "hiddenOutputDeviceNames",
         "hiddenInputDeviceNames", "selectedGpuIndex", "enabledGpuPciIds",
         "nvidiaGpuTempEnabled", "nonNvidiaGpuTempEnabled",
+        "niriOutputSettings", "hyprlandOutputSettings", "activeDisplayProfile",
+        "activeDisplayProfileModes", "desktopWidgetGridSettings",
+        "desktopWidgetInstancePositions", "builtInPluginState",
         # What the user did last, not what they chose.
         "lastPlayerIdentity", "launcherLastQuery", "launcherQueryHistory",
         "launcherLastMode", "launcherLastFileSearchType", "notepadLastMode",
         "appDrawerLastMode", "niriOverviewLastMode", "recentColors",
         "settingsSidebarExpandedIds", "settingsSidebarCollapsedIds",
-        "vpnLastConnected", "doNotDisturb", "doNotDisturbUntil",
+        "vpnLastConnected", "idleInhibited", "doNotDisturb",
+        "doNotDisturbUntil",
         "monitorWallpapers", "monitorWallpapersLight", "monitorWallpapersDark",
         "monitorWallpaperFillModes", "monitorCyclingSettings",
+        "greeterSyncPending", "greeterSyncBaseline", "lastAppliedIconTheme",
         "configVersion",
     },
 }
@@ -135,6 +149,24 @@ def flatten(value, prefix: tuple = ()) -> dict:
     return {prefix: value}
 
 
+MISSING = object()
+
+
+def value_at_path(value, path: tuple):
+    """Return a nested value or MISSING when a specification has no such path."""
+    cursor = value
+    for part in path:
+        if isinstance(part, int):
+            if not isinstance(cursor, list) or part >= len(cursor):
+                return MISSING
+            cursor = cursor[part]
+            continue
+        if not isinstance(cursor, dict) or part not in cursor:
+            return MISSING
+        cursor = cursor[part]
+    return cursor
+
+
 def index_binds(payload) -> dict:
     """Map DMS's `keybinds show` output to {key: {field: value}}."""
     out = {}
@@ -175,6 +207,12 @@ def render_path(path: tuple) -> str:
     return text
 
 
+def path_sort_key(path: tuple) -> tuple:
+    """Sort path parts structurally, keeping numeric list indexes numeric."""
+    return tuple((1, part) if isinstance(part, int) else (0, part)
+                 for part in path)
+
+
 def set_path(target: dict, path: tuple, value) -> None:
     cursor = target
     for part, nxt in zip(path, path[1:]):
@@ -193,6 +231,39 @@ def set_path(target: dict, path: tuple, value) -> None:
         while len(cursor) <= last:
             cursor.append(None)
     cursor[last] = value
+
+
+def delete_path(target: dict, path: tuple) -> None:
+    """Delete a nested seed override and prune containers left empty."""
+    cursor = target
+    parents = []
+    for part in path[:-1]:
+        if isinstance(part, int):
+            if not isinstance(cursor, list) or part >= len(cursor):
+                return
+        elif not isinstance(cursor, dict) or part not in cursor:
+            return
+        parents.append((cursor, part))
+        cursor = cursor[part]
+
+    last = path[-1]
+    if isinstance(last, int):
+        if not isinstance(cursor, list) or last >= len(cursor):
+            return
+        cursor.pop(last)
+    else:
+        if not isinstance(cursor, dict) or last not in cursor:
+            return
+        del cursor[last]
+
+    for parent, part in reversed(parents):
+        child = parent[part]
+        if not isinstance(child, (dict, list)) or child:
+            break
+        if isinstance(part, int):
+            parent.pop(part)
+        else:
+            del parent[part]
 
 
 def compare(scope: str, seed: dict, live: dict, upstream: dict,
@@ -243,12 +314,48 @@ def compare(scope: str, seed: dict, live: dict, upstream: dict,
                          "reset_path": (path[0],),
                          "reset_value": upstream[path[0]]})
 
+    # Missing live keys inherit the DMS specification default. Only call a
+    # seeded path stale when the current specification no longer knows it;
+    # DMS 1.6 deliberately omits default-valued keys from its state files.
     for path, seed_value in seed_flat.items():
         if path[0] in skip or path[0] in helpers or path in live_flat:
             continue
-        rows.append({"path": path, "kind": "stale", "live": None,
-                     "seed": seed_value, "reset_path": path,
-                     "reset_value": seed_value})
+        upstream_value = value_at_path(upstream, path)
+        if upstream_value is MISSING:
+            if path[0] in upstream:
+                # The top-level setting exists but its default container has
+                # no such leaf. The effective live value is absent.
+                rows.append({"path": path, "kind": "changed", "live": None,
+                             "live_absent": True, "seed": seed_value,
+                             "reset_path": path, "reset_value": seed_value})
+            else:
+                rows.append({"path": path, "kind": "stale", "live": None,
+                             "seed": seed_value, "reset_path": path,
+                             "reset_value": seed_value})
+            continue
+        if upstream_value != seed_value:
+            rows.append({"path": path, "kind": "changed",
+                         "live": upstream_value, "seed": seed_value,
+                         "live_absent": True,
+                         "reset_path": path, "reset_value": seed_value})
+
+    # Derived values are not present in the portable seeds, but an absent live
+    # key still has an effective upstream value and may therefore have drifted
+    # from the host fact rendered by lib/dms.sh.
+    for key, helper in helpers.items():
+        path = (key,)
+        if path in live_flat:
+            continue
+        expected = derived.get(key)
+        if expected is None:
+            continue
+        upstream_value = value_at_path(upstream, path)
+        effective = None if upstream_value is MISSING else upstream_value
+        if effective != expected:
+            rows.append({"path": path, "kind": "derived", "live": effective,
+                         "live_absent": True, "seed": expected,
+                         "helper": helper, "reset_path": path,
+                         "reset_value": expected})
 
     for row in rows:
         row["key"] = render_path(row["path"])
@@ -366,7 +473,15 @@ def main() -> int:
         path = seed_paths[scope]
         seed = load_json(path)
         for row in rows:
-            set_path(seed, row["path"], row["live"])
+            if not row.get("live_absent"):
+                set_path(seed, row["path"], row["live"])
+        # Removing higher list indexes first prevents an earlier deletion from
+        # shifting the paths of later absent overrides.
+        absent_rows = (row for row in rows if row.get("live_absent"))
+        for row in sorted(absent_rows,
+                          key=lambda item: path_sort_key(item["path"]),
+                          reverse=True):
+            delete_path(seed, row["path"])
         path.write_text(json.dumps(seed, indent=2) + "\n")
         # stderr, so --json --apply still emits a single parseable document.
         print(f"updated {path} ({len(rows)} key{'s' if len(rows) != 1 else ''})",
@@ -379,7 +494,7 @@ def main() -> int:
               f"{saved}", file=sys.stderr)
     stale = [r["key"] for rows in report.values() for r in rows if r["kind"] == "stale"]
     if stale:
-        print("left in place (absent from the live file, remove by hand if "
+        print("left in place (not recognized by the DMS spec; remove by hand if "
               f"intended): {', '.join(stale)}", file=sys.stderr)
     return 0
 
@@ -521,7 +636,7 @@ def render(report: dict, applying: bool) -> None:
         "changed": "differs from the seed",
         "new": "not in the seed, changed from the DMS default",
         "derived": "rendered by lib/dms.sh, promote by editing the helper",
-        "stale": "in the seed but absent from the live file",
+        "stale": "in the seed but not recognized by the DMS spec",
         "bind-changed": "bound to a different action",
         "bind-added": "not in the seed",
         "bind-removed": "in the seed but no longer bound",

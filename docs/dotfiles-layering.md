@@ -133,6 +133,10 @@ Changing the icon theme or the wallpaper is reported too, but as a key
 `lib/dms.sh` renders rather than one a seed file holds: the report names the
 helper to edit (`dms_icon_theme`, `dms_default_wallpaper`, `dms_theme_file`)
 and `--apply` never writes an absolute host path into a seed.
+Other DMS file selectors, such as custom logo, keymap, lock-screen, per-mode
+wallpaper, and wallpaper-cycling paths, are excluded from automatic promotion.
+Add an intentional product asset under the managed defaults and wire it into
+the seed or helper explicitly instead of capturing a live home-directory path.
 
 Keybinds are compared too, against `templates/niri/dms-binds.kdl`. Both sides
 are parsed by `dms keybinds show` rather than diffed as text, because DMS
@@ -143,13 +147,15 @@ grouping, and ordering — promoting one rebind must not reflow the file into
 DMS's sorted, comment-free layout. `--reset` needs no shell restart for
 keybinds, as niri watches its own config.
 
-DMS writes every key it knows into `settings.json`, so a plain diff reports
-hundreds of untouched defaults. The script reads the installed shell's own
-specs (`Common/settings/*Spec.js`) to tell a deliberate change from a default
-DMS never moved, and compares structured settings field by field so promoting
-one bar property does not freeze the whole backfilled bar schema into the
-seed. Machine-specific and runtime keys — monitor layouts, GPU and device
-identity, weather coordinates, launcher history, sidebar state — are excluded
-and can never be promoted; see `EXCLUDED` in `lib/dms_seed_diff.py`.
+DMS 1.6 persists sparse state: a key absent from `settings.json` or
+`session.json` inherits its specification default. The script resolves the
+runtime-extracted shell through `dms doctor --json`, reads that revision's own
+`Common/settings/*Spec.js`, and compares the effective live value rather than
+calling an omitted default-valued key stale. It also compares structured
+settings field by field so promoting one bar property does not freeze the
+whole backfilled bar schema into the seed. Machine-specific and runtime keys —
+monitor layouts, GPU and device identity, location data, transient idle state,
+launcher history, and sidebar state — are excluded and can never be promoted;
+see `EXCLUDED` in `lib/dms_seed_diff.py`.
 
 It exits non-zero while differences remain, so it can gate a check.

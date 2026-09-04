@@ -31,8 +31,10 @@ binds {
     Mod+M hotkey-overlay-title="DMS Process List" { spawn-sh "dms ipc call processlist focusOrToggle"; }
     Mod+Shift+Q hotkey-overlay-title="DMS Power Menu" { spawn-sh "dms ipc call powermenu toggle"; }
     Mod+Alt+L hotkey-overlay-title="DMS Lock Screen" { spawn-sh "dms ipc call lock lock"; }
-    Print hotkey-overlay-title="DMS Screenshot: Region" { spawn-sh "dms ipc call niri screenshot"; }
-    Mod+Shift+S { spawn-sh "dms ipc call niri screenshot"; }
+    Print hotkey-overlay-title="DMS Screenshot: Region" { spawn "dms" "screenshot"; }
+    Ctrl+Print hotkey-overlay-title="DMS Screenshot: Full Screen" { spawn "dms" "screenshot" "full"; }
+    Alt+Print hotkey-overlay-title="DMS Screenshot: Window" { spawn "dms" "screenshot" "window"; }
+    Mod+Shift+S { spawn "dms" "screenshot"; }
 
     // Audio, media, and brightness
     XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "dms ipc call audio increment 3"; }

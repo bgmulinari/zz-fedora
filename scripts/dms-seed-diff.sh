@@ -100,10 +100,17 @@ if [[ -z "$binds_payload" ]]; then
 fi
 
 run_report() {
+  local spec_dir="${ZZ_DMS_SPEC_DIR:-}"
+  if [[ -z "$spec_dir" ]]; then
+    local shell_dir
+    shell_dir="$(dms_shell_dir)" || die "Could not resolve the embedded DMS shell payload through 'dms doctor --json'."
+    spec_dir="$shell_dir/Common/settings"
+  fi
+
   "$SYSTEM_PYTHON" "$ROOT_DIR/lib/dms_seed_diff.py" \
     --root "$ROOT_DIR" \
     --home "$TARGET_HOME" \
-    --spec-dir "${ZZ_DMS_SPEC_DIR:-$(dms_shell_dir)/Common/settings}" \
+    --spec-dir "$spec_dir" \
     --derived "$derived_facts" \
     --binds "$binds_payload" \
     --binds-seed "$BINDS_SEED" \
