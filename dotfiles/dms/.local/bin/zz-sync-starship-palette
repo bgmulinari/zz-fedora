@@ -9,6 +9,7 @@ set -Eeuo pipefail
 
 palette_file="${XDG_CACHE_HOME:-$HOME/.cache}/DankMaterialShell/starship-palette.toml"
 config_file="${XDG_CONFIG_HOME:-$HOME/.config}/starship.toml"
+config_target="$config_file"
 
 start_marker='# >>> ZZ STARSHIP PALETTE >>>'
 end_marker='# <<< ZZ STARSHIP PALETTE <<<'
@@ -19,7 +20,13 @@ grep -Fxq "$end_marker" "$palette_file" || exit 0
 grep -Fxq "$start_marker" "$config_file" || exit 0
 grep -Fxq "$end_marker" "$config_file" || exit 0
 
-temp_file="$(mktemp "${config_file}.XXXXXX")"
+if [[ -L "$config_file" ]]; then
+  config_target="$(readlink -f -- "$config_file")"
+  [[ -f "$config_target" ]] || exit 1
+fi
+
+temp_file="$(mktemp "${config_target}.XXXXXX")"
+trap 'rm -f "$temp_file"' EXIT
 awk -v start="$start_marker" -v end="$end_marker" -v palette="$palette_file" '
   $0 == start {
     while ((getline line < palette) > 0) {
@@ -34,15 +41,15 @@ awk -v start="$start_marker" -v end="$end_marker" -v palette="$palette_file" '
     next
   }
   !skipping { print }
-' "$config_file" >"$temp_file"
+' "$config_target" >"$temp_file"
 
 # Refuse to install a truncated result (for example a palette render that
 # lost its content): the block must still be present and non-empty.
 if ! grep -Fxq "$start_marker" "$temp_file" ||
   ! grep -Eq '^\[palettes\.zz\]' "$temp_file"; then
-  rm -f "$temp_file"
   exit 1
 fi
 
-chmod 0644 "$temp_file"
-mv "$temp_file" "$config_file"
+chmod --reference="$config_target" "$temp_file"
+mv "$temp_file" "$config_target"
+trap - EXIT

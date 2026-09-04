@@ -380,6 +380,30 @@ EOF
   assert_equal "$desktop_commit" "$(git -C "$INSTALL_DIR" rev-parse HEAD)"
   assert_equal "desktop" "$(cat "$INSTALL_DIR/version.txt")"
 
+  # Existing checkout already on the requested branch, but with a stale
+  # one-time remote-tracking ref outside the single-branch fetch refspec.
+  # --ref must register and fetch it before the normal fast-forward step.
+  INSTALL_DIR="$TEST_ROOT/ref-install-current"
+  git clone --depth=1 --branch main "$REPO_URL" "$INSTALL_DIR" >/dev/null 2>&1
+  git -C "$INSTALL_DIR" fetch origin \
+    refs/heads/desktop:refs/remotes/origin/desktop >/dev/null 2>&1
+  git -C "$INSTALL_DIR" switch --no-track -c desktop origin/desktop >/dev/null 2>&1
+  git -C "$INSTALL_DIR" config branch.desktop.remote origin
+  git -C "$INSTALL_DIR" config branch.desktop.merge refs/heads/desktop
+  assert_equal '+refs/heads/main:refs/remotes/origin/main' \
+    "$(git -C "$INSTALL_DIR" config --get-all remote.origin.fetch)"
+
+  printf 'desktop updated\n' >"$TEST_ROOT/ref-source/version.txt"
+  git -C "$TEST_ROOT/ref-source" commit -am "desktop updated" >/dev/null
+  git -C "$TEST_ROOT/ref-source" push >/dev/null 2>&1
+  desktop_updated_commit="$(git -C "$TEST_ROOT/ref-source" rev-parse HEAD)"
+
+  clone_or_update_repo
+  assert_equal "$desktop_updated_commit" "$(git -C "$INSTALL_DIR" rev-parse HEAD)"
+  assert_equal "desktop updated" "$(cat "$INSTALL_DIR/version.txt")"
+  git -C "$INSTALL_DIR" config --get-all remote.origin.fetch |
+    grep -Fx '+refs/heads/desktop:refs/remotes/origin/desktop' >/dev/null
+
   # A branch origin does not have fails instead of silently keeping the
   # current branch.
   BOOTSTRAP_REF="missing-branch"

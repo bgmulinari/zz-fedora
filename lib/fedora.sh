@@ -106,6 +106,21 @@ fedora_copr_repo_id() {
   printf 'copr:copr.fedorainfracloud.org:%s\n' "${project//\//:}"
 }
 
+# A COPR can expose another project as an enabled runtime dependency. Dnf
+# gives those sections a `coprdep:` id, but they still serve the dependency
+# project's packages and must receive the same ownership exclusions.
+fedora_copr_repo_ids() {
+  local project="$1"
+  local suffix=":${project//\//:}"
+  dnf repolist --enabled 2>/dev/null | awk -v suffix="$suffix" '
+    $1 ~ /^copr(dep)?:/ &&
+      length($1) >= length(suffix) &&
+      substr($1, length($1) - length(suffix) + 1) == suffix {
+      print $1
+    }
+  '
+}
+
 # Apply the source descriptor's excludepkgs list (compiled from the
 # catalog TOML) to the dnf repo the source enables, so repository
 # ownership rules live next to the source definition instead of being
@@ -114,6 +129,21 @@ fedora_apply_source_excludepkgs() {
   local repo_id="$1"
   [[ -n "${SOURCE_EXCLUDEPKGS:-}" ]] || return 0
   run_cmd_as_root dnf config-manager setopt "${repo_id}.excludepkgs=${SOURCE_EXCLUDEPKGS}"
+}
+
+fedora_apply_copr_source_excludepkgs() {
+  local project="$1"
+  [[ -n "${SOURCE_EXCLUDEPKGS:-}" ]] || return 0
+  local direct_repo_id repo_id direct_seen=0
+  direct_repo_id="$(fedora_copr_repo_id "$project")"
+  while IFS= read -r repo_id; do
+    [[ -n "$repo_id" ]] || continue
+    [[ "$repo_id" == "$direct_repo_id" ]] && direct_seen=1
+    fedora_apply_source_excludepkgs "$repo_id" || return 1
+  done < <(fedora_copr_repo_ids "$project")
+  if [[ "$direct_seen" -eq 0 ]]; then
+    fedora_apply_source_excludepkgs "$direct_repo_id"
+  fi
 }
 
 fedora_enable_sources() {
@@ -131,7 +161,7 @@ fedora_enable_sources() {
         log_progress "Enabling Fedora COPR source: $SOURCE_PROJECT"
         run_cmd_as_root dnf copr enable -y "$SOURCE_PROJECT"
       fi
-      fedora_apply_source_excludepkgs "$(fedora_copr_repo_id "$SOURCE_PROJECT")"
+      fedora_apply_copr_source_excludepkgs "$SOURCE_PROJECT"
       ;;
     terra)
       if ! fedora_repo_enabled "$SOURCE_ID"; then

@@ -364,7 +364,7 @@ step_table_failure_policy() {
   COMMAND=doctor
   DRY_RUN=0
   DMS_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
-  printf '[default_session]\ncommand = "agreety --cmd niri"\n' >"$DMS_GREETD_CONFIG"
+  printf '[default_session]\ncommand = "agreety --cmd niri" # not dms-greeter\nuser = "greeter"\n' >"$DMS_GREETD_CONFIG"
 
   set +e
   output="$({
@@ -401,7 +401,7 @@ step_table_failure_policy() {
   set -e
 
   [ "$status" -ne 0 ]
-  assert_contains "$output" "$DMS_GREETD_CONFIG missing pattern dms-greeter"
+  assert_contains "$output" "$DMS_GREETD_CONFIG does not configure the expected DMS Greeter default session"
   assert_contains "$output" "Fatal desktop readiness checks failed"
 }
 

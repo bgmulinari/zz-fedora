@@ -134,6 +134,42 @@ setup() {
   : >"$TEST_ROOT/root.log"
   run_without_bats_debug_trap ensure_dms_greetd_config
   [ ! -s "$TEST_ROOT/root.log" ]
+
+  cat >"$DMS_GREETD_CONFIG" <<'EOF'
+[default_session]
+command = "/usr/bin/dms-greeter --command niri --cache-dir /var/cache/dms-greeter -C /etc/greetd/niri/config.kdl"
+user = "greeter"
+EOF
+  run dms_greetd_config_has_expected_session
+  [ "$status" -eq 0 ]
+  run_without_bats_debug_trap ensure_dms_greetd_config
+  [ ! -s "$TEST_ROOT/root.log" ]
+}
+@test "DMS Greeter rejects misleading tokens and wrong default-session users" {
+  DRY_RUN=0
+  DMS_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
+  write_root_file() {
+    local mode="$1" destination="$2"
+    cat >"$destination"
+    printf 'wrote:%s:%s\n' "$mode" "$destination" >>"$TEST_ROOT/root.log"
+  }
+
+  local config
+  for config in \
+    $'[default_session]\ncommand = "agreety --cmd /bin/sh" # previously dms-greeter\nuser = "greeter"\n' \
+    $'[metadata]\ncommand = "/usr/bin/dms-greeter --command niri"\n[default_session]\ncommand = "agreety --cmd /bin/sh"\nuser = "greeter"\n' \
+    $'[default_session]\ncommand = "/usr/bin/dms-greeter --command niri"\nuser = "root"\n'; do
+    printf '%s' "$config" >"$DMS_GREETD_CONFIG"
+    : >"$TEST_ROOT/root.log"
+
+    run dms_greetd_config_has_expected_session
+    [ "$status" -ne 0 ]
+    run_without_bats_debug_trap ensure_dms_greetd_config
+
+    assert_file_contains "$TEST_ROOT/root.log" "wrote:0644:$DMS_GREETD_CONFIG"
+    run dms_greetd_config_has_expected_session
+    [ "$status" -eq 0 ]
+  done
 }
 @test "DMS Greeter action grants greeter access and stages the theme sync" {
   build_test_plan

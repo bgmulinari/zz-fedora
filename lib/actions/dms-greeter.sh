@@ -62,12 +62,45 @@ user = "$DMS_GREETER_USER"
 EOF
 }
 
+# Validate only the greetd default session, ignoring comments and unrelated
+# tables. Require the Fedora binary, Niri compositor, and greeter user while
+# allowing supported DMS options such as cache and compositor-config paths.
+dms_greetd_config_has_expected_session() {
+  local config_file="${1:-$DMS_GREETD_CONFIG}"
+  [[ -f "$config_file" ]] || return 1
+  "$SYSTEM_PYTHON" - "$config_file" "$DMS_GREETER_USER" <<'PY'
+import shlex
+import sys
+import tomllib
+
+config_path, expected_user = sys.argv[1:]
+try:
+    with open(config_path, "rb") as config_stream:
+        config = tomllib.load(config_stream)
+except (OSError, tomllib.TOMLDecodeError):
+    raise SystemExit(1)
+
+session = config.get("default_session")
+command = session.get("command", "") if isinstance(session, dict) else ""
+try:
+    command_parts = shlex.split(command)
+except ValueError:
+    command_parts = []
+valid = (
+    isinstance(session, dict)
+    and session.get("user") == expected_user
+    and command_parts[:3] == ["/usr/bin/dms-greeter", "--command", "niri"]
+    and command_parts.count("--command") == 1
+    and not any(character in command for character in "\n;&|<>`$")
+)
+raise SystemExit(not valid)
+PY
+}
+
 # The RPM scriptlets create or repair the greetd config; rewrite it only
-# when it still does not name dms-greeter (for example a preserved foreign
-# config the scriptlet declined to touch).
+# when its default session is not a valid managed DMS session.
 ensure_dms_greetd_config() {
-  if [[ "$DRY_RUN" -eq 0 && -f "$DMS_GREETD_CONFIG" ]] &&
-    grep -F "dms-greeter" "$DMS_GREETD_CONFIG" >/dev/null 2>&1; then
+  if [[ "$DRY_RUN" -eq 0 ]] && dms_greetd_config_has_expected_session; then
     return 0
   fi
   log_progress "Writing DMS Greeter greetd configuration"
@@ -140,8 +173,7 @@ stage_dms_greeter_theme_sync() {
 dms_greeter_has_managed_greetd_state() {
   local display_manager="$1"
   [[ "$display_manager" == "greetd.service" ]] &&
-    [[ -f "$DMS_GREETD_CONFIG" ]] &&
-    grep -F "dms-greeter" "$DMS_GREETD_CONFIG" >/dev/null 2>&1
+    dms_greetd_config_has_expected_session
 }
 
 install_dms_greeter() {
@@ -198,7 +230,7 @@ verify_dms_greeter() {
   rpm -q "$DMS_GREETER_PACKAGE" >/dev/null 2>&1 &&
     command -v dms-greeter >/dev/null 2>&1 &&
     systemctl is-enabled greetd >/dev/null 2>&1 &&
-    grep -F "dms-greeter" "$DMS_GREETD_CONFIG" >/dev/null 2>&1 &&
+    dms_greetd_config_has_expected_session &&
     {
       dms_greeter_user_sync_skipped || {
         id -nG "$TARGET_USER" 2>/dev/null | tr ' ' '\n' | grep -qx "$DMS_GREETER_USER" &&

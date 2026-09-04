@@ -63,6 +63,36 @@ EOF
   assert_equal 'palette = "custom"' "$(cat "$home/.config/starship.toml")"
 }
 
+@test "Starship palette sync preserves a user-managed configuration symlink" {
+  local home="$TEST_ROOT/starship-symlink-home"
+  local managed="$TEST_ROOT/dotfiles/starship.toml"
+  mkdir -p "$home/.config" "$home/.cache/DankMaterialShell" "$(dirname "$managed")"
+  cat >"$managed" <<'EOF'
+palette = "zz"
+# >>> ZZ STARSHIP PALETTE >>>
+[palettes.zz]
+blue = "#old000"
+# <<< ZZ STARSHIP PALETTE <<<
+EOF
+  chmod 0600 "$managed"
+  ln -s "$managed" "$home/.config/starship.toml"
+  cat >"$home/.cache/DankMaterialShell/starship-palette.toml" <<'EOF'
+# >>> ZZ STARSHIP PALETTE >>>
+[palettes.zz]
+blue = "#89b4fa"
+# <<< ZZ STARSHIP PALETTE <<<
+EOF
+
+  run env HOME="$home" XDG_CONFIG_HOME="$home/.config" XDG_CACHE_HOME="$home/.cache" \
+    "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-starship-palette"
+
+  [ "$status" -eq 0 ]
+  [[ -L "$home/.config/starship.toml" ]]
+  assert_equal "$managed" "$(readlink "$home/.config/starship.toml")"
+  assert_file_contains "$managed" 'blue = "#89b4fa"'
+  assert_equal "600" "$(stat -c '%a' "$managed")"
+}
+
 @test "Starship matugen template covers exactly the static palette names" {
   local static_names template_names
   static_names="$(awk '/# >>> ZZ STARSHIP PALETTE >>>/,/# <<< ZZ STARSHIP PALETTE <<</' \

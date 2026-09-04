@@ -192,9 +192,9 @@ clone_or_update_repo() {
 # fetched explicitly before switching to it.
 switch_to_bootstrap_ref() {
   [[ -n "$BOOTSTRAP_REF" ]] || return 0
-  local current_branch refspec
+  local current_branch refspec already_on_ref=0
   current_branch="$(git -C "$INSTALL_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
-  [[ "$current_branch" == "$BOOTSTRAP_REF" ]] && return 0
+  [[ "$current_branch" == "$BOOTSTRAP_REF" ]] && already_on_ref=1
   refspec="+refs/heads/$BOOTSTRAP_REF:refs/remotes/origin/$BOOTSTRAP_REF"
   if ! git -C "$INSTALL_DIR" config --get-all remote.origin.fetch 2>/dev/null |
     grep -Fxq -e "$refspec" -e '+refs/heads/*:refs/remotes/origin/*'; then
@@ -204,6 +204,7 @@ switch_to_bootstrap_ref() {
     printf 'Could not fetch branch %s from origin.\n' "$BOOTSTRAP_REF" >&2
     return 1
   }
+  [[ "$already_on_ref" -eq 1 ]] && return 0
   if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$BOOTSTRAP_REF"; then
     run git -C "$INSTALL_DIR" switch "$BOOTSTRAP_REF"
   else

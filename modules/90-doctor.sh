@@ -160,7 +160,17 @@ doctor_dms_greeter_installed() {
 }
 
 doctor_greetd_config_uses_dms() {
-  doctor_file_contains "$(doctor_dms_greetd_config_path)" "dms-greeter"
+  dms_greetd_config_has_expected_session "$(doctor_dms_greetd_config_path)"
+}
+
+doctor_check_dms_greetd_config() {
+  local config_file="$1"
+  if dms_greetd_config_has_expected_session "$config_file"; then
+    printf '[ok] %s configures the expected DMS Greeter default session\n' "$config_file"
+    return 0
+  fi
+  printf '[warn] %s does not configure the expected DMS Greeter default session\n' "$config_file"
+  return 1
 }
 
 doctor_dms_greeter_cache_dir() {
@@ -174,7 +184,7 @@ doctor_check_dms_greeter_setup() {
   cache_dir="$(doctor_dms_greeter_cache_dir)"
   doctor_check_command dms-greeter || failed=1
   doctor_check_file "$config_file" || failed=1
-  doctor_check_contains_required "$config_file" "dms-greeter" || failed=1
+  doctor_check_dms_greetd_config "$config_file" || failed=1
   # Greeter theme sync state; absent when the user sync was skipped, so
   # warn-level only.
   doctor_warn_file "$cache_dir/settings.json"
