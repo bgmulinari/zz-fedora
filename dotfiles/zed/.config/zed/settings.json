@@ -12,7 +12,7 @@
   "buffer_font_size": 15,
   "theme": {
     "mode": "system",
-    "light": "Noctalia Light",
-    "dark": "Noctalia Dark",
+    "light": "DankShell Light",
+    "dark": "DankShell Dark",
   },
 }

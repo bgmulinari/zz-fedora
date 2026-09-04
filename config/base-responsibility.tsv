@@ -3,7 +3,8 @@ source	rpmfusion-free	desktop-service	Fedora package manager	Required source met
 source	rpmfusion-nonfree	desktop-service	Fedora package manager	Required source metadata for RPM Fusion Nonfree packages and appstream data.
 source	flathub	theme-font	Flatpak theme runtimes	Required remote for base GTK Flatpak theme runtimes and optional Flatpak apps.
 source	cisco-openh264	desktop-service	Fedora package manager	Enables Fedora OpenH264 metadata for desktop media compatibility.
-source	copr:lionheartp/Hyprland	desktop-service	Noctalia Greeter and Qt theme	Provides Noctalia Greeter and qt6ct-kde for the required base desktop.
+source	copr:avengemedia/dms	desktop-service	DMS shell	Provides the DMS (DankMaterialShell) stable package for the required base desktop.
+source	copr:avengemedia/danklinux	desktop-service	DMS ecosystem and Qt theme	Provides quickshell, matugen, danksearch, DMS Greeter, and qt6ct-kde for the required base desktop.
 source	terra	default-app	Ghostty	Bootstraps Terra release packages for required Ghostty packages.
 source	copr:atim/starship	theme-font	Starship prompt	Provides the Starship package used by the base shell prompt.
 source	copr:lihaohong/yazi	default-app	Yazi shell file manager	Provides the Yazi package used by the base shell tooling.
@@ -19,13 +20,21 @@ dnf	bash-completion	shell-tool	interactive Bash	Provides command completions for
 dnf	bats	development-tool	repository regression suite	Keeps the repository's Bats test suites runnable out of the box on the development-focused desktop.
 dnf	dnf5-plugins	installer-bootstrap	Fedora source setup and installer reruns	Provides the DNF5 COPR and config-manager commands used during source setup.
 dnf	niri	niri	Niri session	Provides the compositor and Wayland session entry.
-action	noctalia-greeter	desktop-service	graphical login	Installs Noctalia Greeter from COPR, configures greetd and its SELinux-labeled state, seeds the managed appearance, and enables the fallback graphical login.
-dnf	policycoreutils-python-utils	desktop-service	graphical login	Provides semanage for the Noctalia Greeter SELinux state-directory policy.
+action	dms-greeter	desktop-service	graphical login	Installs DMS Greeter from COPR, ensures the greetd session config, grants the greeter user read access to the target user's DMS theme state, and enables the fallback graphical login.
+dnf	policycoreutils-python-utils	desktop-service	graphical login	Provides the SELinux policy tooling the DMS Greeter package scriptlets use for its binary and state-directory contexts.
+dnf	acl	desktop-service	graphical login	Provides setfacl for granting the greeter user traversal access to the target user's DMS configuration.
+dnf	greetd	desktop-service	graphical login	Provides the greetd daemon that runs DMS Greeter on the fallback graphical login path.
 action	boot-splash	desktop-service	graphical boot and disk unlock	Ensures the rhgb and quiet kernel arguments and rebuilds the initramfs so the boot splash and LUKS passphrase prompt are graphical.
 dnf	plymouth	desktop-service	graphical boot and disk unlock	Provides the Plymouth splash daemon shown during boot, shutdown, and LUKS passphrase entry.
 dnf	plymouth-system-theme	desktop-service	graphical boot and disk unlock	Provides Fedora's default bgrt and spinner splash themes and their render plugins.
 dnf	grubby	desktop-service	graphical boot and disk unlock	Adds the rhgb and quiet kernel arguments that enable the graphical boot splash.
-dnf	noctalia	noctalia	Noctalia v5 shell	Installs the official Fedora package launched by Niri autostart.
+dnf	dms	dms	DMS shell	Installs the DMS (DankMaterialShell) desktop shell started by the dms.service user unit under the Niri session.
+dnf	quickshell	dms	DMS shell	Provides the Quickshell runtime DMS runs on, named explicitly so the DankLinux COPR build is installed instead of whatever package happens to satisfy the dms RPM's "(quickshell or quickshell-git)" dependency.
+dnf	matugen	dms	DMS app theming	Generates the per-application color themes (Ghostty, Niri, GTK, Qt, editors) from the active DMS theme.
+dnf	danksearch	dms	DMS launcher file search	Provides the file-search backend used by the DMS spotlight launcher.
+dnf	cava	dms	DMS audio visualizer	Provides the audio visualizer backend used by DMS media widgets.
+dnf	qt6-qtimageformats	dms	DMS image previews	Adds WebP/TIFF/GIF image format support used by DMS wallpapers and previews.
+dnf	kf6-kimageformats	dms	DMS image previews	Adds AVIF/HEIF/JXL image format support used by DMS wallpapers and previews.
 dnf	ghostty	default-app	default terminal	Provides the default terminal used by keybindings and xdg-terminal-exec.
 dnf	ghostty-shell-integration	default-app	terminal shell integration	Provides Ghostty shell integration scripts for working-directory reporting, prompt marking, and shell-aware terminal behavior.
 action	jetbrains-mono-nerd-font	theme-font	terminal and prompt rendering	Installs the pinned Nerd Font used by Ghostty and Starship glyphs.
@@ -35,8 +44,8 @@ flatpak	org.gtk.Gtk3theme.adw-gtk3-dark	theme-font	Flatpak GTK apps	Matches Flat
 dnf	xwayland-satellite	niri	Xwayland apps under Niri	Provides Xwayland compatibility for the Niri session.
 dnf	xdg-desktop-portal-gtk	desktop-service	GTK portals	Provides GTK portal implementations for file pickers and settings.
 dnf	xdg-desktop-portal-gnome	desktop-service	GNOME portal integration	Provides portal coverage expected by GTK/GNOME applications.
-dnf	gnome-keyring	noctalia	Noctalia encrypted persistence	Provides the Secret Service used for durable credentials and encrypted shell state.
-dnf	gnome-keyring-pam	noctalia	Noctalia encrypted persistence	Unlocks the login keyring from the graphical login password so encrypted state opens without a separate prompt.
+dnf	gnome-keyring	dms	desktop secret storage	Provides the Secret Service used for durable desktop credentials.
+dnf	gnome-keyring-pam	dms	desktop secret storage	Unlocks the login keyring from the graphical login password so stored credentials open without a separate prompt.
 dnf	NetworkManager	desktop-service	network service	Provides the base network management service.
 dnf	NetworkManager-wifi	desktop-service	network service	Adds Wi-Fi support to NetworkManager.
 dnf	NetworkManager-bluetooth	desktop-service	network service	Adds Bluetooth networking support to NetworkManager.
@@ -67,8 +76,7 @@ dnf	xdg-utils	file-integration	default apps	Provides XDG helper commands for MIM
 dnf	xdg-terminal-exec	file-integration	default terminal	Connects terminal launches to Ghostty.
 dnf	xdg-user-dirs	file-integration	user directories	Creates standard desktop user directories.
 dnf	ffmpegthumbnailer	file-integration	file previews	Provides video thumbnails in file managers.
-dnf	wtype	noctalia	clipboard auto-paste	Provides the upstream-supported text-injection fallback for clipboard auto-paste.
-dnf	ddcutil	noctalia	external display brightness	Provides Noctalia's optional DDC/CI backend for compatible external displays.
+dnf	ddcutil	dms	external display brightness	Ships the i2c udev rules that grant the /dev/i2c-* access DMS's native DDC/CI brightness control needs, plus the debugging CLI.
 dnf	fontconfig	theme-font	font baseline	Provides font discovery and configuration.
 dnf	adw-gtk3-theme	theme-font	GTK theme	Provides Adwaita-compatible GTK3 theme assets.
 dnf	google-noto-sans-fonts	theme-font	font baseline	Provides default sans-serif coverage.
@@ -78,7 +86,7 @@ dnf	fontawesome-6-free-fonts	theme-font	icon glyphs	Provides icon glyphs for she
 dnf	yaru-icon-theme	theme-font	icon theme	Provides the selected desktop icon theme.
 dnf	qt6ct-kde	theme-font	KDE Qt6 theming	Provides patched qt6ct integration for KDE Qt6 applications such as Dolphin.
 dnf	zsh	installer-bootstrap	base shell	Provides the default login shell and managed shell config target.
-dnf	starship	theme-font	shell prompt	Provides the prompt themed by Noctalia v5 templates.
+dnf	starship	theme-font	shell prompt	Provides the prompt themed by the static managed palette.
 dnf	zoxide	installer-bootstrap	shell navigation	Provides directory jumping in the base shell.
 dnf	fastfetch	installer-bootstrap	shell diagnostics	Provides quick system summary command.
 dnf	gh	installer-bootstrap	GitHub workflow	Provides GitHub CLI for development and diagnostics.

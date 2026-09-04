@@ -2,6 +2,18 @@
 // Product defaults update with ~/.zz; personal overrides load last.
 
 include "~/.zz/dotfiles/niri/.config/niri/defaults.kdl"
-include "./cfg/display.kdl"
-include "./noctalia.kdl"
+
+// DMS-generated drop-ins. These carry the settings DMS owns, so they load
+// after the product defaults and win. Keep this list aligned with the files
+// DankMaterialShell regenerates under ~/.config/niri/dms/.
+include "dms/colors.kdl"
+include optional=true "dms/layout.kdl"
+include optional=true "dms/alttab.kdl"
+include optional=true "dms/binds.kdl"
+include optional=true "dms/cursor.kdl"
+include optional=true "dms/input.kdl"
+include optional=true "dms/outputs.kdl"
+include optional=true "dms/windowrules.kdl"
+include optional=true "dms/wpblur.kdl"
+
 include optional=true "./local.kdl"

@@ -1100,9 +1100,8 @@ TOML
   local policy="$ROOT_DIR/config/managed-config.tsv"
   local path
   for path in \
-    '~/.config/ghostty/themes/noctalia' \
-    '~/.config/niri/cfg/display.kdl' \
-    '~/.config/niri/noctalia.kdl' \
+    '~/.config/ghostty/themes/dankcolors' \
+    '~/.config/niri/dms/colors.kdl' \
     '~/.config/starship.toml'; do
     if ! awk -F'\t' -v p="$path" '$2==p && $3=="seed-if-missing" && $4=="preserve" {found=1} END {exit !found}' "$policy"; then
       printf 'missing seed-if-missing/preserve row for %s\n' "$path" >&2
@@ -1110,5 +1109,5 @@ TOML
     fi
   done
 
-  awk -F'\t' -v p='~/.config/noctalia/config.toml' '$2==p && $3=="seed-if-missing" {found=1} END {exit !found}' "$policy"
+  awk -F'\t' -v p='~/.config/DankMaterialShell/settings.json' '$2==p && $3=="seed-if-missing" {found=1} END {exit !found}' "$policy"
 }

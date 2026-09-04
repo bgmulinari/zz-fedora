@@ -14,6 +14,7 @@ declare -Ag CATALOG_BUNDLE_ROW=()   # bundle id -> full bundles.tsv row
 declare -Ag CATALOG_SOURCE_ROW=()   # source id -> full sources.tsv row
 declare -Ag CATALOG_BUNDLE_STEPS=() # bundle id -> newline-joined "idx\tbackend\tsources"
 declare -Ag CATALOG_STEP_ITEMS=()   # "bundle id\x1fidx" -> newline-joined items
+declare -Ag CATALOG_BUNDLE_USER_SERVICES=() # bundle id -> newline-joined "kind\tunit\tparent"
 declare -ag CATALOG_SOURCE_IDS=()
 declare -ag CATALOG_CATEGORIES=()
 declare -ag CATALOG_ACTION_ITEMS=()
@@ -46,6 +47,7 @@ catalog_reset_cache() {
   CATALOG_SOURCE_ROW=()
   CATALOG_BUNDLE_STEPS=()
   CATALOG_STEP_ITEMS=()
+  CATALOG_BUNDLE_USER_SERVICES=()
   CATALOG_SOURCE_IDS=()
   CATALOG_CATEGORIES=()
   CATALOG_ACTION_ITEMS=()
@@ -107,6 +109,18 @@ catalog_ensure_loaded() {
     CATALOG_SOURCE_ROW["$id"]="$line"
   done <"$compiled_dir/sources.tsv"
 
+  # The parent column is empty for enable rows and deliberately last:
+  # tab is IFS whitespace, so an empty middle field would collapse.
+  local service_kind service_parent service_unit
+  while IFS=$'\t' read -r id service_kind service_unit service_parent; do
+    [[ -n "$id" ]] || continue
+    if [[ -n "${CATALOG_BUNDLE_USER_SERVICES[$id]:-}" ]]; then
+      CATALOG_BUNDLE_USER_SERVICES["$id"]+=$'\n'"$service_kind"$'\t'"$service_unit"$'\t'"$service_parent"
+    else
+      CATALOG_BUNDLE_USER_SERVICES["$id"]="$service_kind"$'\t'"$service_unit"$'\t'"$service_parent"
+    fi
+  done <"$compiled_dir/user-services.tsv"
+
   while IFS= read -r id; do
     [[ -n "$id" ]] && CATALOG_CATEGORIES+=("$id")
   done <"$compiled_dir/categories.list"
@@ -155,6 +169,16 @@ bundle_steps() {
   return 0
 }
 
+# Prints one line per session-service declaration of the bundle:
+# "kind\tunit\tparent" where kind is enable (parent empty) or wants.
+bundle_user_services() {
+  local bundle_id="$1"
+  catalog_ensure_loaded
+  local rows="${CATALOG_BUNDLE_USER_SERVICES[$bundle_id]:-}"
+  [[ -n "$rows" ]] && printf '%s\n' "$rows"
+  return 0
+}
+
 # Prints the payload items of one install step, one per line.
 bundle_step_items() {
   local bundle_id="$1"
@@ -192,7 +216,8 @@ load_source_descriptor() {
     SOURCE_GPG_POLICY \
     SOURCE_BOOTSTRAP_EXCEPTION \
     SOURCE_DESCRIPTION \
-    SOURCE_REASON <<<"$row"
+    SOURCE_REASON \
+    SOURCE_EXCLUDEPKGS <<<"$row"
 }
 
 list_source_ids() {

@@ -93,184 +93,234 @@ setup() {
   assert_equal 'source "$HOME/.zshrc.d/personal"' "$(cat "$TARGET_HOME/.zshrc")"
 }
 
-@test "Noctalia Greeter Fedora action configures greetd fallback" {
+@test "DMS Greeter Fedora action configures greetd fallback" {
   build_test_plan
-  assert_plan_has "$PLAN_DIR/actions/actions.list" "noctalia-greeter"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "dms-greeter"
 
   DRY_RUN=1
-  run install_noctalia_greeter
+  detect_enabled_display_manager() { return 1; }
+  run install_dms_greeter
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" "install greetd and Noctalia Greeter package noctalia-greeter"
+  assert_contains "$output" "install DMS Greeter package dms-greeter"
   assert_contains "$output" "/etc/greetd/config.toml"
-  assert_contains "$output" "ensure SELinux fcontext xdm_var_lib_t"
-  assert_contains "$output" "noctalia-greeter-apply-appearance --setup-system"
-  assert_contains "$output" "seed Noctalia Greeter appearance"
-  assert_contains "$output" "restore SELinux contexts under /var/lib/noctalia-greeter"
+  assert_contains "$output" "usermod -aG greeter $TARGET_USER"
+  assert_contains "$output" "chmod 2770 /var/cache/dms-greeter/users"
+  assert_contains "$output" "link the greeter cache to the target user DMS state"
+  assert_contains "$output" "systemctl set-default graphical.target"
   assert_contains "$output" "systemctl enable --force greetd.service"
 }
-@test "Noctalia Greeter disables hardware cursors in its greetd session" {
-  run noctalia_greetd_config_content
+@test "DMS Greeter greetd session runs the greeter under niri" {
+  run dms_greetd_config_content
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" 'command = "/usr/bin/env WLR_NO_HARDWARE_CURSORS=1 /usr/bin/noctalia-greeter-session"'
+  assert_contains "$output" 'command = "/usr/bin/dms-greeter --command niri"'
+  assert_contains "$output" 'user = "greeter"'
 }
-@test "Noctalia Greeter verification requires the hardware cursor workaround" {
-  NOCTALIA_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
-  NOCTALIA_GREETER_STATE_DIR="$TEST_ROOT/noctalia-greeter"
-  mkdir -p "$NOCTALIA_GREETER_STATE_DIR"
-  printf '{}\n' >"$NOCTALIA_GREETER_STATE_DIR/appearance.json"
+@test "DMS Greeter greetd config is rewritten only when foreign" {
+  DRY_RUN=0
+  DMS_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
+  write_root_file() {
+    local mode="$1" destination="$2"
+    cat >"$destination"
+    printf 'wrote:%s:%s\n' "$mode" "$destination" >>"$TEST_ROOT/root.log"
+  }
+
+  printf '[default_session]\ncommand = "agreety --cmd /bin/sh"\n' >"$DMS_GREETD_CONFIG"
+  run_without_bats_debug_trap ensure_dms_greetd_config
+  assert_file_contains "$TEST_ROOT/root.log" "wrote:0644:$DMS_GREETD_CONFIG"
+  assert_file_contains "$DMS_GREETD_CONFIG" 'command = "/usr/bin/dms-greeter --command niri"'
+
+  : >"$TEST_ROOT/root.log"
+  run_without_bats_debug_trap ensure_dms_greetd_config
+  [ ! -s "$TEST_ROOT/root.log" ]
+
+  cat >"$DMS_GREETD_CONFIG" <<'EOF'
+[default_session]
+command = "/usr/bin/dms-greeter --command niri --cache-dir /var/cache/dms-greeter -C /etc/greetd/niri/config.kdl"
+user = "greeter"
+EOF
+  run dms_greetd_config_has_expected_session
+  [ "$status" -eq 0 ]
+  run_without_bats_debug_trap ensure_dms_greetd_config
+  [ ! -s "$TEST_ROOT/root.log" ]
+}
+@test "DMS Greeter rejects misleading tokens and wrong default-session users" {
+  DRY_RUN=0
+  DMS_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
+  write_root_file() {
+    local mode="$1" destination="$2"
+    cat >"$destination"
+    printf 'wrote:%s:%s\n' "$mode" "$destination" >>"$TEST_ROOT/root.log"
+  }
+
+  local config
+  for config in \
+    $'[default_session]\ncommand = "agreety --cmd /bin/sh" # previously dms-greeter\nuser = "greeter"\n' \
+    $'[metadata]\ncommand = "/usr/bin/dms-greeter --command niri"\n[default_session]\ncommand = "agreety --cmd /bin/sh"\nuser = "greeter"\n' \
+    $'[default_session]\ncommand = "/usr/bin/dms-greeter --command niri"\nuser = "root"\n'; do
+    printf '%s' "$config" >"$DMS_GREETD_CONFIG"
+    : >"$TEST_ROOT/root.log"
+
+    run dms_greetd_config_has_expected_session
+    [ "$status" -ne 0 ]
+    run_without_bats_debug_trap ensure_dms_greetd_config
+
+    assert_file_contains "$TEST_ROOT/root.log" "wrote:0644:$DMS_GREETD_CONFIG"
+    run dms_greetd_config_has_expected_session
+    [ "$status" -eq 0 ]
+  done
+}
+@test "DMS Greeter action grants greeter access and stages the theme sync" {
+  build_test_plan
+  DRY_RUN=0
+  TARGET_USER="dms-user"
+  TARGET_HOME="$TEST_ROOT/dms-greeter-home"
+  mkdir -p "$TARGET_HOME"
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*" >>"$TEST_ROOT/root.log"
+  }
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf 'user:%s:%s\n' "$user" "$*" >>"$TEST_ROOT/root.log"
+    case "$1" in
+      mkdir|install|cp) HOME="$TARGET_HOME" "$@" ;;
+      *) return 0 ;;
+    esac
+  }
+
+  run_without_bats_debug_trap prepare_dms_greeter_access
+  run_without_bats_debug_trap prepare_dms_greeter_cache
+  run_without_bats_debug_trap stage_dms_greeter_theme_sync
+
+  assert_file_contains "$TEST_ROOT/root.log" "root:usermod -aG greeter dms-user"
+  # Traversal grants are batched into one setfacl over the home path chain.
+  assert_file_contains "$TEST_ROOT/root.log" "root:setfacl -m g:greeter:rX $TARGET_HOME $TARGET_HOME/.config $TARGET_HOME/.local $TARGET_HOME/.local/state $TARGET_HOME/.local/share $TARGET_HOME/.cache"
+  # The DMS state dirs get one recursive grant and one default-ACL grant.
+  assert_file_contains "$TEST_ROOT/root.log" "root:setfacl -R -m g:greeter:rX $TARGET_HOME/.config/DankMaterialShell $TARGET_HOME/.local/state/DankMaterialShell $TARGET_HOME/.cache/DankMaterialShell $TARGET_HOME/.local/share/backgrounds"
+  assert_file_contains "$TEST_ROOT/root.log" "root:setfacl -d -m g:greeter:rX $TARGET_HOME/.config/DankMaterialShell $TARGET_HOME/.local/state/DankMaterialShell $TARGET_HOME/.cache/DankMaterialShell $TARGET_HOME/.local/share/backgrounds"
+  assert_file_contains "$TEST_ROOT/root.log" "root:chown greeter:greeter /var/cache/dms-greeter"
+  assert_file_contains "$TEST_ROOT/root.log" "root:chmod 2770 /var/cache/dms-greeter/users"
+  assert_file_contains "$TEST_ROOT/root.log" "root:ln -sfn $TARGET_HOME/.config/DankMaterialShell/settings.json /var/cache/dms-greeter/settings.json"
+  assert_file_contains "$TEST_ROOT/root.log" "root:ln -sfn $TARGET_HOME/.local/state/DankMaterialShell/session.json /var/cache/dms-greeter/session.json"
+  assert_file_contains "$TEST_ROOT/root.log" "root:ln -sfn $TARGET_HOME/.cache/DankMaterialShell/dms-colors.json /var/cache/dms-greeter/colors.json"
+  # The staging seeds the real managed state, never bare placeholders: the
+  # greeter action runs before the post-actions seeding, and its files must
+  # not block the theme seeds (the seeder only writes missing files).
+  assert_equal "registry" "$(jq -r '.currentThemeCategory' "$TARGET_HOME/.config/DankMaterialShell/settings.json")"
+  assert_equal "$TARGET_HOME/.local/share/backgrounds/Alpenglow.jpg" \
+    "$(jq -r '.wallpaperPath' "$TARGET_HOME/.local/state/DankMaterialShell/session.json")"
+  # The colors placeholder keeps the greeter cache symlink from dangling.
+  assert_equal "{}" "$(jq -c '.' "$TARGET_HOME/.cache/DankMaterialShell/dms-colors.json")"
+}
+
+@test "an action that drains stdin does not starve the remaining actions" {
+  build_test_plan
+  DRY_RUN=0
+
+  stdin_eater_install() {
+    cat >/dev/null
+  }
+  second_action_install() {
+    printf 'second-action-ran\n' >>"$TEST_ROOT/stdin-actions.log"
+  }
+  action_ok() { return 0; }
+  register_action "test-stdin-eater" stdin_eater_install action_ok
+  register_action "test-second-action" second_action_install action_ok
+
+  local action_plan="$TEST_ROOT/stdin-actions.list"
+  printf 'test-stdin-eater\ntest-second-action\n' >"$action_plan"
+
+  run_without_bats_debug_trap run_actions_from_plan_file "$action_plan" optional "stdin test actions"
+
+  assert_file_contains "$TEST_ROOT/stdin-actions.log" "second-action-ran"
+}
+
+@test "DMS Greeter access grants skip the recursive walk when already granted" {
+  build_test_plan
+  DRY_RUN=0
+  TARGET_USER="dms-user"
+  TARGET_HOME="$TEST_ROOT/dms-greeter-acl-home"
+  mkdir -p "$TARGET_HOME"
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*" >>"$TEST_ROOT/acl-root.log"
+  }
+  run_cmd_as_user() {
+    shift
+    case "$1" in
+      mkdir|install|cp) HOME="$TARGET_HOME" "$@" ;;
+      *) return 0 ;;
+    esac
+  }
+  getfacl() {
+    printf 'group:greeter:r-x\n'
+  }
+
+  run_without_bats_debug_trap prepare_dms_greeter_access
+
+  refute_file_contains "$TEST_ROOT/acl-root.log" "setfacl -R"
+  assert_file_contains "$TEST_ROOT/acl-root.log" "root:setfacl -d -m g:greeter:rX $TARGET_HOME/.config/DankMaterialShell"
+}
+@test "DMS Greeter verification requires the user sync unless it was skipped" {
+  build_test_plan
+  DMS_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
+  DMS_GREETER_CACHE_DIR="$TEST_ROOT/dms-greeter-cache"
+  TARGET_USER="dms-user"
+  dms_greetd_config_content >"$DMS_GREETD_CONFIG"
   rpm() { return 0; }
   command() { return 0; }
   systemctl() { return 0; }
-  verify_noctalia_greeter_selinux_context() { return 0; }
+  id() { printf 'dms-user wheel\n'; }
 
-  printf '[default_session]\ncommand = "%s"\n' "$NOCTALIA_GREETER_SESSION_BIN" >"$NOCTALIA_GREETD_CONFIG"
-  run verify_noctalia_greeter
+  # Without the greeter group membership and cache symlinks, verify fails.
+  run verify_dms_greeter
   [ "$status" -ne 0 ]
 
-  noctalia_greetd_config_content >"$NOCTALIA_GREETD_CONFIG"
-  run verify_noctalia_greeter
-  [ "$status" -eq 0 ]
-}
-@test "Noctalia Greeter SELinux fcontext setup is idempotent" {
-  DRY_RUN=0
-  NOCTALIA_GREETER_STATE_DIR="$TEST_ROOT/noctalia-greeter"
-  local current_type=""
-  selinuxenabled() { return 0; }
-  semanage() {
-    if [[ "$*" == "fcontext -l -C" && -n "$current_type" ]]; then
-      printf '%s all files system_u:object_r:%s:s0\n' "$NOCTALIA_GREETER_STATE_DIR(/.*)?" "$current_type"
-    fi
-  }
-  run_cmd_as_root() {
-    if [[ "$*" == "env LC_ALL=C semanage fcontext -l -C" ]]; then
-      printf 'inspect\n' >>"$TEST_ROOT/selinux-root-inspection.log"
-      if [[ -n "$current_type" ]]; then
-        printf '%s all files system_u:object_r:%s:s0\n' "$NOCTALIA_GREETER_STATE_DIR(/.*)?" "$current_type"
-      fi
-      return 0
-    fi
-    printf '%s\n' "$*" >>"$TEST_ROOT/root.log"
-  }
-
-  run_without_bats_debug_trap ensure_noctalia_greeter_selinux_fcontext
-  assert_file_contains "$TEST_ROOT/selinux-root-inspection.log" "inspect"
-  assert_file_contains "$TEST_ROOT/root.log" "semanage fcontext -a -t xdm_var_lib_t $NOCTALIA_GREETER_STATE_DIR(/.*)?"
-
-  : >"$TEST_ROOT/root.log"
-  current_type="xdm_var_lib_t"
-  run_without_bats_debug_trap ensure_noctalia_greeter_selinux_fcontext
-  [ ! -s "$TEST_ROOT/root.log" ]
-
-  current_type="var_lib_t"
-  run_without_bats_debug_trap ensure_noctalia_greeter_selinux_fcontext
-  assert_file_contains "$TEST_ROOT/root.log" "semanage fcontext -m -t xdm_var_lib_t $NOCTALIA_GREETER_STATE_DIR(/.*)?"
-}
-@test "Noctalia Greeter restores and verifies its SELinux state contexts" {
-  DRY_RUN=0
-  NOCTALIA_GREETER_STATE_DIR="$TEST_ROOT/noctalia-greeter"
-  local current_type="xdm_var_lib_t"
-  local context_matches=0
-  selinuxenabled() { return 0; }
-  restorecon() { :; }
-  matchpathcon() {
-    case "$1" in
-      -n)
-        printf 'system_u:object_r:%s:s0\n' "$current_type"
-        ;;
-      -V)
-        return "$context_matches"
-        ;;
-    esac
-  }
-  run_cmd_as_root() {
-    printf '%s\n' "$*" >>"$TEST_ROOT/root.log"
-  }
-
-  run_without_bats_debug_trap restore_noctalia_greeter_selinux_context
-  assert_file_contains "$TEST_ROOT/root.log" "restorecon -RF $NOCTALIA_GREETER_STATE_DIR"
-
-  run verify_noctalia_greeter_selinux_context
+  # A recorded user-sync skip is accepted in place of the sync state.
+  dms_greeter_skip_user_sync "user config skipped"
+  run verify_dms_greeter
   [ "$status" -eq 0 ]
 
-  current_type="var_lib_t"
-  run verify_noctalia_greeter_selinux_context
-  [ "$status" -ne 0 ]
-
-  current_type="xdm_var_lib_t"
-  context_matches=1
-  run verify_noctalia_greeter_selinux_context
-  [ "$status" -ne 0 ]
-}
-@test "Noctalia Greeter SELinux setup skips cleanly when SELinux is disabled" {
-  DRY_RUN=0
-  selinuxenabled() { return 1; }
-  run_cmd_as_root() {
-    printf '%s\n' "$*" >>"$TEST_ROOT/root.log"
-  }
-
-  run_without_bats_debug_trap ensure_noctalia_greeter_selinux_fcontext
-  run_without_bats_debug_trap restore_noctalia_greeter_selinux_context
-  [ ! -f "$TEST_ROOT/root.log" ]
-
-  run verify_noctalia_greeter_selinux_context
+  # With group membership and the three cache symlinks, verify passes on
+  # the sync state itself.
+  rm -f "$PLAN_DIR/system-skips.tsv"
+  id() { printf 'dms-user wheel greeter\n'; }
+  mkdir -p "$DMS_GREETER_CACHE_DIR"
+  ln -sfn "$TEST_ROOT/settings.json" "$DMS_GREETER_CACHE_DIR/settings.json"
+  ln -sfn "$TEST_ROOT/session.json" "$DMS_GREETER_CACHE_DIR/session.json"
+  ln -sfn "$TEST_ROOT/colors.json" "$DMS_GREETER_CACHE_DIR/colors.json"
+  run verify_dms_greeter
   [ "$status" -eq 0 ]
 }
-@test "Noctalia Greeter appearance seed stages the managed palette and wallpaper" {
+@test "DMS Greeter action skips user sync with --skip-user-config" {
   build_test_plan
   DRY_RUN=0
-  run_cmd_as_root() {
-    if [[ "$1" == "env" ]]; then
-      shift
-      while [[ "$1" == *=* ]]; do shift; done
-    fi
-    printf 'root:%s\n' "$*" >>"$TEST_ROOT/root.log"
-    if [[ "$1" == "noctalia-greeter-apply-appearance" && -d "${2:-}" ]]; then
-      cp "$2/appearance.json" "$TEST_ROOT/appearance.json"
-      cp "$2"/wallpaper.* "$TEST_ROOT/"
-    fi
-  }
-
-  run_without_bats_debug_trap seed_noctalia_greeter_appearance
-
-  assert_file_contains "$TEST_ROOT/root.log" "noctalia-greeter-apply-appearance"
-  [ -s "$TEST_ROOT/appearance.json" ]
-
-  # The staged manifest mirrors the managed palette exactly and satisfies the
-  # greeter contract: version 1 and sixteen non-null snake_case palette keys.
-  local palette_file="$ROOT_DIR/dotfiles/noctalia/.config/noctalia/palettes/catppuccin-mocha-blue.json"
-  assert_equal "1" "$(jq -r '.version' "$TEST_ROOT/appearance.json")"
-  assert_equal "dark" "$(jq -r '.theme_mode' "$TEST_ROOT/appearance.json")"
-  assert_equal "16" "$(jq -r '[.palette | to_entries[] | select(.value | type == "string")] | length' "$TEST_ROOT/appearance.json")"
-  assert_equal "$(jq -r '.dark.mPrimary' "$palette_file")" "$(jq -r '.palette.primary' "$TEST_ROOT/appearance.json")"
-  assert_equal "$(jq -r '.dark.mSurface' "$palette_file")" "$(jq -r '.palette.surface' "$TEST_ROOT/appearance.json")"
-  assert_equal "$(jq -r '.dark.mOnSurfaceVariant' "$palette_file")" "$(jq -r '.palette.on_surface_variant' "$TEST_ROOT/appearance.json")"
-
-  # The wallpaper is staged from the bundled assets and referenced at its
-  # installed location inside the greeter state directory.
-  local wallpaper_path
-  wallpaper_path="$(jq -r '.wallpaper.path' "$TEST_ROOT/appearance.json")"
-  assert_equal "/var/lib/noctalia-greeter" "$(dirname "$wallpaper_path")"
-  [ -s "$TEST_ROOT/$(basename "$wallpaper_path")" ]
-}
-@test "Noctalia Greeter appearance seed skips gracefully instead of failing the install" {
-  build_test_plan
-  DRY_RUN=0
-  run_cmd_as_root() {
-    printf 'root:%s\n' "$*" >>"$TEST_ROOT/root.log"
-  }
-
-  # --skip-user-config keeps the greeter's own defaults and records the skip.
   SKIP_USER_CONFIG=1
-  run_without_bats_debug_trap seed_noctalia_greeter_appearance
-  SKIP_USER_CONFIG=0
+  DMS_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
+  dms_greetd_config_content >"$DMS_GREETD_CONFIG"
+  detect_enabled_display_manager() { return 1; }
+  install_dms_greeter_package() { return 0; }
+  fedora_service_exists() { return 0; }
+  command() {
+    [[ "$1" == "-v" && "${2:-}" == "dms-greeter" ]] && return 0
+    builtin command "$@"
+  }
+  prepare_dms_greeter_access() { printf 'unexpected-access\n'; }
+  prepare_dms_greeter_cache() { printf 'unexpected-cache\n'; }
+  stage_dms_greeter_theme_sync() { printf 'unexpected-sync\n'; }
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*"
+  }
 
-  [ ! -f "$TEST_ROOT/root.log" ]
-  # The skip is recorded, which is what verification accepts in place of
-  # the manifest.
-  noctalia_greeter_appearance_seed_skipped
-  assert_file_contains "$PLAN_DIR/system-skips.tsv" 'noctalia-greeter-appearance'
+  run install_dms_greeter
+
+  [ "$status" -eq 0 ]
+  refute_contains "$output" "unexpected-access"
+  refute_contains "$output" "unexpected-cache"
+  refute_contains "$output" "unexpected-sync"
+  assert_tsv_row "$PLAN_DIR/system-skips.tsv" $'action\tdms-greeter-user-sync\tuser config skipped'
+  assert_contains "$output" "root:systemctl enable --force greetd.service"
 }
 @test "required base package failure aborts base setup before service work" {
   build_test_plan
@@ -301,74 +351,61 @@ setup() {
   refute_contains "$output" "unexpected-service-check"
   refute_contains "$output" "unexpected-cmd"
 }
-@test "existing display manager skips Noctalia Greeter action" {
+@test "existing display manager skips DMS Greeter action" {
   build_test_plan
   DRY_RUN=0
 
   detect_enabled_display_manager() {
     printf 'gdm.service\n'
   }
-  package_install_idempotent() {
-    local backend="$1"
-    shift
-    printf 'install:%s:%s\n' "$backend" "$*"
-    return 0
+  install_dms_greeter_package() {
+    printf 'install:dms-greeter\n'
   }
   run_cmd_as_root() {
     printf 'cmd:%s\n' "$*"
   }
 
-  run install_noctalia_greeter
+  run install_dms_greeter
 
   [ "$status" -eq 0 ]
-  assert_tsv_row "$PLAN_DIR/system-skips.tsv" $'action\tnoctalia-greeter\texisting display manager: gdm.service'
+  assert_tsv_row "$PLAN_DIR/system-skips.tsv" $'action\tdms-greeter\texisting display manager: gdm.service'
   refute_contains "$output" "install:"
   refute_contains "$output" "cmd:"
 }
-@test "existing managed greetd reconciles Noctalia Greeter SELinux state before skipping setup" {
+@test "existing managed greetd re-runs the idempotent DMS Greeter setup" {
   build_test_plan
   DRY_RUN=0
-  NOCTALIA_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
-  NOCTALIA_GREETER_STATE_DIR="$TEST_ROOT/noctalia-greeter"
-  local verification_status=0
-  mkdir -p "$NOCTALIA_GREETER_STATE_DIR"
-  printf '{}\n' >"$NOCTALIA_GREETER_STATE_DIR/greeter.toml"
-  noctalia_greetd_config_content >"$NOCTALIA_GREETD_CONFIG"
+  DMS_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
+  DMS_GREETER_CACHE_DIR="$TEST_ROOT/dms-greeter-cache"
+  dms_greetd_config_content >"$DMS_GREETD_CONFIG"
 
   detect_enabled_display_manager() {
     printf 'greetd.service\n'
   }
-  ensure_noctalia_greeter_selinux_fcontext() {
-    printf 'selinux:ensure\n'
+  install_dms_greeter_package() {
+    printf 'install:dms-greeter\n'
   }
-  restore_noctalia_greeter_selinux_context() {
-    printf 'selinux:restore\n'
+  fedora_service_exists() { return 0; }
+  command() {
+    [[ "$1" == "-v" && "${2:-}" == "dms-greeter" ]] && return 0
+    builtin command "$@"
   }
-  verify_noctalia_greeter_selinux_context() {
-    printf 'selinux:verify\n'
-    return "$verification_status"
-  }
-  package_install_idempotent() {
-    printf 'unexpected-install:%s\n' "$*"
-  }
+  prepare_dms_greeter_access() { printf 'access:prepared\n'; }
+  prepare_dms_greeter_cache() { printf 'cache:prepared\n'; }
+  stage_dms_greeter_theme_sync() { printf 'sync:staged\n'; }
   run_cmd_as_root() {
-    printf 'unexpected-cmd:%s\n' "$*"
+    printf 'cmd:%s\n' "$*"
   }
 
-  run install_noctalia_greeter
+  run install_dms_greeter
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" "selinux:ensure"
-  assert_contains "$output" "selinux:restore"
-  assert_contains "$output" "selinux:verify"
-  assert_tsv_row "$PLAN_DIR/system-skips.tsv" $'action\tnoctalia-greeter\texisting display manager: greetd.service'
-  refute_contains "$output" "unexpected-install:"
-  refute_contains "$output" "unexpected-cmd:"
-
-  verification_status=1
-  run install_noctalia_greeter
-  [ "$status" -ne 0 ]
-  assert_contains "$output" "state does not have the required SELinux context"
+  assert_contains "$output" "install:dms-greeter"
+  assert_contains "$output" "access:prepared"
+  assert_contains "$output" "cache:prepared"
+  assert_contains "$output" "sync:staged"
+  assert_contains "$output" "cmd:systemctl enable --force greetd.service"
+  [[ ! -f "$PLAN_DIR/system-skips.tsv" ]] || refute_file_contains "$PLAN_DIR/system-skips.tsv" 'dms-greeter'
 }
 @test "missing required service retries owning package before failing" {
   build_test_plan

@@ -1,0 +1,8 @@
+id = "copr:avengemedia/dms"
+kind = "copr"
+label = "COPR: avengemedia/dms"
+project = "avengemedia/dms"
+required = true
+description = "DMS (DankMaterialShell) stable Fedora COPR"
+gpg_policy = "copr-plugin"
+reason = "Provides the DMS shell package for the required base desktop"

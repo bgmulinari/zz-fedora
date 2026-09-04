@@ -95,7 +95,7 @@
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="halign">start</property>
-                        <property name="label" translatable="yes">Full selects the desktop app catalog defaults. Minimal keeps the Niri and Noctalia baseline and leaves desktop apps unselected.</property>
+                        <property name="label" translatable="yes">Full selects the desktop app catalog defaults. Minimal keeps the Niri and DMS baseline and leaves desktop apps unselected.</property>
                         <property name="wrap">True</property>
                         <property name="xalign">0</property>
                         <style>

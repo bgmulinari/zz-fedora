@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# Replace the marker-delimited ZZ palette block in the user-owned Starship
+# configuration with the palette DMS just rendered. Runs as the post-hook
+# of the ZZ matugen drop-in; everything outside the markers is preserved,
+# and a configuration without the markers is left untouched (removing them
+# is how a user opts out of the sync).
+
+palette_file="${XDG_CACHE_HOME:-$HOME/.cache}/DankMaterialShell/starship-palette.toml"
+config_file="${XDG_CONFIG_HOME:-$HOME/.config}/starship.toml"
+config_target="$config_file"
+
+start_marker='# >>> ZZ STARSHIP PALETTE >>>'
+end_marker='# <<< ZZ STARSHIP PALETTE <<<'
+
+[[ -s "$palette_file" && -f "$config_file" ]] || exit 0
+grep -Fxq "$start_marker" "$palette_file" || exit 0
+grep -Fxq "$end_marker" "$palette_file" || exit 0
+grep -Fxq "$start_marker" "$config_file" || exit 0
+grep -Fxq "$end_marker" "$config_file" || exit 0
+
+if [[ -L "$config_file" ]]; then
+  config_target="$(readlink -f -- "$config_file")"
+  [[ -f "$config_target" ]] || exit 1
+fi
+
+temp_file="$(mktemp "${config_target}.XXXXXX")"
+trap 'rm -f "$temp_file"' EXIT
+awk -v start="$start_marker" -v end="$end_marker" -v palette="$palette_file" '
+  $0 == start {
+    while ((getline line < palette) > 0) {
+      print line
+    }
+    close(palette)
+    skipping = 1
+    next
+  }
+  $0 == end {
+    skipping = 0
+    next
+  }
+  !skipping { print }
+' "$config_target" >"$temp_file"
+
+# Refuse to install a truncated result (for example a palette render that
+# lost its content): the block must still be present and non-empty.
+if ! grep -Fxq "$start_marker" "$temp_file" ||
+  ! grep -Eq '^\[palettes\.zz\]' "$temp_file"; then
+  exit 1
+fi
+
+chmod --reference="$config_target" "$temp_file"
+mv "$temp_file" "$config_target"
+trap - EXIT

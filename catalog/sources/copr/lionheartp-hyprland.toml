@@ -1,8 +1,0 @@
-id = "copr:lionheartp/Hyprland"
-kind = "copr"
-label = "COPR: lionheartp/Hyprland"
-project = "lionheartp/Hyprland"
-required = true
-description = "Noctalia Greeter and patched Qt integration Fedora COPR"
-gpg_policy = "copr-plugin"
-reason = "Provides Noctalia Greeter and qt6ct-kde for the required base desktop"

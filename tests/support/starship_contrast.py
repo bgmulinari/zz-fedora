@@ -1,33 +1,18 @@
 #!/usr/bin/env python3
-"""Validate the managed Starship prompt against Noctalia terminal palettes."""
+"""Validate the managed Starship prompt against its static ZZ palette."""
 
 from __future__ import annotations
 
-import csv
-import json
 import re
 import sys
 import tomllib
 from pathlib import Path
 
-
 MIN_CONTRAST = 4.0
 MIN_ADJACENT_CONTRAST = 1.1
 MIN_ADJACENT_DISTANCE = 0.25
-REPRESENTATIVE_PALETTE = "Catppuccin"
+PALETTE_NAME = "zz"
 EXPECTED_BACKGROUND_TOKENS = ["text", "blue", "yellow", "blue", "green"]
-EXPECTED_PALETTES = {
-    "Ayu",
-    "Catppuccin",
-    "Dracula",
-    "Eldritch",
-    "Gruvbox",
-    "Kanagawa",
-    "Noctalia",
-    "Nord",
-    "Rosé Pine",
-    "Tokyo-Night",
-}
 
 SECTION_GROUPS = [
     ("identity", [("os", "style"), ("username", "style_user"), ("username", "style_root")]),
@@ -91,7 +76,7 @@ def load_group_styles(config: dict) -> list[tuple[str, str, str]]:
 
     backgrounds = [bg for _, _, bg in groups]
     if backgrounds != EXPECTED_BACKGROUND_TOKENS:
-        fail(f"Starship section backgrounds must follow Noctalia tokens {EXPECTED_BACKGROUND_TOKENS}, got: {backgrounds}")
+        fail(f"Starship section backgrounds must follow palette tokens {EXPECTED_BACKGROUND_TOKENS}, got: {backgrounds}")
     for left, right in zip(groups, groups[1:]):
         if left[2] == right[2]:
             fail(f"adjacent Starship section backgrounds must be distinct, got {left[0]}->{right[0]} both using {left[2]}")
@@ -99,135 +84,19 @@ def load_group_styles(config: dict) -> list[tuple[str, str, str]]:
     return groups
 
 
-def require_str(table: dict, key: str, context: str) -> str:
-    value = table.get(key)
-    if not isinstance(value, str) or not value:
-        fail(f"{context} must declare {key}, got {value!r}")
-    return value
+def load_palette(config: dict) -> dict[str, str]:
+    if config.get("palette") != PALETTE_NAME:
+        fail(f"Starship template must select palette {PALETTE_NAME!r}, got {config.get('palette')!r}")
 
+    palettes = config.get("palettes")
+    if not isinstance(palettes, dict) or not isinstance(palettes.get(PALETTE_NAME), dict):
+        fail(f"missing Starship [palettes.{PALETTE_NAME}] table")
 
-def custom_palette_row(config_path: Path, palette_name: str, mode: str) -> dict[str, str]:
-    palette_path = config_path.parent / "palettes" / f"{palette_name}.json"
-    if not palette_path.is_file():
-        fail(f"managed Noctalia custom palette does not exist: {palette_path}")
-
-    root = json.loads(palette_path.read_text())
-    if not isinstance(root, dict):
-        fail(f"custom palette must be a JSON object: {palette_path}")
-
-    mode_table = root.get(mode)
-    if mode_table is None and mode == "light":
-        mode_table = root.get("dark")
-    if not isinstance(mode_table, dict):
-        fail(f"custom palette {palette_name!r} must include a {mode!r} object")
-
-    terminal = mode_table.get("terminal")
-    if not isinstance(terminal, dict):
-        fail(f"custom palette {palette_name!r} must include terminal colors")
-
-    normal = terminal.get("normal")
-    bright = terminal.get("bright")
-    if not isinstance(normal, dict) or not isinstance(bright, dict):
-        fail(f"custom palette {palette_name!r} must include terminal normal and bright color maps")
-
-    row = {
-        "palette": palette_name,
-        "mode": mode,
-        "foreground": require_str(terminal, "foreground", f"custom palette {palette_name!r} terminal"),
-        "background": require_str(terminal, "background", f"custom palette {palette_name!r} terminal"),
-        "selection_fg": require_str(terminal, "selectionFg", f"custom palette {palette_name!r} terminal"),
-        "selection_bg": require_str(terminal, "selectionBg", f"custom palette {palette_name!r} terminal"),
-        "cursor_text": require_str(terminal, "cursorText", f"custom palette {palette_name!r} terminal"),
-        "cursor": require_str(terminal, "cursor", f"custom palette {palette_name!r} terminal"),
-    }
-
-    for color_name in ("black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"):
-        row[color_name] = require_str(normal, color_name, f"custom palette {palette_name!r} terminal.normal")
-        row[f"bright_{color_name}"] = require_str(
-            bright, color_name, f"custom palette {palette_name!r} terminal.bright"
-        )
-
-    return row
-
-
-def load_custom_palette_rows(config_path: Path) -> list[dict[str, str]]:
-    palette_dir = config_path.parent / "palettes"
-    return [
-        custom_palette_row(config_path, path.stem, mode)
-        for path in sorted(palette_dir.glob("*.json"))
-        for mode in ("dark", "light")
-    ]
-
-
-def load_managed_theme(config_path: Path) -> tuple[str, set[str], list[dict[str, str]]]:
-    config = tomllib.loads(config_path.read_text())
-    theme = config.get("theme", {})
-    mode = theme.get("mode")
-    if mode != "dark":
-        fail(f"fixture covers the managed dark prompt only, got theme.mode={mode!r}")
-
-    custom_rows = load_custom_palette_rows(config_path)
-    palette_names = {row["palette"] for row in custom_rows}
-    palette_names.add(REPRESENTATIVE_PALETTE)
-
-    source = theme.get("source")
-    if source == "builtin":
-        builtin = require_str(theme, "builtin", "managed Noctalia config")
-        palette_names.add(builtin)
-        return mode, palette_names, custom_rows
-    if source == "custom":
-        custom_palette = require_str(theme, "custom_palette", "managed Noctalia config")
-        if custom_palette not in palette_names:
-            fail(f"managed Noctalia custom palette does not exist: {custom_palette!r}")
-        return mode, palette_names, custom_rows
-
-    fail(f"managed Noctalia config must use a builtin or custom palette source, got {source!r}")
-
-
-def load_fixture(fixture_path: Path, mode: str) -> list[dict[str, str]]:
-    with fixture_path.open(newline="") as handle:
-        rows = [row for row in csv.DictReader(handle, delimiter="\t") if row["mode"] == mode]
-
-    palettes = {row["palette"] for row in rows}
-    if palettes != EXPECTED_PALETTES:
-        fail(f"fixture palette set mismatch: expected {sorted(EXPECTED_PALETTES)}, got {sorted(palettes)}")
-
-    return rows
-
-
-def resolve_starship_palette(row: dict[str, str]) -> dict[str, str]:
-    return {
-        "blue": row["blue"],
-        "red": row["red"],
-        "green": row["green"],
-        "yellow": row["yellow"],
-        "cyan": row["cyan"],
-        "magenta": row["magenta"],
-        "white": row["white"],
-        "black": row["black"],
-        "rosewater": row["bright_yellow"],
-        "flamingo": row["bright_red"],
-        "pink": row["bright_magenta"],
-        "mauve": row["magenta"],
-        "maroon": row["bright_red"],
-        "peach": row["bright_yellow"],
-        "teal": row["cyan"],
-        "sky": row["bright_cyan"],
-        "sapphire": row["bright_blue"],
-        "lavender": row["bright_magenta"],
-        "text": row["foreground"],
-        "subtext1": row["white"],
-        "subtext0": row["bright_black"],
-        "overlay2": row["bright_black"],
-        "overlay1": row["bright_black"],
-        "overlay0": row["black"],
-        "surface2": row["black"],
-        "surface1": row["black"],
-        "surface0": row["background"],
-        "base": row["background"],
-        "mantle": row["background"],
-        "crust": row["background"],
-    }
+    palette = palettes[PALETTE_NAME]
+    for token, value in palette.items():
+        if not isinstance(value, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+            fail(f"palette token {token} must be #rrggbb, got {value!r}")
+    return palette
 
 
 def rgb(hex_color: str) -> tuple[float, float, float]:
@@ -316,55 +185,46 @@ def validate_separators(config: dict, groups: list[tuple[str, str, str]]) -> Non
         fail(f"right prompt cap must use {backgrounds['time']}, got {end.group(1) if end else 'missing'}")
 
 
-def validate_contrast(rows: list[dict[str, str]], groups: list[tuple[str, str, str]], palette_names: set[str]) -> None:
+def validate_contrast(palette: dict[str, str], groups: list[tuple[str, str, str]]) -> None:
     failures = []
-    for row in rows:
-        if row["palette"] not in palette_names:
-            continue
-        palette = resolve_starship_palette(row)
-        terminal_background = resolve_color(palette, "surface0")
-        resolved_backgrounds = []
-        for group_name, foreground, background in groups:
-            foreground_hex = resolve_color(palette, foreground)
-            background_hex = resolve_color(palette, background)
-            resolved_backgrounds.append((group_name, background, background_hex))
-            text_ratio = contrast(foreground_hex, background_hex)
-            terminal_ratio = contrast(background_hex, terminal_background)
-            if text_ratio < MIN_CONTRAST or terminal_ratio < MIN_CONTRAST:
-                failures.append(
-                    f"{row['palette']} {row['mode']} {group_name}: "
-                    f"text={text_ratio:.2f}:1 terminal={terminal_ratio:.2f}:1 "
-                    f"fg {foreground}={foreground_hex} bg {background}={background_hex} terminal={terminal_background}"
-                )
+    terminal_background = resolve_color(palette, "surface0")
+    resolved_backgrounds = []
+    for group_name, foreground, background in groups:
+        foreground_hex = resolve_color(palette, foreground)
+        background_hex = resolve_color(palette, background)
+        resolved_backgrounds.append((group_name, background, background_hex))
+        text_ratio = contrast(foreground_hex, background_hex)
+        terminal_ratio = contrast(background_hex, terminal_background)
+        if text_ratio < MIN_CONTRAST or terminal_ratio < MIN_CONTRAST:
+            failures.append(
+                f"{group_name}: text={text_ratio:.2f}:1 terminal={terminal_ratio:.2f}:1 "
+                f"fg {foreground}={foreground_hex} bg {background}={background_hex} terminal={terminal_background}"
+            )
 
-        for left, right in zip(resolved_backgrounds, resolved_backgrounds[1:]):
-            adjacent_ratio = contrast(left[2], right[2])
-            adjacent_distance = color_distance(left[2], right[2])
-            if adjacent_ratio < MIN_ADJACENT_CONTRAST and adjacent_distance < MIN_ADJACENT_DISTANCE:
-                failures.append(
-                    f"{row['palette']} {row['mode']} {left[0]}->{right[0]} boundary: "
-                    f"adjacent={adjacent_ratio:.2f}:1 distance={adjacent_distance:.2f} "
-                    f"{left[1]}={left[2]} {right[1]}={right[2]}"
-                )
+    for left, right in zip(resolved_backgrounds, resolved_backgrounds[1:]):
+        adjacent_ratio = contrast(left[2], right[2])
+        adjacent_distance = color_distance(left[2], right[2])
+        if adjacent_ratio < MIN_ADJACENT_CONTRAST and adjacent_distance < MIN_ADJACENT_DISTANCE:
+            failures.append(
+                f"{left[0]}->{right[0]} boundary: "
+                f"adjacent={adjacent_ratio:.2f}:1 distance={adjacent_distance:.2f} "
+                f"{left[1]}={left[2]} {right[1]}={right[2]}"
+            )
 
     if failures:
         fail("Starship prompt contrast failures:\n" + "\n".join(failures))
 
 
 def main() -> None:
-    if len(sys.argv) != 4:
-        fail("usage: starship_contrast.py <starship.toml> <palette-fixture.tsv> <noctalia-config.toml>")
+    if len(sys.argv) != 2:
+        fail("usage: starship_contrast.py <starship.toml>")
 
     starship_path = Path(sys.argv[1])
-    fixture_path = Path(sys.argv[2])
-    noctalia_config_path = Path(sys.argv[3])
-
-    mode, palette_names, extra_rows = load_managed_theme(noctalia_config_path)
     starship_config = tomllib.loads(starship_path.read_text())
     groups = load_group_styles(starship_config)
     validate_separators(starship_config, groups)
-    rows = load_fixture(fixture_path, mode)
-    validate_contrast(rows + extra_rows, groups, palette_names)
+    palette = load_palette(starship_config)
+    validate_contrast(palette, groups)
 
 
 if __name__ == "__main__":

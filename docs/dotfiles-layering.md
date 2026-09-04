@@ -45,7 +45,8 @@ live ZZ defaults first and a user override last:
 | Surface | User-owned entrypoint or override | ZZ-managed default |
 | --- | --- | --- |
 | Niri | `~/.config/niri/config.kdl`, plus optional `~/.config/niri/local.kdl` | `dotfiles/niri/.config/niri/defaults.kdl` and its `cfg/` includes |
-| Noctalia | `~/.config/noctalia/config.toml` and `~/.config/noctalia/conf.d` | `dotfiles/noctalia/.config/noctalia/config.toml`; Settings UI state remains under `~/.local/state/noctalia/` and loads last |
+| Niri keybinds | `~/.config/niri/dms/binds.kdl` (seeded once, then owned by DMS Settings → Keybinds) | `templates/niri/dms-binds.kdl` |
+| DMS | `~/.config/DankMaterialShell/settings.json` (seeded once, then owned by the Settings UI) | `dotfiles/dms/.config/DankMaterialShell/themes/catppuccin/theme.json`, linked as the selected registry theme; session state stays under `~/.local/state/DankMaterialShell/` |
 | Ghostty | `~/.config/ghostty/config` and optional `~/.config/ghostty/local` | `dotfiles/ghostty/.config/ghostty/config`, linked as `~/.config/ghostty/zz-defaults` |
 | Fastfetch | `~/.config/fastfetch/config.jsonc` | `dotfiles/fastfetch/.config/fastfetch/zz-fedora.txt`, linked into the Fastfetch config directory |
 | Bash | `~/.bashrc` and `~/.shellrc.d/` | `dotfiles/shell/.bashrc`; selected product integrations are linked under `~/.config/zz-fedora/shell.d/` |
@@ -58,9 +59,16 @@ integration directory, and each fragment also checks for its corresponding
 command before enabling anything.
 
 Hardware-specific and generated values stay in user or state files. For
-example, Niri display settings are seeded from
-`templates/niri/display.kdl`, while Noctalia-generated monitor and widget state
-stays out of the repository.
+example, Niri display settings live in the DMS-managed
+`~/.config/niri/dms/outputs.kdl`, and DMS-generated monitor and widget
+state stays out of the repository.
+
+Niri keybinds are seeded rather than linked because DMS both reads and
+writes `~/.config/niri/dms/binds.kdl`: it is the only niri file
+Settings → Keybinds parses, so binds kept in the product `cfg/` tree
+would not appear in the UI at all. The trade is that updated keybind
+defaults reach an existing install only through
+`zz refresh niri/dms/binds.kdl`.
 
 ## Resetting a user-owned file
 
@@ -89,5 +97,65 @@ because updating `~/.zz` already refreshes them.
 5. Add focused planner and apply tests for preservation, backup, and link
    behavior.
 
-Use the `promote-noctalia-config` skill for Noctalia Settings UI changes so
-portable defaults are promoted without committing hardware-specific state.
+## Promoting a DMS Settings change into the baseline
+
+The portable seed values live in `templates/dms/settings-seed.json` and
+`templates/dms/session-seed.json`. `lib/dms.sh` overlays the keys that render
+to absolute paths (`customThemeFile`, `iconThemeDark`, `iconThemeLight`, and
+`wallpaperPath`) from `dms_theme_file`, `dms_icon_theme`, and
+`dms_default_wallpaper`, which remain the single source for those facts.
+
+Change something in the DMS Settings UI, then:
+
+```bash
+scripts/dms-seed-diff.sh                 # list what moved
+scripts/dms-seed-diff.sh --apply         # live -> seed, keep it as a default
+scripts/dms-seed-diff.sh --reset         # seed -> live, throw the change away
+scripts/dms-seed-diff.sh --apply cornerRadius showDock
+```
+
+`--apply` and `--reset` are the two directions of the same report and cannot
+be combined. `--reset` writes the live DMS files, so it backs each one up as
+`<file>.bak.<epoch>` and then restarts `dms.service`. That restart is required
+rather than cosmetic: DMS holds its settings in memory and rewrites the file
+on any later change, so an unrestarted shell would quietly undo the reset. The
+`dms ipc call settings set` path is not usable here — it rejects objects and
+arrays outright, and it assigns without running the `onChange` hooks, so
+compositor fragments such as `dms/layout.kdl` would not be regenerated. Pass
+`--no-restart` when DMS is not the running session and `--yes` to skip the
+confirmation prompt.
+
+A key the report lists as `not in the seed, changed from the DMS default`
+resets to the DMS default, not to a ZZ value. Keys the report does not mention
+are never touched in either direction.
+
+Changing the icon theme or the wallpaper is reported too, but as a key
+`lib/dms.sh` renders rather than one a seed file holds: the report names the
+helper to edit (`dms_icon_theme`, `dms_default_wallpaper`, `dms_theme_file`)
+and `--apply` never writes an absolute host path into a seed.
+Other DMS file selectors, such as custom logo, keymap, lock-screen, per-mode
+wallpaper, and wallpaper-cycling paths, are excluded from automatic promotion.
+Add an intentional product asset under the managed defaults and wire it into
+the seed or helper explicitly instead of capturing a live home-directory path.
+
+Keybinds are compared too, against `templates/niri/dms-binds.kdl`. Both sides
+are parsed by `dms keybinds show` rather than diffed as text, because DMS
+rewrites the fragment on the first UI edit — re-sorting binds and dropping the
+seed's comments — so a textual diff would report churn forever. Only the
+changed binds are spliced, line by line, so the seed keeps its comments,
+grouping, and ordering — promoting one rebind must not reflow the file into
+DMS's sorted, comment-free layout. `--reset` needs no shell restart for
+keybinds, as niri watches its own config.
+
+DMS 1.6 persists sparse state: a key absent from `settings.json` or
+`session.json` inherits its specification default. The script resolves the
+runtime-extracted shell through `dms doctor --json`, reads that revision's own
+`Common/settings/*Spec.js`, and compares the effective live value rather than
+calling an omitted default-valued key stale. It also compares structured
+settings field by field so promoting one bar property does not freeze the
+whole backfilled bar schema into the seed. Machine-specific and runtime keys —
+monitor layouts, GPU and device identity, location data, transient idle state,
+launcher history, and sidebar state — are excluded and can never be promoted;
+see `EXCLUDED` in `lib/dms_seed_diff.py`.
+
+It exits non-zero while differences remain, so it can gate a check.

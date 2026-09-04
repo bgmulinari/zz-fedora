@@ -1,5 +1,5 @@
 "$schema" = "https://starship.rs/config-schema.json"
-palette = "noctalia"
+palette = "zz"
 
 format = """
 [](text)\
@@ -223,8 +223,8 @@ vimcmd_replace_one_symbol = '[](bold fg:green)'
 vimcmd_replace_symbol = '[](bold fg:green)'
 vimcmd_visual_symbol = '[](bold fg:yellow)'
 
-# >>> NOCTALIA STARSHIP PALETTE >>>
-[palettes.noctalia]
+# >>> ZZ STARSHIP PALETTE >>>
+[palettes.zz]
 blue = "#89b4fa"
 red = "#f38ba8"
 green = "#a6e3a1"
@@ -255,4 +255,4 @@ surface0 = "#313244"
 base = "#1e1e2e"
 mantle = "#181825"
 crust = "#11111b"
-# <<< NOCTALIA STARSHIP PALETTE <<<
+# <<< ZZ STARSHIP PALETTE <<<

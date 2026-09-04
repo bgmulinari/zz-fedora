@@ -16,25 +16,23 @@ zsh	~/.zprofile	product-link	backup-before-link	dotfiles/zsh/.zprofile	zsh	Links
 environment	/usr/lib/environment.d/10-zz-desktop.conf	system-file	regenerate	dotfiles/environment/.config/environment.d/10-zz-desktop.conf	-	Installs the ZZ-managed desktop session environment.
 portals	/etc/xdg/xdg-desktop-portal/niri-portals.conf	system-file	regenerate	dotfiles/portals/.config/xdg-desktop-portal/niri-portals.conf	-	Installs the ZZ-managed desktop portal preference map.
 niri	~/.config/niri/config.kdl	seed-if-missing	preserve	dotfiles/niri/.config/niri/config.kdl	niri	Seeds the user-owned Niri entrypoint over the live ZZ defaults.
-niri	~/.config/niri/cfg/display.kdl	seed-if-missing	preserve	templates/niri/display.kdl	niri	Seeds hardware-specific Niri display configuration.
-niri	~/.config/niri/noctalia.kdl	seed-if-missing	preserve	templates/niri/noctalia.kdl	niri	Seeds the generated Noctalia Niri theme include.
+niri	~/.config/niri/dms/colors.kdl	seed-if-missing	preserve	templates/niri/dms-colors.kdl	niri	Seeds the generated DMS Niri theme include.
+niri	~/.config/niri/dms/binds.kdl	seed-if-missing	preserve	templates/niri/dms-binds.kdl	niri	Seeds the ZZ keybind defaults into the DMS-editable Niri binds include.
 ghostty	~/.config/ghostty/config	seed-if-missing	preserve	templates/ghostty/config	ghostty	Seeds the user-owned Ghostty entrypoint.
 ghostty	~/.config/ghostty/zz-defaults	product-link	backup-before-link	dotfiles/ghostty/.config/ghostty/config	ghostty	Links Ghostty to the live ZZ defaults.
 ghostty	~/.config/ghostty/shaders/cursor_tail.glsl	product-link	backup-before-link	dotfiles/ghostty/.config/ghostty/shaders/cursor_tail.glsl	ghostty	Links the managed Ghostty shader.
-ghostty	~/.config/ghostty/themes/noctalia	seed-if-missing	preserve	templates/ghostty/noctalia	ghostty	Seeds a fallback theme until Noctalia regenerates it.
-noctalia	~/.config/noctalia/config.toml	seed-if-missing	preserve	templates/noctalia/config.toml	noctalia	Seeds the user-owned Noctalia include entrypoint.
-noctalia	~/.config/noctalia/conf.d	directory	preserve	-	noctalia	Provides a user-owned Noctalia override directory.
-noctalia	~/.config/noctalia/palettes/catppuccin-mocha-blue.json	product-link	backup-before-link	dotfiles/noctalia/.config/noctalia/palettes/catppuccin-mocha-blue.json	noctalia	Links the managed Noctalia palette.
-noctalia	~/.config/noctalia/palettes/fedora.json	product-link	backup-before-link	dotfiles/noctalia/.config/noctalia/palettes/fedora.json	noctalia	Links the managed Fedora palette.
-noctalia	~/.config/noctalia/templates/ghostty	product-link	backup-before-link	dotfiles/noctalia/.config/noctalia/templates/ghostty	noctalia	Links the managed Ghostty color template.
-noctalia	~/.config/noctalia/templates/icon-theme-accent	product-link	backup-before-link	dotfiles/noctalia/.config/noctalia/templates/icon-theme-accent	noctalia	Links the managed icon-accent template.
-noctalia	~/.local/bin/noctalia-reload-ghostty	product-link	backup-before-link	dotfiles/noctalia/.local/bin/noctalia-reload-ghostty	noctalia	Links the Ghostty reload helper.
-noctalia	~/.local/bin/noctalia-sync-icon-theme	product-link	backup-before-link	dotfiles/noctalia/.local/bin/noctalia-sync-icon-theme	noctalia	Links the icon-theme synchronization helper.
-noctalia	~/.local/share/noctalia/plugins/niri-outputs	product-link	backup-before-link	dotfiles/noctalia/.local/share/noctalia/plugins/niri-outputs	noctalia	Links the ZZ-managed Niri outputs plugin.
-noctalia	~/.local/state/noctalia/.setup-complete	seed-if-missing	preserve	-	noctalia	Marks the Noctalia first-run setup complete.
-noctalia	~/.local/state/noctalia/settings.toml	seed-if-missing	preserve	-	noctalia	Seeds the app-writable Noctalia settings sidecar.
+ghostty	~/.config/ghostty/themes/dankcolors	seed-if-missing	preserve	templates/ghostty/dankcolors	ghostty	Seeds a fallback theme until DMS regenerates it.
+dms	~/.config/DankMaterialShell/settings.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS settings with the managed Catppuccin registry theme.
+dms	~/.local/state/DankMaterialShell/session.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS session state with the managed default wallpaper.
+dms	~/.config/DankMaterialShell/themes/catppuccin/theme.json	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/themes/catppuccin/theme.json	dms	Links the vendored Catppuccin registry theme.
+dms	~/.config/matugen/dms/configs/zz-icon-theme.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-icon-theme.toml	dms	Links the managed icon-accent matugen drop-in.
+dms	~/.local/bin/zz-sync-icon-theme	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-icon-theme	dms	Links the icon-theme synchronization helper.
 starship	~/.config/starship.toml	seed-if-missing	preserve	templates/starship.toml	starship	Seeds a user-owned Starship configuration.
+starship	~/.config/matugen/dms/configs/zz-starship.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-starship.toml	starship	Links the managed Starship-palette matugen drop-in.
+starship	~/.local/bin/zz-sync-starship-palette	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-starship-palette	starship	Links the Starship palette synchronization helper.
 btop	~/.config/btop/btop.conf	seed-if-missing	preserve	dotfiles/btop/.config/btop/btop.conf	btop	Seeds a user-owned btop configuration.
+btop	~/.config/btop/themes/dank.theme	seed-if-missing	preserve	templates/btop/dank.theme	btop	Seeds a fallback btop theme until DMS regenerates it.
+btop	~/.config/matugen/dms/configs/zz-btop.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-btop.toml	btop	Links the managed btop matugen drop-in.
 nvim	~/.local/share/applications/nvim.desktop	product-link	backup-before-link	dotfiles/nvim/.local/share/applications/nvim.desktop	nvim	Links the managed terminal-editor desktop entry.
 vscode	~/.config/Code/User/settings.json	seed-if-missing	preserve	dotfiles/vscode/.config/Code/User/settings.json	code	Seeds user-owned Visual Studio Code settings.
 zed	~/.config/zed/settings.json	seed-if-missing	preserve	dotfiles/zed/.config/zed/settings.json	zed	Seeds user-owned Zed settings.

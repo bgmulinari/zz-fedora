@@ -14,7 +14,7 @@ the network exactly as they are during the bootstrap flow.
 The default profile is `full`: every optional non-browser choice is
 preselected, while Firefox is the only preselected browser and therefore the
 default browser. Both Anaconda UIs also expose the `minimal` desktop app
-profile. It keeps the Niri and Noctalia baseline, suppresses the Desktop
+profile. It keeps the Niri and DMS baseline, suppresses the Desktop
 catalog defaults and full-profile desktop integration units, and still
 allows individual desktop apps to be selected explicitly. Other optional
 catalogs keep their normal defaults in both profiles.
@@ -152,14 +152,13 @@ run their sandboxed apply step inside the chroot, so the installer records them
 on a deferred list in the target user's state directory and `zz first-run`
 installs them in the first login session, retrying on later logins (with a
 bounded attempt budget) if an install fails. First-run session actions keep
-independent completion markers, Noctalia template application is delegated as
-one checkpointed IPC request using the current resolved theme, and the deferred
-Flatpak list removes each successful app independently. Noctalia's checkpoint
-waits for its final managed template acknowledgment instead of treating IPC
-queue acceptance as completion. Plan-dependent checkpoints also carry input
-fingerprints. A retry therefore resumes only unfinished work and cannot reapply
-the completed theme action merely because a Flatpak failed or substitute the
-product-default palette for the user's current Noctalia theme.
+independent completion markers, DMS theme readiness is delegated as one
+checkpointed wait for the shell socket and the generated theme artifacts the
+install consumes, the DMS Greeter per-user profile sync is its own
+checkpoint, and the deferred Flatpak list removes each successful app
+independently. Plan-dependent checkpoints also carry input fingerprints. A
+retry therefore resumes only unfinished work and cannot reapply a completed
+theme action merely because a Flatpak failed.
 
 ## VM Validation
 
@@ -178,7 +177,7 @@ generated ISO boot path for release work.
 The VM harness defaults to the full profile. Pass
 `--desktop-app-profile minimal` to persist a minimal selection through the
 same add-on state and service path. The resulting qcow2 remains in the selected
-work directory for a separate graphical boot and Niri/Noctalia login check.
+work directory for a separate graphical boot and Niri/DMS login check.
 
 The harness builds a VM-only Kickstart ISO, boots the generated ISO's Fedora
 bootloader by default, starts Anaconda in graphical mode over a local QEMU VNC

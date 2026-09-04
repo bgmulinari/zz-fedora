@@ -1,139 +1,167 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-noctalia_template_apply_ack_file() {
-  printf '%s/noctalia-template-apply.done\n' "$CACHE_DIR"
+# A theme artifact counts as generated only once it holds content that is
+# not the static fallback seed: the Ghostty theme is pre-seeded with the
+# same path DMS later overwrites, so bare existence proves nothing there.
+dms_theme_artifact_generated() {
+  local artifact="$1"
+  local seed="$2"
+  [[ -s "$artifact" ]] || return 1
+  [[ -z "$seed" ]] && return 0
+  ! cmp -s "$seed" "$artifact"
 }
 
-noctalia_state_home() {
-  local state_home="${NOCTALIA_STATE_HOME:-${XDG_STATE_HOME:-$TARGET_HOME/.local/state}}"
-  printf '%s/noctalia\n' "${state_home%/}"
-}
+DMS_THEME_MAX_ATTEMPTS=3
 
-noctalia_community_templates_ready() {
-  local effective_config="$1"
-  local state_home
-  state_home="$(noctalia_state_home)"
+# DMS regenerates every enabled matugen template when the shell starts or
+# the theme changes; there is no explicit apply request. Wait for the shell
+# socket to answer, then for the generated theme artifacts this install
+# actually consumes, so first login completes with the terminal and Qt
+# themes in place. The wait retries at the next login on timeout, but only
+# a bounded number of times: a persistently absent artifact degrades to a
+# warning instead of taxing every login, and the doctor checks surface it.
+apply_dms_theme() {
+  local attempt failed_attempts native_plan
+  local -a artifacts=() artifact_seeds=()
 
-  "$SYSTEM_PYTHON" - "$effective_config" "$state_home" <<'PY'
-import json
-import pathlib
-import re
-import sys
-import tomllib
-
-config_path = pathlib.Path(sys.argv[1])
-state_home = pathlib.Path(sys.argv[2])
-
-try:
-    with config_path.open("rb") as config_file:
-        config = tomllib.load(config_file)
-except (OSError, tomllib.TOMLDecodeError):
-    raise SystemExit(1)
-
-templates = config.get("theme", {}).get("templates", {})
-if not templates.get("enable_community_templates", False):
-    raise SystemExit(0)
-
-selected = templates.get("community_ids", [])
-if not isinstance(selected, list) or not all(
-    isinstance(template_id, str) and re.fullmatch(r"[A-Za-z0-9_.-]+", template_id)
-    for template_id in selected
-):
-    raise SystemExit(1)
-if not selected:
-    raise SystemExit(0)
-
-catalog_path = state_home / "community-templates" / "catalog.json"
-try:
-    catalog = json.loads(catalog_path.read_text())
-except (OSError, json.JSONDecodeError):
-    raise SystemExit(1)
-
-if isinstance(catalog, dict):
-    catalog = catalog.get("templates", catalog.get("entries", []))
-if not isinstance(catalog, list):
-    raise SystemExit(1)
-
-catalog_by_id = {
-    entry.get("name", entry.get("id")): entry
-    for entry in catalog
-    if isinstance(entry, dict)
-}
-for template_id in selected:
-    entry = catalog_by_id.get(template_id)
-    if not isinstance(entry, dict):
-        raise SystemExit(1)
-    template_dir = state_home / "community-templates" / template_id
-    if not (template_dir / "template.toml").is_file():
-        raise SystemExit(1)
-    files = entry.get("files", [])
-    if not isinstance(files, list):
-        raise SystemExit(1)
-    for file_entry in files:
-        if not isinstance(file_entry, dict):
-            raise SystemExit(1)
-        relative_name = file_entry.get("name")
-        if not isinstance(relative_name, str):
-            raise SystemExit(1)
-        relative_path = pathlib.PurePosixPath(relative_name)
-        if relative_path.is_absolute() or any(part in ("", ".", "..") for part in relative_path.parts):
-            raise SystemExit(1)
-        if not (template_dir / relative_path).is_file():
-            raise SystemExit(1)
-PY
-}
-
-apply_noctalia_templates() {
-  local attempt
-  local ack_file config_snapshot
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY-RUN: request and await Noctalia template application for the current theme\n'
+    printf 'DRY-RUN: await DMS shell readiness and generated theme artifacts\n'
     return 0
   fi
 
-  # Noctalia owns the effective palette (including Settings UI overrides),
-  # configured template set, and client applicability checks. Its
-  # templates-apply IPC only queues work, so wait for the final managed user
-  # template to acknowledge both the startup pass and the requested pass.
-  ack_file="$(noctalia_template_apply_ack_file)"
-  mkdir -p "$(dirname "$ack_file")"
-  config_snapshot="$(mktemp "${TMPDIR:-/tmp}/zz-noctalia-config.XXXXXX")"
-  log_progress "Waiting for Noctalia template readiness"
+  native_plan="$(package_file_for_backend "$(native_backend)")"
+  plan_has_any_backend_entry "$native_plan" dms || return 0
+
+  failed_attempts="$(first_run_action_attempt_count dms-theme)"
+  if [[ "$failed_attempts" -ge "$DMS_THEME_MAX_ATTEMPTS" ]]; then
+    log_warn "DMS theme generation did not complete after $failed_attempts logins; continuing without waiting (run 'zz doctor' to investigate)"
+    return 0
+  fi
+
+  log_progress "Waiting for the DMS shell"
   for ((attempt = 1; attempt <= 120; attempt++)); do
-    if run_cmd_as_user "$TARGET_USER" noctalia msg color-scheme-get >/dev/null 2>&1 &&
-      [[ -f "$ack_file" ]] &&
-      run_cmd_as_user "$TARGET_USER" noctalia config export full >"$config_snapshot" 2>/dev/null &&
-      noctalia_community_templates_ready "$config_snapshot"; then
-      break
-    fi
+    run_cmd_as_user "$TARGET_USER" dms ipc call wallpaper get >/dev/null 2>&1 && break
     sleep 0.25
   done
   if [[ "$attempt" -gt 120 ]]; then
-    rm -f "$config_snapshot"
-    log_warn "Noctalia templates were not ready; retrying at next login"
+    log_warn "The DMS shell did not answer IPC; retrying at next login"
+    first_run_record_action_attempt dms-theme
     return 1
   fi
 
-  rm -f "$config_snapshot" ||
-    log_warn "Could not remove the Noctalia config snapshot: $config_snapshot"
-  if ! rm -f "$ack_file"; then
-    log_warn "Could not clear the Noctalia template acknowledgment; retrying at next login"
-    return 1
+  if plan_has_any_backend_entry "$native_plan" ghostty; then
+    artifacts+=("$(dms_ghostty_theme_file)")
+    artifact_seeds+=("$ROOT_DIR/templates/ghostty/dankcolors")
   fi
-  log_progress "Requesting Noctalia template application"
-  if ! run_cmd_as_user "$TARGET_USER" noctalia msg templates-apply >/dev/null 2>&1; then
-    log_warn "Noctalia did not accept the template-apply request; retrying at next login"
-    return 1
+  if plan_has_any_backend_entry "$native_plan" qt6ct qt6ct-kde; then
+    artifacts+=("$(dms_qt_color_scheme_file)")
+    artifact_seeds+=("")
+  fi
+  if [[ "${#artifacts[@]}" -eq 0 ]]; then
+    first_run_clear_action_attempts dms-theme
+    return 0
   fi
 
+  log_progress "Waiting for DMS theme generation"
+  local index all_generated
   for ((attempt = 1; attempt <= 120; attempt++)); do
-    [[ -f "$ack_file" ]] && return 0
+    all_generated=1
+    for index in "${!artifacts[@]}"; do
+      dms_theme_artifact_generated "${artifacts[$index]}" "${artifact_seeds[$index]}" || {
+        all_generated=0
+        break
+      }
+    done
+    if [[ "$all_generated" -eq 1 ]]; then
+      first_run_clear_action_attempts dms-theme
+      return 0
+    fi
     sleep 0.25
   done
 
-  log_warn "Noctalia did not finish applying templates; retrying at next login"
+  log_warn "DMS did not finish generating theme files; retrying at next login"
+  first_run_record_action_attempt dms-theme
   return 1
+}
+
+# The Settings "Apply GTK Colors" button is a one-time opt-in: it runs the
+# shell's gtk.sh, which imports the generated dank-colors.css from the
+# user gtk.css files (and links the adw-gtk3 assets); after that every
+# theme change refreshes GTK apps automatically. Run the same script here
+# so GTK/libadwaita apps follow the DMS theme without a manual click. The
+# Qt side needs no equivalent: the managed qt6ct.conf already carries what
+# the "Apply Qt Colors" button would write.
+apply_dms_gtk_baseline() {
+  local native_plan shell_dir is_light="false"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: apply the DMS GTK color baseline\n'
+    return 0
+  fi
+
+  [[ "$SKIP_USER_CONFIG" -eq 1 ]] && return 0
+  native_plan="$(package_file_for_backend "$(native_backend)")"
+  plan_has_any_backend_entry "$native_plan" dms || return 0
+
+  if ! shell_dir="$(dms_shell_dir)"; then
+    log_warn "Could not resolve the embedded DMS shell payload; retrying the GTK baseline at next login"
+    return 1
+  fi
+  if [[ ! -f "$shell_dir/scripts/gtk.sh" ]]; then
+    log_warn "DMS shell payload has no gtk.sh applier; skipping the GTK color baseline"
+    return 0
+  fi
+  if [[ ! -s "$TARGET_HOME/.config/gtk-4.0/dank-colors.css" ]]; then
+    log_warn "DMS has not generated the GTK colors yet; retrying at next login"
+    return 1
+  fi
+
+  if [[ -f "$(dms_session_file)" ]]; then
+    is_light="$(jq -r 'if .isLightMode == true then "true" else "false" end' "$(dms_session_file)" 2>/dev/null || printf 'false')"
+  fi
+
+  log_progress "Applying the DMS GTK color baseline"
+  if ! run_cmd_as_user "$TARGET_USER" bash "$shell_dir/scripts/gtk.sh" \
+    "$TARGET_HOME/.config" apply "$is_light" "$shell_dir"; then
+    log_warn "The DMS GTK color baseline failed; retrying at next login"
+    return 1
+  fi
+}
+
+# DMS 1.6 ships the greeter from its standalone upstream with profile sync.
+# Keep probing the installed CLI so an incomplete or independently packaged
+# greeter cannot strand the first-run checkpoint at every login.
+dms_greeter_supports_profile_sync() {
+  command -v dms-greeter >/dev/null 2>&1 || return 1
+  dms-greeter --help 2>&1 | grep -qw "sync"
+}
+
+# Populate this user's greeter cache slot (wallpaper snapshot, theme,
+# avatar) once the shell state exists. The slot sync is sudo-free; the
+# root-side cache and access grants were prepared by the dms-greeter
+# action.
+apply_dms_greeter_profile_sync() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: sync the DMS Greeter per-user profile slot\n'
+    return 0
+  fi
+
+  if ! plan_file_has_entry "$(package_file_for_backend action)" "dms-greeter" ||
+    dms_greeter_action_skipped || dms_greeter_user_sync_skipped; then
+    return 0
+  fi
+
+  if ! dms_greeter_supports_profile_sync; then
+    log_info "The installed DMS Greeter has no per-user profile sync; skipping"
+    return 0
+  fi
+
+  log_progress "Syncing the DMS Greeter user profile"
+  if ! run_cmd_as_user "$TARGET_USER" dms-greeter sync --profile >/dev/null 2>&1; then
+    log_warn "The DMS Greeter profile sync failed; retrying at next login"
+    return 1
+  fi
 }
 
 first_run_enable_session_services() {
@@ -160,7 +188,9 @@ first_run_apply_desktop_interface() {
 }
 
 first_run_session_services_fingerprint() {
-  first_run_files_fingerprint "$PLAN_DIR/services/user-enable.list"
+  first_run_files_fingerprint \
+    "$PLAN_DIR/services/user-enable.list" \
+    "$PLAN_DIR/services/user-wants.tsv"
 }
 
 first_run_desktop_interface_fingerprint() {
@@ -210,7 +240,9 @@ module_85_first_run() {
     first_run_action_completed user-directories &&
     first_run_action_completed desktop-interface "$desktop_interface_fingerprint" &&
     first_run_action_completed desktop-defaults "$desktop_defaults_fingerprint" &&
-    first_run_action_completed noctalia-templates; then
+    first_run_action_completed dms-theme &&
+    first_run_action_completed dms-gtk-theme &&
+    first_run_action_completed dms-greeter-profile; then
     log_info "First-run tasks already completed: $marker"
     # A deferred Flatpak queue can appear after first-run already completed
     # (an install re-run in a sandbox-restricted environment re-registers
@@ -230,7 +262,9 @@ module_85_first_run() {
     desktop-interface "$desktop_interface_fingerprint" first_run_apply_desktop_interface || failed=1
   run_first_run_action_once_for_input \
     desktop-defaults "$desktop_defaults_fingerprint" apply_desktop_defaults || failed=1
-  run_first_run_action_once noctalia-templates apply_noctalia_templates || failed=1
+  run_first_run_action_once dms-theme apply_dms_theme || failed=1
+  run_first_run_action_once dms-gtk-theme apply_dms_gtk_baseline || failed=1
+  run_first_run_action_once dms-greeter-profile apply_dms_greeter_profile_sync || failed=1
 
   # The deferred list and its per-app removal are already the Flatpak action's
   # durable checkpoint, including support for a new queue after first-run.

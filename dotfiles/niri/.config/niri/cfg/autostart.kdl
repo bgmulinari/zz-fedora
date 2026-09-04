@@ -1,1 +1,2 @@
-spawn-at-startup "noctalia"
+// DMS starts through the dms.service user unit
+// (WantedBy=graphical-session.target), not spawn-at-startup.

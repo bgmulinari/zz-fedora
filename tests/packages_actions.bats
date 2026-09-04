@@ -229,10 +229,10 @@ EOF
   assert_file_contains "$command_log" "claude-user:bash $CACHE_DIR/claude-install."
 }
 
-@test "Visual Studio Code extension action installs NoctaliaTheme once for the target user" {
+@test "Visual Studio Code extension action installs the DMS theme once for the target user" {
   DRY_RUN=0
   TARGET_USER="code-user"
-  extension_marker="$TEST_ROOT/noctalia-extension-installed"
+  extension_marker="$TEST_ROOT/dms-extension-installed"
   command_log="$TEST_ROOT/vscode-extension-commands.log"
   run_cmd_as_user() {
     local user="$1"
@@ -240,51 +240,53 @@ EOF
     printf '%s:%s\n' "$user" "$*" >>"$command_log"
     case "$*" in
       "code --list-extensions")
-        [[ -f "$extension_marker" ]] && printf 'noctalia.noctaliatheme\n'
+        [[ -f "$extension_marker" ]] && printf 'danklinux.dms-theme\n'
         ;;
-      "code --install-extension noctalia.noctaliatheme")
+      "code --install-extension danklinux.dms-theme")
         touch "$extension_marker"
         ;;
     esac
   }
 
-  run run_custom_action vscode-extension:noctalia.noctaliatheme
+  run run_custom_action vscode-extension:danklinux.dms-theme
   [ "$status" -eq 0 ]
-  run verify_custom_action vscode-extension:noctalia.noctaliatheme
+  run verify_custom_action vscode-extension:danklinux.dms-theme
   [ "$status" -eq 0 ]
-  run run_custom_action vscode-extension:noctalia.noctaliatheme
+  run run_custom_action vscode-extension:danklinux.dms-theme
   [ "$status" -eq 0 ]
 
-  assert_equal "1" "$(grep -Fc 'code-user:code --install-extension noctalia.noctaliatheme' "$command_log")"
+  assert_equal "1" "$(grep -Fc 'code-user:code --install-extension danklinux.dms-theme' "$command_log")"
   assert_file_contains "$command_log" "code-user:code --list-extensions"
 }
-@test "Firefox theme action registers Noctalia's native host and user-disableable extension policy" {
+@test "Firefox theme action installs the Pywalfox host and user-disableable extension policy" {
   DRY_RUN=0
   TARGET_USER="firefox-user"
   TARGET_HOME="$TEST_ROOT/firefox-home"
   ZZ_FIREFOX_POLICIES_FILE="$TEST_ROOT/firefox-policy/policies.json"
   command_log="$TEST_ROOT/firefox-theme-commands.log"
-  noctalia_bin="$TEST_ROOT/bin/noctalia"
-  mkdir -p "$TARGET_HOME" "$(dirname "$ZZ_FIREFOX_POLICIES_FILE")" "$(dirname "$noctalia_bin")"
+  pywalfox_bin="$TARGET_HOME/.local/bin/pywalfox"
+  mkdir -p "$TARGET_HOME" "$(dirname "$ZZ_FIREFOX_POLICIES_FILE")" "$(dirname "$pywalfox_bin")"
   printf '{"policies":{"DisableTelemetry":true}}\n' >"$ZZ_FIREFOX_POLICIES_FILE"
-  printf '#!/usr/bin/env bash\n' >"$noctalia_bin"
-  chmod +x "$noctalia_bin"
 
-  firefox_theme_noctalia_bin() {
-    printf '%s\n' "$noctalia_bin"
-  }
   run_cmd_as_user() {
     local user="$1"
     shift
     printf '%s:%s\n' "$user" "$*" >>"$command_log"
-    if [[ "$*" == "env HOME=$TARGET_HOME $noctalia_bin firefox-theme install" ]]; then
+    if [[ "$*" == "env HOME=$TARGET_HOME $SYSTEM_PYTHON -m pywalfox install --executable $TARGET_HOME/.local/bin/pywalfox" ]]; then
+      printf '#!/usr/bin/env bash\n' >"$pywalfox_bin"
+      chmod +x "$pywalfox_bin"
       mkdir -p "$TARGET_HOME/.mozilla/native-messaging-hosts"
       jq -n \
-        --arg executable "$noctalia_bin" \
+        --arg executable "$pywalfox_bin" \
         --arg extension_id "$FIREFOX_THEME_EXTENSION_ID" \
         '{path: $executable, allowed_extensions: [$extension_id]}' \
         >"$TARGET_HOME/.mozilla/native-messaging-hosts/pywalfox.json"
+      return 0
     fi
+    case "$1" in
+      mkdir|ln) "$@" ;;
+      *) return 0 ;;
+    esac
   }
 
   run install_firefox_theme
@@ -293,18 +295,48 @@ EOF
   [ "$status" -eq 0 ]
 
   assert_file_contains "$command_log" \
-    "firefox-user:env HOME=$TARGET_HOME $noctalia_bin firefox-theme install"
+    "firefox-user:env HOME=$TARGET_HOME $SYSTEM_PYTHON -m pip install --user --quiet pywalfox"
+  assert_file_contains "$command_log" \
+    "firefox-user:env HOME=$TARGET_HOME $SYSTEM_PYTHON -m pywalfox install --executable $TARGET_HOME/.local/bin/pywalfox"
+  # The wal colors bridge points Pywalfox at the DMS template output.
+  [ -L "$TARGET_HOME/.cache/wal/colors.json" ]
+  assert_equal "$TARGET_HOME/.cache/wal/dank-pywalfox.json" "$(readlink "$TARGET_HOME/.cache/wal/colors.json")"
   jq -e '.policies.DisableTelemetry == true' "$ZZ_FIREFOX_POLICIES_FILE" >/dev/null
   jq -e '.policies.ExtensionSettings["pywalfox@frewacom.org"].installation_mode == "normal_installed"' "$ZZ_FIREFOX_POLICIES_FILE" >/dev/null
   jq -e '.policies.ExtensionSettings["pywalfox@frewacom.org"].install_url == "https://addons.mozilla.org/firefox/downloads/latest/pywalfox/latest.xpi"' "$ZZ_FIREFOX_POLICIES_FILE" >/dev/null
 }
-@test "Firefox theme verification accepts any Noctalia-owned host and replaces a foreign one" {
+@test "Firefox theme wal bridge backs up a user-owned pywal palette before linking" {
+  DRY_RUN=0
+  TARGET_USER="firefox-user"
+  TARGET_HOME="$TEST_ROOT/firefox-wal-home"
+  mkdir -p "$TARGET_HOME/.cache/wal"
+  printf '{"user":"palette"}\n' >"$TARGET_HOME/.cache/wal/colors.json"
+
+  run_cmd_as_user() {
+    shift
+    case "$1" in
+      mkdir|cp|ln) "$@" ;;
+      *) return 0 ;;
+    esac
+  }
+
+  run_without_bats_debug_trap install_firefox_theme_wal_link
+
+  [ -L "$TARGET_HOME/.cache/wal/colors.json" ]
+  assert_equal "$TARGET_HOME/.cache/wal/dank-pywalfox.json" "$(readlink "$TARGET_HOME/.cache/wal/colors.json")"
+  local backup_file
+  backup_file="$(find "$STATE_DIR/backups" -type f -path "*$TARGET_HOME/.cache/wal/colors.json*" | head -n 1)"
+  [ -n "$backup_file" ]
+  assert_file_contains "$backup_file" '{"user":"palette"}'
+}
+@test "Firefox theme verification accepts any Pywalfox-owned host and replaces a foreign one" {
   DRY_RUN=0
   TARGET_HOME="$TEST_ROOT/firefox-host-home"
   ZZ_FIREFOX_POLICIES_FILE="$TEST_ROOT/firefox-host-policy/policies.json"
   manifest="$TARGET_HOME/.mozilla/native-messaging-hosts/pywalfox.json"
   mkdir -p "$(dirname "$manifest")" "$(dirname "$ZZ_FIREFOX_POLICIES_FILE")" \
-    "$TARGET_HOME/.local/bin" "$TEST_ROOT/session-prefix/bin"
+    "$TARGET_HOME/.local/bin" "$TARGET_HOME/.cache/wal" "$TEST_ROOT/session-prefix/bin"
+  ln -sfn "$TARGET_HOME/.cache/wal/dank-pywalfox.json" "$TARGET_HOME/.cache/wal/colors.json"
   jq -n \
     --arg extension_id "$FIREFOX_THEME_EXTENSION_ID" \
     --arg extension_url "$FIREFOX_THEME_EXTENSION_URL" \
@@ -320,17 +352,17 @@ EOF
       '{path: $executable, allowed_extensions: [$extension_id]}' >"$manifest"
   }
 
-  # Noctalia rewrites its own manifest from whichever binary is running, so a
-  # host outside the installer's resolution stays converged.
-  session_bin="$TEST_ROOT/session-prefix/bin/noctalia"
+  # Pywalfox rewrites its own manifest from whichever install is running, so
+  # a host outside the installer's resolution stays converged.
+  session_bin="$TEST_ROOT/session-prefix/bin/pywalfox"
   printf '#!/usr/bin/env bash\n' >"$session_bin"
   chmod +x "$session_bin"
   write_manifest_host "$session_bin"
   run verify_custom_action firefox-theme
   [ "$status" -eq 0 ]
 
-  # A host Noctalia does not own is not converged, so the action reinstalls it.
-  foreign_bin="$TARGET_HOME/.local/bin/pywalfox"
+  # A host Pywalfox does not own is not converged, so the action reinstalls it.
+  foreign_bin="$TARGET_HOME/.local/bin/some-other-host"
   printf '#!/usr/bin/env bash\n' >"$foreign_bin"
   chmod +x "$foreign_bin"
   write_manifest_host "$foreign_bin"
@@ -338,7 +370,7 @@ EOF
   [ "$status" -ne 0 ]
 
   # A manifest naming a host that is no longer installed is not converged.
-  write_manifest_host "$TEST_ROOT/session-prefix/bin/noctalia-removed"
+  write_manifest_host "$TEST_ROOT/session-prefix/bin/pywalfox-removed"
   run verify_custom_action firefox-theme
   [ "$status" -ne 0 ]
 }

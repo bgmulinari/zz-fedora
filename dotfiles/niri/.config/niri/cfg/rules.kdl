@@ -4,10 +4,8 @@ window-rule {
 }
 
 window-rule {
-    match app-id="dev.noctalia.Noctalia.Settings"
+    match app-id=r#"^com\.danklinux\.dms$"#
     open-floating true
-    default-column-width { fixed 1080; }
-    default-window-height { fixed 920; }
 }
 
 window-rule {
@@ -56,6 +54,11 @@ window-rule {
 }
 
 layer-rule {
-    match namespace="^noctalia-backdrop"
+    match namespace="^quickshell$"
+    place-within-backdrop true
+}
+
+layer-rule {
+    match namespace="dms:blurwallpaper"
     place-within-backdrop true
 }

@@ -129,15 +129,15 @@ doctor_portal_planned() {
     || doctor_plan_has_entry "$native_plan" "xdg-desktop-portal-gnome"
 }
 
-doctor_noctalia_planned() {
+doctor_dms_planned() {
   local native_plan="$1"
-  doctor_plan_has_entry "$native_plan" "noctalia"
+  doctor_plan_has_entry "$native_plan" "dms"
 }
 
-doctor_noctalia_greeter_planned() {
+doctor_dms_greeter_planned() {
   local action_plan
   action_plan="$(package_file_for_backend action)"
-  doctor_plan_has_entry "$action_plan" "noctalia-greeter"
+  doctor_plan_has_entry "$action_plan" "dms-greeter"
 }
 
 doctor_system_skip_recorded() {
@@ -151,30 +151,45 @@ doctor_system_skip_recorded() {
   ' "$skip_file"
 }
 
-doctor_noctalia_greetd_config_path() {
-  printf '%s\n' "${NOCTALIA_GREETD_CONFIG:-/etc/greetd/config.toml}"
+doctor_dms_greetd_config_path() {
+  printf '%s\n' "${DMS_GREETD_CONFIG:-/etc/greetd/config.toml}"
 }
 
-doctor_noctalia_greeter_installed() {
-  command -v noctalia-greeter >/dev/null 2>&1 && command -v noctalia-greeter-session >/dev/null 2>&1
+doctor_dms_greeter_installed() {
+  command -v dms-greeter >/dev/null 2>&1
 }
 
-doctor_greetd_config_uses_noctalia() {
-  doctor_file_contains "$(doctor_noctalia_greetd_config_path)" "noctalia-greeter-session"
+doctor_greetd_config_uses_dms() {
+  dms_greetd_config_has_expected_session "$(doctor_dms_greetd_config_path)"
 }
 
-doctor_check_noctalia_greeter_setup() {
+doctor_check_dms_greetd_config() {
+  local config_file="$1"
+  if dms_greetd_config_has_expected_session "$config_file"; then
+    printf '[ok] %s configures the expected DMS Greeter default session\n' "$config_file"
+    return 0
+  fi
+  printf '[warn] %s does not configure the expected DMS Greeter default session\n' "$config_file"
+  return 1
+}
+
+doctor_dms_greeter_cache_dir() {
+  printf '%s\n' "${DMS_GREETER_CACHE_DIR:-/var/cache/dms-greeter}"
+}
+
+doctor_check_dms_greeter_setup() {
   local failed=0
-  local config_file
-  config_file="$(doctor_noctalia_greetd_config_path)"
-  doctor_check_command noctalia-greeter || failed=1
-  doctor_check_command noctalia-greeter-session || failed=1
+  local config_file cache_dir
+  config_file="$(doctor_dms_greetd_config_path)"
+  cache_dir="$(doctor_dms_greeter_cache_dir)"
+  doctor_check_command dms-greeter || failed=1
   doctor_check_file "$config_file" || failed=1
-  doctor_check_contains_required "$config_file" "noctalia-greeter-session" || failed=1
-  doctor_check_contains_required "$config_file" "WLR_NO_HARDWARE_CURSORS=1" || failed=1
-  # Seeded (or later user-synced) greeter appearance; absent on installs
-  # where the appearance seed was skipped, so warn-level only.
-  doctor_warn_file "/var/lib/noctalia-greeter/appearance.json"
+  doctor_check_dms_greetd_config "$config_file" || failed=1
+  # Greeter theme sync state; absent when the user sync was skipped, so
+  # warn-level only.
+  doctor_warn_file "$cache_dir/settings.json"
+  doctor_warn_file "$cache_dir/session.json"
+  doctor_warn_file "$cache_dir/colors.json"
   return "$failed"
 }
 
@@ -194,8 +209,14 @@ module_90_doctor() {
     doctor_warn_command niri
     doctor_warn_command niri-session
   fi
-  if doctor_noctalia_planned "$native_plan"; then
-    doctor_warn_command noctalia
+  if doctor_dms_planned "$native_plan"; then
+    doctor_warn_command dms
+    doctor_warn_command qs
+    doctor_warn_user_enabled dms.service
+  fi
+  if doctor_plan_has_entry "$native_plan" "danksearch"; then
+    doctor_warn_command dsearch
+    doctor_warn_user_enabled dsearch.service
   fi
   if doctor_plan_has_entry "$native_plan" "ghostty"; then
     doctor_warn_command ghostty
@@ -223,18 +244,16 @@ module_90_doctor() {
   local niri_config_home="$user_config_home/niri"
   local product_niri_home="$ROOT_DIR/dotfiles/niri/.config/niri"
   local product_ghostty_config="$ROOT_DIR/dotfiles/ghostty/.config/ghostty/config"
-  local product_noctalia_config="$ROOT_DIR/dotfiles/noctalia/.config/noctalia/config.toml"
   local desktop_environment_file="/usr/lib/environment.d/10-zz-desktop.conf"
   local portal_preferences_file="/etc/xdg/xdg-desktop-portal/niri-portals.conf"
   if doctor_plan_has_entry "$native_plan" "niri"; then
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
       doctor_warn_file "$niri_config_home/config.kdl"
-      doctor_warn_file "$niri_config_home/cfg/display.kdl"
-      doctor_warn_file "$niri_config_home/noctalia.kdl"
+      doctor_warn_file "$niri_config_home/dms/colors.kdl"
+      doctor_warn_file "$niri_config_home/dms/binds.kdl"
     fi
     doctor_warn_file "$product_niri_home/defaults.kdl"
     doctor_warn_file "$product_niri_home/cfg/autostart.kdl"
-    doctor_warn_file "$product_niri_home/cfg/keybinds.kdl"
     doctor_warn_file "$product_niri_home/cfg/misc.kdl"
     doctor_warn_file "$desktop_environment_file"
   fi
@@ -245,7 +264,7 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "ghostty"; then
     [[ "$SKIP_USER_CONFIG" -eq 1 ]] || doctor_warn_file "$user_config_home/ghostty/config"
     [[ "$SKIP_USER_CONFIG" -eq 1 ]] || doctor_warn_file "$user_config_home/ghostty/zz-defaults"
-    [[ "$SKIP_USER_CONFIG" -eq 1 ]] || doctor_warn_file "$user_config_home/ghostty/themes/noctalia"
+    [[ "$SKIP_USER_CONFIG" -eq 1 ]] || doctor_warn_file "$(dms_ghostty_theme_file)"
   fi
   if doctor_plan_has_entry "$native_plan" "qt6ct" || doctor_plan_has_entry "$native_plan" "qt6ct-kde"; then
     doctor_warn_file "$user_config_home/qt6ct/qt6ct.conf"
@@ -255,36 +274,48 @@ module_90_doctor() {
     doctor_warn_file "$user_config_home/Code/User/settings.json"
   fi
   doctor_plan_has_entry "$native_plan" "neovim" && doctor_warn_file "$TARGET_HOME/.local/share/applications/nvim.desktop"
-  doctor_warn_file "$TARGET_HOME/.local/share/backgrounds/CraterBlue.jpg"
-  if doctor_noctalia_planned "$native_plan"; then
+  doctor_warn_file "$(dms_default_wallpaper)"
+  if doctor_dms_planned "$native_plan"; then
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
-      doctor_warn_file "$user_config_home/noctalia/config.toml"
-      doctor_warn_file "$user_config_home/noctalia/templates/ghostty"
-      doctor_warn_file "$user_config_home/noctalia/templates/icon-theme-accent"
-      doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-reload-ghostty"
-      doctor_warn_file "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme"
-      doctor_warn_file "$TARGET_HOME/.local/state/noctalia/.setup-complete"
-      doctor_warn_file "$TARGET_HOME/.local/state/noctalia/settings.toml"
+      doctor_warn_file "$(dms_settings_file)"
+      doctor_warn_file "$(dms_theme_file)"
+      doctor_warn_file "$(dms_session_file)"
     fi
   fi
   doctor_check_dir_has_files "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont" '*.ttf'
 
   log_progress "Checking managed configuration contents"
   if doctor_plan_has_entry "$native_plan" "niri"; then
-    doctor_check_contains "$product_niri_home/cfg/autostart.kdl" 'spawn-at-startup "noctalia"'
-    doctor_check_contains "$product_niri_home/cfg/keybinds.kdl" 'noctalia msg panel-toggle launcher'
-    doctor_check_contains "$product_niri_home/cfg/keybinds.kdl" 'spawn "ghostty" "+new-window"'
+    # Keybinds live in the user-owned DMS fragment so Settings -> Keybinds can
+    # edit them; DMS reads no other niri file. It rewrites the fragment on the
+    # first UI edit, so check for the bind actions rather than the seed layout.
+    if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
+      doctor_check_contains "$niri_config_home/dms/binds.kdl" 'dms ipc call spotlight toggle'
+      doctor_check_contains "$niri_config_home/dms/binds.kdl" 'spawn "ghostty" "+new-window"'
+    fi
     [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
       doctor_check_contains "$niri_config_home/config.kdl" 'include "~/.zz/dotfiles/niri/.config/niri/defaults.kdl"'
     [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
-      doctor_check_contains "$niri_config_home/config.kdl" 'include "./noctalia.kdl"'
+      doctor_check_contains "$niri_config_home/config.kdl" 'include "dms/colors.kdl"'
+    # The Settings pages for layout, cursor, displays, and keybinds gate
+    # themselves on `dms config resolve-include` and go read-only when their
+    # fragment is not included, so the entrypoint must carry every fragment
+    # DMS regenerates.
+    if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
+      local fragment
+      for fragment in layout alttab binds cursor outputs windowrules wpblur; do
+        doctor_check_contains "$niri_config_home/config.kdl" \
+          "include optional=true \"dms/${fragment}.kdl\""
+      done
+    fi
     doctor_check_contains "$desktop_environment_file" 'TERMINAL=xdg-terminal-exec'
     # Derive the expected PATH line from the product file the installer ships
     # so the check verifies deployment instead of a hand-synced copy.
     doctor_check_contains "$desktop_environment_file" \
       "$(grep '^PATH=' "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-zz-desktop.conf")"
     if doctor_plan_has_entry "$native_plan" "nautilus"; then
-      doctor_check_contains "$product_niri_home/cfg/keybinds.kdl" 'spawn "nautilus"'
+      [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
+        doctor_check_contains "$niri_config_home/dms/binds.kdl" 'spawn "nautilus"'
     fi
     if doctor_plan_has_entry "$native_plan" "qt6ct" || doctor_plan_has_entry "$native_plan" "qt6ct-kde"; then
       doctor_check_contains "$desktop_environment_file" 'QT_QPA_PLATFORMTHEME=qt6ct'
@@ -294,18 +325,15 @@ module_90_doctor() {
     [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
       doctor_check_contains "$user_config_home/ghostty/config" 'config-file = zz-defaults'
     doctor_check_contains "$product_ghostty_config" 'quit-after-last-window-closed = false'
-    doctor_check_contains "$product_ghostty_config" 'theme = noctalia'
+    doctor_check_contains "$product_ghostty_config" 'theme = dankcolors'
   fi
-  if doctor_noctalia_planned "$native_plan"; then
-    [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
-      doctor_check_contains "$user_config_home/noctalia/config.toml" \
-        '"$HOME/.zz/dotfiles/noctalia/.config/noctalia/config.toml"'
-    doctor_check_contains "$product_noctalia_config" '[theme.templates.user.ghostty]'
-    doctor_check_contains "$product_noctalia_config" '[theme.templates.user.icon_theme]'
+  if doctor_dms_planned "$native_plan"; then
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
-      doctor_check_contains "$TARGET_HOME/.local/bin/noctalia-reload-ghostty" 'systemctl --user reload'
-      doctor_check_contains "$user_config_home/noctalia/templates/icon-theme-accent" '{{ colors.primary.default.hex }}'
-      doctor_check_contains "$TARGET_HOME/.local/bin/noctalia-sync-icon-theme" 'QS_ICON_THEME='
+      doctor_check_contains "$(dms_settings_file)" '"currentThemeCategory": "registry"'
+      doctor_check_contains "$(dms_theme_file)" '"id": "catppuccin"'
+      # The first-run GTK baseline imports the generated colors so GTK
+      # apps follow the theme automatically.
+      doctor_check_contains "$user_config_home/gtk-4.0/gtk.css" 'dank-colors.css'
     fi
   fi
   if doctor_plan_has_entry "$native_plan" "xdg-terminal-exec"; then
@@ -317,7 +345,7 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "qt6ct" || doctor_plan_has_entry "$native_plan" "qt6ct-kde"; then
     doctor_check_contains "$user_config_home/kdeglobals" 'widgetStyle=Fusion'
     doctor_check_contains "$user_config_home/kdeglobals" 'Theme='
-    doctor_check_contains "$user_config_home/qt6ct/qt6ct.conf" "color_scheme_path=$TARGET_HOME/.local/share/color-schemes/noctalia.colors"
+    doctor_check_contains "$user_config_home/qt6ct/qt6ct.conf" "color_scheme_path=$(dms_qt_color_scheme_file)"
   fi
 
   local fatal_checks=0
@@ -328,10 +356,10 @@ module_90_doctor() {
     doctor_check_file /usr/share/wayland-sessions/niri.desktop || ((++fatal_checks))
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
       doctor_check_file "$niri_config_home/config.kdl" || ((++fatal_checks))
+      doctor_check_file "$niri_config_home/dms/binds.kdl" || ((++fatal_checks))
     fi
     doctor_check_file "$product_niri_home/defaults.kdl" || ((++fatal_checks))
     doctor_check_file "$product_niri_home/cfg/autostart.kdl" || ((++fatal_checks))
-    doctor_check_file "$product_niri_home/cfg/keybinds.kdl" || ((++fatal_checks))
     doctor_check_file "$product_niri_home/cfg/misc.kdl" || ((++fatal_checks))
   fi
 
@@ -360,6 +388,7 @@ module_90_doctor() {
   if doctor_plan_has_entry "$native_plan" "btop"; then
     doctor_warn_command btop
     doctor_warn_file "$user_config_home/btop/btop.conf"
+    [[ "$SKIP_USER_CONFIG" -eq 1 ]] || doctor_warn_file "$user_config_home/btop/themes/dank.theme"
   fi
   if doctor_plan_has_entry "$native_plan" "fd-find"; then
     doctor_warn_command fd
@@ -379,15 +408,15 @@ module_90_doctor() {
 
   log_progress "Checking enabled services"
   doctor_warn_enabled NetworkManager
-  local display_manager_hint="Noctalia Greeter"
+  local display_manager_hint="DMS Greeter"
   local existing_display_manager=""
   existing_display_manager="$(detect_enabled_display_manager || true)"
   if [[ "$existing_display_manager" == "greetd.service" ]] && doctor_check_enabled greetd; then
-    if doctor_system_skip_recorded action noctalia-greeter; then
+    if doctor_system_skip_recorded action dms-greeter; then
       printf '[ok] existing display manager %s\n' "$existing_display_manager"
       display_manager_hint="your display manager"
-    elif doctor_noctalia_greeter_installed || doctor_greetd_config_uses_noctalia; then
-      doctor_check_noctalia_greeter_setup || ((++fatal_checks))
+    elif doctor_dms_greeter_installed || doctor_greetd_config_uses_dms; then
+      doctor_check_dms_greeter_setup || ((++fatal_checks))
     else
       printf '[ok] existing display manager %s\n' "$existing_display_manager"
       display_manager_hint="your display manager"
@@ -396,13 +425,13 @@ module_90_doctor() {
     printf '[ok] existing display manager %s\n' "$existing_display_manager"
     display_manager_hint="your display manager"
   elif doctor_check_enabled greetd; then
-    if doctor_noctalia_greeter_installed || doctor_greetd_config_uses_noctalia; then
-      doctor_check_noctalia_greeter_setup || ((++fatal_checks))
+    if doctor_dms_greeter_installed || doctor_greetd_config_uses_dms; then
+      doctor_check_dms_greeter_setup || ((++fatal_checks))
     else
       printf '[ok] existing display manager greetd.service\n'
       display_manager_hint="your display manager"
     fi
-  elif doctor_noctalia_greeter_planned; then
+  elif doctor_dms_greeter_planned; then
     ((++fatal_checks))
   fi
   doctor_warn_enabled bluetooth
@@ -417,6 +446,11 @@ module_90_doctor() {
   run_cmd_as_root dnf copr list || true
   run_cmd_as_root dnf repolist || true
   run_cmd_as_root dnf repoquery --whatprovides desktop-notification-daemon || true
+
+  if doctor_dms_planned "$native_plan" && command -v dms >/dev/null 2>&1; then
+    log_progress "Collecting DMS diagnostics"
+    run_cmd_as_user "$TARGET_USER" dms doctor || true
+  fi
 
   printf 'Doctor completed.\n'
   if [[ "$fatal_checks" -gt 0 ]]; then

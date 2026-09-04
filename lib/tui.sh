@@ -47,7 +47,7 @@ tui_ansi() {
 tui_banner() {
   local title subtitle warning banner
   title="$(gum style --bold --foreground 4 "ZZ Fedora")"
-  subtitle="Niri + Noctalia desktop bootstrapper"
+  subtitle="Niri + DMS desktop bootstrapper"
   warning="$(gum style --foreground 11 "This will install packages and manage selected user config.")"
   banner="$(printf '%s\n%s\n\n%s' "$title" "$subtitle" "$warning")"
   gum style \

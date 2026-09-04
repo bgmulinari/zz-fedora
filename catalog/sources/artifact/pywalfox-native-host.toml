@@ -1,0 +1,7 @@
+id = "artifact:pywalfox-native-host"
+kind = "artifact"
+label = "Pywalfox native host (PyPI)"
+project = "https://pypi.org/project/pywalfox/"
+description = "Per-user pip install of the Pywalfox native messaging host that feeds the DMS Firefox palette"
+gpg_policy = "tls-only"
+reason = "Fedora does not package Pywalfox; pip fetches the sdist/wheel from PyPI over TLS"

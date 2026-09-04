@@ -4,4 +4,4 @@ description = "Managed Visual Studio Code extensions"
 [[install]]
 backend = "action"
 sources = ["artifact:vscode-marketplace"]
-actions = ["vscode-extension:noctalia.noctaliatheme"]
+actions = ["vscode-extension:danklinux.dms-theme"]

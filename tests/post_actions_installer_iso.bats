@@ -8,7 +8,7 @@ setup() {
   source_modules
 }
 
-@test "KDE Qt theme config uses Noctalia colors and default Yaru icon theme" {
+@test "KDE Qt theme config uses the DMS KColorScheme and default Yaru icon theme" {
   build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/kde-theme-home"
@@ -26,8 +26,8 @@ setup() {
 
   install_kde_qt_theme_config
 
-  assert_file_contains "$TARGET_HOME/.config/kdeglobals" "ColorScheme=Noctalia"
-  assert_file_contains "$TARGET_HOME/.config/kdeglobals" "Name=noctalia"
+  assert_file_contains "$TARGET_HOME/.config/kdeglobals" "ColorScheme=DankMatugen"
+  assert_file_contains "$TARGET_HOME/.config/kdeglobals" "Name=DankMatugen"
   assert_file_contains "$TARGET_HOME/.config/kdeglobals" "widgetStyle=Fusion"
   assert_file_contains "$TARGET_HOME/.config/kdeglobals" "Theme=Yaru-blue"
 }
@@ -51,6 +51,7 @@ setup() {
   enable_user_services
 
   assert_file_contains "$command_log" "root:systemctl --global enable app-com.mitchellh.ghostty.service"
+  assert_file_contains "$command_log" "root:systemctl --global add-wants niri.service dms.service"
   refute_file_contains "$command_log" "--now"
   refute_file_contains "$command_log" "user:test-user"
 }
@@ -175,16 +176,17 @@ setup() {
   [[ -f "$(first_run_action_marker user-directories)" ]]
   [[ -f "$(first_run_action_marker desktop-interface)" ]]
   [[ -f "$(first_run_action_marker desktop-defaults)" ]]
-  [[ -f "$(first_run_action_marker noctalia-templates)" ]]
+  [[ -f "$(first_run_action_marker dms-theme)" ]]
+  [[ -f "$(first_run_action_marker dms-greeter-profile)" ]]
   [[ ! -f "$(first_run_marker)" ]]
-  assert_file_contains "$command_log" "noctalia msg templates-apply"
+  assert_file_contains "$command_log" "dms ipc call wallpaper get"
 
   : >"$command_log"
   capture_without_bats_debug_trap output status module_85_first_run
   [ "$status" -ne 0 ]
 
   assert_file_contains "$command_log" "flatpak install -y --or-update --system flathub com.spotify.Client"
-  refute_file_contains "$command_log" "noctalia msg templates-apply"
+  refute_file_contains "$command_log" "dms ipc call wallpaper get"
   refute_file_contains "$command_log" "systemctl --user daemon-reload"
   refute_file_contains "$command_log" "xdg-user-dirs-update"
   refute_file_contains "$command_log" "gsettings set"
@@ -212,7 +214,8 @@ setup() {
   [[ -f "$(first_run_action_marker session-services)" ]]
   [[ -f "$(first_run_action_marker desktop-interface)" ]]
   [[ -f "$(first_run_action_marker desktop-defaults)" ]]
-  [[ -f "$(first_run_action_marker noctalia-templates)" ]]
+  [[ -f "$(first_run_action_marker dms-theme)" ]]
+  [[ -f "$(first_run_action_marker dms-greeter-profile)" ]]
   local previous_services_marker previous_interface_marker previous_defaults_marker
   previous_services_marker="$(cat "$(first_run_action_marker session-services)")"
   previous_interface_marker="$(cat "$(first_run_action_marker desktop-interface)")"
@@ -230,7 +233,7 @@ setup() {
   assert_file_contains "$command_log" "systemctl --user enable --now test-new-session.service"
   assert_file_contains "$command_log" "desktop-defaults-ran"
   refute_file_contains "$command_log" "gsettings set"
-  refute_file_contains "$command_log" "noctalia msg templates-apply"
+  refute_file_contains "$command_log" "dms ipc call wallpaper get"
   refute_file_contains "$command_log" "xdg-user-dirs-update"
   [[ "$(cat "$(first_run_action_marker session-services)")" != "$previous_services_marker" ]]
   [[ "$(cat "$(first_run_action_marker desktop-interface)")" != "$previous_interface_marker" ]]
@@ -263,13 +266,13 @@ setup() {
   refute_file_contains "$command_log" "systemctl --user daemon-reload"
   refute_file_contains "$command_log" "xdg-user-dirs-update"
   refute_file_contains "$command_log" "gsettings set"
-  refute_file_contains "$command_log" "noctalia msg templates-apply"
+  refute_file_contains "$command_log" "dms ipc call wallpaper get"
   [[ "$(cat "$(first_run_action_marker desktop-defaults)")" != "$previous_defaults_marker" ]]
   [[ -f "$(first_run_marker)" ]]
   [[ ! -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
 }
 
-@test "a failed Noctalia template request does not block independently checkpointed Flatpaks" {
+@test "a failed DMS theme checkpoint does not block independently checkpointed Flatpaks" {
   build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/independent-flatpak-home"
@@ -279,7 +282,7 @@ setup() {
 
   printf 'us.zoom.Zoom\n' >"$(flatpak_deferred_plan_file)"
   stub_run_cmd_as_user "$command_log"
-  apply_noctalia_templates() {
+  apply_dms_theme() {
     return 1
   }
   register_first_run_hook
@@ -290,7 +293,7 @@ setup() {
 
   assert_file_contains "$command_log" "flatpak install -y --or-update --system flathub us.zoom.Zoom"
   [[ ! -e "$(flatpak_deferred_plan_file)" ]]
-  [[ ! -f "$(first_run_action_marker noctalia-templates)" ]]
+  [[ ! -f "$(first_run_action_marker dms-theme)" ]]
   [[ ! -f "$(first_run_marker)" ]]
   [[ -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
 }
@@ -324,7 +327,8 @@ setup() {
   assert_file_contains "$command_log" "terminal-defaults-continued"
   assert_file_contains "$command_log" "browser-defaults-continued"
   [[ ! -f "$(first_run_action_marker desktop-defaults)" ]]
-  [[ -f "$(first_run_action_marker noctalia-templates)" ]]
+  [[ -f "$(first_run_action_marker dms-theme)" ]]
+  [[ -f "$(first_run_action_marker dms-greeter-profile)" ]]
   [[ ! -f "$(first_run_marker)" ]]
   [[ -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
 }
@@ -492,7 +496,8 @@ EOF
   [[ -f "$(first_run_action_marker user-directories)" ]]
   [[ -f "$(first_run_action_marker desktop-interface)" ]]
   [[ -f "$(first_run_action_marker desktop-defaults)" ]]
-  [[ -f "$(first_run_action_marker noctalia-templates)" ]]
+  [[ -f "$(first_run_action_marker dms-theme)" ]]
+  [[ -f "$(first_run_action_marker dms-greeter-profile)" ]]
   [[ ! -f "$(first_run_marker)" ]]
   [[ -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]
 
@@ -504,7 +509,7 @@ EOF
   refute_file_contains "$command_log" "xdg-user-dirs-update"
   refute_file_contains "$command_log" "gsettings set"
   refute_file_contains "$command_log" "xdg-mime default"
-  refute_file_contains "$command_log" "noctalia msg templates-apply"
+  refute_file_contains "$command_log" "dms ipc call wallpaper get"
   [[ -f "$(first_run_action_marker session-services)" ]]
   [[ -f "$(first_run_marker)" ]]
   [[ ! -e "$TARGET_HOME/.config/autostart/zz-first-run.desktop" ]]

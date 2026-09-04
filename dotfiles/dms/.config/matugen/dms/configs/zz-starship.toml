@@ -1,0 +1,8 @@
+# ZZ-managed matugen drop-in. DMS has no starship template, and starship
+# cannot include external files, so the palette renders to a cache file
+# and the post-hook splices it into the marker-delimited block of the
+# user-owned starship.toml.
+[templates.zzstarship]
+input_path = '~/.zz/dotfiles/dms/.config/matugen/templates/starship-palette.toml'
+output_path = '~/.cache/DankMaterialShell/starship-palette.toml'
+post_hook = 'sh -c "command -v zz-sync-starship-palette >/dev/null 2>&1 && zz-sync-starship-palette || true"'

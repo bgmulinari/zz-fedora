@@ -1,7 +1,13 @@
 id = "browsers-firefox-theme"
-description = "Noctalia theme synchronization for Firefox"
+description = "DMS theme synchronization for Firefox"
+
+# Fedora's python3 does not bundle pip; the firefox-theme action installs
+# the Pywalfox native host per user with `python3 -m pip`.
+[[install]]
+backend = "dnf"
+packages = ["python3-pip"]
 
 [[install]]
 backend = "action"
-sources = ["artifact:firefox-theme-extension"]
+sources = ["artifact:firefox-theme-extension", "artifact:pywalfox-native-host"]
 actions = ["firefox-theme"]

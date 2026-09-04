@@ -4,7 +4,7 @@
 
 # ZZ Fedora
 
-A Fedora x86_64 post-install bootstrapper for a [Niri](https://github.com/niri-wm/niri) and [Noctalia](https://github.com/noctalia-dev/noctalia) desktop.
+A Fedora x86_64 post-install bootstrapper for a [Niri](https://github.com/niri-wm/niri) and [DMS](https://github.com/AvengeMedia/DankMaterialShell) desktop.
 
 ## Install
 
@@ -12,6 +12,12 @@ The easiest way to get started is the bootstrap script:
 
 ```bash
 curl -fsSL https://zz.036477.xyz | bash
+```
+
+To install from a specific branch, pass `--ref`:
+
+```bash
+curl -fsSL https://zz.036477.xyz | bash -s -- --ref <branch>
 ```
 
 To install from a local checkout instead:

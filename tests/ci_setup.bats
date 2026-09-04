@@ -27,7 +27,7 @@ ci_package_list() {
 
   [ "$status" -eq 0 ]
   local package
-  for package in bats ShellCheck git jq; do
+  for package in bats ShellCheck git jq zsh; do
     grep -qx "$package" <<<"$output"
   done
 }

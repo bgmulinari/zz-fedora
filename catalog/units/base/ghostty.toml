@@ -1,6 +1,7 @@
 id = "base-ghostty"
 description = "Ghostty terminal bundle for Fedora"
 config = ["ghostty"]
+user_services = ["app-com.mitchellh.ghostty.service"]
 
 [base]
 order = 90
