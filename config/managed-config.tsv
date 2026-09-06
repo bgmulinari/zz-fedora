@@ -2,6 +2,10 @@
 core	~/.config/autostart/zz-first-run.desktop	first-run	regenerate	-	-	Launches one-time user-session setup after login.
 core	~/.local/bin/zz	generated	regenerate	-	-	Installs the post-install zz utility.
 core	~/.local/share/backgrounds	seed-if-missing	preserve	-	-	Seeds bundled wallpapers without replacing existing user files.
+agent-skills	~/.agents/skills/zz	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/zz	-	Links the ZZ end-user assistant skill into the shared Agent Skills directory.
+agent-skills	~/.claude/skills/zz	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/zz	-	Links the ZZ end-user assistant skill for Claude Code.
+agent-skills	~/.codex/skills/zz	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/zz	-	Links the ZZ end-user assistant skill for Codex.
+agent-skills	~/.pi/agent/skills/zz	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/zz	-	Links the ZZ end-user assistant skill for Pi.
 shell	~/.bashrc	seed-if-missing	preserve	templates/shell/bashrc	-	Seeds a user-owned Bash entrypoint that loads the live ZZ shell defaults.
 shell	~/.profile	seed-if-missing	preserve	templates/shell/profile	-	Seeds a user-owned login-shell entrypoint that loads the live ZZ environment defaults.
 shell-fastfetch	~/.config/zz-fedora/shell.d/fastfetch	product-link	backup-before-link	dotfiles/shell-fastfetch/.shellrc.d/fastfetch	fastfetch	Links the selected Fastfetch shell integration.

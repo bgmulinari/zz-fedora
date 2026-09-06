@@ -51,6 +51,7 @@ live ZZ defaults first and a user override last:
 | Fastfetch | `~/.config/fastfetch/config.jsonc` | `dotfiles/fastfetch/.config/fastfetch/zz-fedora.txt`, linked into the Fastfetch config directory |
 | Bash | `~/.bashrc` and `~/.shellrc.d/` | `dotfiles/shell/.bashrc`; selected product integrations are linked under `~/.config/zz-fedora/shell.d/` |
 | Zsh | `~/.zshrc`, `~/.shellrc.d/`, and `~/.zshrc.d/` | `dotfiles/zsh/.zshrc` and the same selected product integration links |
+| Assistant skills | none; the links are product-owned | `dotfiles/agent-skills/.agents/skills/zz/`, linked as `~/.agents/skills/zz`, `~/.claude/skills/zz`, `~/.codex/skills/zz`, and `~/.pi/agent/skills/zz` |
 
 This split lets Git update the product defaults without merging or overwriting
 personal changes. Optional shell integrations remain tied to their catalog
@@ -69,6 +70,28 @@ Settings → Keybinds parses, so binds kept in the product `cfg/` tree
 would not appear in the UI at all. The trade is that updated keybind
 defaults reach an existing install only through
 `zz refresh niri/dms/binds.kdl`.
+
+## Assistant skills
+
+Two kinds of assistant skills exist and they never mix:
+
+- **Shipped end-user skills** live under `dotfiles/agent-skills/.agents/skills/<name>/`.
+  Each is a directory with a hub `SKILL.md` and topic guides beside it. The
+  always-on `agent-skills` component product-links every such directory into
+  each assistant's global skills directory: `~/.agents/skills/<name>` (the
+  shared Agent Skills location), `~/.claude/skills/<name>`,
+  `~/.codex/skills/<name>`, and `~/.pi/agent/skills/<name>`. The skill is
+  therefore available from the first install, and `zz update zz` refreshes it
+  through the links like any other product default. The rows stay explicit in
+  `config/managed-config.tsv`, and `tests/agent_skills.bats` fails when a
+  shipped skill directory lacks a row for any assistant, so a new skill cannot
+  be half-linked.
+- **Repository task guides** live under `agents/skills/<name>/` and are
+  indexed from `AGENTS.md`, which `CLAUDE.md` links to. They are read from the
+  checkout and never linked into a home directory.
+
+The shipped `zz` skill covers customizing an installed desktop from
+`~/.config` and the `zz` commands; it excludes ZZ source development.
 
 ## Resetting a user-owned file
 

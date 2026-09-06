@@ -1,6 +1,6 @@
 id = "base-bootstrap"
 description = "Persistent tools for desktop integration and installer reruns"
-config = ["core", "shell"]
+config = ["core", "shell", "agent-skills"]
 
 [base]
 order = 10

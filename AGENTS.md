@@ -1,5 +1,17 @@
 # Repository instructions
 
+## Task guides
+
+Deeper instructions for specific kinds of work live in `agents/skills/`. Read the
+matching guide before starting:
+
+- [`agents/skills/dms-plugin/SKILL.md`](agents/skills/dms-plugin/SKILL.md) - creating, wiring, or debugging a DMS plugin that ZZ ships
+- [`docs/dotfiles-layering.md`](docs/dotfiles-layering.md) - adding or changing managed configuration, seeds, and assistant skills
+- [`docs/fedora-installer-iso.md`](docs/fedora-installer-iso.md) - building or validating the installer ISO
+
+Guides are read from the checkout only. End-user skills that ship to installed systems
+live under `dotfiles/agent-skills/` instead and must not be mixed with these.
+
 ## Scope and invariants
 
 - This repository is a Fedora post-install bootstrapper for the Niri and DMS (DankMaterialShell) desktop.

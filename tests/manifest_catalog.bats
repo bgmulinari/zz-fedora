@@ -690,7 +690,7 @@ TOML
   assert_equal "1" "$BUNDLE_BASE"
   assert_equal "10" "$BUNDLE_BASE_ORDER"
   assert_equal "1" "$BUNDLE_BASE_EARLY"
-  assert_equal "core,shell" "$BUNDLE_CONFIG_COMPONENTS"
+  assert_equal "core,shell,agent-skills" "$BUNDLE_CONFIG_COMPONENTS"
 
   load_bundle_descriptor browsers-firefox
   assert_equal "browsers-firefox-theme" "$BUNDLE_DEPENDENCIES"
