@@ -159,6 +159,73 @@ EOF
   assert_contains "$output" "LANG=C.UTF-8"
   assert_contains "$output" "LC_ALL=C.UTF-8"
 }
+@test "run_cmd_as_user switches to the user's home after the identity change" {
+  TARGET_USER="cwd-user"
+  TARGET_HOME="$TEST_ROOT/cwd-home"
+  mkdir -p "$TARGET_HOME"
+
+  id() {
+    if [[ "${1:-}" == "-u" && "${2:-}" == "cwd-user" ]]; then
+      printf '1234\n'
+      return 0
+    fi
+    command id "$@"
+  }
+  getent() {
+    if [[ "${1:-}" == "passwd" && "${2:-}" == "cwd-user" ]]; then
+      printf 'cwd-user:x:1234:1234::%s:/bin/bash\n' "$TARGET_HOME"
+      return 0
+    fi
+    command getent "$@"
+  }
+  run_cmd() {
+    printf '%s\n' "$*"
+  }
+
+  run run_cmd_as_user cwd-user true
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "sudo -u cwd-user env --chdir=$TARGET_HOME HOME=$TARGET_HOME"
+
+  rmdir "$TARGET_HOME"
+  run run_cmd_as_user cwd-user true
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "env --chdir=/ HOME=$TARGET_HOME"
+}
+@test "run_cmd_as_user commands run from a user-readable directory regardless of the caller's cwd" {
+  TARGET_USER="cwd-user"
+  TARGET_HOME="$TEST_ROOT/cwd-home"
+  mkdir -p "$TARGET_HOME" "$TEST_ROOT/unreadable-caller-cwd"
+  DRY_RUN=0
+
+  id() {
+    if [[ "${1:-}" == "-u" && "${2:-}" == "cwd-user" ]]; then
+      printf '1234\n'
+      return 0
+    fi
+    command id "$@"
+  }
+  getent() {
+    if [[ "${1:-}" == "passwd" && "${2:-}" == "cwd-user" ]]; then
+      printf 'cwd-user:x:1234:1234::%s:/bin/bash\n' "$TARGET_HOME"
+      return 0
+    fi
+    command getent "$@"
+  }
+  # Stand in for sudo: drop "-u <user>" and run the rest as this test user,
+  # which keeps the real env --chdir behaviour in play.
+  sudo() {
+    shift 2
+    "$@"
+  }
+
+  cd "$TEST_ROOT/unreadable-caller-cwd"
+  run run_cmd_as_user cwd-user pwd
+
+  [ "$status" -eq 0 ]
+  assert_equal "$(readlink -f "$TARGET_HOME")" "$(readlink -f "${lines[-1]}")"
+}
 @test "run_cmd honors opt-in command timeout" {
   DRY_RUN=0
   ZZ_COMMAND_TIMEOUT_SECONDS=7

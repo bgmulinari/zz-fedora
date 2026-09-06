@@ -146,7 +146,15 @@ run_cmd_as_user() {
     [[ -n "${XDG_CURRENT_DESKTOP:-}" ]] && user_env+=("XDG_CURRENT_DESKTOP=$XDG_CURRENT_DESKTOP")
     [[ -n "${DESKTOP_SESSION:-}" ]] && user_env+=("DESKTOP_SESSION=$DESKTOP_SESSION")
 
-    run_cmd sudo -u "$user" env "${user_env[@]}" "$@"
+    # sudo keeps the caller's working directory, which the target user may not
+    # be able to read when the installer was elevated from somewhere like
+    # /root (pkexec starts there); Homebrew refuses to run from such a
+    # directory. Switch after the identity change, so the directory only has
+    # to be readable by the user: the home when it exists, otherwise /.
+    local work_dir="$user_home"
+    [[ -n "$work_dir" && -d "$work_dir" ]] || work_dir=/
+
+    run_cmd sudo -u "$user" env --chdir="$work_dir" "${user_env[@]}" "$@"
   fi
 }
 
