@@ -267,24 +267,72 @@ shadow it anyway.
 
 Enablement is data DMS 1.6 keeps in
 `~/.config/DankMaterialShell/plugin_settings.json`, keyed by plugin id. The
-plugin's own component carries a `seed-if-missing` row for that file,
-sourced from `templates/dms/plugin-settings-seed.json`, listed ahead of its
-directory link: the generic managed-config apply writes the seed and then
-links the directory, so DMS finds the plugin already enabled when it
-discovers the directory (it consults the flag only at discovery). Keeping
-the row on the plugin's component, not on the base `dms` component, means a
-deselected choice seeds nothing. Like the other seeds it is one-shot: an
-install that already has a `plugin_settings.json` keeps it, so a plugin
-enabled by seed on a fresh install is enabled on an existing one only
-through Settings > Plugins or `dms ipc plugins enable <id>`. The seed-diff
-tool does not cover plugin settings. A bar widget also needs its id in a
-`barConfigs` section of `templates/dms/settings-seed.json`; the settings
-emitter strips the ids of shipped plugins whose component is not in the
-plan, because DMS lists an unresolved widget id as an unavailable entry in
-the bar editor.
+base `dms` component carries a `seed-if-missing` row for that file with no
+source: it is rendered, like `settings.json`, by the DMS state seeding in
+`lib/dms.sh` from `templates/dms/plugin-settings-seed.json`, which enables
+every shipped plugin, minus the ids whose plugin component the plan left
+out. One rendered seed on the base component is what lets two plugins share
+the file (a managed-config path may appear only once) while a deselected
+choice still seeds nothing for itself. DMS consults the flag only when it
+discovers the plugin directory, which on a fresh install happens at first
+login, after both the links and the seeds are in place.
+
+Unlike the other seeds, plugin defaults are not one-shot: a plugin ZZ starts
+shipping after an install is on by default there too. After the seeds,
+post-actions runs `dms_apply_plugin_defaults` (`lib/dms.sh`), which adds the
+planned ids the live `plugin_settings.json` lacks as enabled (every key the
+user has set, disabled ones included, is kept), inserts each planned bar
+widget into the live `settings.json` bar the way the seed places it (before
+the first seed neighbor still in that section, else after the last
+preceding one, else at the end, in the bar named `default`), and, when the
+target user's shell answers IPC, asks it to rescan and enable the new ids so
+they load without a re-login. A widget is placed once per plugin, recorded
+in `~/.local/state/zz-fedora/dms-placed-widgets`, so a widget the user
+removes afterwards stays removed; DMS watches both files, so a running
+shell picks the edits up. The seed-diff tool does not cover plugin
+settings, and `zz refresh` does not list the file (rendered seeds have no
+source to restore from). A bar widget therefore needs its id in a
+`barConfigs` section of `templates/dms/settings-seed.json` for both paths;
+the settings emitter strips the ids of shipped plugins whose component is
+not in the plan, because DMS lists an unresolved widget id as an
+unavailable entry in the bar editor.
 
 Shipped plugins:
 
+- **ZZ menu** (`zzMenu`, base, component `dms`): the desktop's command
+  menu, a composite plugin with a bar widget and a launcher surface. The
+  bar button's popout is the menu proper (`ZzMenuPanel.qml`): groups open
+  as submenus with a breadcrumb and a back arrow, the keyboard drives it
+  (arrows, Enter, Backspace or Left to go up, Escape), and typing narrows
+  the current group first and everything below it after that. Like the
+  launcher it has two homes: the bar button drops it under the pill, and
+  the Super+Z bind opens the same panel in a centered `DankModal` over a
+  dimmed background through the shell's widget IPC
+  (`dms ipc call widget toggleWith zzMenu root`; `openWith zzMenu <group>`
+  opens a group). The rows: the `zz` commands, Niri chores the shell has no page
+  for (edit the personal overrides, validate and reload the config, hotkey
+  overlay, pick-a-window facts for window rules, outputs, compositor log), the shell itself
+  (restart, rescan plugins, shell log), system monitors, and documentation
+  links. The menu is data: `menu.json` in the plugin directory, an object
+  keyed by dotted ids where the dots are the tree, overlaid entry by entry
+  with `~/.config/zz-fedora/menu.json`. `scripts/zz-menu-inventory`
+  (`/usr/bin/python3`, stdlib) merges the two, evaluates every `when` guard
+  in one shell batch, expands the providers (`refresh` from
+  `zz refresh --list`; `apps` from `zz app list --json`, one subgroup per
+  category with rows that install or remove by state), and prints the groups
+  (with their parent) and rows;
+  `ZzMenuInventory.qml`, shared by both surfaces, runs it and the rows. The
+  launcher surface behind the `zz` trigger is search only: the launcher
+  closes after any plugin item executes and cannot hold a submenu open, so
+  there each row carries its group path in the subtitle and as search
+  words, and the top-level groups are the launcher's categories. A row
+  marked `terminal` runs through `scripts/zz-menu-run`, which opens
+  `xdg-terminal-exec` (falling back to `ghostty`) and holds the window
+  until Enter so output and sudo prompts stay visible; other rows run
+  detached in a login shell. It is base because a ZZ desktop without its
+  own menu is incomplete and it needs no wizard visibility; the doctor
+  reads its manifest through the link. A test keeps `menu.json` in step
+  with `bin/zz.d/` and the updater's target list.
 - **Agent usage** (`agentUsage`, unit `ai-agent-usage`, component
   `dms-plugin-agent-usage`): a bar pill plus popout showing Claude Code and
   Codex rate limits with reset countdowns, tokens per day for the last week,

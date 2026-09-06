@@ -18,6 +18,7 @@ packages = [
   "gum",
   "jq",
   "nss-tools",
+  "python3",
   "tar",
   "unzip",
 ]

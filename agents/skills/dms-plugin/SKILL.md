@@ -162,9 +162,10 @@ Read [references/zz-wiring.md](references/zz-wiring.md) and apply, in this order
    appended to the ordered list in `tests/anaconda_addon.bats`.
 3. **Enable-by-default seeds** only when the plugin must be active on first login.
    DMS 1.6 keeps the `enabled` flag in `plugin_settings.json`; the reference explains
-   the seed row the plugin's component carries and why bar widgets also need their id
-   in a `barConfigs` section of `templates/dms/settings-seed.json`. Pure desktop
-   plugins auto-enable and need none of this.
+   the shared, plan-filtered seed template the plugin id goes into and why bar
+   widgets also need their id in a `barConfigs` section of
+   `templates/dms/settings-seed.json`. Pure desktop plugins auto-enable and need
+   none of this.
 4. **Docs**: a "Plugins" subsection in `docs/design/dms-integration.md` (create it the
    first time, then one bullet per plugin) and the DMS row of the layers table in
    `docs/dotfiles-layering.md`, which must mention plugin directories once any exist
@@ -234,10 +235,13 @@ journalctl --user -u dms.service -n 50 --no-pager
 Enable it with `dms ipc plugins enable <id>` (the `plugins` IPC target also has
 `disable`, `toggle`, `list`, and `status`; `plugin-scan reload <id>` loads a plugin
 after a code change even when it is not enabled) and add a widget to a bar
-section. There is no IPC to open a plugin popout; to see one without a pointer
-tool, temporarily add a one-shot `Timer` that calls `triggerPopout()` from the
-widget, reload, `dms screenshot full`, and revert. Startup-check failures surface as a toast
-and in `status`. Remove the link afterwards unless the user wants to keep it; the
+section. A widget popout opens from the CLI (`dms ipc call widget toggle <id>`,
+`openWith <id> <mode>` when the widget implements `openWithMode`), so a popout can be
+shown and captured with `grim -g "0,0 640x640" out.png` without a pointer tool.
+Keyboard input cannot be injected into it from a script (`wtype` does not reach
+the layer surface), so test keys by hand. Startup-check failures surface as a toast
+and in `status`. After editing a sibling QML file (not named in the manifest),
+restart the shell instead of `plugin-scan reload`, which serves the cached copy. Remove the link afterwards unless the user wants to keep it; the
 installer will recreate it from the managed-config row.
 
 ## Pitfalls specific to ZZ
@@ -248,17 +252,39 @@ installer will recreate it from the managed-config row.
 - **User plugins shadow system ones.** `/etc/xdg/quickshell/dms-plugins` exists, but
   ZZ does not use it: `system-file` mode only handles single files and would copy
   rather than link, so updates would stop flowing.
-- **Seeds run once.** `seed-if-missing` files are user-owned afterwards. A plugin
-  enabled by seed on a fresh install is not enabled on an existing one; say so in the
-  docs instead of adding a migration.
+- **Seeds run once, plugin defaults do not.** `seed-if-missing` files are user-owned
+  afterwards, but post-actions tops up shipped plugins on every apply: a new id is
+  enabled and its widget placed once, and user removals stick. A plugin in the seed
+  template and the bar seed is therefore on by default on existing installs too.
 - **Do not commit state.** Nothing from `~/.local/state/DankMaterialShell/` or
   `~/.cache/DankMaterialShell/` belongs in the repo, including `plugin_settings.json`
   captured from a live session.
 - **Generic identifiers.** Name the unit after the feature (`desktop-disk-free`), not
   after the shell or a vendor; the `dms-plugin-` component prefix follows the
   existing `dms` component convention and is the only branded part.
-- **Bash never parses the manifest.** If installer logic needs plugin facts, put them
-  in the catalog TOML or a TSV, not in a `jq` read of `plugin.json`.
+- **Sibling QML files resolve by type name only.** A multi-file plugin uses its
+  sibling types implicitly (`ZzMenuInventory {}`), the way the shipped plugins do.
+  An explicit `import "."` and a `Loader`/`Qt.createComponent` with the plugin path
+  both fail through the product link with "File name case mismatch" (Qt compares
+  the linked path with the canonical one), and the panel of a popout is no
+  exception. The engine caches sibling files: `dms ipc call plugin-scan reload`
+  re-reads only the manifest's component files, so after editing or adding a
+  sibling file restart the shell (`systemctl --user restart dms.service`).
+- **A bar popout is `popoutContent`.** `PluginComponent` gives a widget an anchored
+  popout with keyboard focus for free: set `popoutContent`, `popoutWidth`, and
+  leave `pillClickAction` unset so the click toggles it. The host assigns
+  `closePopout` and `parentPopout` to the loaded content item and keeps it alive
+  between opens, so reset state on `parentPopout.shouldBeVisible` rather than in
+  `Component.onCompleted` alone. `dms ipc call widget toggle <pluginId>` reaches it
+  from a keybind; implement `openWithMode(mode)` / `toggleWithMode(mode)` on the
+  widget for `openWith` / `toggleWith`. For a keybind surface that should look like
+  the launcher (centered, dimmed background) put the same content in a `DankModal`
+  (`import qs.Modals.Common`; `targetScreen: parentScreen`) beside the popout, as
+  the ZZ menu does, and route `toggleWith` to it.
+- **Bash reads one manifest fact: the id.** `dms_unplanned_plugin_ids` and
+  `dms_component_plugin_ids` (`lib/dms.sh`) take `.id` from `plugin.json` to tie a
+  managed-config component to the plugin the shell knows. Any other plugin fact the
+  installer needs goes in the catalog TOML or a TSV, not in another `jq` read.
 
 ## Files in this skill
 

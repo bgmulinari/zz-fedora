@@ -314,17 +314,31 @@ fedora_group_installed() {
     '
 }
 
+# The package name of a dnf spec, with any architecture suffix dropped.
+rpm_spec_name() {
+  local package_spec="$1"
+  case "$package_spec" in
+    *.noarch|*.x86_64|*.aarch64|*.i386|*.i486|*.i586|*.i686|*.ppc64le|*.s390x)
+      printf '%s\n' "${package_spec%.*}"
+      ;;
+    *)
+      printf '%s\n' "$package_spec"
+      ;;
+  esac
+}
+
 fedora_package_installed() {
   local package_spec="$1"
   case "$package_spec" in
     @*)
       fedora_group_installed "$package_spec"
       ;;
-    *.noarch|*.x86_64|*.aarch64|*.i386|*.i486|*.i586|*.i686|*.ppc64le|*.s390x)
-      rpm -q "$package_spec" >/dev/null 2>&1
-      ;;
     *)
-      rpm -q "$package_spec" >/dev/null 2>&1 || rpm -q --whatprovides "$package_spec" >/dev/null 2>&1
+      rpm -q "$package_spec" >/dev/null 2>&1 && return 0
+      # An arch-qualified spec names one package exactly; a bare name may
+      # also be a virtual provide.
+      [[ "$(rpm_spec_name "$package_spec")" == "$package_spec" ]] || return 1
+      rpm -q --whatprovides "$package_spec" >/dev/null 2>&1
       ;;
   esac
 }

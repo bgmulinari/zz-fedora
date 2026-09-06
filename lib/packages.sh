@@ -169,9 +169,16 @@ defer_extra_data_flatpaks() {
     return 0
   fi
   if flatpak_sandbox_available; then
-    # A queue left by an earlier sandbox-restricted run is superseded: this
-    # run installs everything directly.
-    rm -f "$deferred_file" "$attempts_file" 2>/dev/null || true
+    # This run installs its plan directly, so the queue an earlier
+    # sandbox-restricted run left is superseded for those apps; a focused
+    # plan (one choice) leaves the rest queued for the first login.
+    [[ -f "$deferred_file" ]] || return 0
+    local -a planned=()
+    mapfile -t planned < <(read_plan_file "$plan_file")
+    remove_plan_entries "$deferred_file" "${planned[@]:-}" || true
+    if [[ ! -s "$deferred_file" ]]; then
+      rm -f "$deferred_file" "$attempts_file" 2>/dev/null || true
+    fi
     return 0
   fi
   [[ -f "$plan_file" ]] || return 0

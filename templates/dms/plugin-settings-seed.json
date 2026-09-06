@@ -1,4 +1,7 @@
 {
+  "zzMenu": {
+    "enabled": true
+  },
   "agentUsage": {
     "enabled": true
   }

@@ -1,0 +1,30 @@
+{
+  "id": "zzMenu",
+  "name": "ZZ Menu",
+  "description": "Every zz command, searchable from the launcher and one click from the bar",
+  "version": "1.0.0",
+  "author": "ZZ",
+  "type": "composite",
+  "capabilities": [
+    "launcher",
+    "dankbar-widget",
+    "command-execution"
+  ],
+  "components": {
+    "launcher": "./ZzMenuLauncher.qml",
+    "widget": "./ZzMenuWidget.qml"
+  },
+  "trigger": "zz",
+  "icon": "terminal",
+  "settings": "./Settings.qml",
+  "startupCheck": "./StartupCheck.qml",
+  "dependencies": [
+    "python3",
+    "xdg-terminal-exec"
+  ],
+  "permissions": [
+    "settings_read",
+    "settings_write",
+    "process"
+  ]
+}

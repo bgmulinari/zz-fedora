@@ -35,6 +35,7 @@ dnf	curl	installer-bootstrap	bootstrap and post-actions	Fetches installer prereq
 dnf	git	installer-bootstrap	repo clone and shell plugins	Clones this repo and shell plugin repositories.
 dnf	gum	installer-bootstrap	wizard and TUI	Provides the interactive wizard and installer prompts.
 dnf	jq	installer-bootstrap	JSON metadata parsing	Parses JSON metadata for update and custom action helpers.
+dnf	python3	installer-bootstrap	catalog compiler and dnf	Runs the catalog compiler on every installer run and is the interpreter dnf itself uses.
 dnf	tar	installer-bootstrap	archive handling	Handles downloaded archives and debug bundles.
 dnf	unzip	installer-bootstrap	archive handling	Extracts zip payloads used by installer-managed assets.
 dnf	bash-completion	shell-tool	interactive Bash	Provides command completions for the persistent Bash shell environment.

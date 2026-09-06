@@ -24,6 +24,7 @@ binds {
     // Desktop shell
     Mod+D hotkey-overlay-title="DMS Launcher" { spawn-sh "dms ipc call spotlight toggle"; }
     Mod+Space hotkey-overlay-title="DMS Launcher" { spawn-sh "dms ipc call spotlight toggle"; }
+    Mod+Z hotkey-overlay-title="ZZ Menu" { spawn-sh "dms ipc call widget toggleWith zzMenu root"; }
     Mod+S hotkey-overlay-title="DMS Control Center" { spawn-sh "dms ipc call control-center toggle"; }
     Mod+Comma hotkey-overlay-title="DMS Settings" { spawn-sh "dms ipc call settings focusOrToggle"; }
     Mod+V hotkey-overlay-title="DMS Clipboard History" { spawn-sh "dms ipc call clipboard toggle"; }

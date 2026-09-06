@@ -141,7 +141,8 @@ Notes:
   features live. Do not create a vendor-named group.
 - Base plugin instead: add the row to the `dms` component (no catalog change; the
   `dms` component is already in `base-dms`'s `config`), and remember that base work
-  must stay verifiable and explainable in `base-rationale.tsv`.
+  must stay verifiable and explainable in `base-rationale.tsv`. The ZZ menu
+  (`plugins/ZzMenu`) ships this way.
 
 Run `/usr/bin/python3 lib/catalog.py --root . validate` after every catalog edit.
 
@@ -150,32 +151,33 @@ Run `/usr/bin/python3 lib/catalog.py --root . validate` after every catalog edit
 Skip this for plugins the user opts into through Settings > Plugins, and for pure
 desktop plugins (auto-enabled). When a plugin must be live at first login:
 
-1. **`plugin_settings.json` seed.** The plugin's component carries an ordinary
-   `seed-if-missing` row for the file, sourced from
-   `templates/dms/plugin-settings-seed.json` (`{"<id>": {"enabled": true}}` plus any
-   default plugin settings read through `pluginData`), listed *before* the
-   directory-link row of the same component:
-   `dms-plugin-<kebab>	~/.config/DankMaterialShell/plugin_settings.json	seed-if-missing	preserve	templates/dms/plugin-settings-seed.json	dms	Seeds ...`
-   The generic apply in `lib/files.sh` walks rows in order, so the seed lands before
-   DMS discovers the linked directory; DMS consults the `enabled` flag only at
-   discovery. `lib/dms.sh` renders nothing for this file, and the plan and `zz
-   refresh` list it through the row. Keep the row on the plugin's component, never
-   on the base `dms` component: a deselected choice must seed nothing. The first
-   shipped plugin (`dms-plugin-agent-usage`) already owns this row; a second plugin
-   shares the same seed file (add its id to the template) because a path may appear
-   only once in the manifest.
+1. **`plugin_settings.json` seed.** Add `"<id>": {"enabled": true}` (plus any
+   default plugin settings read through `pluginData`) to
+   `templates/dms/plugin-settings-seed.json`. Nothing else: the base `dms`
+   component already carries the `seed-if-missing` row for the file with no source,
+   and `dms_plugin_settings_seed_json` in `lib/dms.sh` renders the template minus
+   the ids whose plugin component is not in the plan (the same
+   `dms_unplanned_plugin_ids` walk the bar seed uses), so a deselected choice seeds
+   nothing for itself while every shipped plugin shares one file (a managed-config
+   path may appear only once). The DMS state seeding writes it with `settings.json`
+   in post-actions, and `dms_apply_plugin_defaults` then tops up existing
+   installs: ids the live file lacks are added as enabled, the widget is inserted
+   into the live bar at its seed position once (recorded in
+   `~/.local/state/zz-fedora/dms-placed-widgets`), and a running shell is asked
+   over IPC to load it. `zz refresh` does not list rendered seeds.
 2. **Bar layout.** For a widget, add the plugin id to the wanted section of the
    `barConfigs[0]` entry in `templates/dms/settings-seed.json`. The seed-diff tool
    compares bar configs field by field, so this is a normal promotable key.
    `dms_settings_seed_json` strips the ids of shipped plugins whose component is not
    in the plan (it maps `plugins/<Name>` link rows to their `plugin.json` id), so a
    deselected choice leaves no dangling widget id behind.
-3. **Doctor.** `modules/90-doctor.sh` checks `plugin_settings.json` and the linked
-   `plugin.json` when the component is in `components.list`; add the new plugin's
-   manifest path to that block. The seed-diff tool (`lib/dms_seed_diff.py`) does not
+3. **Doctor.** `modules/90-doctor.sh` checks `plugin_settings.json` whenever DMS
+   is planned and each linked `plugin.json` when its component is in
+   `components.list`; add the new plugin's manifest path to that block. The seed-diff tool (`lib/dms_seed_diff.py`) does not
    cover plugin settings; say so in the design doc rather than extending it unasked.
-4. **Document the limit.** Seeds are one-shot: existing installs keep their current
-   `plugin_settings.json`. State that in the design doc; do not add a migration.
+4. **Existing installs get it too.** The top-up above is what makes a plugin on by
+   default everywhere; a user who disables it or removes the widget is left
+   alone. Nothing else to add per plugin.
 
 Never capture a live `plugin_settings.json`: it accumulates state for every plugin
 the user ever enabled.
@@ -236,7 +238,8 @@ process; `$PLAN_DIR` then holds `bundles.list`, `config/components.list`,
 `sources/artifacts.list`, ...).
 
 `build_test_plan` with no selection builds the base-only plan: a `default = true`
-choice is not in it, so do not assert an optional plugin's link there. To assert
+choice is not in it, so do not assert an optional plugin's link there (the base
+ZZ menu link and the rendered `plugin_settings.json` seed are). To assert
 that a choice is selected by default, use the catalog helper instead:
 
 ```bash

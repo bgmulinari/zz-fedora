@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Run one ZZ menu action in a terminal window that stays open until Enter is
+# pressed, so the command's output, and any sudo prompt, is on screen.
+#
+# Usage: zz-menu-run <command line>
+set -Eeuo pipefail
+
+if [[ $# -lt 1 || -z "$1" ]]; then
+  printf 'Usage: zz-menu-run <command line>\n' >&2
+  exit 2
+fi
+
+export ZZ_MENU_COMMAND="$*"
+# The same tool directories the menu's guards were evaluated with, so a row
+# shown because dotnet exists runs in a shell that finds dotnet: the
+# per-user .NET install and its tools ahead, the Homebrew prefix behind,
+# the way the installer's action shell orders them.
+export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
+export PATH="$HOME/.local/bin:$DOTNET_ROOT:$DOTNET_ROOT/tools:${PATH:-/usr/local/bin:/usr/bin}:/home/linuxbrew/.linuxbrew/bin"
+# A login shell so the user's own profile applies too. The variables in the
+# script are expanded by that shell, not this one.
+# shellcheck disable=SC2016
+script='printf "$ %s\n\n" "$ZZ_MENU_COMMAND"
+eval "$ZZ_MENU_COMMAND"
+status=$?
+printf "\n%s exited with status %s. Press Enter to close.\n" "$ZZ_MENU_COMMAND" "$status"
+read -r'
+
+# xdg-terminal-exec resolves the default terminal ZZ configures; the
+# fallbacks cover a session where that entry is missing.
+if command -v xdg-terminal-exec >/dev/null 2>&1; then
+  exec xdg-terminal-exec --title="$ZZ_MENU_COMMAND" -- bash -lc "$script"
+fi
+if command -v ghostty >/dev/null 2>&1; then
+  exec ghostty +new-window -e bash -lc "$script"
+fi
+exec "${TERMINAL:-xterm}" -e bash -lc "$script"

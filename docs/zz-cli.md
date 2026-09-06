@@ -14,9 +14,20 @@
 | `zz dotnet` | Manage .NET development utilities. |
 | `zz refresh` | Replace one user-owned config with the current ZZ default, backing it up first. |
 | `zz update` | Update ZZ itself, packages, or developer tools. |
+| `zz app` | Install or remove one catalog application without rerunning the whole install. |
 
 Run `zz --help` to list commands or `zz commands --json` for machine-readable
 command metadata.
+
+The desktop shell exposes the same commands through the ZZ menu: click the
+ZZ button in the bar (a popout under it) or press Super+Z (centered, like
+the launcher), walk the groups, and pick a row; it runs in a terminal window that stays open. Typing `zz` in the
+launcher searches the same rows. Super+Z is part of the seeded keybinds:
+an install seeded before the menu shipped keeps its own
+`~/.config/niri/dms/binds.kdl`, so add the bind there (Settings > Keybinds,
+action `dms ipc call widget toggleWith zzMenu root`) or run
+`zz refresh niri/dms/binds.kdl`; `zz doctor` warns while it is missing. See
+`docs/design/dms-integration.md` for the plugin.
 
 ## Logs
 
@@ -79,6 +90,39 @@ branch is the update source.
 Package/tool update targets are `dnf`, `flatpak`, `brew`, `npm`, `dotnet`,
 `dotnet-sdk`, `dotnet-tools`, `claude`, and `cleanup`. Run `zz update --help`
 for details.
+
+## Installing and removing applications
+
+```bash
+zz app list
+zz app install brave
+zz app remove office/pinta --dry-run
+```
+
+`zz app` changes one wizard choice at a time on an installed system. A
+choice is named by its id (`zed`, `spotify`) or by `category/id` when the
+same id exists in more than one category; `zz app list` shows every choice
+with its category, whether the saved selections include it, and whether it
+is installed right now.
+
+`zz app install` adds the choice to the saved selections, then applies only
+that choice's units and their dependencies: it enables the sources they
+need, installs their packages and Flatpaks, runs their actions, and finally
+converges managed configuration and desktop defaults the way `zz update zz`
+does. The rest of the plan is not re-run. `zz app remove` takes the choice
+out of the saved selections and removes the packages, Flatpaks, Homebrew
+and npm packages, user services, and product links that no remaining
+choice or base unit still needs. Bootstrap prerequisites and anything
+another selected choice shares are kept, and units installed by other
+custom actions (direct installers) are reported as left in place. Both
+commands list the resolved choices and ask for confirmation first; `--yes`
+skips the prompt. Both accept `--dry-run`, which prints the commands
+without a prompt and leaves the saved selections untouched, and both need
+root for package changes.
+
+The desktop menu's Apps group lists the same choices per category; each
+row installs the choice when it is absent and removes it when it is
+present, in a terminal.
 
 ## Refreshing user configuration
 

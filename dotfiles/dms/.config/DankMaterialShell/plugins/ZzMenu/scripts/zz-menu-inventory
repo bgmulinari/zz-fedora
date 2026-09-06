@@ -1,0 +1,435 @@
+#!/usr/bin/python3
+"""Resolve the ZZ menu definition into launcher rows.
+
+Reads the shipped menu.json beside this plugin, overlays the user's
+$XDG_CONFIG_HOME/zz-fedora/menu.json on top of it entry by entry, evaluates
+every `when` guard in one shell batch, expands provider-backed groups (the
+`refresh` provider lists what `zz refresh --list` can restore), and prints the
+result as one JSON document:
+
+  {"groups": [{"id", "parent", "path", "label", "icon", "description",
+               "order"}],
+   "rows": [{"id", "parent", "group", "path", "label", "icon",
+             "description", "action", "terminal", "keywords", "order"}]}
+
+Entry ids are dotted paths: `update.dnf` belongs to `update`. Every group
+with at least one visible row below it is listed, nested ones included, so
+the tree can be rebuilt from `parent`; `group` is the top-level ancestor
+(the launcher's category), `path` the ancestor labels, and `order` the
+definition position, which orders siblings. An entry with
+an `action` is a row, one with a `provider` is a group whose rows come from
+the provider, anything else is a plain group. Optional fields: `icon` (a
+Material Symbols name, inherited from the nearest ancestor when absent),
+`label` (defaults to the last id segment), `description`, `aliases` (extra
+search words), `terminal` (run the action in a terminal window that stays
+open, instead of detached), and `when` (a shell condition; the entry and
+everything below it are hidden when it fails).
+
+Only the standard library is used. A broken source file contributes nothing
+while the shipped menu keeps working, and the failure is reported on stderr;
+the output is complete either way, and the exit status is non-zero only when
+a provider could not answer, so the shell can ask again sooner.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+PLUGIN_DIR = Path(__file__).resolve().parent.parent
+SHIPPED_MENU = PLUGIN_DIR / "menu.json"
+ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)*$")
+STRING_FIELDS = ("icon", "label", "description", "action", "provider", "when")
+DEFAULT_ICON = "terminal"
+COMMAND_TIMEOUT = 20
+# The choice listing asks every package manager for its state; a cold
+# cache after boot takes longer than a guard batch.
+APP_LIST_TIMEOUT = 60
+
+
+def warn(message: str) -> None:
+    print(f"zz-menu-inventory: {message}", file=sys.stderr)
+
+
+def overlay_path() -> Path:
+    config_home = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
+    return Path(config_home) / "zz-fedora" / "menu.json"
+
+
+def tool_environment() -> dict[str, str]:
+    """The environment guards and providers run in.
+
+    The desktop session's PATH lacks the per-user tool directories an
+    interactive terminal gets from the ZZ shell fragments (the .NET install,
+    its global tools), so a `command -v dotnet` guard would hide the .NET
+    rows the terminal can run. Prepend them the way the installer's action
+    shell does, with the Homebrew prefix behind everything else.
+    """
+    env = dict(os.environ)
+    home = os.environ.get("HOME") or str(Path.home())
+    dotnet_root = env.get("DOTNET_ROOT") or f"{home}/.dotnet"
+    current = env.get("PATH") or "/usr/local/bin:/usr/bin:/bin"
+    parts = [f"{home}/.local/bin", dotnet_root, f"{dotnet_root}/tools"]
+    parts += [part for part in current.split(":") if part]
+    parts += ["/home/linuxbrew/.linuxbrew/bin"]
+    seen: list[str] = []
+    for part in parts:
+        if part not in seen:
+            seen.append(part)
+    env["PATH"] = ":".join(seen)
+    env["DOTNET_ROOT"] = dotnet_root
+    return env
+
+
+def zz_launcher() -> str:
+    """The zz launcher to enumerate with.
+
+    The plugin ships inside the ZZ checkout, so walking up from this file
+    finds the repository launcher even when ~/.local/bin is not on the PATH
+    of the process that started the shell. A copied plugin falls back to the
+    PATH lookup and then to the installed launcher location.
+    """
+    override = os.environ.get("ZZ_MENU_ZZ")
+    if override:
+        return override
+    for parent in PLUGIN_DIR.parents:
+        candidate = parent / "bin" / "zz"
+        if (parent / "bin" / "zz.d").is_dir() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return shutil.which("zz") or str(Path.home() / ".local" / "bin" / "zz")
+
+
+def load_entries(path: Path, required: bool) -> dict[str, dict]:
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        if required:
+            warn(f"{path}: missing")
+        return {}
+    except (OSError, ValueError) as exc:
+        warn(f"{path}: {exc}")
+        return {}
+    if not isinstance(raw, dict):
+        warn(f"{path}: expected an object keyed by entry id")
+        return {}
+    entries: dict[str, dict] = {}
+    for entry_id, value in raw.items():
+        if not ID_RE.match(str(entry_id)):
+            warn(f"{path}: invalid entry id {entry_id!r}")
+            continue
+        if not isinstance(value, dict):
+            warn(f"{path}: entry {entry_id!r} must be an object")
+            continue
+        entries[entry_id] = value
+    return entries
+
+
+def merge_sources(*sources: dict[str, dict]) -> dict[str, dict]:
+    """Later sources override earlier ones field by field.
+
+    An overridden entry keeps its original position and every field it does
+    not redeclare, so an overlay can retitle or re-icon a shipped row without
+    repeating its action; new ids append in overlay order.
+    """
+    merged: dict[str, dict] = {}
+    for source in sources:
+        for entry_id, value in source.items():
+            merged[entry_id] = {**merged.get(entry_id, {}), **value}
+    return merged
+
+
+def normalize(entry_id: str, raw: dict) -> dict:
+    entry = {"id": entry_id, "parent": entry_id.rsplit(".", 1)[0] if "." in entry_id else ""}
+    for field in STRING_FIELDS:
+        value = raw.get(field)
+        entry[field] = value.strip() if isinstance(value, str) else ""
+    entry["label"] = entry["label"] or entry_id.rsplit(".", 1)[-1]
+    entry["terminal"] = bool(raw.get("terminal"))
+    aliases = raw.get("aliases")
+    if isinstance(aliases, str):
+        aliases = [aliases]
+    entry["aliases"] = [str(alias) for alias in aliases if alias] if isinstance(aliases, list) else []
+    if entry["action"]:
+        entry["kind"] = "action"
+    elif entry["provider"]:
+        entry["kind"] = "provider"
+    else:
+        entry["kind"] = "group"
+    return entry
+
+
+def evaluate_guards(entries: dict[str, dict]) -> dict[str, bool]:
+    """Run every `when` condition in one shell so the menu costs one fork.
+
+    A batch that fails or times out answers nothing, and an unanswered guard
+    shows its entry: a menu that lists a tool the machine lacks beats one
+    that hides half of itself because a probe hung.
+    """
+    guarded = [(entry_id, entry["when"]) for entry_id, entry in entries.items() if entry["when"]]
+    if not guarded:
+        return {}
+    lines = []
+    for entry_id, condition in guarded:
+        quoted = shlex.quote(entry_id)
+        lines.append(
+            f"if {{ {condition}\n}} >/dev/null 2>&1; then printf '%s\\t1\\n' {quoted}; "
+            f"else printf '%s\\t0\\n' {quoted}; fi"
+        )
+    try:
+        completed = subprocess.run(
+            ["bash", "-lc", "\n".join(lines)],
+            capture_output=True,
+            text=True,
+            timeout=COMMAND_TIMEOUT,
+            check=False,
+            env=tool_environment(),
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        warn(f"guards not evaluated: {exc}")
+        return {}
+    results: dict[str, bool] = {}
+    for line in completed.stdout.splitlines():
+        entry_id, sep, value = line.rpartition("\t")
+        if sep and entry_id in entries:
+            results[entry_id] = value.strip() == "1"
+    return results
+
+
+def slugify(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-") or "item"
+
+
+# Set when a provider could not answer: the run exits non-zero so the
+# shell asks again on the next open instead of standing on a menu with a
+# group missing.
+PROVIDER_FAILED = False
+
+
+def run_zz(*args: str, timeout: int = COMMAND_TIMEOUT) -> str | None:
+    """The stdout of one `zz` command, or None when it could not answer."""
+    global PROVIDER_FAILED
+    name = args[0] if args else "zz"
+    try:
+        completed = subprocess.run(
+            [zz_launcher(), *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            env=tool_environment(),
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        warn(f"{name} provider failed: {exc}")
+        PROVIDER_FAILED = True
+        return None
+    if completed.returncode != 0:
+        warn(f"{name} provider exited with {completed.returncode}")
+        PROVIDER_FAILED = True
+        return None
+    return completed.stdout
+
+
+def refresh_rows(group: dict) -> list[dict]:
+    """Rows for the `refresh` provider: one per user-owned seeded file."""
+    listing = run_zz("refresh", "--list")
+    if listing is None:
+        return []
+    rows: list[dict] = []
+    taken: set[str] = set()
+    for line in listing.splitlines():
+        parts = line.split(None, 1)
+        if not parts:
+            continue
+        key = parts[0]
+        description = parts[1].strip() if len(parts) > 1 else ""
+        # Two keys can slugify alike; a repeated id would drop a row, so nudge
+        # the id until it is the row's own.
+        row_id = f"{group['id']}.{slugify(key)}"
+        while row_id in taken:
+            row_id += "-"
+        taken.add(row_id)
+        rows.append(normalize(row_id, {
+            "label": key,
+            "description": description,
+            "action": f"zz refresh {shlex.quote(key)}",
+            "terminal": True,
+        }))
+    return rows
+
+
+CATEGORY_ICONS = {
+    "ai": "smart_toy",
+    "browsers": "language",
+    "desktop": "apps",
+    "dev": "code",
+    "dotnet": "data_object",
+    "gaming": "sports_esports",
+    "media": "play_circle",
+    "office": "work",
+}
+
+def app_rows(group: dict) -> list[dict]:
+    """Rows for the `apps` provider: a subgroup per category, then one row
+    per choice that installs it when absent and removes it when present."""
+    listing = run_zz("app", "list", "--json", timeout=APP_LIST_TIMEOUT)
+    if listing is None:
+        return []
+    try:
+        choices = json.loads(listing)
+    except ValueError as exc:
+        warn(f"app provider output is not JSON: {exc}")
+        return []
+    if not isinstance(choices, list):
+        return []
+    rows: list[dict] = []
+    made: set[str] = set()
+    for choice in choices:
+        if not isinstance(choice, dict):
+            continue
+        category = str(choice.get("category") or "")
+        choice_id = str(choice.get("id") or "")
+        if not category or not choice_id:
+            continue
+        installed = bool(choice.get("installed"))
+        verb = "remove" if installed else "install"
+        category_row_id = f"{group['id']}.{category}"
+        if category_row_id not in made:
+            made.add(category_row_id)
+            rows.append(normalize(category_row_id, {
+                "icon": CATEGORY_ICONS.get(category, "apps"),
+                "label": str(choice.get("category_label") or category),
+            }))
+        description = str(choice.get("description") or "")
+        rows.append(normalize(f"{category_row_id}.{choice_id}", {
+            "icon": "check_circle" if installed else "download",
+            "label": str(choice.get("label") or choice_id),
+            "description": ("Installed, remove" if installed else "Install") + (f": {description}" if description else ""),
+            "action": f"zz app {verb} {shlex.quote(category + '/' + choice_id)}",
+            "terminal": True,
+            "aliases": ["uninstall" if installed else "add", verb, category],
+        }))
+    return rows
+
+
+PROVIDERS = {"refresh": refresh_rows, "apps": app_rows}
+
+
+def expand_providers(entries: dict[str, dict]) -> dict[str, dict]:
+    expanded: dict[str, dict] = {}
+    for entry_id, entry in entries.items():
+        expanded[entry_id] = entry
+        if entry["kind"] != "provider":
+            continue
+        provider = PROVIDERS.get(entry["provider"])
+        if provider is None:
+            warn(f"{entry_id}: unknown provider {entry['provider']!r}")
+            continue
+        for row in provider(entry):
+            expanded.setdefault(row["id"], row)
+    return expanded
+
+
+def ancestors(entries: dict[str, dict], entry: dict) -> list[dict]:
+    chain: list[dict] = []
+    parent_id = entry["parent"]
+    while parent_id:
+        parent = entries.get(parent_id)
+        if parent is None or parent in chain:
+            break
+        chain.insert(0, parent)
+        parent_id = parent["parent"]
+    return chain
+
+
+def visible(entries: dict[str, dict], guards: dict[str, bool], entry: dict) -> bool:
+    for node in ancestors(entries, entry) + [entry]:
+        if node["when"] and guards.get(node["id"]) is False:
+            return False
+    return True
+
+
+def icon_for(chain: list[dict], entry: dict) -> str:
+    for node in [entry] + list(reversed(chain)):
+        if node["icon"]:
+            return node["icon"]
+    return DEFAULT_ICON
+
+
+def keywords_for(chain: list[dict], entry: dict) -> list[str]:
+    words: list[str] = []
+
+    def add(value: str) -> None:
+        value = value.strip().lower()
+        if value and value not in words:
+            words.append(value)
+
+    path_labels = [node["label"] for node in chain]
+    add(" ".join(path_labels + [entry["label"]]))
+    for segment in re.split(r"[.\-_]+", entry["id"]):
+        add(segment)
+    for label in path_labels:
+        add(label)
+    for alias in entry["aliases"]:
+        add(alias)
+    add(entry["action"])
+    return words
+
+
+def build(entries: dict[str, dict], guards: dict[str, bool]) -> dict:
+    rows: list[dict] = []
+    groups: list[dict] = []
+    populated: set[str] = set()
+    for order, entry in enumerate(entries.values()):
+        if entry["kind"] != "action" or not visible(entries, guards, entry):
+            continue
+        chain = ancestors(entries, entry)
+        for node in chain:
+            populated.add(node["id"])
+        rows.append({
+            "id": entry["id"],
+            "parent": entry["parent"],
+            "group": chain[0]["id"] if chain else "",
+            "path": [node["label"] for node in chain],
+            "label": entry["label"],
+            "icon": icon_for(chain, entry),
+            "description": entry["description"],
+            "action": entry["action"],
+            "terminal": entry["terminal"],
+            "keywords": keywords_for(chain, entry),
+            "order": order,
+        })
+    for order, entry in enumerate(entries.values()):
+        if entry["kind"] == "action" or entry["id"] not in populated:
+            continue
+        chain = ancestors(entries, entry)
+        groups.append({
+            "id": entry["id"],
+            "parent": entry["parent"],
+            "path": [node["label"] for node in chain],
+            "label": entry["label"],
+            "icon": icon_for(chain, entry),
+            "description": entry["description"],
+            "order": order,
+        })
+    return {"groups": groups, "rows": rows}
+
+
+def main() -> int:
+    shipped = load_entries(SHIPPED_MENU, required=True)
+    overlay = load_entries(overlay_path(), required=False)
+    entries = {entry_id: normalize(entry_id, raw) for entry_id, raw in merge_sources(shipped, overlay).items()}
+    guards = evaluate_guards(entries)
+    entries = expand_providers(entries)
+    json.dump(build(entries, guards), sys.stdout, ensure_ascii=False)
+    sys.stdout.write("\n")
+    return 1 if PROVIDER_FAILED else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

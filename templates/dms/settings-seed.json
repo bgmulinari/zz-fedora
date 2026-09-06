@@ -46,6 +46,7 @@
       ],
       "rightWidgets": [
         "systemTray",
+        "zzMenu",
         "clipboard",
         "cpuUsage",
         "memUsage",

@@ -213,6 +213,8 @@ build_plan_from_selections() {
   fi
   write_plan_summary
   write_managed_files_report
+  # A choice change (add-choice, remove-choice) saves its selections itself,
+  # once the change has been applied.
   case "$COMMAND" in
     install|wizard) save_selections ;;
   esac

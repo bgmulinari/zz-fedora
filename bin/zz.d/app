@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+# zz-name: app
+# zz-summary: Install or remove catalog applications one at a time.
+# zz-usage: zz app <list|install|remove> [choice...] [options]
+set -Eeuo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# common.sh brings the catalog access layer, which resolves the choice
+# references; choices.sh holds the resolver the installer shares.
+# shellcheck source=../../lib/common.sh
+source "$ROOT_DIR/lib/common.sh"
+# shellcheck source=../../lib/choices.sh
+source "$ROOT_DIR/lib/choices.sh"
+
+INSTALLER="$ROOT_DIR/install.sh"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  zz app list [--json]
+  zz app install <choice>... [--yes] [--dry-run]
+  zz app remove <choice>... [--yes] [--dry-run]
+
+Install or remove one application from the ZZ catalog without rerunning
+the whole install. A choice is a wizard row such as zed, browsers/brave, or
+office/pinta; the category is needed only when the same id exists in more
+than one category. Installing or removing rewrites the saved selections,
+so `zz update zz` keeps the change.
+
+  list      Every catalog choice with its category, saved-selection state,
+            and whether it is installed now.
+  install   Enable the choice's sources, install its packages and actions,
+            and converge managed configuration.
+  remove    Remove the packages and Flatpaks no remaining choice needs and
+            report what has no automatic removal.
+
+Both show what they are about to do and ask before changing anything.
+
+Options:
+  --yes, -y   Skip the confirmation prompt.
+  --dry-run   Print what would run without changing the system; no prompt.
+  -h, --help  Show this help.
+USAGE
+}
+
+# The JSON arrives on stdin, so the script is passed as an argument.
+render_choice_table() {
+  "$SYSTEM_PYTHON" -c "$(cat <<'PY'
+import json
+import sys
+
+rows = json.load(sys.stdin)
+if not rows:
+    print("No catalog choices.")
+    sys.exit(0)
+width = max(len(f"{row['category']}/{row['id']}") for row in rows)
+category = None
+for row in rows:
+    if row["category"] != category:
+        category = row["category"]
+        print(f"\n[{row['category_label']}]")
+    if row["installed"]:
+        state = "installed"
+    elif row["selected"]:
+        state = "selected, missing"
+    else:
+        state = "available"
+    print(f"  {row['category'] + '/' + row['id']:<{width}}  {state:<18} {row['label']}: {row['description']}")
+print("\nzz app install <choice> | zz app remove <choice>")
+PY
+)"
+}
+
+list_choices() {
+  local format="table"
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --json) format="json" ;;
+      -h|--help) usage; return 0 ;;
+      *) die "Unknown option for zz app list: $arg" ;;
+    esac
+  done
+  if [[ "$format" == "json" ]]; then
+    exec "$INSTALLER" list-choices --format json --no-tui
+  fi
+  "$INSTALLER" list-choices --format json --no-tui | render_choice_table
+}
+
+# Shows the resolved choices and asks before the installer runs. A menu
+# click lands here in a terminal that stays open, so nothing changes on the
+# click itself.
+confirm_change() {
+  local verb="$1"
+  shift
+  local pair category choice record answer
+  printf 'About to %s:\n' "$verb"
+  for pair in "$@"; do
+    IFS=$'\t' read -r category choice <<<"$pair"
+    record="$(choice_record "$category" "$choice")"
+    printf '  - %s (%s, %s/%s)\n' "$(choice_field "$record" 2)" "$(category_label "$category")" "$category" "$choice"
+  done
+  printf '\n'
+  # Printed explicitly: read -p shows its prompt only on a terminal.
+  printf 'Proceed? [y/N] '
+  read -r answer || answer=""
+  [[ -t 0 ]] || printf '\n'
+  case "$answer" in
+    [Yy]|[Yy][Ee][Ss]) return 0 ;;
+    *)
+      printf 'Cancelled.\n'
+      return 1
+      ;;
+  esac
+}
+
+change_choices() {
+  local installer_command="$1"
+  local verb="$2"
+  shift 2
+  local -a selects=() pairs=() options=()
+  local arg category choice assume_yes=0 dry_run=0
+  # One catalog load in this shell; the resolver runs in substitutions.
+  catalog_ensure_loaded
+  for arg in "$@"; do
+    case "$arg" in
+      --dry-run)
+        dry_run=1
+        options+=("--dry-run")
+        ;;
+      --yes|-y) assume_yes=1 ;;
+      -h|--help) usage; return 0 ;;
+      -*) die "Unknown option: $arg" ;;
+      *)
+        IFS=$'\t' read -r category choice < <(resolve_choice_ref "$arg")
+        [[ -n "$category" && -n "$choice" ]] || exit 1
+        pairs+=("$category"$'\t'"$choice")
+        selects+=(--select "$category=$choice")
+        ;;
+    esac
+  done
+  [[ "${#selects[@]}" -gt 0 ]] || die "Name at least one choice (see zz app list)"
+  if [[ "$assume_yes" -eq 0 && "$dry_run" -eq 0 ]]; then
+    confirm_change "$verb" "${pairs[@]}" || return 0
+  fi
+  catalog_cleanup_cache
+  exec "$INSTALLER" "$installer_command" "${selects[@]}" --yes --no-tui "${options[@]}"
+}
+
+main() {
+  local subcommand="${1:-}"
+  [[ $# -gt 0 ]] && shift
+  case "$subcommand" in
+    list) list_choices "$@" ;;
+    install) change_choices add-choice install "$@" ;;
+    remove) change_choices remove-choice remove "$@" ;;
+    ""|-h|--help) usage ;;
+    *)
+      printf 'Unknown zz app subcommand: %s\n\n' "$subcommand" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+}
+
+trap catalog_cleanup_cache EXIT
+main "$@"

@@ -28,10 +28,11 @@ ghostty	~/.config/ghostty/shaders/cursor_tail.glsl	product-link	backup-before-li
 ghostty	~/.config/ghostty/themes/dankcolors	seed-if-missing	preserve	templates/ghostty/dankcolors	ghostty	Seeds a fallback theme until DMS regenerates it.
 dms	~/.config/DankMaterialShell/settings.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS settings with the managed Catppuccin registry theme.
 dms	~/.local/state/DankMaterialShell/session.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS session state with the managed default wallpaper.
+dms	~/.config/DankMaterialShell/plugin_settings.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS plugin enablement for the shipped plugins in the plan.
 dms	~/.config/DankMaterialShell/themes/catppuccin/theme.json	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/themes/catppuccin/theme.json	dms	Links the vendored Catppuccin registry theme.
 dms	~/.config/matugen/dms/configs/zz-icon-theme.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-icon-theme.toml	dms	Links the managed icon-accent matugen drop-in.
 dms	~/.local/bin/zz-sync-icon-theme	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-icon-theme	dms	Links the icon-theme synchronization helper.
-dms-plugin-agent-usage	~/.config/DankMaterialShell/plugin_settings.json	seed-if-missing	preserve	templates/dms/plugin-settings-seed.json	dms	Seeds the app-writable DMS plugin enablement so the shipped widget is active at first login.
+dms	~/.config/DankMaterialShell/plugins/ZzMenu	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/ZzMenu	dms	Links the managed ZZ menu plugin: every zz command in the launcher and a bar button.
 dms-plugin-agent-usage	~/.config/DankMaterialShell/plugins/AgentUsage	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/AgentUsage	dms	Links the managed coding-agent usage bar widget plugin.
 starship	~/.config/starship.toml	seed-if-missing	preserve	templates/starship.toml	starship	Seeds a user-owned Starship configuration.
 starship	~/.config/matugen/dms/configs/zz-starship.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-starship.toml	starship	Links the managed Starship-palette matugen drop-in.

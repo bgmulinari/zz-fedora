@@ -270,11 +270,16 @@ module_90_doctor() {
       doctor_warn_file "$(dms_theme_file)"
       doctor_warn_file "$(dms_session_file)"
     fi
-    # A shipped plugin is wired by its enablement seed plus a directory link;
-    # reading the manifest through the link proves the link resolves.
-    if [[ "$SKIP_USER_CONFIG" -eq 0 ]] && doctor_plan_has_entry "$PLAN_DIR/config/components.list" "dms-plugin-agent-usage"; then
+    # Shipped plugins are wired by the rendered enablement seed plus one
+    # directory link each; reading a manifest through its link proves the
+    # link resolves. The ZZ menu rides the base dms component, agent usage
+    # its own optional one.
+    if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
       doctor_warn_file "$(dms_plugin_settings_file)"
-      doctor_warn_file "$user_config_home/DankMaterialShell/plugins/AgentUsage/plugin.json"
+      doctor_warn_file "$user_config_home/DankMaterialShell/plugins/ZzMenu/plugin.json"
+      if doctor_plan_has_entry "$PLAN_DIR/config/components.list" "dms-plugin-agent-usage"; then
+        doctor_warn_file "$user_config_home/DankMaterialShell/plugins/AgentUsage/plugin.json"
+      fi
     fi
   fi
   doctor_check_dir_has_files "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont" '*.ttf'
@@ -287,6 +292,9 @@ module_90_doctor() {
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
       doctor_check_contains "$niri_config_home/dms/binds.kdl" 'dms ipc call spotlight toggle'
       doctor_check_contains "$niri_config_home/dms/binds.kdl" 'spawn "ghostty" "+new-window"'
+      # The ZZ menu bind ships with the seed; an install seeded before it
+      # existed keeps its own file, so a missing bind is a warning to act on.
+      doctor_check_contains "$niri_config_home/dms/binds.kdl" 'dms ipc call widget toggleWith zzMenu root'
     fi
     [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
       doctor_check_contains "$niri_config_home/config.kdl" 'include "~/.zz/dotfiles/niri/.config/niri/defaults.kdl"'

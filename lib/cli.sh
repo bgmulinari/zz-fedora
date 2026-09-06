@@ -16,6 +16,8 @@ declare -ag CLI_COMMAND_TABLE=(
   $'list-profiles\t1\tList the available install profiles'
   $'list-choices\t1\tList optional choice catalogs and their defaults'
   $'list-sources\t1\tList the software sources the installer can enable'
+  $'add-choice\t1\tInstall one catalog choice (--select category=choice) and save it'
+  $'remove-choice\t1\tRemove one catalog choice (--select category=choice) and unsave it'
   $'apply\t0\tInternal: apply a previously generated plan'
 )
 

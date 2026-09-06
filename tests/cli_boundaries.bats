@@ -28,6 +28,7 @@ setup() {
   assert_contains "$output" "zz dotnet"
   assert_contains "$output" "zz update"
   assert_contains "$output" "zz refresh"
+  assert_contains "$output" "zz app"
 
   run bash "$ROOT_DIR/bin/zz" commands --json
   [ "$status" -eq 0 ]
@@ -43,6 +44,7 @@ setup() {
   assert_contains "$output" '"usage":"zz dotnet <devcert> [options]"'
   assert_contains "$output" '"usage":"zz doctor [options]"'
   assert_contains "$output" '"usage":"zz refresh <config-path> | zz refresh --list"'
+  assert_contains "$output" '"usage":"zz app <list|install|remove> [choice...] [options]"'
 }
 
 @test "zz resolves subcommands through a symlinked launcher and rejects unknown commands" {
@@ -107,10 +109,10 @@ setup() {
     bash "$ROOT_DIR/install.sh" --help
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" "[wizard|install|check|doctor|first-run|defaults|print-plan|list-profiles|list-choices|list-sources] [options]"
+  assert_contains "$output" "[wizard|install|check|doctor|first-run|defaults|print-plan|list-profiles|list-choices|list-sources|add-choice|remove-choice] [options]"
   assert_contains "$output" "--update"
   local command_name
-  for command_name in wizard install check doctor first-run defaults print-plan list-profiles list-choices list-sources; do
+  for command_name in wizard install check doctor first-run defaults print-plan list-profiles list-choices list-sources add-choice remove-choice; do
     grep -E "^  ${command_name}[[:space:]]" <<<"$output" >/dev/null || {
       printf 'usage does not describe command: %s\n' "$command_name" >&2
       return 1

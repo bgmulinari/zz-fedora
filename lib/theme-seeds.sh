@@ -34,7 +34,9 @@ install_bundled_wallpapers() {
 # The dms-colors.json placeholder keeps the greeter cache symlink from
 # dangling until the shell generates the real palette.
 # The seeds complement the managed config, so --skip-user-config keeps
-# DMS's own defaults instead.
+# DMS's own defaults instead. Shipped plugins are the one thing the seeds
+# keep topping up: a plugin ZZ starts shipping after the install is
+# enabled and placed in the bar on the next apply, once.
 install_dms_state_seeds_if_missing() {
   local native_plan
   [[ "$SKIP_USER_CONFIG" -eq 1 ]] && return 0
@@ -42,6 +44,7 @@ install_dms_state_seeds_if_missing() {
   plan_has_any_backend_entry "$native_plan" dms || return 0
 
   dms_seed_state_files_if_missing
+  dms_apply_plugin_defaults
 }
 
 starship_theming_available_for_plan() {

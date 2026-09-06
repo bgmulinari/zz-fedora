@@ -16,7 +16,7 @@ live under `dotfiles/agent-skills/` instead and must not be mixed with these.
 
 - This repository is a Fedora post-install bootstrapper for the Niri and DMS (DankMaterialShell) desktop.
 - `install.sh` owns setup. `bootstrap.sh` only installs prerequisites, clones or updates the repository, and hands off to `install.sh`.
-- The installed `zz` launcher is for post-install operations. Do not add install, wizard, plan, check, or repair wrappers under `bin/zz.d/`. Discover its supported commands with `./bin/zz commands --json`.
+- The installed `zz` launcher is for post-install operations. Do not add install, wizard, plan, check, or repair wrappers under `bin/zz.d/`; per-choice changes on an installed system go through `zz app`, which drives the installer's `add-choice` and `remove-choice` commands. Discover its supported commands with `./bin/zz commands --json`.
 - The installer is under active development. Do not add migrations, compatibility shims, existing-install preservation, or regression guards for previous behavior unless the user explicitly requests them.
 - Keep new repository-facing identifiers and documentation generic. Do not introduce third-party branding into unit IDs, catalog file names, config component names, or docs unless the user explicitly requests it.
 

@@ -179,7 +179,8 @@ tui_confirm() {
   fi
 
   local reply
-  read -r "?$prompt [y/N] " reply
+  printf '%s [y/N] ' "$prompt"
+  read -r reply
   [[ "$reply" =~ ^[Yy]([Ee][Ss])?$ ]]
 }
 

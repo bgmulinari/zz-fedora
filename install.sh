@@ -35,6 +35,8 @@ source "$ROOT_DIR/lib/first-run.sh"
 source "$ROOT_DIR/lib/tui.sh"
 # shellcheck source=./lib/planner.sh
 source "$ROOT_DIR/lib/planner.sh"
+# shellcheck source=./lib/choices.sh
+source "$ROOT_DIR/lib/choices.sh"
 # shellcheck source=./lib/readiness.sh
 source "$ROOT_DIR/lib/readiness.sh"
 # shellcheck source=./lib/fedora.sh
@@ -52,13 +54,27 @@ prepare_context() {
     [[ "$COMMAND" == "install" ]] || die "--update is supported only with the install command"
     [[ "$USE_SAVED_SELECTIONS" -eq 1 ]] || die "--update requires --use-saved"
   fi
+  case "$COMMAND" in
+    add-choice|remove-choice)
+      # A single choice is a change to an installed system's saved
+      # selections, so those must exist and are always the starting point.
+      [[ -f "$SAVED_SELECTIONS" ]] || die "Saved selections not found at $SAVED_SELECTIONS; run the installer once before changing choices"
+      USE_SAVED_SELECTIONS=1
+      ;;
+  esac
   exec_setup_as_root_if_needed "$@"
-  init_log_file
+  # A listing changes nothing and runs on every desktop menu refresh; it
+  # gets no log of its own and leaves latest.log on the last real run.
+  [[ "$COMMAND" == "list-choices" ]] || init_log_file
   trap 'fatal_error_handler $?' ERR
   trap cleanup_on_exit EXIT
   if [[ "$USE_SAVED_SELECTIONS" -eq 1 ]]; then
     load_saved_selections
     normalize_saved_selections_for_update
+  elif [[ "$COMMAND" == "list-choices" && -f "$SAVED_SELECTIONS" ]]; then
+    # The choice listing reports what is selected on this system when a
+    # saved selection exists, and the catalog defaults otherwise.
+    load_saved_selections
   fi
   require_fedora
   TARGET_HOME="$(resolve_target_home "$TARGET_USER")" || die "Could not resolve home directory for target user '$TARGET_USER'"
@@ -141,7 +157,10 @@ build_step_registry() {
 exec_setup_as_root_if_needed() {
   [[ "$DRY_RUN" -eq 1 ]] && return 0
   [[ "$EUID" -eq 0 ]] && return 0
-  [[ "$COMMAND" == "wizard" || "$COMMAND" == "install" ]] || return 0
+  case "$COMMAND" in
+    wizard|install|add-choice|remove-choice) ;;
+    *) return 0 ;;
+  esac
 
   local -a root_env=(
     "STATE_DIR=$STATE_DIR"
@@ -383,8 +402,22 @@ main() {
     list-profiles)
       list_install_profiles
       ;;
+    add-choice)
+      module_00_preflight
+      apply_choice_additions
+      print_choice_change_summary "added"
+      ;;
+    remove-choice)
+      module_00_preflight
+      apply_choice_removals
+      print_choice_change_summary "removed"
+      ;;
     list-choices)
       local category catalog
+      if [[ "$PLAN_FORMAT" == "json" ]]; then
+        print_choices_json
+        return 0
+      fi
       for category in $(category_names); do
         catalog="$(choice_catalog_path "$category")"
         printf '[%s]\n' "$category"
