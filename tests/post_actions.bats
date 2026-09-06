@@ -154,8 +154,8 @@ setup() {
 
   configure_selected_browser_default
 
-  assert_file_contains "$TEST_ROOT/browser-default-commands.log" "user:test-user:xdg-mime default firefox.desktop text/html"
-  assert_file_contains "$TEST_ROOT/browser-default-commands.log" "user:test-user:xdg-settings set default-web-browser firefox.desktop"
+  assert_file_contains "$TEST_ROOT/browser-default-commands.log" "user:test-user:xdg-mime default org.mozilla.firefox.desktop text/html"
+  assert_file_contains "$TEST_ROOT/browser-default-commands.log" "user:test-user:xdg-settings set default-web-browser org.mozilla.firefox.desktop"
 }
 
 @test "preferred browser controls default when multiple browsers are selected" {
@@ -182,6 +182,8 @@ setup() {
   TARGET_USER=test-user
   TARGET_HOME="$TEST_ROOT/browser-home"
   mkdir -p "$TARGET_HOME"
+  # The host running the suite may have Firefox installed system-wide.
+  desktop_file_installed_for_user() { return 1; }
   run_cmd_as_user() {
     local user="$1"
     shift
@@ -191,7 +193,7 @@ setup() {
   run configure_selected_browser_default
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" "saved browser is not installed: firefox.desktop"
+  assert_contains "$output" "saved browser is not installed: org.mozilla.firefox.desktop"
   [[ ! -e "$TEST_ROOT/browser-default-commands.log" ]]
 }
 

@@ -175,6 +175,65 @@ step_table_failure_policy() {
   assert_file_contains "$(readiness_file)" $'service\tdms.service\tbound\tinfo\twanted by niri.service'
 }
 
+@test "readiness grades user units in user and global scope, never fatal" {
+  build_test_plan
+  DRY_RUN=0
+  COMMAND=doctor
+  systemctl() {
+    case "$1 $2" in
+      "--user is-enabled") return 1 ;;
+      "--global is-enabled") [[ "$3" == "dsearch.service" ]] ;;
+      "is-enabled "*|"is-active "*) return 0 ;;
+      *) return 1 ;;
+    esac
+  }
+
+  run_without_bats_debug_trap readiness_reset
+  run_without_bats_debug_trap readiness_generate_services
+
+  assert_file_contains "$(readiness_file)" $'service\tdsearch.service\tenabled\tinfo\tuser unit'
+  assert_file_contains "$(readiness_file)" $'service\tapp-com.mitchellh.ghostty.service\tmissing\twarn\tuser unit'
+  refute_file_contains "$(readiness_file)" $'service\tapp-com.mitchellh.ghostty.service\tmissing\tfatal'
+  assert_file_contains "$(readiness_file)" $'service\tNetworkManager\tenabled-active\tinfo'
+}
+
+@test "readiness does not flag greetd running the managed DMS Greeter as a conflict" {
+  build_test_plan
+  DRY_RUN=0
+  COMMAND=doctor
+  systemctl() {
+    [[ "$1" == "is-enabled" && "$2" == "greetd.service" ]]
+  }
+
+  dms_greetd_config_has_expected_session() { return 0; }
+  run_without_bats_debug_trap readiness_reset
+  run_without_bats_debug_trap readiness_generate_display_manager_conflicts
+  refute_file_contains "$(readiness_file)" $'display-manager\tgreetd.service'
+
+  dms_greetd_config_has_expected_session() { return 1; }
+  run_without_bats_debug_trap readiness_reset
+  run_without_bats_debug_trap readiness_generate_display_manager_conflicts
+  assert_file_contains "$(readiness_file)" $'display-manager\tgreetd.service\tenabled\twarn'
+}
+
+@test "readiness finds portal binaries on PATH or in libexec" {
+  local fake_bin="$TEST_ROOT/portal-bin"
+  mkdir -p "$fake_bin"
+  printf '#!/usr/bin/env bash\n' >"$fake_bin/xdg-desktop-portal-fake"
+  chmod +x "$fake_bin/xdg-desktop-portal-fake"
+
+  PATH="$fake_bin:$PATH" run readiness_status_for_portal_binary xdg-desktop-portal-fake
+  assert_equal "present" "$output"
+
+  run readiness_status_for_portal_binary xdg-desktop-portal-absent-zz
+  assert_equal "missing" "$output"
+
+  if [[ -x /usr/libexec/xdg-desktop-portal ]]; then
+    run readiness_status_for_portal_binary xdg-desktop-portal
+    assert_equal "present" "$output"
+  fi
+}
+
 @test "doctor accepts globally enabled user services" {
   systemctl() {
     if [[ "$1" == "--user" && "$2" == "is-enabled" ]]; then
@@ -418,4 +477,42 @@ step_table_failure_policy() {
   [ "$status" -eq 0 ]
   assert_contains "$output" "/var/cache/dms-greeter/settings.json"
   assert_contains "$output" "/var/cache/dms-greeter/colors.json"
+}
+
+@test "doctor verifies the terminal preference the defaults write" {
+  build_test_plan
+  COMMAND=doctor
+  DRY_RUN=0
+  ensure_state_dirs
+  run_without_bats_debug_trap configure_xdg_terminal_defaults
+  assert_file_line "$TARGET_HOME/.config/xdg-terminals.list" "com.mitchellh.ghostty.desktop"
+
+  doctor_check_command() {
+    printf '[ok] command %s\n' "$1"
+  }
+  doctor_check_file() {
+    printf '[ok] file %s\n' "$1"
+  }
+  doctor_check_dir_has_files() {
+    printf '[ok] directory %s has %s\n' "$1" "$2"
+  }
+  doctor_check_user_enabled() {
+    return 0
+  }
+  detect_enabled_display_manager() {
+    printf 'gdm.service\n'
+  }
+  systemctl() {
+    if [[ "$1" == "list-units" ]]; then
+      return 0
+    fi
+    [[ "$1" == "is-enabled" ]]
+  }
+  run_cmd_as_root() {
+    return 0
+  }
+
+  capture_without_bats_debug_trap output status module_90_doctor
+
+  assert_contains "$output" "[ok] $TARGET_HOME/.config/xdg-terminals.list contains com.mitchellh.ghostty.desktop"
 }

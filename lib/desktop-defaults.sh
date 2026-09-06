@@ -6,8 +6,8 @@ set -Eeuo pipefail
 
 browser_desktop_file() {
   case "$1" in
-    firefox) printf 'firefox.desktop\n' ;;
-    chromium) printf 'chromium.desktop\n' ;;
+    firefox) printf 'org.mozilla.firefox.desktop\n' ;;
+    chromium) printf 'chromium-browser.desktop\n' ;;
     chrome) printf 'google-chrome.desktop\n' ;;
     brave) printf 'brave-browser.desktop\n' ;;
     zen) printf 'zen.desktop\n' ;;

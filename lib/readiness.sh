@@ -160,18 +160,39 @@ readiness_user_want_status() {
   printf 'missing'
 }
 
+# User units are enabled with `systemctl --user enable` at first login (or
+# `--global` from the installer chroot), so they are graded in those scopes
+# and never fatal: before the first login they legitimately are not enabled.
+readiness_user_service_status() {
+  local service_name="$1"
+  if readiness_planned_install_context; then
+    printf 'planned'
+    return 0
+  fi
+  if systemctl --user is-enabled "$service_name" >/dev/null 2>&1 ||
+    systemctl --global is-enabled "$service_name" >/dev/null 2>&1; then
+    printf 'enabled'
+  else
+    printf 'missing'
+  fi
+}
+
 readiness_generate_services() {
-  local service_file service_name status severity parent_unit wanted_unit
-  for service_file in "$PLAN_DIR"/services/*.list; do
-    [[ -f "$service_file" ]] || continue
-    while IFS= read -r service_name; do
-      [[ -n "$service_name" ]] || continue
-      status="$(readiness_service_status "$service_name")"
-      severity="info"
-      [[ "$status" == "missing" ]] && severity="fatal"
-      readiness_record "service" "$service_name" "$status" "$severity" ""
-    done < <(read_plan_file "$service_file")
-  done
+  local service_name status severity parent_unit wanted_unit
+  while IFS= read -r service_name; do
+    [[ -n "$service_name" ]] || continue
+    status="$(readiness_service_status "$service_name")"
+    severity="info"
+    [[ "$status" == "missing" ]] && severity="fatal"
+    readiness_record "service" "$service_name" "$status" "$severity" ""
+  done < <(read_plan_file "$PLAN_DIR/services/system-enable-now.list")
+  while IFS= read -r service_name; do
+    [[ -n "$service_name" ]] || continue
+    status="$(readiness_user_service_status "$service_name")"
+    severity="info"
+    [[ "$status" == "missing" ]] && severity="warn"
+    readiness_record "service" "$service_name" "$status" "$severity" "user unit"
+  done < <(read_plan_file "$PLAN_DIR/services/user-enable.list")
   while IFS=$'\t' read -r parent_unit wanted_unit; do
     [[ -n "$parent_unit" && -n "$wanted_unit" ]] || continue
     status="$(readiness_user_want_status "$parent_unit" "$wanted_unit")"
@@ -181,11 +202,21 @@ readiness_generate_services() {
   done < <(read_plan_file "$PLAN_DIR/services/user-wants.tsv")
 }
 
+# greetd enabled with the managed DMS Greeter session is the install's own
+# login manager, not a conflicting one.
+readiness_display_manager_is_managed_greeter() {
+  local service_name="$1"
+  [[ "$service_name" == "greetd.service" ]] || return 1
+  declare -F dms_greetd_config_has_expected_session >/dev/null 2>&1 || return 1
+  dms_greetd_config_has_expected_session
+}
+
 readiness_generate_display_manager_conflicts() {
   local service_name
   while IFS= read -r service_name; do
     [[ -n "$service_name" && "$service_name" != "display-manager.service" ]] || continue
-    if [[ "$DRY_RUN" -eq 0 ]] && systemctl is-enabled "$service_name" >/dev/null 2>&1; then
+    if [[ "$DRY_RUN" -eq 0 ]] && systemctl is-enabled "$service_name" >/dev/null 2>&1 &&
+      ! readiness_display_manager_is_managed_greeter "$service_name"; then
       readiness_record "display-manager" "$service_name" "enabled" "warn" "DMS Greeter fallback will be skipped"
     fi
   done < <(known_display_manager_units)
@@ -259,13 +290,23 @@ readiness_generate_secure_boot() {
   fi
 }
 
+# Portal binaries are D-Bus activated from libexec and are not on PATH.
+readiness_status_for_portal_binary() {
+  local command_name="$1"
+  if command -v "$command_name" >/dev/null 2>&1 || [[ -x "/usr/libexec/$command_name" ]]; then
+    printf 'present'
+  else
+    printf 'missing'
+  fi
+}
+
 readiness_generate_portals() {
   local command_name status severity
   for command_name in xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-gnome; do
     if readiness_planned_install_context; then
       status="planned"
     else
-      status="$(readiness_status_for_command "$command_name")"
+      status="$(readiness_status_for_portal_binary "$command_name")"
     fi
     severity="info"
     [[ "$status" == "missing" ]] && severity="warn"
