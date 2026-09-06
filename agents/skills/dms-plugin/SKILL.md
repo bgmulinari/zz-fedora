@@ -161,11 +161,10 @@ Read [references/zz-wiring.md](references/zz-wiring.md) and apply, in this order
    non-browser choice (a test enforces it), and a new desktop choice must also be
    appended to the ordered list in `tests/anaconda_addon.bats`.
 3. **Enable-by-default seeds** only when the plugin must be active on first login.
-   DMS 1.6 keeps the `enabled` flag in `plugin_settings.json`, which ZZ does not seed
-   today; the reference explains the minimal `lib/dms.sh` and seed additions, and why
-   bar widgets also need their id in a `barConfigs` section of
-   `templates/dms/settings-seed.json`. Pure desktop plugins auto-enable and need none
-   of this.
+   DMS 1.6 keeps the `enabled` flag in `plugin_settings.json`; the reference explains
+   the seed row the plugin's component carries and why bar widgets also need their id
+   in a `barConfigs` section of `templates/dms/settings-seed.json`. Pure desktop
+   plugins auto-enable and need none of this.
 4. **Docs**: a "Plugins" subsection in `docs/design/dms-integration.md` (create it the
    first time, then one bullet per plugin) and the DMS row of the layers table in
    `docs/dotfiles-layering.md`, which must mention plugin directories once any exist
@@ -232,8 +231,12 @@ dms ipc plugin-scan status <id>
 journalctl --user -u dms.service -n 50 --no-pager
 ```
 
-Enable it in Settings > Plugins (or `dms ipc plugin-scan reload <id>` after a code
-change) and add a widget to a bar section. Startup-check failures surface as a toast
+Enable it with `dms ipc plugins enable <id>` (the `plugins` IPC target also has
+`disable`, `toggle`, `list`, and `status`; `plugin-scan reload <id>` loads a plugin
+after a code change even when it is not enabled) and add a widget to a bar
+section. There is no IPC to open a plugin popout; to see one without a pointer
+tool, temporarily add a one-shot `Timer` that calls `triggerPopout()` from the
+widget, reload, `dms screenshot full`, and revert. Startup-check failures surface as a toast
 and in `status`. Remove the link afterwards unless the user wants to keep it; the
 installer will recreate it from the managed-config row.
 

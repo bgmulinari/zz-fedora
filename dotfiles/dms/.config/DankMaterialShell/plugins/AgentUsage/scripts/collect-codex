@@ -1,0 +1,468 @@
+#!/usr/bin/python3
+"""Collect Codex usage into one display-ready JSON record.
+
+Local stats come from native Codex CLI session files, pi/omp sessions that
+ran through openai-codex, and opencode sessions that ran on an OpenAI
+provider; rate limits and the plan come from the Codex app-server RPC. The
+agent-usage panel only ever reads the JSON this prints.
+
+Usage: collect-codex [--force] [--limits-only]
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import fcntl
+import hashlib
+import json
+import os
+import select
+import shutil
+import sqlite3
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+# The plugin directory is a link into a Git checkout; importing the shared
+# module must not litter it with bytecode.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from usage_common import (  # noqa: E402
+    LIMITS_REUSE_SECONDS,
+    UsageStats,
+    cache_root,
+    cached_limits,
+    local_day,
+    number,
+    opencode_db,
+    pi_session_roots,
+    read_cached_stats,
+    scan_reuse_seconds,
+    store_limits,
+    write_cached_stats,
+)
+
+AGENT_ID = "codex"
+AGENT_NAME = "Codex"
+AUTH_HELP = "Run `codex login` to authenticate."
+
+
+def model_name(raw: Any) -> str:
+    value = str(raw or "codex")
+    return value if value else "codex"
+
+
+def runtime_env() -> dict[str, str]:
+    # The shell's environment may lack the per-user tool directories a login
+    # shell adds, and the Codex CLI lives in one of them. Homebrew stays
+    # last: it only supplies what the distro does not package.
+    home = str(Path.home())
+    path_parts = [
+        os.environ.get("PATH", ""),
+        f"{home}/.local/bin",
+        f"{home}/.npm-global/bin",
+        f"{home}/.local/share/mise/shims",
+        "/home/linuxbrew/.linuxbrew/bin",
+    ]
+    env = os.environ.copy()
+    env["PATH"] = os.pathsep.join(part for part in path_parts if part)
+    return env
+
+
+ENV = runtime_env()
+
+
+def find_command(name: str) -> str | None:
+    return shutil.which(name, path=ENV.get("PATH"))
+
+
+def codex_home() -> Path:
+    return Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex"))
+
+
+# ---------------------------------------------------------------- local scan
+
+
+def scan_pi_sessions(stats: UsageStats) -> None:
+    seen: set[str] = set()
+    for root in pi_session_roots():
+        if not root.exists():
+            continue
+        for path in root.rglob("*.jsonl"):
+            try:
+                with path.open(errors="replace") as handle:
+                    for raw in handle:
+                        if "openai-codex" not in raw:
+                            continue
+                        try:
+                            entry = json.loads(raw)
+                        except Exception:
+                            continue
+                        if entry.get("type") != "message":
+                            continue
+                        message_key = str(path) + ":" + str(entry.get("id") or "")
+                        if message_key in seen:
+                            continue
+                        seen.add(message_key)
+                        message = entry.get("message") or {}
+                        if message.get("role") != "assistant":
+                            continue
+                        provider = str(message.get("provider") or "")
+                        api = str(message.get("api") or "")
+                        if provider != "openai-codex" and not api.startswith("openai-codex"):
+                            continue
+
+                        usage = message.get("usage") or {}
+                        if not usage:
+                            continue
+                        input_tokens = number(usage.get("input"))
+                        output_tokens = number(usage.get("output"))
+                        cache_read = number(usage.get("cacheRead"))
+                        cache_write = number(usage.get("cacheWrite"))
+                        if not (input_tokens or output_tokens or cache_read or cache_write):
+                            input_tokens = number(usage.get("totalTokens"))
+
+                        day = local_day(entry.get("timestamp") or message.get("timestamp"))
+                        stats.add(day, str(path), model_name(message.get("model")), input_tokens, output_tokens, cache_read, cache_write)
+            except OSError:
+                continue
+
+
+def scan_opencode_sessions(stats: UsageStats) -> bool:
+    # A subscription burned entirely through opencode leaves no native
+    # session files, but opencode records per-message provider, model, and
+    # token usage in its own database. Read-only: opencode may be writing.
+    # Returns whether the scan ran to completion: a scan cut short by a
+    # database error still contributes what it read, but must not be cached
+    # as if it were the whole story.
+    db = opencode_db()
+    if not db.is_file():
+        return True
+    try:
+        conn = sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True, timeout=2)
+    except sqlite3.Error:
+        return False
+    try:
+        conn.execute("PRAGMA query_only = ON")
+        # The LIKE gates skip rows whose JSON cannot contain the two key/value
+        # pairs, avoiding a JSON parse of very large blobs; the json_extract
+        # conditions are the authority. json_valid guards the extract, which
+        # raises on malformed JSON instead of returning NULL.
+        rows = conn.execute(
+            "SELECT session_id, data FROM message"
+            " WHERE data LIKE '%\"role\"%:%\"assistant\"%'"
+            " AND data LIKE '%\"providerID\"%:%\"openai\"%'"
+            " AND CASE WHEN json_valid(data) THEN json_extract(data, '$.role') END = 'assistant'"
+            " AND CASE WHEN json_valid(data) THEN json_extract(data, '$.providerID') END = 'openai'"
+        )
+        for session_id, raw in rows:
+            try:
+                entry = json.loads(raw)
+                if not isinstance(entry, dict) or entry.get("role") != "assistant":
+                    continue
+                if str(entry.get("providerID") or "") != "openai":
+                    continue
+                tokens = entry.get("tokens") or {}
+                cache = tokens.get("cache") or {}
+                input_tokens = number(tokens.get("input"))
+                output_tokens = number(tokens.get("output")) + number(tokens.get("reasoning"))
+                cache_read = number(cache.get("read"))
+                cache_write = number(cache.get("write"))
+                day = local_day((entry.get("time") or {}).get("created"))
+                model = model_name(str(entry.get("modelID") or "").rstrip("/").split("/")[-1])
+            except Exception:
+                continue
+            stats.add(day, "opencode:" + str(session_id), model, input_tokens, output_tokens, cache_read, cache_write)
+    except sqlite3.Error:
+        return False
+    finally:
+        conn.close()
+    return True
+
+
+def scan_native_codex_sessions(stats: UsageStats) -> None:
+    roots = [codex_home() / "sessions", codex_home() / "archived_sessions"]
+    files = []
+    cutoff = time.time() - 30 * 24 * 60 * 60
+    for root in roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*.jsonl"):
+            try:
+                if path.stat().st_mtime >= cutoff:
+                    files.append(path)
+            except OSError:
+                pass
+
+    for path in files:
+        current_model = "codex"
+        try:
+            with path.open(errors="replace") as handle:
+                for raw in handle:
+                    try:
+                        entry = json.loads(raw)
+                    except Exception:
+                        continue
+                    if entry.get("type") == "turn_context":
+                        payload = entry.get("payload") or {}
+                        current_model = model_name(payload.get("model") or payload.get("model_slug") or current_model)
+                        continue
+                    payload = entry.get("payload") or entry
+                    if entry.get("type") == "response_item" and isinstance(payload, dict):
+                        payload = payload.get("payload") or payload
+                    if not isinstance(payload, dict):
+                        continue
+                    if payload.get("type") != "token_count":
+                        continue
+                    info = payload.get("info") or {}
+                    # total_token_usage is cumulative for the session. Adding
+                    # every snapshot makes usage grow quadratically, so count
+                    # the last turn.
+                    usage = info.get("last_token_usage") or {}
+                    cache_read = number(usage.get("cached_input_tokens"))
+                    cache_write = number(usage.get("cache_write_input_tokens"))
+                    # Cached tokens are included in input_tokens, and
+                    # reasoning tokens in output_tokens. Keep the cache split
+                    # without counting either category twice.
+                    input_tokens = max(0, number(usage.get("input_tokens")) - cache_read - cache_write)
+                    output_tokens = number(usage.get("output_tokens"))
+                    day = local_day(entry.get("timestamp") or path.stat().st_mtime)
+                    stats.add(day, str(path), current_model, input_tokens, output_tokens, cache_read, cache_write)
+        except Exception:
+            continue
+
+
+def run_local_scans() -> tuple[dict[str, Any], bool]:
+    stats = UsageStats()
+    scan_pi_sessions(stats)
+    scan_native_codex_sessions(stats)
+    complete = scan_opencode_sessions(stats)
+    return stats.to_dict(), complete
+
+
+def scan_cache_paths() -> tuple[Path, Path]:
+    # The digest covers every data path the scan reads: the codex session
+    # roots, the opencode DB, and (via Path.home()) the pi/omp session roots.
+    digest = hashlib.sha1((str(Path.home()) + "\n" + str(codex_home()) + "\n" + str(opencode_db())).encode("utf-8")).hexdigest()[:16]
+    root = cache_root()
+    return root / f"codex-scan-{digest}.json", root / f"codex-scan-{digest}.lock"
+
+
+def cached_local_stats(max_age: float) -> dict[str, Any]:
+    # The cache must never take the collector down: any cache-layer failure
+    # degrades to a direct scan and a warning on stderr.
+    try:
+        return _cached_local_stats(max_age)
+    except Exception as exc:
+        print(f"collect-codex: cache unavailable ({exc}); scanning directly", file=sys.stderr)
+        stats, _ = run_local_scans()
+        return stats
+
+
+def _cached_local_stats(max_age: float) -> dict[str, Any]:
+    cache_file, lock_file = scan_cache_paths()
+
+    hit, cached = read_cached_stats(cache_file, max_age)
+    if hit and cached is not None:
+        return cached
+
+    with lock_file.open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        hit, cached = read_cached_stats(cache_file, max_age)
+        if hit and cached is not None:
+            return cached
+        stats, complete = run_local_scans()
+        # An interrupted scan still serves this run, but caching it would
+        # suppress the missing usage for every reader until the cache expires.
+        if complete:
+            write_cached_stats(cache_file, stats)
+        return stats
+
+
+# ------------------------------------------------------------------- limits
+
+
+class LineReader:
+    """Line-at-a-time reads over a raw pipe fd that honor a deadline.
+
+    select() only sees bytes still in the pipe, so pairing it with a
+    buffered readline() loses any line the buffer already swallowed: two
+    JSON-RPC messages written back to back arrive in one chunk, the first
+    read returns one and parks the other where select() cannot see it.
+    Reading the raw fd into a local buffer keeps the two in agreement.
+    """
+
+    def __init__(self, fd: int) -> None:
+        self.fd = fd
+        self.buffer = b""
+
+    def readline(self, deadline: float) -> bytes | None:
+        """One line without its newline; b"" at end of stream; None when
+        the deadline passed without a full line."""
+        while b"\n" not in self.buffer:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                return None
+            ready, _, _ = select.select([self.fd], [], [], min(0.25, remaining))
+            if not ready:
+                continue
+            chunk = os.read(self.fd, 65536)
+            if not chunk:
+                return b""
+            self.buffer += chunk
+        line, _, self.buffer = self.buffer.partition(b"\n")
+        return line
+
+
+def rpc_request(proc: subprocess.Popen, reader: LineReader, request_id: int, method: str, params: dict | None = None, timeout: float = 8) -> dict[str, Any]:
+    payload = {"id": request_id, "method": method, "params": params or {}}
+    proc.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
+    proc.stdin.flush()
+    deadline = time.time() + timeout
+    while True:
+        line = reader.readline(deadline)
+        if line is None:
+            raise TimeoutError(method)
+        if line == b"":
+            raise ConnectionError(f"{method}: app-server closed its output")
+        try:
+            message = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(message, dict) and message.get("id") == request_id:
+            return message
+
+
+# Every limit travels with an explicit title naming its window, so the
+# widget never has to read a window back out of free text.
+def limit_window(window: Any) -> dict[str, Any] | None:
+    if not isinstance(window, dict):
+        return None
+    used = window.get("usedPercent")
+    if used is None:
+        return None
+    mins = number(window.get("windowDurationMins"))
+    if mins == 10080:
+        label, title = "Weekly (7-day)", "Weekly"
+    elif mins and mins % 60 == 0:
+        label, title = f"{mins // 60}h window", "Session"
+    elif mins:
+        label, title = f"{mins}m window", "Session"
+    else:
+        label, title = "Limit", "Limit"
+    reset = window.get("resetsAt")
+    return {
+        "label": label,
+        "title": title,
+        "percent": min(1.0, max(0.0, float(used) / 100.0)),
+        "resetsAt": dt.datetime.fromtimestamp(number(reset), dt.timezone.utc).isoformat() if reset else "",
+    }
+
+
+def probe_limits(codex: str) -> dict[str, Any]:
+    """One app-server session: initialize, read the account and its rate
+    limits, and shut it down. Returns {"ok": True, "limits", "tierLabel"}
+    or {"ok": False, "error"}."""
+    try:
+        proc = subprocess.Popen(
+            [codex, "-s", "read-only", "-a", "on-request", "app-server"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=ENV,
+        )
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+    try:
+        reader = LineReader(proc.stdout.fileno())
+        rpc_request(proc, reader, 1, "initialize", {"clientInfo": {"name": "zz-agent-usage", "version": "1"}}, timeout=8)
+        proc.stdin.write((json.dumps({"method": "initialized", "params": {}}) + "\n").encode("utf-8"))
+        proc.stdin.flush()
+        account_msg = rpc_request(proc, reader, 2, "account/read", timeout=4)
+        limits_msg = rpc_request(proc, reader, 3, "account/rateLimits/read", timeout=4)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    finally:
+        try:
+            proc.terminate()
+            proc.wait(timeout=1)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+
+    account = (account_msg.get("result") or {}).get("account") or {}
+    limits = (limits_msg.get("result") or {}).get("rateLimits") or {}
+    plan = limits.get("planType") or account.get("planType") or account.get("type") or ""
+    windows = [entry for entry in (limit_window(limits.get("primary")), limit_window(limits.get("secondary"))) if entry]
+    return {"ok": True, "limits": windows, "tierLabel": str(plan) if plan else ""}
+
+
+def collect_limits(force: bool) -> dict[str, Any]:
+    result = {"limits": [], "tierLabel": "", "usageStatusText": "", "authHelpText": AUTH_HELP}
+
+    # Recent probe results are reused for a short window and kept as the
+    # answer of record when a later probe fails, so a popout opened twice
+    # does not start the app-server twice and a hiccup keeps the last
+    # known numbers on screen.
+    probe_cache = cache_root() / "codex-limits.json"
+    fallback, fetched_at, cached = cached_limits(probe_cache)
+    result["tierLabel"] = str(cached.get("tierLabel") or "")
+
+    codex = find_command("codex")
+    if not codex:
+        result["limits"] = fallback
+        result["usageStatusText"] = "Codex unavailable"
+        result["authHelpText"] = "codex not found in PATH"
+        return result
+
+    if fallback and not force and time.time() - fetched_at < LIMITS_REUSE_SECONDS:
+        result["limits"] = fallback
+        return result
+
+    probe = probe_limits(codex)
+    if probe["ok"]:
+        result["limits"] = probe["limits"]
+        result["tierLabel"] = probe["tierLabel"]
+        store_limits(probe_cache, probe["limits"], tierLabel=probe["tierLabel"])
+        return result
+
+    if fallback:
+        result["limits"] = fallback
+    else:
+        result["usageStatusText"] = "Codex limits unavailable"
+        result["authHelpText"] = probe["error"]
+    return result
+
+
+# -------------------------------------------------------------------- record
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--force", action="store_true")
+    parser.add_argument("--limits-only", action="store_true")
+    args = parser.parse_args()
+
+    stats = cached_local_stats(scan_reuse_seconds(args.force, args.limits_only))
+    limits = collect_limits(args.force)
+
+    record = {
+        "schemaVersion": 1,
+        "id": AGENT_ID,
+        "name": AGENT_NAME,
+        "updatedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
+    record.update(stats)
+    record.update(limits)
+    print(json.dumps(record, separators=(",", ":"), sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,23 @@
+{
+  "id": "agentUsage",
+  "name": "Agent Usage",
+  "description": "Claude Code and Codex rate limits, pace, and token usage in the bar",
+  "version": "1.0.0",
+  "author": "ZZ",
+  "type": "widget",
+  "capabilities": [
+    "dankbar-widget"
+  ],
+  "component": "./AgentUsageWidget.qml",
+  "icon": "smart_toy",
+  "settings": "./Settings.qml",
+  "startupCheck": "./StartupCheck.qml",
+  "dependencies": [
+    "python3"
+  ],
+  "permissions": [
+    "settings_read",
+    "settings_write",
+    "process"
+  ]
+}

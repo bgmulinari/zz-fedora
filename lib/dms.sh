@@ -26,6 +26,13 @@ dms_session_file() {
   printf '%s/session.json\n' "$(dms_state_dir)"
 }
 
+# DMS 1.6 keeps plugin enablement and per-plugin settings apart from
+# settings.json, keyed by plugin id. Each shipped plugin's component seeds
+# it through an ordinary managed-config row; this path only feeds the doctor.
+dms_plugin_settings_file() {
+  printf '%s/plugin_settings.json\n' "$(dms_config_dir)"
+}
+
 dms_colors_cache_file() {
   printf '%s/dms-colors.json\n' "$(dms_cache_dir)"
 }
@@ -101,15 +108,44 @@ dms_session_seed_file() {
   printf '%s/templates/dms/session-seed.json\n' "$ROOT_DIR"
 }
 
+# Widget ids of shipped plugins whose component is not in the plan. The bar
+# seed names every shipped widget so the default layout stays one file, but
+# a plugin left out of the install must not leave its id behind: DMS lists
+# an unresolved widget id as an unavailable entry in the bar editor. Without
+# a plan (tests, ad hoc emitters) nothing is stripped.
+dms_unplanned_plugin_widget_ids() {
+  local components_file="${PLAN_DIR:-}/config/components.list"
+  [[ -n "${PLAN_DIR:-}" && -f "$components_file" ]] || return 0
+  local component path mode _conflict source _required _description
+  while IFS=$'\t' read -r component path mode _conflict source _required _description; do
+    # Managed-config paths are written with a literal ~/ prefix.
+    # shellcheck disable=SC2088
+    [[ "$mode" == "product-link" && "$path" == "~/.config/DankMaterialShell/plugins/"* ]] || continue
+    [[ -f "$ROOT_DIR/$source/plugin.json" ]] || continue
+    grep -Fxq -- "$component" "$components_file" && continue
+    jq -r '.id // empty' "$ROOT_DIR/$source/plugin.json"
+  done <"$(managed_config_policy_file)"
+}
+
 dms_settings_seed_json() {
+  local dropped
+  dropped="$(dms_unplanned_plugin_widget_ids | jq -R . | jq -sc .)"
   jq \
     --arg themeFile "$(dms_theme_file)" \
     --arg iconTheme "$(dms_icon_theme)" \
-    '. + {
+    --argjson dropped "$dropped" \
+    'def keep: map(select(((if type == "object" then .id else . end) as $w | $dropped | index($w)) == null));
+    . + {
       customThemeFile: $themeFile,
       iconThemeDark: $iconTheme,
       iconThemeLight: $iconTheme
-    }' "$(dms_settings_seed_file)"
+    }
+    | if ($dropped | length) > 0 then
+        .barConfigs = ((.barConfigs // []) | map(
+          .leftWidgets = ((.leftWidgets // []) | keep)
+          | .centerWidgets = ((.centerWidgets // []) | keep)
+          | .rightWidgets = ((.rightWidgets // []) | keep)))
+      else . end' "$(dms_settings_seed_file)"
 }
 
 dms_session_seed_json() {

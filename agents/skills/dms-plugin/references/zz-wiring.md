@@ -37,7 +37,8 @@ v1.6.0 source (`quickshell/Services/PluginService.qml`, `quickshell/Common/Setti
   section (`leftWidgets`, `centerWidgets`, `rightWidgets` of an entry in
   `barConfigs` in `settings.json`). The widget id is the plugin id, optionally
   `id:variantId` for variants.
-- Runtime IPC: `dms ipc plugin-scan scan|rescan <id>|reload <id>|list|status <id>`.
+- Runtime IPC: `dms ipc plugin-scan scan|rescan <id>|reload <id>|list|status <id>`
+  and `dms ipc plugins enable|disable|toggle|list|status`.
 
 ## Repository layout
 
@@ -149,31 +150,30 @@ Run `/usr/bin/python3 lib/catalog.py --root . validate` after every catalog edit
 Skip this for plugins the user opts into through Settings > Plugins, and for pure
 desktop plugins (auto-enabled). When a plugin must be live at first login:
 
-1. **`plugin_settings.json` seed.** ZZ seeds `settings.json` and `session.json`
-   through `dms_seed_state_files_if_missing` in `lib/dms.sh`, from
-   `templates/dms/settings-seed.json` and `session-seed.json`. Add the third file the
-   same way:
-   - `templates/dms/plugin-settings-seed.json` with `{"diskFree": {"enabled": true}}`
-     (plus any default plugin settings the plugin reads through `pluginData`);
-   - `dms_plugin_settings_file()` returning `<config dir>/plugin_settings.json` and a
-     `dms_plugin_settings_seed_file()` helper next to the existing ones;
-   - a third `if [[ ! -e ... ]]` block in `dms_seed_state_files_if_missing` writing it
-     with `write_user_file 0644`;
-   - a managed-config row so the plan lists it:
-     `dms	~/.config/DankMaterialShell/plugin_settings.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS plugin enablement and settings.`
-     (source `-` because `lib/dms.sh` renders it, mirroring the `settings.json` row).
+1. **`plugin_settings.json` seed.** The plugin's component carries an ordinary
+   `seed-if-missing` row for the file, sourced from
+   `templates/dms/plugin-settings-seed.json` (`{"<id>": {"enabled": true}}` plus any
+   default plugin settings read through `pluginData`), listed *before* the
+   directory-link row of the same component:
+   `dms-plugin-<kebab>	~/.config/DankMaterialShell/plugin_settings.json	seed-if-missing	preserve	templates/dms/plugin-settings-seed.json	dms	Seeds ...`
+   The generic apply in `lib/files.sh` walks rows in order, so the seed lands before
+   DMS discovers the linked directory; DMS consults the `enabled` flag only at
+   discovery. `lib/dms.sh` renders nothing for this file, and the plan and `zz
+   refresh` list it through the row. Keep the row on the plugin's component, never
+   on the base `dms` component: a deselected choice must seed nothing. The first
+   shipped plugin (`dms-plugin-agent-usage`) already owns this row; a second plugin
+   shares the same seed file (add its id to the template) because a path may appear
+   only once in the manifest.
 2. **Bar layout.** For a widget, add the plugin id to the wanted section of the
    `barConfigs[0]` entry in `templates/dms/settings-seed.json`. The seed-diff tool
    compares bar configs field by field, so this is a normal promotable key.
-3. **Ordering.** The greeter action in module 30 calls the same seeder before the
-   post-actions seeding in module 80; keep the new file inside that function so both
-   paths lay down the real seed.
-3b. **Other enumerations of the DMS seed files.** `lib/planner.sh` lists
-   `dms_settings_file` and `dms_session_file` as managed files, and
-   `modules/90-doctor.sh` warns when either is missing; add the plugin settings file
-   to both so the plan and the doctor stay truthful. The seed-diff tool
-   (`lib/dms_seed_diff.py`) does not cover plugin settings; say so in the design doc
-   rather than extending it unasked.
+   `dms_settings_seed_json` strips the ids of shipped plugins whose component is not
+   in the plan (it maps `plugins/<Name>` link rows to their `plugin.json` id), so a
+   deselected choice leaves no dangling widget id behind.
+3. **Doctor.** `modules/90-doctor.sh` checks `plugin_settings.json` and the linked
+   `plugin.json` when the component is in `components.list`; add the new plugin's
+   manifest path to that block. The seed-diff tool (`lib/dms_seed_diff.py`) does not
+   cover plugin settings; say so in the design doc rather than extending it unasked.
 4. **Document the limit.** Seeds are one-shot: existing installs keep their current
    `plugin_settings.json`. State that in the design doc; do not add a migration.
 
@@ -296,8 +296,8 @@ dms ipc plugin-scan status <id>          # TSV: loaded, type, error
 journalctl --user -u dms.service -n 100 --no-pager | grep -i -E "plugin|qml|error"
 ```
 
-Then enable it in Settings > Plugins and, for a widget, add it to a bar section
-through Settings > Bar. After editing QML, `dms ipc plugin-scan reload <id>` reloads
+Then enable it (`dms ipc plugins enable <id>`, or Settings > Plugins) and, for a
+widget, add it to a bar section through Settings > Bar. After editing QML, `dms ipc plugin-scan reload <id>` reloads
 without restarting the shell; manifest changes need `rescan <id>`. QML errors print
 to the journal with file and line.
 

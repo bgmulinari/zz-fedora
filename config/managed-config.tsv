@@ -31,6 +31,8 @@ dms	~/.local/state/DankMaterialShell/session.json	seed-if-missing	preserve	-	dms
 dms	~/.config/DankMaterialShell/themes/catppuccin/theme.json	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/themes/catppuccin/theme.json	dms	Links the vendored Catppuccin registry theme.
 dms	~/.config/matugen/dms/configs/zz-icon-theme.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-icon-theme.toml	dms	Links the managed icon-accent matugen drop-in.
 dms	~/.local/bin/zz-sync-icon-theme	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-icon-theme	dms	Links the icon-theme synchronization helper.
+dms-plugin-agent-usage	~/.config/DankMaterialShell/plugin_settings.json	seed-if-missing	preserve	templates/dms/plugin-settings-seed.json	dms	Seeds the app-writable DMS plugin enablement so the shipped widget is active at first login.
+dms-plugin-agent-usage	~/.config/DankMaterialShell/plugins/AgentUsage	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/AgentUsage	dms	Links the managed coding-agent usage bar widget plugin.
 starship	~/.config/starship.toml	seed-if-missing	preserve	templates/starship.toml	starship	Seeds a user-owned Starship configuration.
 starship	~/.config/matugen/dms/configs/zz-starship.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-starship.toml	starship	Links the managed Starship-palette matugen drop-in.
 starship	~/.local/bin/zz-sync-starship-palette	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-starship-palette	starship	Links the Starship palette synchronization helper.

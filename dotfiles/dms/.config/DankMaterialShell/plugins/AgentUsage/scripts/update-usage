@@ -1,0 +1,114 @@
+#!/usr/bin/python3
+"""Regenerate the coding-agent usage records the bar widget watches.
+
+Every collect-<agent> script beside this one prints one display-ready JSON
+record; this runs them concurrently and writes each record atomically to
+$XDG_STATE_HOME/zz-fedora/agent-usage/<agent>.json, where the widget's file
+watchers pick it up. Adding an agent is adding a collector: the widget shows
+any record that appears in that directory.
+
+Usage: update-usage [--force] [--limits-only] [--except <agent>]... [agent...]
+
+--force and --limits-only are passed through to every collector. --except
+skips an agent; positional ids restrict the run to those agents. Exit status
+is 1 when any selected collector fails or prints invalid JSON.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from usage_common import usage_dir, write_text  # noqa: E402
+
+COLLECTOR_PREFIX = "collect-"
+
+
+def collectors(scripts_dir: Path) -> dict[str, Path]:
+    found: dict[str, Path] = {}
+    for path in sorted(scripts_dir.glob(COLLECTOR_PREFIX + "*")):
+        if path.is_file() and os.access(path, os.X_OK):
+            found[path.name[len(COLLECTOR_PREFIX):]] = path
+    return found
+
+
+def collect(agent: str, collector: Path, flags: list[str], target_dir: Path) -> bool:
+    try:
+        completed = subprocess.run(
+            [str(collector), *flags],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            errors="replace",
+            timeout=120,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        print(f"update-usage: {agent} collector did not run ({error})", file=sys.stderr)
+        return False
+
+    stderr = completed.stderr.strip()
+    if stderr:
+        print(stderr, file=sys.stderr)
+    record = completed.stdout.strip()
+    if completed.returncode != 0 or not record:
+        print(f"update-usage: {agent} collector failed", file=sys.stderr)
+        return False
+    try:
+        parsed = json.loads(record)
+    except json.JSONDecodeError:
+        print(f"update-usage: {agent} collector printed invalid JSON", file=sys.stderr)
+        return False
+    if not isinstance(parsed, dict) or not parsed.get("id"):
+        print(f"update-usage: {agent} collector printed no usage record", file=sys.stderr)
+        return False
+
+    write_text(target_dir / f"{agent}.json", record + "\n")
+    return True
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--force", action="store_true")
+    parser.add_argument("--limits-only", action="store_true")
+    parser.add_argument("--except", dest="excluded", action="append", default=[], metavar="AGENT")
+    parser.add_argument("agents", nargs="*")
+    args = parser.parse_args()
+
+    flags: list[str] = []
+    if args.force:
+        flags.append("--force")
+    if args.limits_only:
+        flags.append("--limits-only")
+
+    available = collectors(Path(__file__).resolve().parent)
+    selected = {
+        agent: path
+        for agent, path in available.items()
+        if agent not in args.excluded and (not args.agents or agent in args.agents)
+    }
+    for agent in args.agents:
+        if agent not in available:
+            print(f"update-usage: no collector for agent '{agent}'", file=sys.stderr)
+
+    target_dir = usage_dir()
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    status = 0
+    if selected:
+        with ThreadPoolExecutor(max_workers=len(selected)) as pool:
+            results = pool.map(lambda item: collect(item[0], item[1], flags, target_dir), selected.items())
+        if not all(results):
+            status = 1
+    return status
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

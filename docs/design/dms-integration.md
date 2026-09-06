@@ -251,6 +251,57 @@ with the blue accent (latte + blue in light mode).
   bridge. A pre-existing regular `colors.json` (a standalone-pywal
   palette) is backed up before the link replaces it.
 
+## Plugins
+
+ZZ ships DMS plugins from the checkout rather than through the plugin
+registry: each plugin lives under
+`dotfiles/dms/.config/DankMaterialShell/plugins/<Name>/` and is
+product-linked as a whole directory into
+`~/.config/DankMaterialShell/plugins/<Name>`. DMS lists a symlinked plugin
+directory like a real one, and linking the directory (not each file) means
+files added later reach existing installs on the next `zz update zz` without
+new managed-config rows. The system tier under
+`/etc/xdg/quickshell/dms-plugins` is deliberately unused: `system-file` mode
+copies single files, so updates would stop flowing, and the user tier would
+shadow it anyway.
+
+Enablement is data DMS 1.6 keeps in
+`~/.config/DankMaterialShell/plugin_settings.json`, keyed by plugin id. The
+plugin's own component carries a `seed-if-missing` row for that file,
+sourced from `templates/dms/plugin-settings-seed.json`, listed ahead of its
+directory link: the generic managed-config apply writes the seed and then
+links the directory, so DMS finds the plugin already enabled when it
+discovers the directory (it consults the flag only at discovery). Keeping
+the row on the plugin's component, not on the base `dms` component, means a
+deselected choice seeds nothing. Like the other seeds it is one-shot: an
+install that already has a `plugin_settings.json` keeps it, so a plugin
+enabled by seed on a fresh install is enabled on an existing one only
+through Settings > Plugins or `dms ipc plugins enable <id>`. The seed-diff
+tool does not cover plugin settings. A bar widget also needs its id in a
+`barConfigs` section of `templates/dms/settings-seed.json`; the settings
+emitter strips the ids of shipped plugins whose component is not in the
+plan, because DMS lists an unresolved widget id as an unavailable entry in
+the bar editor.
+
+Shipped plugins:
+
+- **Agent usage** (`agentUsage`, unit `ai-agent-usage`, component
+  `dms-plugin-agent-usage`): a bar pill plus popout showing Claude Code and
+  Codex rate limits with reset countdowns, tokens per day for the last week,
+  and the all-time token split by model. The widget only displays records:
+  `scripts/update-usage` inside the plugin runs one stdlib-Python collector
+  per agent (`/usr/bin/python3`, the unit's only package) and writes
+  `~/.local/state/zz-fedora/agent-usage/<agent>.json`, which the QML watches
+  through `FileView`. Claude limits come from Anthropic's OAuth usage
+  endpoint with the signed-in CLI's token; Codex limits from the Codex
+  app-server RPC. Both keep their last probe under
+  `~/.cache/zz-fedora/agent-usage/` so a popout opened twice in a row does
+  not probe twice and a failed probe keeps the last known numbers whose
+  window has not reset. The pill collapses out of the bar until a record carries
+  usage, which is why it sits in the default bar layout. Optional
+  multi-device aggregation merges JSON snapshots from a user-chosen synced
+  folder; rate limits are never merged.
+
 ## Greeter
 
 `dms-greeter` (greetd), maintained in the standalone
@@ -304,6 +355,9 @@ follows the theme through the cache symlinks.
 - `tests/dms_theme.bats` + `tests/support/dms_theme.py` validate the
   vendored theme.json (structure and WCAG contrast on the flavor/accent
   pairs).
+- `tests/dms_plugins.bats` + `tests/support/dms_plugin.py` validate the
+  shipped plugin manifests against the upstream schema, the catalog wiring,
+  the enablement seed, and the collectors against fixture transcripts.
 - `tests/packages_orchestration.bats` covers the greeter action;
   `tests/post_actions.bats` covers the seeds and first-run checkpoints;
   `tests/fedora_sources.bats` covers the COPR/Terra ownership rules.

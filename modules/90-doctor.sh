@@ -270,6 +270,12 @@ module_90_doctor() {
       doctor_warn_file "$(dms_theme_file)"
       doctor_warn_file "$(dms_session_file)"
     fi
+    # A shipped plugin is wired by its enablement seed plus a directory link;
+    # reading the manifest through the link proves the link resolves.
+    if [[ "$SKIP_USER_CONFIG" -eq 0 ]] && doctor_plan_has_entry "$PLAN_DIR/config/components.list" "dms-plugin-agent-usage"; then
+      doctor_warn_file "$(dms_plugin_settings_file)"
+      doctor_warn_file "$user_config_home/DankMaterialShell/plugins/AgentUsage/plugin.json"
+    fi
   fi
   doctor_check_dir_has_files "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont" '*.ttf'
 

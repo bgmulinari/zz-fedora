@@ -49,6 +49,7 @@
         "clipboard",
         "cpuUsage",
         "memUsage",
+        "agentUsage",
         "notificationButton",
         "battery",
         "controlCenterButton"
