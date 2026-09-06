@@ -54,7 +54,24 @@ json_escape() {
   value="${value//\\/\\\\}"
   value="${value//\"/\\\"}"
   value="${value//$'\n'/\\n}"
+  value="${value//$'\r'/\\r}"
   value="${value//$'\t'/\\t}"
+  value="${value//$'\b'/\\b}"
+  value="${value//$'\f'/\\f}"
+  if [[ "$value" == *[[:cntrl:]]* ]]; then
+    # Any remaining control character (0x00-0x1F, 0x7F) has no short escape
+    # and must become \u00XX for the output to stay valid JSON.
+    local escaped="" char code i
+    for ((i = 0; i < ${#value}; i++)); do
+      char="${value:i:1}"
+      printf -v code '%d' "'$char"
+      if (( code < 32 || code == 127 )); then
+        printf -v char '\\u%04x' "$code"
+      fi
+      escaped+="$char"
+    done
+    value="$escaped"
+  fi
   printf '%s' "$value"
 }
 

@@ -30,7 +30,8 @@ The compiled layout under --out:
   categories.list       one category name per line
 
 List-valued TSV fields are comma-joined; boolean fields are 0/1. String
-fields must not contain tabs or newlines, which validation enforces.
+fields must not contain control characters (tabs and newlines included),
+which validation enforces.
 
 Requires Python >= 3.11 (tomllib). No third-party dependencies.
 """
@@ -131,8 +132,8 @@ def clean_string(errors: Errors, where: str, key: str, value: object) -> str:
     if not isinstance(value, str):
         errors.add(where, f"'{key}' must be a string")
         return ""
-    if "\t" in value or "\n" in value:
-        errors.add(where, f"'{key}' must not contain tabs or newlines")
+    if any(ord(char) < 0x20 or ord(char) == 0x7F for char in value):
+        errors.add(where, f"'{key}' must not contain control characters (tabs, newlines, carriage returns, ...)")
         return ""
     return value
 

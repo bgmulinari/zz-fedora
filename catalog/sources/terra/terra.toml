@@ -5,7 +5,12 @@ required = true
 description = "Terra repository for Ghostty"
 gpg_policy = "unsigned-bootstrap"
 bootstrap_exception = true
-reason = "Bootstraps Terra release packages before installing required Ghostty packages"
+# The release package is fetched unsigned once to obtain terra-gpg-keys.
+# From then on the repository's own configuration applies: packages and
+# repository metadata are both GPG-verified against the shipped
+# RPM-GPG-KEY-terra<release> key (terra-release sets gpgcheck=1 and
+# repo_gpgcheck=1, and Terra signs repomd.xml with that key).
+reason = "Bootstraps Terra release packages unsigned before installing required Ghostty packages; packages and repository metadata are GPG-verified against the shipped Terra key afterwards"
 # Terra also packages the DMS stack; the DankLinux COPRs own it here, so
 # keep Terra from ever shadowing those builds. noctalia-qs declares
 # "Provides: quickshell", so without its exclusion the solver can pick it

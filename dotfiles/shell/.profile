@@ -1,6 +1,6 @@
 # Product-owned login-shell defaults loaded from ~/.zz.
 
-export TERMINAL=kitty
+export TERMINAL=xdg-terminal-exec
 
 zz_environment_d_generator="/usr/lib/systemd/user-environment-generators/30-systemd-environment-d-generator"
 if [ -x "$zz_environment_d_generator" ] && \

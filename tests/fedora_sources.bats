@@ -23,7 +23,9 @@ setup() {
   run fedora_enable_sources terra
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" "root:dnf config-manager setopt terra.repo_gpgcheck=0"
+  # Enabling Terra must leave the repository's shipped package and metadata
+  # signature verification untouched.
+  [[ "$output" != *"repo_gpgcheck="* ]]
   assert_contains "$output" "root:dnf config-manager setopt terra.excludepkgs=quickshell,quickshell-git,noctalia-qs,matugen,dgop,danksearch,dms,dms-cli,dms-greeter"
 }
 
@@ -73,4 +75,73 @@ setup() {
   [ "$status" -eq 0 ]
   assert_contains "$output" "root:dnf copr enable -y avengemedia/dms"
   refute_contains "$output" "excludepkgs"
+}
+
+@test "COPR enablement is skipped when dnf lists the exact enabled repo id" {
+  DRY_RUN=0
+  dnf() {
+    [[ "$*" == "repolist --enabled" ]] || return 1
+    printf '%s\n' \
+      'repo id repo name' \
+      'copr:copr.fedorainfracloud.org:atim:starship Copr repo for starship owned by atim' \
+      'fedora Fedora 44 - x86_64'
+  }
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*"
+  }
+  rpm() {
+    [[ "$*" == "-E %fedora" ]] && printf '%s\n' "$MINIMUM_FEDORA_RELEASE"
+  }
+
+  run fedora_enable_sources "copr:atim/starship"
+
+  [ "$status" -eq 0 ]
+  refute_contains "$output" "dnf copr enable"
+}
+
+@test "COPR enablement runs when dnf lists no enabled repo for the project" {
+  DRY_RUN=0
+  dnf() {
+    [[ "$*" == "repolist --enabled" ]] || return 1
+    printf '%s\n' \
+      'repo id repo name' \
+      'fedora Fedora 44 - x86_64' \
+      'updates Fedora 44 - x86_64 - Updates'
+  }
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*"
+  }
+  rpm() {
+    [[ "$*" == "-E %fedora" ]] && printf '%s\n' "$MINIMUM_FEDORA_RELEASE"
+  }
+
+  run fedora_enable_sources "copr:atim/starship"
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "root:dnf copr enable -y atim/starship"
+}
+
+@test "COPR repo id that only shares a prefix does not count as enabled" {
+  dnf() {
+    [[ "$*" == "repolist --enabled" ]] || return 1
+    printf '%s\n' \
+      'repo id repo name' \
+      'copr:copr.fedorainfracloud.org:atim:starship-git Copr repo for starship-git owned by atim' \
+      'coprdep:copr.fedorainfracloud.org:atim:starship dependency alias'
+  }
+
+  run fedora_repo_enabled "copr:atim/starship"
+
+  [ "$status" -ne 0 ]
+}
+
+@test "dnf5 repolist header row never matches a COPR repo id" {
+  dnf() {
+    [[ "$*" == "repolist --enabled" ]] || return 1
+    printf '%s\n' 'repo id repo name'
+  }
+
+  run fedora_repo_enabled "copr:atim/starship"
+
+  [ "$status" -ne 0 ]
 }

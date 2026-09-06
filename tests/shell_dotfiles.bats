@@ -175,3 +175,29 @@ EOF
   refute_contains "$output" '${HOME}'
   refute_contains "$output" '${PATH:-'
 }
+
+# The profile hardcodes the systemd environment.d generator path, which a
+# host may or may not provide. Stage a copy pointing at a missing generator
+# so the product defaults are asserted without any environment.d input.
+stage_profile_without_generator() {
+  local profile="$TEST_ROOT/profile-without-generator"
+  sed "s#/usr/lib/systemd/user-environment-generators/30-systemd-environment-d-generator#$TEST_ROOT/missing-environment-generator#" \
+    "$ROOT_DIR/dotfiles/shell/.profile" >"$profile"
+  printf '%s\n' "$profile"
+}
+
+@test "profile exports the product terminal without the environment.d generator" {
+  local home_dir="$TEST_ROOT/no-generator-home" profile
+  mkdir -p "$home_dir"
+  profile="$(stage_profile_without_generator)"
+  assert_file_contains "$profile" "$TEST_ROOT/missing-environment-generator"
+
+  run env -i \
+    HOME="$home_dir" \
+    PATH=/usr/bin \
+    /bin/sh -c '. "$1"; printf "TERMINAL=%s\n" "$TERMINAL"' \
+    sh "$profile"
+
+  [ "$status" -eq 0 ]
+  assert_equal "TERMINAL=xdg-terminal-exec" "$output"
+}

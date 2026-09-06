@@ -420,7 +420,6 @@ flatpak_remote_add_if_missing() {
 
 flatpak_readd_remote_from_repo_file() {
   local name="$1"
-  local _url="$2"
   [[ "$name" == "flathub" ]] || return 1
   log_warn "Flatpak install from '$name' failed GPG verification; importing the Flathub GPG key directly."
   flatpak_remote_import_flathub_key "$name"
@@ -475,7 +474,7 @@ flatpak_install_or_update() {
     if ! run_cmd_as_root flatpak install -y --or-update "$remote" "$app_id" >"$detail_log" 2>&1; then
       if [[ "$remote" == "flathub" ]] && grep -F "GPG: Unable to complete signature verification" "$detail_log" >/dev/null 2>&1; then
         cat "$detail_log" >&2
-        flatpak_readd_remote_from_repo_file "$remote" "https://dl.flathub.org/repo/flathub.flatpakrepo" || return 1
+        flatpak_readd_remote_from_repo_file "$remote" || return 1
         detail_log="$LOG_DIR/flatpak-${app_id//[^A-Za-z0-9_.-]/_}-retry-$(timestamp).log"
         if run_cmd_as_root flatpak install -y --or-update "$remote" "$app_id" >"$detail_log" 2>&1; then
           log_info "Flatpak install details for $app_id: $detail_log"

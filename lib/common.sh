@@ -130,7 +130,7 @@ ensure_state_dirs
 
 # Shared runtime state protocol. These globals are declared here so every lib
 # and module sees one instance; the writers/readers are:
-# - WARNING_MESSAGES / INFO_MESSAGES: appended by lib/planner.sh and modules
+# - WARNING_MESSAGES: appended by lib/planner.sh and modules
 #   while planning; drained for display by lib/planner.sh and lib/tui.sh.
 # - PLAN_MODULES: populated by lib/planner.sh; read by install.sh and
 #   lib/tui.sh to render the plan.
@@ -140,8 +140,6 @@ ensure_state_dirs
 #   describe the most recent external command for failure reporting.
 # shellcheck disable=SC2034
 declare -ag WARNING_MESSAGES=()
-# shellcheck disable=SC2034
-declare -ag INFO_MESSAGES=()
 # shellcheck disable=SC2034
 declare -ag PLAN_MODULES=()
 

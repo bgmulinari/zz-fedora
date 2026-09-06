@@ -18,8 +18,10 @@ install_homebrew_if_needed() {
   fi
 
   log_progress "Installing Homebrew"
+  local target_group
+  target_group="$(id -gn "$TARGET_USER")"
   run_cmd_as_root mkdir -p "$BREW_PREFIX"
-  run_cmd_as_root chown -R "$TARGET_USER:$TARGET_USER" /home/linuxbrew
+  run_cmd_as_root chown -R "$TARGET_USER:$target_group" /home/linuxbrew
   local install_script install_script_q
   install_script="$(mktemp "$CACHE_DIR/homebrew-install.XXXXXX")"
   if ! run_cmd curl -fsSL "https://raw.githubusercontent.com/Homebrew/install/$HOMEBREW_INSTALL_COMMIT/install.sh" -o "$install_script" \

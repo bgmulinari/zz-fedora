@@ -306,6 +306,7 @@ install_from_plan_file() {
   local mode="${3:-required}"
   local label="${4:-packages}"
   [[ -f "$plan_file" ]] || return 0
+  local -a packages=()
   mapfile -t packages < <(read_plan_file "$plan_file")
   [[ "${#packages[@]}" -gt 0 ]] || return 0
   printf '%s %s: %s\n' "$backend" "$label" "${#packages[@]}"

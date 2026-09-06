@@ -110,15 +110,3 @@ read_clean_lines() {
   [[ -f "$file" ]] || return 1
   sed -E 's/[[:space:]]*#.*$//' "$file" | sed -E '/^[[:space:]]*$/d' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//'
 }
-
-manifest_entries() {
-  local file="$1"
-  awk '
-    {
-      sub(/[[:space:]]*#.*/, "")
-      sub(/^[[:space:]]+/, "")
-      sub(/[[:space:]]+$/, "")
-      if (length($0) > 0) print
-    }
-  ' "$file" | sort -u
-}

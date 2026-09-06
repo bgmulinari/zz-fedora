@@ -554,3 +554,28 @@ TOML
   [ "$status" -ne 0 ]
   [[ "$output" == *"unreachable bundle: dev-zz-orphan"* ]]
 }
+
+@test "json_escape and json_warnings_array emit valid JSON for control characters" {
+  local sample
+  printf -v sample 'line\rreturn \x01start "quoted" back\\slash\ttab del\x7fend\nnewline\bbs\fff'
+
+  run json_escape "$sample"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'\r'* ]]
+  [[ "$output" == *'\u0001'* ]]
+  [[ "$output" == *'\u007F'* ]]
+  [[ "$output" == *'\b'* ]]
+  [[ "$output" == *'\f'* ]]
+  printf '"%s"' "$output" | /usr/bin/python3 -c "import json,sys; json.loads(sys.stdin.read())"
+
+  WARNING_MESSAGES=()
+  append_warning "$sample"
+  append_warning $'second\x1f warning'
+  json_warnings_array | /usr/bin/python3 -c "
+import json, sys
+warnings = json.loads(sys.stdin.read())
+assert len(warnings) == 2, warnings
+assert '\r' in warnings[0] and '\x01' in warnings[0] and '\x7f' in warnings[0], warnings
+assert warnings[1] == 'second\x1f warning', warnings
+"
+}

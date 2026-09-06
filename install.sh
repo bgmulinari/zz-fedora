@@ -115,11 +115,10 @@ reset_step_registry() {
 # Declarative install pipeline: one tab-separated row per step with the
 # fields id, label, module entrypoint, predicate, failure policy, and
 # description. Each entrypoint is a module_NN_* function defined in the
-# matching modules/NN-*.sh file. The planning row is included only when the
-# registry is built with include_planning=1.
+# matching modules/NN-*.sh file. Planning (module_20_plan) is not a step:
+# main() runs it before the pipeline so the plan is reviewed up front.
 declare -ag INSTALL_STEP_TABLE=(
   $'preflight\tPreflight\tmodule_00_preflight\tstep_should_run_always\tfatal\tValidate the environment, target user, and install prerequisites.'
-  $'planning\tPlanning\tmodule_20_plan\tstep_should_run_always\tfatal\tBuild and review the final install plan from defaults and selected bundles.'
   $'bootstrap-tools\tBootstrap Tools\tmodule_05_bootstrap_tools\tstep_should_run_always\tfatal\tInstall the Fedora package-manager helpers needed by the plan.'
   $'sources\tSoftware Sources\tmodule_10_sources\tstep_should_run_always\tfatal\tEnable repositories and remotes required by the current plan.'
   $'base-setup\tBase Setup\tmodule_30_packages\tstep_should_run_always\tfatal\tInstall non-optional base packages and configure the base shell before optional selections.'
@@ -131,14 +130,10 @@ declare -ag INSTALL_STEP_TABLE=(
 )
 
 build_step_registry() {
-  local include_planning="${1:-0}"
   reset_step_registry
   local row step_id label function_name predicate failure_policy description
   for row in "${INSTALL_STEP_TABLE[@]}"; do
     IFS=$'\t' read -r step_id label function_name predicate failure_policy description <<<"$row"
-    if [[ "$step_id" == "planning" && "$include_planning" -ne 1 ]]; then
-      continue
-    fi
     register_step "$step_id" "$label" "$description" "$function_name" "$predicate" "$failure_policy"
   done
 }
@@ -261,8 +256,7 @@ run_install_step() {
 }
 
 run_registered_steps() {
-  local include_planning="${1:-0}"
-  build_step_registry "$include_planning"
+  build_step_registry
   local total="${#STEP_FUNCTIONS[@]}"
   local idx
   local failed=0
@@ -303,7 +297,7 @@ apply_install_plan() {
 
   TUI_PROGRESS_ACTIVE=1
   local install_status=0
-  run_registered_steps 0 || install_status=$?
+  run_registered_steps || install_status=$?
   tui_progress_end
   TUI_PROGRESS_ACTIVE=0
   tui_summary
@@ -374,10 +368,15 @@ main() {
       ;;
     first-run)
       require_first_run_user_context
+      # first-run and defaults bypass preflight, so take the installer lock
+      # here: a first-login autostart must not interleave with an install
+      # writing the same state tree.
+      acquire_lock
       [[ -f "$PLAN_DIR/bundles.list" ]] || build_plan_from_selections
       module_85_first_run
       ;;
     defaults)
+      acquire_lock
       [[ -f "$PLAN_DIR/bundles.list" ]] || build_plan_from_selections
       module_80_defaults
       ;;

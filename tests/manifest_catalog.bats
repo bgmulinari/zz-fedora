@@ -62,20 +62,6 @@ copy_repo_catalog_sandbox() {
   [ "$status" -eq 0 ]
 }
 
-@test "manifest parser trims comments, blanks, whitespace, and duplicates" {
-  manifest="$TEST_ROOT/test.pkgs"
-  printf '%s\n' \
-    '# comment' \
-    'ghostty' \
-    '' \
-    'firefox   # inline comment' \
-    'ghostty' \
-    '  chromium  ' \
-    >"$manifest"
-
-  assert_equal $'chromium\nfirefox\nghostty' "$(manifest_entries "$manifest")"
-}
-
 @test "platform validation recognizes Fedora os-release files" {
   os_release="$TEST_ROOT/fedora-os-release"
   printf 'ID=fedora\n' >"$os_release"
@@ -647,8 +633,8 @@ TOML
 
   run catalog_validate "$sandbox"
   [ "$status" -ne 0 ]
-  assert_contains "$output" "'description' must not contain tabs or newlines"
-  assert_contains "$output" "'label' must not contain tabs or newlines"
+  assert_contains "$output" "'description' must not contain control characters"
+  assert_contains "$output" "'label' must not contain control characters"
 }
 
 @test "load_source_descriptor maps compiled source fields" {

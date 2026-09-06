@@ -155,3 +155,51 @@ setup() {
   assert_contains "$output" "Unknown custom action 'not-a-registered-action'"
   assert_contains "$output" "no register_action row declares it"
 }
+
+run_post_install_command() {
+  env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" \
+    bash "$ROOT_DIR/install.sh" "$1" --dry-run --no-tui
+}
+
+@test "first-run and defaults dry-runs take and release the installer lock" {
+  local lock_file="$XDG_STATE_HOME/zz-fedora/install.lock"
+  local command_name
+  for command_name in first-run defaults; do
+    run run_post_install_command "$command_name"
+    [ "$status" -eq 0 ]
+    [[ -f "$lock_file" ]]
+    flock -n "$lock_file" true
+  done
+}
+
+@test "first-run and defaults refuse to run while the installer lock is held" {
+  local lock_file="$XDG_STATE_HOME/zz-fedora/install.lock"
+  local held_marker="$TEST_ROOT/lock-held"
+  mkdir -p "$(dirname "$lock_file")"
+
+  (
+    exec {lock_fd}>"$lock_file"
+    flock "$lock_fd"
+    : >"$held_marker"
+    # exec so the lock fd owner is the pid killed below.
+    exec sleep 60
+  ) >/dev/null 2>&1 3>&- &
+  local holder_pid=$!
+  local attempts=0
+  until [[ -f "$held_marker" ]]; do
+    attempts=$((attempts + 1))
+    [ "$attempts" -lt 100 ]
+    sleep 0.1
+  done
+
+  local command_name
+  for command_name in defaults first-run; do
+    run run_post_install_command "$command_name"
+    [ "$status" -ne 0 ]
+    assert_contains "$output" "Another zz-fedora process is running"
+  done
+
+  kill "$holder_pid"
+  wait "$holder_pid" 2>/dev/null || true
+  flock -n "$lock_file" true
+}

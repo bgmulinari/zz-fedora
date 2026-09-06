@@ -831,3 +831,34 @@ EOF
   run verify_boot_splash
   [ "$status" -ne 0 ]
 }
+
+@test "Homebrew bootstrap chowns the prefix to the target user's real primary group" {
+  DRY_RUN=0
+  TARGET_USER="test-user"
+  BREW_PREFIX="$TEST_ROOT/linuxbrew/.linuxbrew"
+  CACHE_DIR="$TEST_ROOT/cache"
+  id() {
+    [[ "$*" == "-gn test-user" ]] || return 1
+    printf 'staff\n'
+  }
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*"
+  }
+  run_cmd() {
+    printf 'cmd:%s\n' "$*"
+  }
+  sha256sum() {
+    cat >/dev/null
+  }
+  run_user_login_shell() {
+    printf 'login-shell:%s\n' "$*"
+  }
+
+  run install_homebrew_if_needed
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "root:mkdir -p $BREW_PREFIX"
+  assert_contains "$output" "root:chown -R test-user:staff /home/linuxbrew"
+  refute_contains "$output" "test-user:test-user"
+  assert_contains "$output" "login-shell:NONINTERACTIVE=1 /bin/bash"
+}

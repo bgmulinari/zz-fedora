@@ -22,12 +22,6 @@ register_action() {
   fi
 }
 
-action_plan_has() {
-  local expected="$1"
-  [[ -f "$PLAN_DIR/actions/actions.list" ]] || return 1
-  grep -Fx "$expected" "$PLAN_DIR/actions/actions.list" >/dev/null 2>&1
-}
-
 run_user_login_shell() {
   local script="$1"
   if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -94,17 +88,6 @@ split_action_id() {
 action_registered() {
   split_action_id "$1"
   [[ -n "${ACTION_INSTALL_FN[$ACTION_DISPATCH_ID]:-}" ]]
-}
-
-# validate_action_manifest <manifest_file> fails fast when a file of action ids
-# references an action id that no lib/actions/*.sh file registered.
-validate_action_manifest() {
-  local manifest_file="$1"
-  local action
-  while IFS= read -r action; do
-    [[ -n "$action" ]] || continue
-    action_registered "$action" || die "Unknown custom action '$action' in $manifest_file: no register_action row declares it (see lib/actions/*.sh)"
-  done < <(manifest_entries "$manifest_file")
 }
 
 run_custom_action() {

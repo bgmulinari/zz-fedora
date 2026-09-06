@@ -174,7 +174,10 @@ fedora_enable_sources() {
           terra-release
         run_cmd_as_root rpm --import "/etc/pki/rpm-gpg/RPM-GPG-KEY-terra${fedora_release}"
       fi
-      run_cmd_as_root dnf config-manager setopt terra.repo_gpgcheck=0
+      # terra-release ships gpgcheck=1 and repo_gpgcheck=1, and Terra signs
+      # its repomd.xml with the same RPM-GPG-KEY-terra<release> key that
+      # terra-gpg-keys installs, so both package and metadata verification
+      # stay exactly as the repository configures them from here on.
       fedora_apply_source_excludepkgs terra
       ;;
     rpmfusion)
@@ -342,11 +345,27 @@ fedora_enable_services_now() {
   run_cmd_as_root systemctl enable --now "${service_names[@]}"
 }
 
+# An "owner/project" COPR counts as enabled only when dnf lists its exact
+# repo id among the enabled repositories: `dnf copr list` also shows
+# disabled projects, and a substring match would accept a project whose
+# name merely starts with the wanted one (atim/starship-git for
+# atim/starship). The header row dnf5 prints ("repo id ...") never equals
+# a real id.
+fedora_copr_repo_enabled() {
+  local project="$1"
+  local wanted
+  wanted="$(fedora_copr_repo_id "$project")"
+  dnf repolist --enabled 2>/dev/null | awk -v wanted="$wanted" '
+    $1 == wanted { found = 1 }
+    END { exit found ? 0 : 1 }
+  '
+}
+
 fedora_repo_enabled() {
   local repo_id="$1"
   case "$repo_id" in
     copr:*)
-      dnf copr list 2>/dev/null | grep -F "${repo_id#copr:}" >/dev/null 2>&1
+      fedora_copr_repo_enabled "${repo_id#copr:}"
       ;;
     terra)
       dnf repolist 2>/dev/null | grep -E '^terra' >/dev/null 2>&1

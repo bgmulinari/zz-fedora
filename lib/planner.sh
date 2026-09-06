@@ -33,10 +33,6 @@ append_warning() {
   append_unique WARNING_MESSAGES "$1"
 }
 
-append_info() {
-  append_unique INFO_MESSAGES "$1"
-}
-
 plan_file_has_entry() {
   local plan_file="$1"
   local entry="$2"
@@ -99,6 +95,7 @@ append_backend_prereqs() {
   prereq_backend="$(backend_prerequisite_backend "$backend" || true)"
   [[ -n "$prereq_backend" ]] || return 0
 
+  local -a prereq_items=()
   mapfile -t prereq_items < <(backend_prerequisite_items "$backend")
   [[ "${#prereq_items[@]}" -gt 0 ]] || return 0
   append_plan_entries "$(prereq_file_for_backend "$prereq_backend")" "${prereq_items[@]}"
@@ -252,24 +249,6 @@ load_base_responsibility_cache() {
   BASE_RESPONSIBILITY_CACHE_LOADED=1
 }
 
-base_responsibility_record() {
-  local backend="$1"
-  local item="$2"
-  local policy_file
-  policy_file="$(base_responsibility_file)"
-  [[ -f "$policy_file" ]] || return 1
-  awk -F'\t' -v backend="$backend" -v item="$item" 'NF>=5 && $1 !~ /^#/ && $1 == backend && $2 == item {print; found=1; exit} END {exit found ? 0 : 1}' "$policy_file"
-}
-
-base_responsibility_fields() {
-  local backend="$1"
-  local item="$2"
-  local key="$backend	$item"
-  load_base_responsibility_cache
-  [[ -n "${BASE_RESPONSIBILITY_CACHE[$key]:-}" ]] || die "Missing base responsibility metadata for $backend item: $item"
-  printf '%s\n' "${BASE_RESPONSIBILITY_CACHE[$key]}"
-}
-
 write_base_rationale_row() {
   local report="$1"
   local backend="$2"
@@ -419,9 +398,6 @@ write_plan_summary() {
     if [[ -f "$PLAN_DIR/services/system-enable-now.list" ]]; then
       sed 's/^/  - /' "$PLAN_DIR/services/system-enable-now.list"
     fi
-    if [[ -f "$PLAN_DIR/services/system-enable.list" ]]; then
-      sed 's/^/  - /' "$PLAN_DIR/services/system-enable.list"
-    fi
     if [[ -f "$PLAN_DIR/services/user-enable.list" ]]; then
       sed 's/^/  - /' "$PLAN_DIR/services/user-enable.list"
     fi
@@ -472,11 +448,30 @@ print_plan_summary() {
 
 json_escape() {
   local value="$1"
-  value="${value//\\/\\\\}"
-  value="${value//\"/\\\"}"
-  value="${value//$'\n'/\\n}"
-  value="${value//$'\t'/\\t}"
-  printf '%s' "$value"
+  local out="" char code hex
+  local index length="${#value}"
+  for ((index = 0; index < length; index++)); do
+    char="${value:index:1}"
+    case "$char" in
+      \\) out+='\\' ;;
+      '"') out+='\"' ;;
+      $'\n') out+='\n' ;;
+      $'\t') out+='\t' ;;
+      $'\r') out+='\r' ;;
+      $'\b') out+='\b' ;;
+      $'\f') out+='\f' ;;
+      *)
+        printf -v code '%d' "'$char"
+        if ((code < 0x20 || code == 0x7F)); then
+          printf -v hex '%02X' "$code"
+          out+="\\u00$hex"
+        else
+          out+="$char"
+        fi
+        ;;
+    esac
+  done
+  printf '%s' "$out"
 }
 
 json_array_from_file() {
@@ -652,8 +647,6 @@ print_plan_json() {
   json_array_from_file "$PLAN_DIR/actions/actions.list"
   printf ',"services":{"system_enable_now":'
   json_array_from_file "$PLAN_DIR/services/system-enable-now.list"
-  printf ',"system_enable":'
-  json_array_from_file "$PLAN_DIR/services/system-enable.list"
   printf ',"user_enable":'
   json_array_from_file "$PLAN_DIR/services/user-enable.list"
   printf ',"user_wants":'

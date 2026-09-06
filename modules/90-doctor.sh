@@ -49,17 +49,6 @@ doctor_file_contains() {
   [[ -f "$file" ]] && grep -F "$pattern" "$file" >/dev/null 2>&1
 }
 
-doctor_check_contains_required() {
-  local file="$1"
-  local pattern="$2"
-  if doctor_file_contains "$file" "$pattern"; then
-    printf '[ok] %s contains %s\n' "$file" "$pattern"
-    return 0
-  fi
-  printf '[warn] %s missing pattern %s\n' "$file" "$pattern"
-  return 1
-}
-
 doctor_check_enabled() {
   local service_name="$1"
   if systemctl is-enabled "$service_name" >/dev/null 2>&1; then
@@ -337,7 +326,7 @@ module_90_doctor() {
     fi
   fi
   if doctor_plan_has_entry "$native_plan" "xdg-terminal-exec"; then
-    doctor_check_contains "$user_config_home/xdg-terminals.list" 'Alacritty.desktop'
+    doctor_check_contains "$user_config_home/xdg-terminals.list" 'com.mitchellh.ghostty.desktop'
   fi
   if doctor_plan_has_entry "$native_plan" "neovim"; then
     doctor_check_contains "$TARGET_HOME/.local/share/applications/nvim.desktop" 'Exec=xdg-terminal-exec'

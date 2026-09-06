@@ -201,20 +201,6 @@ tui_step_start() {
   [[ -n "$description" ]] && printf '    %s\n' "$description"
 }
 
-tui_step_spin() {
-  local current="$1"
-  local total="$2"
-  local title="$3"
-  local status_file="$4"
-
-  gum spin \
-    --spinner points \
-    --spinner.foreground 2 \
-    --title.foreground 4 \
-    --title "$title ($current/$total)" \
-    -- bash -c 'while [[ ! -f "$1" ]]; do sleep 0.2; done' _ "$status_file"
-}
-
 tui_step_done() {
   local title="$1"
   TUI_STEP_STATUS["$title"]="done"
@@ -318,23 +304,6 @@ tui_step_skipped() {
   printf 'skipped: %s\n' "$title"
 }
 
-tui_completion() {
-  local message="$1"
-
-  if tui_can_style; then
-    printf '\n'
-    gum style \
-      --border rounded \
-      --border-foreground 2 \
-      --padding "0 2" \
-      --bold \
-      "$message"
-    return 0
-  fi
-
-  printf '\n%s\n' "$message"
-}
-
 tui_count_plan_group() {
   local total=0
   local file
@@ -424,15 +393,6 @@ tui_show_install_plan() {
         [[ -n "$line" ]] && printf '  %s %s\n' "$(gum style --foreground 11 '!')" "$line"
       done <<<"$trust_exceptions"
     fi
-  fi
-
-  if [[ "${#INFO_MESSAGES[@]}" -gt 0 ]]; then
-    printf '\n'
-    gum style --bold "Notes"
-    local info
-    for info in "${INFO_MESSAGES[@]}"; do
-      printf '  %s %s\n' "$(gum style --foreground 12 '•')" "$info"
-    done
   fi
 
   if [[ "${#WARNING_MESSAGES[@]}" -gt 0 ]]; then
