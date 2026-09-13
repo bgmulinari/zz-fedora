@@ -201,3 +201,43 @@ stage_profile_without_generator() {
   [ "$status" -eq 0 ]
   assert_equal "TERMINAL=xdg-terminal-exec" "$output"
 }
+
+# greetd builds the session environment from a login shell, and Fedora's
+# nano-default-editor profile.d script has already set EDITOR by the time the
+# product profile runs. The profile must replace that with the installed editor
+# so DMS and the ZZ menu rows, which never see an interactive shell, use it too.
+@test "profile overrides the distro nano default with nvim in the login environment" {
+  local home_dir="$TEST_ROOT/editor-home" profile
+  mkdir -p "$home_dir" "$TEST_ROOT/editor-bin"
+  printf '#!/bin/sh\n' >"$TEST_ROOT/editor-bin/nvim"
+  chmod +x "$TEST_ROOT/editor-bin/nvim"
+  profile="$(stage_profile_without_generator)"
+
+  run env -i \
+    HOME="$home_dir" \
+    PATH="$TEST_ROOT/editor-bin:/usr/bin" \
+    EDITOR=/usr/bin/nano \
+    /bin/sh -c '. "$1"; printf "EDITOR=%s VISUAL=%s\n" "$EDITOR" "$VISUAL"' \
+    sh "$profile"
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "EDITOR=nvim VISUAL=nvim"
+}
+
+@test "profile falls back to vi for the login editor when nvim is not installed" {
+  local home_dir="$TEST_ROOT/vi-home" profile
+  mkdir -p "$home_dir" "$TEST_ROOT/vi-bin"
+  printf '#!/bin/sh\n' >"$TEST_ROOT/vi-bin/vi"
+  chmod +x "$TEST_ROOT/vi-bin/vi"
+  profile="$(stage_profile_without_generator)"
+
+  run env -i \
+    HOME="$home_dir" \
+    PATH="$TEST_ROOT/vi-bin" \
+    EDITOR=/usr/bin/nano \
+    /bin/sh -c '. "$1"; printf "EDITOR=%s\n" "$EDITOR"' \
+    sh "$profile"
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "EDITOR=vi"
+}

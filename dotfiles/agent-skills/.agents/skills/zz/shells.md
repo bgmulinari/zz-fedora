@@ -37,7 +37,9 @@ fragment that undoes it, or ask the user before removing the link.
 Session environment (PATH order, Wayland and toolkit variables) comes from
 `/usr/lib/environment.d/10-zz-desktop.conf`, a ZZ system file. Personal additions go in
 `~/.config/environment.d/*.conf`; they need a re-login. Homebrew is deliberately behind
-`/usr/bin` in PATH so it never shadows Fedora packages.
+`/usr/bin` in PATH so it never shadows Fedora packages. `EDITOR` and `VISUAL` are set
+session-wide by the product login profile (nvim when installed, else vi) so DMS and the
+ZZ menu open the same editor as the terminal; override them in `environment.d` too.
 
 ## Starship
 
