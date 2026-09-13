@@ -52,7 +52,7 @@ once enabled. `dms ipc call bar reveal` and `hide` are handy from keybinds.
 ```bash
 dms ipc call spotlight toggle            # launcher (Mod+D / Mod+Space)
 dms ipc call control-center toggle       # Mod+S
-dms ipc call notifications toggle        # Mod+N
+dms ipc call notifications toggle        # Mod+Shift+N (Mod+N opens netwatch)
 dms ipc call notifications toggleDoNotDisturb
 dms ipc call clipboard toggle            # Mod+V, history managed by DMS
 dms ipc call processlist focusOrToggle   # Mod+M

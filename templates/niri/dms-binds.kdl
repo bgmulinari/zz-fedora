@@ -18,7 +18,7 @@ binds {
     Mod+E hotkey-overlay-title="Open File Manager: Nautilus" { spawn "nautilus" "--new-window"; }
     Mod+C hotkey-overlay-title="Open Calculator" { spawn "gnome-calculator"; }
     Mod+B hotkey-overlay-title="Open btop" { spawn "ghostty" "+new-window" "-e" "btop"; }
-    Mod+Shift+N hotkey-overlay-title="Open netwatch" { spawn "ghostty" "+new-window" "-e" "netwatch"; }
+    Mod+N hotkey-overlay-title="Open netwatch" { spawn "ghostty" "+new-window" "-e" "netwatch"; }
     Mod+W hotkey-overlay-title="Open Browser" { spawn-sh "xdg-open about:blank"; }
 
     // Desktop shell
@@ -28,7 +28,7 @@ binds {
     Mod+S hotkey-overlay-title="DMS Control Center" { spawn-sh "dms ipc call control-center toggle"; }
     Mod+Comma hotkey-overlay-title="DMS Settings" { spawn-sh "dms ipc call settings focusOrToggle"; }
     Mod+V hotkey-overlay-title="DMS Clipboard History" { spawn-sh "dms ipc call clipboard toggle"; }
-    Mod+N hotkey-overlay-title="DMS Notifications" { spawn-sh "dms ipc call notifications toggle"; }
+    Mod+Shift+N hotkey-overlay-title="DMS Notifications" { spawn-sh "dms ipc call notifications toggle"; }
     Mod+M hotkey-overlay-title="DMS Process List" { spawn-sh "dms ipc call processlist focusOrToggle"; }
     Mod+Shift+Q hotkey-overlay-title="DMS Power Menu" { spawn-sh "dms ipc call powermenu toggle"; }
     Mod+Alt+L hotkey-overlay-title="DMS Lock Screen" { spawn-sh "dms ipc call lock lock"; }
