@@ -85,15 +85,14 @@ configure_default_applications_from_tsv() {
 configure_xdg_terminal_defaults() {
   local terminals_file="$TARGET_HOME/.config/xdg-terminals.list"
 
+  # DMS Settings > Default Apps reads this file as a single desktop ID (it
+  # takes the whole trimmed file contents as the current value and rewrites
+  # it as one line when the user picks a terminal), so keep it to exactly one
+  # entry with no comments. xdg-terminal-exec falls back to any installed
+  # TerminalEmulator entry on its own when this one is missing.
   log_progress "Configuring default terminal preference"
   write_user_file 0644 "$terminals_file" <<'EOF'
-# Terminal emulator preference order for xdg-terminal-exec
-# The first found and valid terminal will be used
 com.mitchellh.ghostty.desktop
-Alacritty.desktop
-kitty.desktop
-org.gnome.Console.desktop
-org.gnome.Terminal.desktop
 EOF
 }
 

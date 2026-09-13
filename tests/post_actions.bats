@@ -96,6 +96,16 @@ setup() {
   refute_file_contains "$TEST_ROOT/commands.log" "org.gnome.Decibels.desktop"
 }
 
+@test "terminal preference is a single desktop ID so the DMS default apps picker can read and rewrite it" {
+  build_test_plan
+  DRY_RUN=0
+  ensure_state_dirs
+
+  run_without_bats_debug_trap configure_xdg_terminal_defaults
+
+  assert_equal "com.mitchellh.ghostty.desktop" "$(cat "$TARGET_HOME/.config/xdg-terminals.list")"
+}
+
 @test "minimal desktop app profile skips full desktop MIME defaults but keeps terminal defaults" {
   DESKTOP_APP_PROFILE=minimal
   build_test_plan
