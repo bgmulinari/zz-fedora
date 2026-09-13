@@ -1237,6 +1237,7 @@ all_default_eligible_choice_ids() {
   for path in \
     '~/.config/ghostty/themes/dankcolors' \
     '~/.config/niri/dms/colors.kdl' \
+    '~/.config/niri/dms/windowrules.kdl' \
     '~/.config/satty/config.toml' \
     '~/.config/starship.toml'; do
     if ! awk -F'\t' -v p="$path" '$2==p && $3=="seed-if-missing" && $4=="preserve" {found=1} END {exit !found}' "$policy"; then

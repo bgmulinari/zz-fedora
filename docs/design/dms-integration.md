@@ -152,9 +152,18 @@ seeded `~/.config/satty/config.toml`: Enter copies, saves to the same
 cancelled region selection produces no image, and satty exits on the empty
 input without opening a window. On niri the window capture is
 also copied by the compositor itself, which DMS cannot disable; satty's copy
-replaces it once the annotation is confirmed. The product `cfg/rules.kdl`
-floats the satty window so a small region capture does not open as a tiled
-column.
+replaces it once the annotation is confirmed. A seeded window rule floats
+the satty window so a small region capture does not open as a tiled column.
+
+Window rules are seeded into `dms/windowrules.kdl` the way keybinds are
+seeded into `dms/binds.kdl`, and for the same reason: Settings → Window
+Rules only lists rules it reaches by following `include` lines literally
+from `config.kdl`, and the `~/.zz/...` include of the product defaults is
+never tilde-expanded, so a `window-rule` in `cfg/rules.kdl` was applied by
+niri but invisible to the UI. `cfg/rules.kdl` now carries layer rules only.
+The generic corner-radius rule that used to live there was dead config as
+well: DMS always emits its own `geometry-corner-radius` rule into
+`dms/layout.kdl`, which loads later and wins.
 
 Colors are DMS's alone: `dms/colors.kdl` loads after `cfg/layout.kdl`, so
 any color set there is dead config.

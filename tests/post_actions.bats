@@ -320,6 +320,69 @@ setup() {
   refute_file_contains "$TARGET_HOME/.config/niri/dms/binds.kdl" 'dms ipc call spotlight toggle'
 }
 
+@test "Niri window rules seed lands in the fragment the DMS UI edits" {
+  build_test_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/niri-windowrules-home"
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_niri_dms_windowrules_seed_if_missing
+
+  local rules="$TARGET_HOME/.config/niri/dms/windowrules.kdl"
+  # DMS's own floating toggle adds and removes this exact id; seeding it
+  # keeps Settings -> Floating Windows in sync from the first login.
+  assert_file_contains "$rules" '// @id=dms-floating-windows @name=DMS Floating Windows'
+  assert_file_contains "$rules" 'match app-id="^com.danklinux.dms$"'
+  assert_file_contains "$rules" '// @id=zz-screenshot-editor-floating @name='
+  assert_file_contains "$rules" 'match app-id="^(com\\.gabm\\.satty|satty)$"'
+  assert_file_contains "$rules" 'match app-id="^(com\\.mitchellh\\.ghostty|ghostty)$"'
+  assert_file_contains "$rules" 'exclude title="^[Ss]team$"'
+  assert_file_contains "$rules" 'default-floating-position x=10 y=10 relative-to="bottom-right"'
+  # DMS rewrites the file from parsed rules, so every rule needs the id line
+  # it round-trips; a rule without one gets a positional id and loses its name.
+  assert_equal "$(grep -c '^window-rule {' "$rules")" "$(grep -c '^// @id=' "$rules")"
+}
+
+@test "Niri window rules seed preserves rules the user changed in the DMS UI" {
+  build_test_plan
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/niri-windowrules-existing-home"
+  mkdir -p "$TARGET_HOME/.config/niri/dms"
+  printf '// @id=mine @name=Mine\nwindow-rule {\n    match app-id="kitty"\n    open-floating true\n}\n' \
+    >"$TARGET_HOME/.config/niri/dms/windowrules.kdl"
+  DRY_RUN=0
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    HOME="$TARGET_HOME" USER="$user" LOGNAME="$user" "$@"
+  }
+
+  install_niri_dms_windowrules_seed_if_missing
+
+  assert_file_contains "$TARGET_HOME/.config/niri/dms/windowrules.kdl" 'match app-id="kitty"'
+  refute_file_contains "$TARGET_HOME/.config/niri/dms/windowrules.kdl" 'satty'
+}
+
+@test "product Niri tree ships no window rules so the DMS UI is the single window-rule surface" {
+  # The DMS rules parser follows include lines literally and never expands the
+  # "~/.zz/..." include of the product defaults, so a window-rule in the product
+  # tree is applied by niri but invisible to Settings -> Window Rules. Layer
+  # rules stay here: DMS has no UI for them.
+  if grep -rl 'window-rule {' "$ROOT_DIR/dotfiles/niri" >"$TEST_ROOT/product-window-rules.txt" 2>&1; then
+    printf 'window-rule blocks found in the product Niri tree:\n' >&2
+    cat "$TEST_ROOT/product-window-rules.txt" >&2
+    return 1
+  fi
+  assert_file_contains "$ROOT_DIR/dotfiles/niri/.config/niri/cfg/rules.kdl" 'layer-rule {'
+  assert_file_contains "$ROOT_DIR/templates/niri/dms-windowrules.kdl" 'window-rule {'
+}
+
 @test "product Niri tree ships no binds so the DMS UI is the single keybind surface" {
   # DMS parses only ~/.config/niri/dms/binds.kdl. A binds block anywhere in the
   # product tree would be invisible to Settings -> Keybinds and would collide

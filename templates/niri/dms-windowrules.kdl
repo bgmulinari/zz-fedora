@@ -1,0 +1,75 @@
+// ZZ window-rule defaults, seeded into ~/.config/niri/dms/windowrules.kdl.
+//
+// This file is user-owned: DMS reads it for Settings -> Window Rules and
+// writes back to it when a rule is added, edited, or reordered there. The
+// first write rewrites the whole file in DMS's own layout, keeping every
+// rule and its "@id/@name" line but dropping the comments below.
+//
+// DMS lists only the rules that live in fragments it can reach from
+// ~/.config/niri/config.kdl; rules in the product cfg/ tree are invisible to
+// its UI. Keep ZZ's window rules here, not in dotfiles/niri/.config/niri/cfg/.
+//
+// Re-seed the shipped defaults over a modified file with:
+//   zz refresh niri/dms/windowrules.kdl
+
+// @id=dms-floating-windows @name=DMS Floating Windows
+window-rule {
+    match app-id="^com.danklinux.dms$"
+    open-floating true
+}
+
+// @id=zz-terminal-blur @name=Terminal: blur behind the window
+window-rule {
+    match app-id="^(com\\.mitchellh\\.ghostty|ghostty)$"
+    background-effect {
+        blur true
+    }
+}
+
+// @id=zz-file-manager-glass @name=File manager: translucent with blur
+window-rule {
+    match app-id="^(org\\.gnome\\.Nautilus|nautilus)$"
+    opacity 0.90
+    draw-border-with-background false
+    background-effect {
+        blur true
+    }
+}
+
+// @id=zz-calculator-floating @name=Calculator: open floating
+window-rule {
+    match app-id="^org\\.gnome\\.Calculator$"
+    open-floating true
+}
+
+// @id=zz-proton-manager-floating @name=Proton manager: open floating
+window-rule {
+    match app-id="^(net\\.davidotek\\.pupgui2|protonup-qt)$"
+    open-floating true
+}
+
+// @id=zz-screenshot-editor-floating @name=Screenshot editor: open floating
+window-rule {
+    match app-id="^(com\\.gabm\\.satty|satty)$"
+    open-floating true
+}
+
+// @id=zz-audio-mixer-floating @name=Audio mixer: open floating
+window-rule {
+    match app-id="^(org\\.pulseaudio\\.pavucontrol|pavucontrol)$"
+    open-floating true
+}
+
+// @id=zz-steam-dialogs-floating @name=Steam: float every window except the main one
+window-rule {
+    match app-id="steam"
+    exclude title="^[Ss]team$"
+    open-floating true
+}
+
+// @id=zz-steam-toasts @name=Steam: toasts in the bottom-right corner, unfocused
+window-rule {
+    match app-id="steam" title="^notificationtoasts_\\d+_desktop$"
+    open-focused false
+    default-floating-position x=10 y=10 relative-to="bottom-right"
+}

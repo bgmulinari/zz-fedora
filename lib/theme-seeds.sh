@@ -133,6 +133,17 @@ install_niri_dms_binds_seed_if_missing() {
   install_file_if_changed user "$ROOT_DIR/templates/niri/dms-binds.kdl" "$destination"
 }
 
+install_niri_dms_windowrules_seed_if_missing() {
+  local native_plan destination
+  native_plan="$(package_file_for_backend "$(native_backend)")"
+  plan_has_any_backend_entry "$native_plan" niri || return 0
+
+  destination="$TARGET_HOME/.config/niri/dms/windowrules.kdl"
+  [[ -e "$destination" || -L "$destination" ]] && return 0
+  log_progress "Installing Niri DMS window rules seed"
+  install_file_if_changed user "$ROOT_DIR/templates/niri/dms-windowrules.kdl" "$destination"
+}
+
 install_qt6ct_config() {
   local config_file color_file
 

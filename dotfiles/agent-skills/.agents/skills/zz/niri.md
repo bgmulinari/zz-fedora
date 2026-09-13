@@ -63,20 +63,31 @@ binds {
 
 ## Window rules
 
-Rules for the shipped defaults live in `~/.zz/dotfiles/niri/.config/niri/cfg/rules.kdl`
-(read-only). Personal rules go in `~/.config/niri/local.kdl`:
+`~/.config/niri/dms/windowrules.kdl` holds the shipped window rules (floating
+calculator, audio mixer, screenshot editor, Steam dialogs; blur behind the terminal
+and file manager) and is the file DMS Settings > Window Rules reads and edits, so new
+rules go there, through the UI or by hand. Every rule needs an id line DMS round-trips:
 
 ```kdl
+// @id=my-kitty-floating @name=Kitty: open floating
 window-rule {
-    match app-id="^org\.gnome\.Calculator$"
+    match app-id="^kitty$"
     open-floating true
 }
 ```
 
-Find `app-id` and titles with `niri msg windows`. Rules created in DMS Settings land in
-`dms/windowrules.kdl` and win over `local.kdl` when they match the same window. Niri's
-rule syntax is documented in the niri wiki; when unsure, check the version with
-`niri --version` and read the matching wiki page rather than relying on memory.
+- Find `app-id` and titles with `niri msg windows`; `dms config windowrules list niri`
+  shows what DMS sees and where each rule comes from
+- Regex backslashes are written doubled inside the quoted string (`"^org\\.gnome\\."`),
+  which is how DMS writes them back
+- DMS rewrites the whole file on its first UI edit (drops comments, keeps every rule and
+  its id line). The supported revert is `zz refresh niri/dms/windowrules.kdl`
+- Rules in `local.kdl` still work but are invisible to the Settings UI, and
+  `dms/windowrules.kdl` loads later and wins on the same window
+- Layer rules and the DMS-generated corner-radius rule are not editable here: the
+  former live in the product `cfg/rules.kdl`, the latter comes from Settings > Theme
+- Niri's rule syntax is documented in the niri wiki; when unsure, check the version
+  with `niri --version` and read the matching wiki page rather than relying on memory
 
 ## Displays
 
