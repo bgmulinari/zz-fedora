@@ -1,0 +1,38 @@
+# ZZ screenshot annotation defaults, seeded into ~/.config/satty/config.toml.
+#
+# This file is user-owned: edit it freely. Re-seed the shipped defaults with:
+#   zz refresh satty/config.toml
+#
+# The shipped screenshot keybinds (Print, Ctrl+Print, Alt+Print) pipe every
+# capture through this editor, so the actions below decide what happens to a
+# capture. Draw with the toolbar or the tool keys (z arrow, r rectangle,
+# t text, u blur, c crop, ...) and pick colors with 1-9, then press Enter.
+
+[general]
+# Enter copies the annotated capture to the clipboard, saves it, and closes
+# the editor. Escape discards the capture.
+actions-on-enter = ["save-to-clipboard", "save-to-file", "exit"]
+actions-on-escape = ["exit"]
+# The toolbar Copy and Save buttons close the editor as well.
+early-exit = ["all"]
+copy-command = "wl-copy"
+# Same directory and naming scheme as niri's own screenshot-path.
+output-filename = "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
+initial-tool = "rectangle"
+# Size the editor to the capture instead of opening a full-size window.
+resize = { mode = "smart" }
+notification-thumbnail = "screenshot"
+
+[font]
+family = "JetBrainsMono Nerd Font"
+style = "Bold"
+
+# Satty starts with the first palette entry selected, so red comes first.
+[color-palette]
+palette = [
+    "#eb4d4bff",
+    "#f0932bff",
+    "#6ab04cff",
+    "#22a6b3ff",
+    "#130f40ff",
+]

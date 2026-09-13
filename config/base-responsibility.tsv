@@ -99,6 +99,8 @@ dnf	xdg-terminal-exec	file-integration	default terminal	Connects terminal launch
 dnf	xdg-user-dirs	file-integration	user directories	Creates standard desktop user directories.
 dnf	ffmpegthumbnailer	file-integration	file previews	Provides video thumbnails in file managers.
 dnf	ddcutil	dms	external display brightness	Ships the i2c udev rules that grant the /dev/i2c-* access DMS's native DDC/CI brightness control needs, plus the debugging CLI.
+dnf	satty	default-app	screenshot annotation	Opens every capture from the shipped screenshot keybinds in an annotation editor (arrows, shapes, text, blur, crop) before it is copied and saved.
+dnf	wl-clipboard	default-app	screenshot clipboard	Provides wl-copy, the clipboard command the screenshot annotation editor publishes the finished capture with.
 dnf	fontconfig	theme-font	font baseline	Provides font discovery and configuration.
 dnf	adw-gtk3-theme	theme-font	GTK theme	Provides Adwaita-compatible GTK3 theme assets.
 dnf	google-noto-sans-fonts	theme-font	font baseline	Provides default sans-serif coverage.

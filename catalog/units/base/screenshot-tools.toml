@@ -1,0 +1,13 @@
+id = "base-screenshot-tools"
+description = "Screenshot annotation editor and clipboard bridge behind the shipped screenshot keybinds"
+config = ["screenshot-tools"]
+
+[base]
+order = 185
+
+# wl-clipboard is named explicitly even though it is usually present: satty
+# publishes the finished capture through wl-copy, and no other base unit owns
+# that command.
+[[install]]
+backend = "dnf"
+packages = ["satty", "wl-clipboard"]

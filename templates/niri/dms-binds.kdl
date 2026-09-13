@@ -32,10 +32,13 @@ binds {
     Mod+M hotkey-overlay-title="DMS Process List" { spawn-sh "dms ipc call processlist focusOrToggle"; }
     Mod+Shift+Q hotkey-overlay-title="DMS Power Menu" { spawn-sh "dms ipc call powermenu toggle"; }
     Mod+Alt+L hotkey-overlay-title="DMS Lock Screen" { spawn-sh "dms ipc call lock lock"; }
-    Print hotkey-overlay-title="DMS Screenshot: Region" { spawn "dms" "screenshot"; }
-    Ctrl+Print hotkey-overlay-title="DMS Screenshot: Full Screen" { spawn "dms" "screenshot" "full"; }
-    Alt+Print hotkey-overlay-title="DMS Screenshot: Window" { spawn "dms" "screenshot" "window"; }
-    Mod+Shift+S { spawn "dms" "screenshot"; }
+
+    // Screenshots: the DMS capture is piped into the satty annotation editor
+    // (~/.config/satty/config.toml decides what Enter and Escape do there).
+    Print hotkey-overlay-title="Screenshot: Full Screen + Annotate" { spawn-sh "dms screenshot full --stdout | satty --filename -"; }
+    Ctrl+Print hotkey-overlay-title="Screenshot: Region + Annotate" { spawn-sh "dms screenshot --stdout | satty --filename -"; }
+    Alt+Print hotkey-overlay-title="Screenshot: Window + Annotate" { spawn-sh "dms screenshot window --stdout | satty --filename -"; }
+    Mod+Shift+S hotkey-overlay-title="Screenshot: Region + Annotate" { spawn-sh "dms screenshot --stdout | satty --filename -"; }
 
     // Audio, media, and brightness
     XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "dms ipc call audio increment 3"; }

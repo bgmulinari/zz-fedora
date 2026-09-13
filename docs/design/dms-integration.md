@@ -47,9 +47,11 @@ DMS bundles its UI fonts (Inter Variable, FiraCode Nerd Font, Material
 Symbols Rounded) through Qt FontLoader, so no font packages are required
 for the shell itself. DMS's clipboard manager, screenshot flow, lock
 screen, idle daemon, notification daemon, OSD, and polkit agent are all
-native, replacing the usual cliphist/wl-clipboard/swaylock/swayidle/mako
-stack. The `dms.service` user unit takes the `org.freedesktop.Notifications`
-bus name; never install another notification daemon alongside it.
+native, replacing the usual cliphist/swaylock/swayidle/mako stack. The
+`dms.service` user unit takes the `org.freedesktop.Notifications` bus name;
+never install another notification daemon alongside it. `wl-clipboard`
+stays in the base only as the `wl-copy` bridge the screenshot annotation
+editor publishes through; the COPR `dms` package does not depend on it.
 
 ## Launch path
 
@@ -135,11 +137,24 @@ grouping while keeping every bind — so the seed's layout is a
 seed-time convenience, not a format DMS maintains.
 
 The screenshot defaults use the DMS 1.6 native CLI (`dms screenshot`) rather
-than the legacy niri IPC shim. Print selects a region, Ctrl+Print captures the
-focused output, and Alt+Print captures the focused window; Mod+Shift+S remains
-the alternate region shortcut. This keeps the shipped binds on the path that
-supports 10-bit buffers, cross-output selection, last-region geometry, cursor
-capture, and scroll capture.
+than the legacy niri IPC shim. Print captures the focused output, Ctrl+Print
+and Mod+Shift+S select a region, and Alt+Print captures the focused window.
+This keeps the shipped binds on the path that supports 10-bit buffers,
+cross-output selection, last-region geometry, cursor capture, and scroll
+capture.
+
+DMS has no annotation step of its own, so every screenshot bind pipes the capture
+(`dms screenshot ... --stdout`) into satty, the annotation editor the
+`base-screenshot-tools` unit installs. With `--stdout` DMS writes neither a
+file nor the clipboard nor a notification; satty owns all three through the
+seeded `~/.config/satty/config.toml`: Enter copies, saves to the same
+`~/Pictures/Screenshots` path niri uses, and closes; Escape discards. A
+cancelled region selection produces no image, and satty exits on the empty
+input without opening a window. On niri the window capture is
+also copied by the compositor itself, which DMS cannot disable; satty's copy
+replaces it once the annotation is confirmed. The product `cfg/rules.kdl`
+floats the satty window so a small region capture does not open as a tiled
+column.
 
 Colors are DMS's alone: `dms/colors.kdl` loads after `cfg/layout.kdl`, so
 any color set there is dead config.

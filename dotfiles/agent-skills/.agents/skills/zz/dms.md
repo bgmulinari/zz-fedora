@@ -62,6 +62,27 @@ dms ipc call powermenu toggle            # Mod+Shift+Q
 Launcher plugins add trigger-prefixed searches (for example `=` for the calculator);
 `dms ipc call plugins list` shows what is loaded.
 
+## Screenshots
+
+`dms screenshot` captures (region by default; `full`, `window`, `all`, `scroll`,
+`last`), but has no annotation of its own. The shipped keybinds pipe the capture into
+satty, the annotation editor (arrows, shapes, text, blur, crop):
+
+| Bind | Flow |
+| --- | --- |
+| Print | focused output, then satty |
+| Ctrl+Print, Mod+Shift+S | region, then satty |
+| Alt+Print | focused window, then satty |
+
+In satty, Enter copies to the clipboard, saves to `~/Pictures/Screenshots`, and
+closes; Escape discards. Those actions, the save path, the initial tool, and the
+annotation font live in the user-owned `~/.config/satty/config.toml` (`satty --man`
+lists every key; `zz refresh satty/config.toml` restores the shipped defaults). To
+change a flow, edit the bind command, for example `dms screenshot --stdout --cursor on |
+satty --filename -` to include the pointer, `satty --filename - --initial-tool text`
+to override one option for one bind, or plain `dms screenshot` for a bind that
+skips the editor and goes straight to clipboard and file.
+
 ## Lock, idle, night light
 
 ```bash

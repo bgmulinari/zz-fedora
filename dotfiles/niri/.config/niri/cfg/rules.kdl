@@ -37,6 +37,11 @@ window-rule {
 }
 
 window-rule {
+    match app-id=r#"^(com\.gabm\.satty|satty)$"#
+    open-floating true
+}
+
+window-rule {
     match app-id=r#"^(org\.pulseaudio\.pavucontrol|pavucontrol)$"#
     open-floating true
 }

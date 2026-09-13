@@ -152,6 +152,9 @@ assert_all_bundles_reachable() {
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tbrew:netwatch\tshell-netwatch\tinstaller-bootstrap\tnetwork diagnostics'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tnodejs24-npm\tbase-nodejs'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tddcutil\tbase-wayland-tools\tdms\texternal display brightness'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tsatty\tbase-screenshot-tools\tdefault-app\tscreenshot annotation'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\twl-clipboard\tbase-screenshot-tools\tdefault-app\tscreenshot clipboard'
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/satty/config.toml"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tpavucontrol\tbase-desktop-controls\tdefault-app\taudio mixer'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tsystem-config-printer\tbase-desktop-controls\tdefault-app\tprint UI'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tjetbrains-mono-nerd-font\tbase-jetbrains-mono-nerd-font'
@@ -201,7 +204,6 @@ assert_all_bundles_reachable() {
     pamixer \
     playerctl \
     wev \
-    wl-clipboard \
     wlsunset; do
     refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$removed_helper"
   done
