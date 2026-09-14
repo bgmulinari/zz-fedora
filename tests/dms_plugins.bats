@@ -237,6 +237,7 @@ apply_component() {
   "hidden": {"label": "Hidden", "action": "zz doctor --quiet", "when": "false"},
   "extras": {"icon": "star", "label": "Extras", "when": "true"},
   "extras.hello": {"label": "Hello", "description": "Says hello", "action": "echo hello", "aliases": ["greeting"]},
+  "extras.top": {"label": "Top", "description": "Runs a full-screen program", "action": "echo top", "terminal": true, "hold": false},
   "extras.more": {"label": "More", "description": "A nested group"},
   "extras.more.deep": {"label": "Deep", "action": "echo deep"}
 }
@@ -256,12 +257,14 @@ EOF
 
   # A failed guard hides the row; a passing one keeps the group, whose rows
   # inherit its icon, carry its label as the path, search by alias, and run
-  # detached unless marked terminal.
+  # detached unless marked terminal. Terminal rows hold their window unless
+  # they opt out; the opt-out is checked on an overlay row because the
+  # shipped ones that opt out are guarded by programs the test host may lack.
   run jq -e 'any(.rows[]; .id == "hidden") | not' <<<"$inventory"
   [ "$status" -eq 0 ]
   assert_equal "star" "$(jq -r '.rows[] | select(.id == "extras.hello") | .icon' <<<"$inventory")"
   assert_equal "true" "$(jq -r '.rows[] | select(.id == "doctor") | .hold' <<<"$inventory")"
-  assert_equal "false" "$(jq -r '.rows[] | select(.id == "system.monitor") | .hold' <<<"$inventory")"
+  assert_equal "false" "$(jq -r '.rows[] | select(.id == "extras.top") | .hold' <<<"$inventory")"
   assert_equal "Extras" "$(jq -r '.rows[] | select(.id == "extras.hello") | .path[0]' <<<"$inventory")"
   assert_equal "false" "$(jq -r '.rows[] | select(.id == "extras.hello") | .terminal' <<<"$inventory")"
   run jq -e '.rows[] | select(.id == "extras.hello") | .keywords | (index("greeting") != null) and (index("extras hello") != null)' <<<"$inventory"
