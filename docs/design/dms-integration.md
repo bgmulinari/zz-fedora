@@ -373,8 +373,10 @@ Shipped plugins:
   words, and the top-level groups are the launcher's categories. A row
   marked `terminal` runs through `scripts/zz-menu-run`, which opens
   `xdg-terminal-exec` (falling back to `ghostty`) and holds the window
-  until Enter so output and sudo prompts stay visible; other rows run
-  detached in a login shell. It is base because a ZZ desktop without its
+  until a key is pressed so output and sudo prompts stay visible, except
+  after Ctrl-C; a row that also says `hold: false` (an editor, a monitor,
+  the coding agent) gets a window that closes when the program exits.
+  Other rows run detached in a login shell. It is base because a ZZ desktop without its
   own menu is incomplete and it needs no wizard visibility; the doctor
   reads its manifest through the link. A test keeps `menu.json` in step
   with `bin/zz.d/` and the updater's target list.

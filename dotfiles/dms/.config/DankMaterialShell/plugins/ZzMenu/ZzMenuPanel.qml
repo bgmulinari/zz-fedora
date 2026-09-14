@@ -69,7 +69,7 @@ Item {
             map[row.id] = {
                 id: row.id, kind: "action", parent: row.parent, label: row.label, icon: row.icon,
                 description: row.description, path: row.path, order: row.order, search: row.search,
-                action: row.action, terminal: row.terminal
+                action: row.action, terminal: row.terminal, hold: row.hold
             };
         }
         const ids = Object.keys(map);

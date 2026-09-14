@@ -41,16 +41,22 @@ Item {
     }
 
     // A terminal row runs through zz-menu-run, which keeps the window open
-    // for the output and any sudo prompt; everything else runs detached in
-    // a login shell so PATH matches an interactive terminal.
+    // for the output and any sudo prompt unless the row says not to hold
+    // (an interactive program closes its own window); everything else runs
+    // detached in a login shell so PATH matches an interactive terminal.
     function run(row) {
         if (!row || !row.action || !scriptsDir)
             return;
         const action = String(row.action);
-        if (row.terminal)
-            Quickshell.execDetached([scriptsDir + "/zz-menu-run", action]);
-        else
+        if (row.terminal) {
+            const args = [scriptsDir + "/zz-menu-run"];
+            if (row.hold === false)
+                args.push("--no-hold");
+            args.push(action);
+            Quickshell.execDetached(args);
+        } else {
             Quickshell.execDetached(["bash", "-lc", action]);
+        }
     }
 
     function applyInventory(text) {
@@ -97,6 +103,7 @@ Item {
                 description: description,
                 action: String(row.action || ""),
                 terminal: !!row.terminal,
+                hold: row.hold !== false,
                 keywords: keywords,
                 path: path,
                 order: Number(row.order || 0),

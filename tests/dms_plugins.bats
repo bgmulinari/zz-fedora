@@ -260,6 +260,8 @@ EOF
   run jq -e 'any(.rows[]; .id == "hidden") | not' <<<"$inventory"
   [ "$status" -eq 0 ]
   assert_equal "star" "$(jq -r '.rows[] | select(.id == "extras.hello") | .icon' <<<"$inventory")"
+  assert_equal "true" "$(jq -r '.rows[] | select(.id == "doctor") | .hold' <<<"$inventory")"
+  assert_equal "false" "$(jq -r '.rows[] | select(.id == "system.monitor") | .hold' <<<"$inventory")"
   assert_equal "Extras" "$(jq -r '.rows[] | select(.id == "extras.hello") | .path[0]' <<<"$inventory")"
   assert_equal "false" "$(jq -r '.rows[] | select(.id == "extras.hello") | .terminal' <<<"$inventory")"
   run jq -e '.rows[] | select(.id == "extras.hello") | .keywords | (index("greeting") != null) and (index("extras hello") != null)' <<<"$inventory"
@@ -297,6 +299,38 @@ EOF
   run jq -e 'any(.rows[]; .id == "extras.hello") | not' <<<"$output"
   [ "$status" -eq 0 ]
   [[ ! -e "$ROOT_DIR/$ZZ_MENU_REL/scripts/__pycache__" ]]
+}
+
+@test "zz menu terminal rows hold for output unless they run an interactive program" {
+  local menu="$ROOT_DIR/$ZZ_MENU_REL/menu.json"
+  # Editors, monitors, and the agent close their own window; printing
+  # commands keep theirs until a key is pressed.
+  assert_equal $'niri.edit\nsystem.monitor\nsystem.network' \
+    "$(jq -r 'to_entries[] | select(.value.hold == false) | .key' "$menu" | sort)"
+  run jq -e 'to_entries | map(.value) | map(select(.hold == false)) | all(.terminal == true)' "$menu"
+  [ "$status" -eq 0 ]
+
+  # The runner's hold script prompts for any key and skips the prompt after
+  # Ctrl-C; --no-hold runs the command bare.
+  setup_fake_bin
+  write_fake_command xdg-terminal-exec <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >"$TEST_ROOT/runner.log"
+EOF
+  PATH="$FAKE_BIN:$PATH" run "$ROOT_DIR/$ZZ_MENU_REL/scripts/zz-menu-run" "zz doctor"
+  [ "$status" -eq 0 ]
+  assert_file_contains "$TEST_ROOT/runner.log" 'eval "$ZZ_MENU_COMMAND"'
+  assert_file_contains "$TEST_ROOT/runner.log" "Press any key to close"
+  assert_file_contains "$TEST_ROOT/runner.log" '-ne 130'
+  assert_file_contains "$TEST_ROOT/runner.log" "read -rsn 1 </dev/tty"
+
+  PATH="$FAKE_BIN:$PATH" run "$ROOT_DIR/$ZZ_MENU_REL/scripts/zz-menu-run" --no-hold "btop"
+  [ "$status" -eq 0 ]
+  assert_file_contains "$TEST_ROOT/runner.log" 'eval "$ZZ_MENU_COMMAND"'
+  refute_file_contains "$TEST_ROOT/runner.log" "Press any key"
+
+  PATH="$FAKE_BIN:$PATH" run "$ROOT_DIR/$ZZ_MENU_REL/scripts/zz-menu-run" --no-hold
+  [ "$status" -eq 2 ]
 }
 
 @test "zz menu guards see the per-user tool directories the terminal runner uses" {

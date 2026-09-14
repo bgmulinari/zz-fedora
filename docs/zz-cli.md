@@ -22,7 +22,10 @@ command metadata.
 
 The desktop shell exposes the same commands through the ZZ menu: click the
 ZZ button in the bar (a popout under it) or press Super+Z (centered, like
-the launcher), walk the groups, and pick a row; it runs in a terminal window that stays open. Typing `zz` in the
+the launcher), walk the groups, and pick a row; it runs in a terminal window that stays
+open until a key is pressed, unless the row starts an interactive program
+such as an editor, a monitor, or the coding agent, whose window closes when
+it exits. Typing `zz` in the
 launcher searches the same rows. Super+Z is part of the seeded keybinds:
 an install seeded before the menu shipped keeps its own
 `~/.config/niri/dms/binds.kdl`, so add the bind there (Settings > Keybinds,

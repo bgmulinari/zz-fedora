@@ -21,9 +21,11 @@ an `action` is a row, one with a `provider` is a group whose rows come from
 the provider, anything else is a plain group. Optional fields: `icon` (a
 Material Symbols name, inherited from the nearest ancestor when absent),
 `label` (defaults to the last id segment), `description`, `aliases` (extra
-search words), `terminal` (run the action in a terminal window that stays
-open, instead of detached), and `when` (a shell condition; the entry and
-everything below it are hidden when it fails).
+search words), `terminal` (run the action in a terminal window instead of
+detached), `hold` (with `terminal`: keep the window after the command ends
+until a key is pressed, the default; `false` for an interactive program
+whose window should close when it exits), and `when` (a shell condition;
+the entry and everything below it are hidden when it fails).
 
 Only the standard library is used. A broken source file contributes nothing
 while the shipped menu keeps working, and the failure is reported on stderr;
@@ -151,6 +153,7 @@ def normalize(entry_id: str, raw: dict) -> dict:
         entry[field] = value.strip() if isinstance(value, str) else ""
     entry["label"] = entry["label"] or entry_id.rsplit(".", 1)[-1]
     entry["terminal"] = bool(raw.get("terminal"))
+    entry["hold"] = raw.get("hold") is not False
     aliases = raw.get("aliases")
     if isinstance(aliases, str):
         aliases = [aliases]
@@ -401,6 +404,7 @@ def build(entries: dict[str, dict], guards: dict[str, bool]) -> dict:
             "description": entry["description"],
             "action": entry["action"],
             "terminal": entry["terminal"],
+            "hold": entry["hold"],
             "keywords": keywords_for(chain, entry),
             "order": order,
         })
