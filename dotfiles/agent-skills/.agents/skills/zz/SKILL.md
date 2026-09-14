@@ -93,9 +93,35 @@ Those are product links, and each topic guide names the personal override for th
 ## Privilege Escalation
 
 Post-install customization rarely needs root. When it does (a package, a system
-service), use `sudo` in a visible terminal where the user can enter a password. Use
-`pkexec` only when no terminal is available, such as a command launched from a
-graphical agent session. Never wrap `zz` commands that already elevate themselves.
+service, a file under `/etc`), run the command through `pkexec`. The desktop shell
+runs a polkit authentication agent, so the user gets a graphical password prompt
+even though your shell has no terminal for `sudo` to ask on. Do not tell the user
+you cannot run a command because it needs `sudo`; do not ask them to run it for
+you; run it with `pkexec`.
+
+**Before every `pkexec`, print the full command and the reason for it**, so that
+the password prompt the user is about to see is explained by what they just read:
+
+```
+Running with elevated permissions:
+  pkexec dnf install -y gdb
+Reason: symbolizing the core dump needs gdb, which is not installed.
+```
+
+Then run it. Rules:
+
+- One command per `pkexec`, spelled out in full; never a script the user has not
+  seen. For a pipeline or a redirection, pass the exact script text through
+  `pkexec bash -c '<script>'` and print that text.
+- Use absolute paths. `pkexec` runs the program with a minimal environment and
+  none of your shell's variables, so nothing in it may depend on your `PATH`,
+  `HOME`, or the current directory.
+- If `pkexec` fails to authenticate, the user declined; stop and say so. If it
+  reports that no authentication agent is available (a session reached over SSH,
+  for example), print the command for the user to run themselves.
+- Never wrap `zz` commands that already elevate themselves (`zz update`,
+  `zz app`, `zz ssh`, `zz dotnet devcert`); they ask for the password in their
+  own terminal.
 
 ## System Architecture
 
@@ -227,7 +253,7 @@ rendered its templates yet: `zz first-run` waits for them; `dms restart` trigger
 3. **Is it a config edit?** Edit the personal file (`local.kdl`, `ghostty/local`, `~/.shellrc.d/`), never `~/.zz/` and never a product link
 4. **Is it a keybind?** `~/.config/niri/dms/binds.kdl` or Settings > Keybinds; see [`niri.md`](niri.md)
 5. **Is it a theme or plugin?** Use the DMS registry (Settings > Theme / Plugins, `dms plugins`); see [`theming.md`](theming.md)
-6. **Is it a package?** `sudo dnf install <pkg>` or `flatpak install`; ZZ does not wrap package installs after setup
+6. **Is it a package?** `pkexec dnf install <pkg>` (announce it first, see Privilege Escalation) or `flatpak install`; ZZ does not wrap package installs after setup
 7. **Went wrong?** `zz refresh <file>` after confirming with the user, then `zz doctor`
 
 ## Out of Scope

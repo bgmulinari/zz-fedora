@@ -90,3 +90,14 @@ shipped_skill_names() {
   [ "$status" -eq 0 ]
   assert_equal "" "$output"
 }
+
+@test "the shipped skills elevate through pkexec and announce the command and reason first" {
+  local zz_skill="$ROOT_DIR/$SKILLS_ROOT/zz/SKILL.md"
+  local crash_skill="$ROOT_DIR/$SKILLS_ROOT/diagnose-crash/SKILL.md"
+  assert_file_contains "$zz_skill" "run the command through \`pkexec\`"
+  assert_file_contains "$zz_skill" "print the full command and the reason for it"
+  assert_file_contains "$zz_skill" "Running with elevated permissions:"
+  refute_file_contains "$zz_skill" "sudo dnf install"
+  assert_file_contains "$crash_skill" "run it through \`pkexec\`"
+  assert_file_contains "$crash_skill" "print the full command and"
+}

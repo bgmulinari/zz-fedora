@@ -121,6 +121,12 @@ exactly what you would change before doing anything, and wait for the user's
 yes; never apply a fix unprompted. After applying it, say what you changed and
 how to undo it.
 
+A fix that needs root (a package to update or reinstall, a system service to
+restart, a file under `/etc`) is still within reach: run it through `pkexec`,
+which brings up the desktop's password prompt, and print the full command and
+the reason before running it so the prompt is explained. The `zz` skill's
+Privilege Escalation section has the rules; follow them.
+
 A mute is one of the things you can offer, for a crash you have explained that
 will keep happening anyway (a program with a known upstream bug, a non-critical
 helper that dies on exit). Silence notifications for **that one program**, and
