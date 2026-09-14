@@ -19,28 +19,19 @@ Manage a ZZ Fedora desktop: Fedora Workstation hardware support, the Niri scroll
 compositor, and DankMaterialShell (DMS) as bar, launcher, notifications, lock screen,
 OSD, settings UI, and theming engine, with Ghostty as the terminal.
 
-This skill is for end-user customization on an installed system. It is not for
-contributing to ZZ itself.
+## Scope
 
-## When This Skill MUST Be Used
-
-**ALWAYS invoke this skill for end-user requests involving ANY of these:**
-
-- Editing ANY file in `~/.config/niri/` (layout, window rules, animations, input, keybinds)
-- Editing ANY file in `~/.config/DankMaterialShell/` (settings, plugins, themes)
-- Editing terminal, prompt, or monitor configs (`~/.config/ghostty/`, `~/.config/starship.toml`, `~/.config/btop/`, `~/.config/fastfetch/`)
-- Shell startup fragments in `~/.shellrc.d/`, `~/.zshrc.d/`, or the linked `~/.config/zz-fedora/shell.d/`
-- Window behavior, gaps, borders, focus ring, animations, workspace and output settings
-- Themes, wallpapers, accent colors, icon theme, light/dark mode, fonts
-- The bar (DankBar), launcher, notifications, control center, lock screen, idle, night light
-- User-facing `zz` commands (`zz doctor`, `zz refresh ...`, `zz update ...`, `zz logs`, `zz defaults`, `zz agent ...`, `zz crash ...`)
-- Screenshots, clipboard history, DMS plugins from the registry
-
-**If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
-
-**Do NOT use this skill for ZZ development tasks** (editing files in `~/.zz/`, the catalog,
-managed-config rows, tests, or shipped plugins). Follow `~/.zz/AGENTS.md` and the
-repository's task guides for that.
+This skill covers the user-facing surface of an installed ZZ desktop: the files under
+`~/.config/niri/`, `~/.config/DankMaterialShell/`, `~/.config/ghostty/`,
+`~/.config/starship.toml`, `~/.config/btop/`, and `~/.config/fastfetch/`; the shell
+fragments in `~/.shellrc.d/`, `~/.zshrc.d/`, and the linked
+`~/.config/zz-fedora/shell.d/`; the look of the desktop (themes, wallpaper, accent,
+icon theme, light/dark mode, fonts); the shell's surfaces (bar, launcher,
+notifications, control center, lock screen, idle, night light); window behavior,
+workspaces, and outputs; screenshots, clipboard history, and registry plugins; and
+the user-facing `zz` commands (`zz doctor`, `zz refresh`, `zz update`, `zz logs`,
+`zz defaults`, `zz agent`, `zz crash`). Read the matching topic guide before editing
+any of them.
 
 ## Topic Guides
 
@@ -52,19 +43,15 @@ before starting:
 - [`theming.md`](theming.md) - themes, wallpaper, accent, icon theme, what follows the palette
 - [`shells.md`](shells.md) - Ghostty, Bash and Zsh fragments, Starship, btop, fastfetch, editors
 
-## Critical Safety Rules
+## Where edits go
 
-**For end-user customization tasks, NEVER modify anything in `~/.zz/`** - but READING is
-safe and encouraged.
-
-`~/.zz` is a Git checkout that `zz update zz` fast-forwards. It refuses to update a
-dirty checkout, so any edit there:
-- Blocks future updates until reverted
-- Is lost or conflicts when the update finally runs
-- Changes product defaults for every file that links into it
+`~/.zz` is a Git checkout that `zz update zz` fast-forwards, and it refuses to update
+a dirty checkout. For end-user customization, read it freely but leave it unmodified:
+an edit there blocks updates until it is reverted, and it changes the product default
+behind every file that links into it.
 
 ```
-~/.zz/                      # READ-ONLY - NEVER EDIT (reading is OK)
+~/.zz/                      # Product checkout: read, do not edit
 ├── bin/zz.d/               # Source of every zz command
 ├── dotfiles/               # Live product defaults (linked or included from ~/.config)
 ├── templates/              # Seeds for user-owned files (what `zz refresh` restores)
@@ -73,13 +60,13 @@ dirty checkout, so any edit there:
 └── docs/dotfiles-layering.md   # The ownership model, worth reading once
 ```
 
-**Reading `~/.zz/` is SAFE and useful** - do it freely to:
+Reading it answers most questions before an edit:
 - Understand a command: `cat ~/.zz/bin/zz.d/refresh`
-- See the product defaults before overriding them: `cat ~/.zz/dotfiles/niri/.config/niri/cfg/layout.kdl`
+- See the product default before overriding it: `cat ~/.zz/dotfiles/niri/.config/niri/cfg/layout.kdl`
 - See what a seed looked like originally: `cat ~/.zz/templates/niri/dms-binds.kdl`
 - Check who owns a path: `grep 'niri' ~/.zz/config/managed-config.tsv`
 
-**Always use these safe locations instead:**
+Personal changes go in the user-owned locations:
 - `~/.config/niri/local.kdl` - personal Niri overrides (loaded last, wins)
 - `~/.config/niri/dms/binds.kdl` - keybinds (also editable in DMS Settings > Keybinds)
 - `~/.config/DankMaterialShell/settings.json` - DMS settings, owned by the Settings UI
@@ -87,8 +74,8 @@ dirty checkout, so any edit there:
 - `~/.shellrc.d/`, `~/.zshrc.d/` - personal shell fragments
 - `~/.config/DankMaterialShell/plugins/`, `~/.config/DankMaterialShell/themes/` - user plugins and themes
 
-Never edit a path that is a symlink into `~/.zz`; check with `readlink -f <path>` first.
-Those are product links, and each topic guide names the personal override for them.
+A path that resolves into `~/.zz` (`readlink -f <path>`) is a product link, not a
+personal file; each topic guide names the personal override for it.
 
 ## Privilege Escalation
 
@@ -214,7 +201,7 @@ notifications, window rules), open Settings (`Mod+Comma` or
 matching `~/.config/niri/dms/*.kdl` fragment and the theme outputs. A hand edit of a
 generated file is overwritten on the next change.
 
-### Reset to Defaults -- ALWAYS SEEK USER CONFIRMATION BEFORE RUNNING
+### Reset to defaults (confirm with the user first)
 
 ```bash
 zz refresh --list                 # what can be restored
@@ -258,10 +245,11 @@ rendered its templates yet: `zz first-run` waits for them; `dms restart` trigger
 
 ## Out of Scope
 
-This skill intentionally does not cover ZZ source development. Do not use it for:
-- Editing files in `~/.zz/` (`catalog/`, `dotfiles/`, `templates/`, `lib/`, `modules/`, `bin/`, `tests/`)
-- Shipping a new plugin, theme, or default with ZZ
-- Running `install.sh` or the test suites
+ZZ source development is a different job with its own guide: editing files in
+`~/.zz/` (`catalog/`, `dotfiles/`, `templates/`, `lib/`, `modules/`, `bin/`,
+`tests/`), shipping a new plugin, theme, or default with ZZ, or running `install.sh`
+and the test suites. For that, follow `~/.zz/AGENTS.md` and the task guides it
+indexes.
 
 ## Example Requests
 

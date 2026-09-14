@@ -40,9 +40,8 @@ skill relies on (catalog contracts, managed-config rules, no migrations, generic
 
 ## Step 0: Sync the references to the installed versions
 
-The plugin API changes between DMS releases (1.6 moved plugin settings into their own
-file, added composite plugins, startup checks, and translations), so answer from the
-release that is actually installed, never from memory or a random default branch:
+The plugin API changes between DMS releases, so answer from the release that is
+installed rather than from memory or a default branch:
 
 ```bash
 bash agents/skills/dms-plugin/scripts/sync_refs.sh
@@ -173,8 +172,8 @@ Read [references/zz-wiring.md](references/zz-wiring.md) and apply, in this order
 
 ## Step 5: Validate
 
-Run from the repository root, one command at a time (compound `cd &&` lines are
-rejected in sandboxed worktrees):
+Run from the repository root with root-relative paths (a `cd &&` chain can trip the
+harness's permission prompt):
 
 ```bash
 /usr/bin/python3 agents/skills/dms-plugin/scripts/validate_plugin.py dotfiles/dms/.config/DankMaterialShell/plugins/<PascalName>
