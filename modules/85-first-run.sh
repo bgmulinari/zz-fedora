@@ -268,7 +268,8 @@ module_85_first_run() {
     first_run_action_completed desktop-defaults "$desktop_defaults_fingerprint" &&
     first_run_action_completed dms-theme &&
     first_run_action_completed dms-gtk-theme &&
-    first_run_action_completed dms-greeter-profile; then
+    first_run_action_completed dms-greeter-profile &&
+    first_run_action_completed agent-invitation; then
     log_info "First-run tasks already completed: $marker"
     # A deferred Flatpak queue can appear after first-run already completed
     # (an install re-run in a sandbox-restricted environment re-registers
@@ -291,6 +292,7 @@ module_85_first_run() {
   run_first_run_action_once dms-theme apply_dms_theme || failed=1
   run_first_run_action_once dms-gtk-theme apply_dms_gtk_baseline || failed=1
   run_first_run_action_once dms-greeter-profile apply_dms_greeter_profile_sync || failed=1
+  run_first_run_action_once agent-invitation first_run_invite_agent_choice || failed=1
 
   # The deferred list and its per-app removal are already the Flatpak action's
   # durable checkpoint, including support for a new queue after first-run.

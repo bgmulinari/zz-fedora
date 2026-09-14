@@ -40,6 +40,7 @@
   "defaults": {"icon": "tune", "label": "Defaults", "description": "Reapply default applications and browser preferences", "action": "zz defaults", "terminal": true},
   "first-run": {"icon": "login", "label": "First run", "description": "Run idempotent first-login desktop setup", "action": "zz first-run", "terminal": true},
   "debug": {"icon": "bug_report", "label": "Debug bundle", "description": "Create a local sanitized debug bundle", "action": "zz debug", "terminal": true},
+  "agent": {"icon": "smart_toy", "label": "Agent", "description": "Launch the default coding agent or choose which one that is", "when": "command -v claude || command -v codex || command -v opencode", "provider": "agent"},
   "dotnet": {"icon": "code", "label": ".NET", "description": "Manage .NET development utilities", "when": "command -v dotnet"},
   "dotnet.devcert-status": {"icon": "verified_user", "label": "Dev certificate status", "description": "Show the ASP.NET Core dev certificate and browser import state", "action": "zz dotnet devcert status", "terminal": true},
   "dotnet.devcert-create": {"icon": "add_moderator", "label": "Create dev certificate", "description": "Generate the ASP.NET Core dev certificate and trust it in browsers", "action": "zz dotnet devcert create", "terminal": true},

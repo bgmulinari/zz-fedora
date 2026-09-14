@@ -4,7 +4,8 @@
 Reads the shipped menu.json beside this plugin, overlays the user's
 $XDG_CONFIG_HOME/zz-fedora/menu.json on top of it entry by entry, evaluates
 every `when` guard in one shell batch, expands provider-backed groups (the
-`refresh` provider lists what `zz refresh --list` can restore), and prints the
+`refresh` provider lists what `zz refresh --list` can restore, `apps` the
+catalog choices, `agent` the default coding agent and its picker), and prints the
 result as one JSON document:
 
   {"groups": [{"id", "parent", "path", "label", "icon", "description",
@@ -320,7 +321,59 @@ def app_rows(group: dict) -> list[dict]:
     return rows
 
 
-PROVIDERS = {"refresh": refresh_rows, "apps": app_rows}
+def agent_rows(group: dict) -> list[dict]:
+    """Rows for the `agent` provider: a launch row naming the default agent,
+    then a Set default agent group with one row per installed agent, the
+    current one marked. Without a chosen default there is nothing to
+    launch, so only the group is offered."""
+    listing = run_zz("agent", "list", "--json")
+    if listing is None:
+        return []
+    try:
+        agents = json.loads(listing)
+    except ValueError as exc:
+        warn(f"agent provider output is not JSON: {exc}")
+        return []
+    if not isinstance(agents, list):
+        return []
+    agents = [agent for agent in agents if isinstance(agent, dict) and agent.get("id")]
+    installed = [agent for agent in agents if agent.get("installed")]
+    default = next((agent for agent in agents if agent.get("default")), None)
+    rows: list[dict] = []
+    if default is not None:
+        label = str(default.get("label") or default["id"])
+        rows.append(normalize(f"{group['id']}.launch", {
+            "icon": "terminal",
+            "label": f"Launch agent ({label})",
+            "description": "Start the default coding agent in a terminal",
+            "action": "zz agent run --inline",
+            "terminal": True,
+            "hold": False,
+            "aliases": [str(default["id"]), label, "run"],
+        }))
+    set_id = f"{group['id']}.default"
+    rows.append(normalize(set_id, {
+        "icon": "tune",
+        "label": "Set default agent",
+        "description": (f"{default.get('label') or default['id']} is the default"
+                        if default is not None else "No default chosen yet"),
+        "aliases": ["default", "choose"],
+    }))
+    for agent in installed:
+        agent_id = str(agent["id"])
+        label = str(agent.get("label") or agent_id)
+        current = bool(agent.get("default"))
+        rows.append(normalize(f"{set_id}.{agent_id}", {
+            "icon": "check_circle" if current else "radio_button_unchecked",
+            "label": label,
+            "description": "The default coding agent" if current else f"Make {label} the default",
+            "action": f"zz agent default {shlex.quote(agent_id)} --notify",
+            "aliases": [agent_id],
+        }))
+    return rows
+
+
+PROVIDERS = {"refresh": refresh_rows, "apps": app_rows, "agent": agent_rows}
 
 
 def expand_providers(entries: dict[str, dict]) -> dict[str, dict]:

@@ -643,6 +643,8 @@ EOF
   [[ -f "$(first_run_action_marker desktop-defaults)" ]]
   [[ -f "$(first_run_action_marker dms-theme)" ]]
   [[ -f "$(first_run_action_marker dms-greeter-profile)" ]]
+  [[ -f "$(first_run_action_marker agent-invitation)" ]]
+  assert_file_contains "$TEST_ROOT/first-run-commands.log" "user:test-user:$ROOT_DIR/bin/zz agent invite"
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user daemon-reload"
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user enable --now app-com.mitchellh.ghostty.service"
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user add-wants niri.service dms.service"

@@ -209,7 +209,7 @@ apply_component() {
   done < <(jq -r 'to_entries[] | .value.action // empty | select(startswith("zz ")) | split(" ")[1]' "$menu")
   run jq -e 'to_entries | map(.value) | map(select(.action // "" | startswith("zz "))) | all(.terminal == true)' "$menu"
   [ "$status" -eq 0 ]
-  assert_equal $'apps\nrefresh' "$(jq -r 'to_entries[] | .value.provider // empty' "$menu" | sort)"
+  assert_equal $'agent\napps\nrefresh' "$(jq -r 'to_entries[] | .value.provider // empty' "$menu" | sort)"
 
   # The update group mirrors the updater's own target list.
   while IFS= read -r name; do
@@ -396,6 +396,64 @@ EOF
   # The static listing row and the other provider share the launcher.
   assert_equal "zz app list" "$(jq -r '.rows[] | select(.id == "apps.list") | .action' <<<"$inventory")"
   assert_equal "zz refresh niri/config.kdl" "$(jq -r '.rows[] | select(.id == "refresh.niri-config-kdl") | .action' <<<"$inventory")"
+}
+
+@test "zz menu agent group names the default agent on its launch row and picks one from a submenu" {
+  local home="$TEST_ROOT/agent-home"
+  mkdir -p "$home/bin"
+  cat >"$home/bin/zz" <<'EOF'
+#!/usr/bin/env bash
+case "$1 $2" in
+  "agent list")
+    if [[ -f "$HOME/chosen" ]]; then
+      printf '%s\n' '[{"id":"claude","label":"Claude Code","installed":true,"default":false},{"id":"codex","label":"Codex CLI","installed":true,"default":true},{"id":"opencode","label":"OpenCode","installed":false,"default":false}]'
+    else
+      printf '%s\n' '[{"id":"claude","label":"Claude Code","installed":true,"default":false},{"id":"codex","label":"Codex CLI","installed":false,"default":false},{"id":"opencode","label":"OpenCode","installed":false,"default":false}]'
+    fi
+    ;;
+  "app list") printf '[]\n' ;;
+  "refresh --list") : ;;
+esac
+EOF
+  chmod +x "$home/bin/zz"
+  # The group is guarded on an installed agent; the fake supplies one.
+  mkdir -p "$home/.local/bin"
+  printf '#!/usr/bin/env bash\n' >"$home/.local/bin/claude"
+  chmod +x "$home/.local/bin/claude"
+
+  # Nothing chosen: no launch row, the submenu says so, and only the
+  # installed agent is offered, detached with a confirmation toast.
+  run bash -c "env -i HOME='$home' PATH='/usr/bin:/bin' XDG_CONFIG_HOME='$home/.config' ZZ_MENU_ZZ='$home/bin/zz' \
+    '$ROOT_DIR/$ZZ_MENU_REL/scripts/zz-menu-inventory' 2>/dev/null"
+  [ "$status" -eq 0 ]
+  local inventory="$output"
+  run jq -e 'any(.rows[]; .id == "agent.launch") | not' <<<"$inventory"
+  [ "$status" -eq 0 ]
+  assert_equal "agent" "$(jq -r '.groups[] | select(.id == "agent.default") | .parent' <<<"$inventory")"
+  assert_equal "No default chosen yet" "$(jq -r '.groups[] | select(.id == "agent.default") | .description' <<<"$inventory")"
+  assert_equal "agent.default.claude" "$(jq -r '[.rows[] | select(.parent == "agent.default") | .id] | join(",")' <<<"$inventory")"
+  assert_equal "zz agent default claude --notify" "$(jq -r '.rows[] | select(.id == "agent.default.claude") | .action' <<<"$inventory")"
+  assert_equal "false" "$(jq -r '.rows[] | select(.id == "agent.default.claude") | .terminal' <<<"$inventory")"
+  assert_equal "radio_button_unchecked" "$(jq -r '.rows[] | select(.id == "agent.default.claude") | .icon' <<<"$inventory")"
+
+  # Chosen: the launch row names it and the submenu marks it.
+  : >"$home/chosen"
+  run bash -c "env -i HOME='$home' PATH='/usr/bin:/bin' XDG_CONFIG_HOME='$home/.config' ZZ_MENU_ZZ='$home/bin/zz' \
+    '$ROOT_DIR/$ZZ_MENU_REL/scripts/zz-menu-inventory' 2>/dev/null"
+  [ "$status" -eq 0 ]
+  inventory="$output"
+  assert_equal "Launch agent (Codex CLI)" "$(jq -r '.rows[] | select(.id == "agent.launch") | .label' <<<"$inventory")"
+  assert_equal "zz agent run --inline" "$(jq -r '.rows[] | select(.id == "agent.launch") | .action' <<<"$inventory")"
+  assert_equal "true" "$(jq -r '.rows[] | select(.id == "agent.launch") | .terminal' <<<"$inventory")"
+  # The agent closes its own window; a pick needs no terminal at all.
+  assert_equal "false" "$(jq -r '.rows[] | select(.id == "agent.launch") | .hold' <<<"$inventory")"
+  assert_equal "true" "$(jq -r '.rows[] | select(.id == "agent.default.claude") | .hold' <<<"$inventory")"
+  assert_equal "Codex CLI is the default" "$(jq -r '.groups[] | select(.id == "agent.default") | .description' <<<"$inventory")"
+  assert_equal "check_circle" "$(jq -r '.rows[] | select(.id == "agent.default.codex") | .icon' <<<"$inventory")"
+  assert_equal "The default coding agent" "$(jq -r '.rows[] | select(.id == "agent.default.codex") | .description' <<<"$inventory")"
+  assert_equal "Make Claude Code the default" "$(jq -r '.rows[] | select(.id == "agent.default.claude") | .description' <<<"$inventory")"
+  run jq -e 'any(.rows[]; .id == "agent.default.opencode") | not' <<<"$inventory"
+  [ "$status" -eq 0 ]
 }
 
 @test "agent-usage selection plans the plugin link, unit, and interpreter" {

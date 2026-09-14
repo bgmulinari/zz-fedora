@@ -8,7 +8,8 @@ description: >
   layout, gaps, borders, animations, keybindings, monitors, outputs, DMS, DankBar, the
   bar, launcher, notifications, lock screen, idle, control center, plugins, themes,
   wallpaper, accent colors, icon theme, night light, terminal config, shell prompt,
-  screenshots, and user-facing zz commands (zz doctor, zz refresh, zz update, zz logs).
+  screenshots, and user-facing zz commands (zz doctor, zz refresh, zz update, zz logs,
+  zz agent).
   Excludes ZZ source development in ~/.zz and the repository's own test or catalog work.
 ---
 
@@ -32,7 +33,7 @@ contributing to ZZ itself.
 - Window behavior, gaps, borders, focus ring, animations, workspace and output settings
 - Themes, wallpapers, accent colors, icon theme, light/dark mode, fonts
 - The bar (DankBar), launcher, notifications, control center, lock screen, idle, night light
-- User-facing `zz` commands (`zz doctor`, `zz refresh ...`, `zz update ...`, `zz logs`, `zz defaults`)
+- User-facing `zz` commands (`zz doctor`, `zz refresh ...`, `zz update ...`, `zz logs`, `zz defaults`, `zz agent ...`)
 - Screenshots, clipboard history, DMS plugins from the registry
 
 **If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
@@ -147,6 +148,7 @@ niri msg windows          # open windows with app-id and title (for window rules
 | `zz defaults` | Reapply default applications and browser preferences | `zz defaults` |
 | `zz ssh setup` | Key-only SSH access: import a GitHub account's keys (rerun to sync adds and removals) or paste one, start sshd, turn password logins off | `zz ssh setup` |
 | `zz ssh remove` | Disable sshd and its password-login restriction; asks before removing keys | `zz ssh remove` |
+| `zz agent` | Launch the default coding agent in a terminal; `default` chooses it (claude, codex, opencode; none until chosen), `prompt` starts it with a task | `zz agent default codex` |
 | `zz logs` | Latest installer log | `zz logs --tail` |
 | `zz debug` | Sanitized debug bundle for support | `zz debug` |
 

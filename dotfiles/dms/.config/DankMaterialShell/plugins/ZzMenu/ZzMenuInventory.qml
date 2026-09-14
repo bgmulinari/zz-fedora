@@ -17,6 +17,8 @@ Item {
     readonly property string scriptsDir: pluginPath ? pluginPath + "/scripts" : ""
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string overlayPath: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/zz-fedora/menu.json"
+    // The default coding agent choice; the Agent group's rows name and mark it.
+    readonly property string agentChoicePath: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/zz-fedora/agent"
 
     // Groups and rows as the inventory listed them, every row carrying its
     // lowercased search text. `parent` links both into one tree.
@@ -57,6 +59,9 @@ Item {
         } else {
             Quickshell.execDetached(["bash", "-lc", action]);
         }
+        // A row can change what the providers report (an app installed, a
+        // default agent chosen), so the next open asks again.
+        dirty = true;
     }
 
     function applyInventory(text) {
@@ -156,6 +161,15 @@ Item {
 
     FileView {
         path: root.overlayPath
+        watchChanges: true
+        printErrors: false
+        onFileChanged: root.dirty = true
+    }
+
+    // A default agent chosen from a terminal, or by a menu row that had
+    // already been run, moves the mark on the next open.
+    FileView {
+        path: root.agentChoicePath
         watchChanges: true
         printErrors: false
         onFileChanged: root.dirty = true

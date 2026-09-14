@@ -16,6 +16,7 @@
 | `zz refresh` | Replace one user-owned config with the current ZZ default, backing it up first. |
 | `zz update` | Update ZZ itself, packages, or developer tools. |
 | `zz app` | Install or remove one catalog application without rerunning the whole install. |
+| `zz agent` | Launch the default coding agent, or choose which one that is. |
 
 Run `zz --help` to list commands or `zz commands --json` for machine-readable
 command metadata.
@@ -94,6 +95,36 @@ generates and uploads its key, followed by `zz ssh setup` on each host.
 removing the authorized keys (`--remove-keys` and `--keep-keys` answer for
 scripts). The openssh packages stay installed because they also provide the
 client.
+
+## Coding agent
+
+```bash
+zz agent                       # the default agent in a new terminal window
+zz agent run --inline          # the same, in this terminal
+zz agent prompt "Review this"  # start it with a task
+zz agent default               # which agent that is
+zz agent default codex         # choose one
+zz agent list                  # the supported agents, installed and default state
+```
+
+The default coding agent is the one the desktop launches from the ZZ menu's
+Agent group. ZZ picks none for you. The first login sends a one-time
+notification, "Set your default coding agent", whose click opens the ZZ menu
+at its Agent group; `zz agent invite` is that notification, and it sends
+nothing once an agent is chosen or while none of the three is installed.
+
+The Agent group is built from `zz agent list --json`: a "Launch agent
+(Claude Code)" row naming the current default, and a "Set default agent"
+submenu with one row per installed agent (Claude Code `claude`, Codex
+`codex`, OpenCode `opencode`), the current one marked, that sets the choice
+and confirms it with a notification. The Agent group appears only once one
+of the three agents is installed. The choice is kept in
+`~/.config/zz-fedora/agent`.
+
+Agents launched this way run in their own don't-stop-to-ask mode
+(`claude --permission-mode auto`, `codex --approve-for-me`,
+`opencode --auto`), so expect them to act. The terminal window carries the
+app id `zz-agent` for window rules.
 
 ## Updates
 

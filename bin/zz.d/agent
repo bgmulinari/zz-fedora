@@ -1,0 +1,327 @@
+#!/usr/bin/env bash
+# zz-name: agent
+# zz-summary: Launch the default coding agent, or choose which one that is.
+# zz-usage: zz agent [run|prompt <text>] [--inline] | zz agent default [claude|codex|opencode] [--notify] | zz agent list [--json] | zz agent invite
+set -Eeuo pipefail
+
+CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/zz-fedora/agent"
+
+# The agents live in per-user directories: Claude Code in ~/.local/bin,
+# OpenCode in the Homebrew prefix. A caller such as the crash watcher runs
+# under the user manager, whose PATH may carry neither, so the lookup uses
+# the same order the installer's action shell does, Homebrew last.
+export PATH="$HOME/.local/bin:${PATH:-/usr/local/bin:/usr/bin}:${HOMEBREW_PREFIX:-/home/linuxbrew/.linuxbrew}/bin"
+
+# The supported agents, in listing order.
+AGENTS=(claude codex opencode)
+
+# The picker the invitation opens: the ZZ menu at its Agent group.
+PICKER_COMMAND=(dms ipc call widget openWith zzMenu agent)
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  zz agent [run] [--inline]
+  zz agent prompt <text> [--inline]
+  zz agent default [claude|codex|opencode] [--notify]
+  zz agent list [--json]
+  zz agent invite
+
+Launch the default coding agent in a new terminal window, or in the current
+terminal with --inline. `prompt` starts it with a task. Agents launched this
+way run in their own don't-stop-to-ask mode, so expect them to act.
+
+`default` prints the default agent, or sets it to Claude Code (claude),
+Codex (codex), or OpenCode (opencode); --notify confirms the change with a
+desktop notification, for the ZZ menu. ZZ picks none for you: until one is
+chosen there is nothing to launch, and the crash notifications stay silent.
+The choice is kept in ~/.config/zz-fedora/agent.
+
+`list` shows the supported agents with their installed and default state;
+--json is what the ZZ menu's Agent group is built from.
+
+`invite` sends the one-time notification that asks for the choice; the
+first login runs it, and a click opens the ZZ menu at its Agent group. It
+sends nothing once an agent is chosen, or while none is installed.
+USAGE
+}
+
+fail() {
+  printf '%s\n' "$*" >&2
+  exit 1
+}
+
+agent_installed() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+# The three agents are catalog choices, so a desktop may carry none; then
+# there is nothing to choose, launch, or invite.
+any_agent_installed() {
+  local agent
+  for agent in "${AGENTS[@]}"; do
+    agent_installed "$agent" && return 0
+  done
+  return 1
+}
+
+agent_label() {
+  case "$1" in
+    claude) printf 'Claude Code\n' ;;
+    codex) printf 'Codex CLI\n' ;;
+    opencode) printf 'OpenCode\n' ;;
+    *) printf '%s\n' "$1" ;;
+  esac
+}
+
+# The catalog choice that installs each agent, for the hint when one is missing.
+agent_choice() {
+  case "$1" in
+    claude) printf 'claude-code\n' ;;
+    *) printf '%s\n' "$1" ;;
+  esac
+}
+
+normalize_agent() {
+  case "$1" in
+    claude|claude-code) printf 'claude\n' ;;
+    codex|codex-cli) printf 'codex\n' ;;
+    opencode|open-code) printf 'opencode\n' ;;
+    *) return 1 ;;
+  esac
+}
+
+configured_agent() {
+  local agent=""
+  [[ -f "$CONFIG_FILE" ]] || return 1
+  IFS= read -r agent <"$CONFIG_FILE" || true
+  [[ -n "$agent" ]] || return 1
+  printf '%s\n' "$agent"
+}
+
+default_agent() {
+  configured_agent
+}
+
+# Silent when unset rather than defaulting: ZZ picks no agent for you, so
+# the watcher has nothing to offer and the menu shows every row unchecked
+# until one is chosen. The non-zero status is what callers test.
+no_default_hint() {
+  if any_agent_installed; then
+    printf 'No default coding agent chosen. Choose one with: zz agent default <claude|codex|opencode>\n' >&2
+  else
+    printf 'No coding agent is installed. Install one with: zz app install claude-code, codex, or opencode\n' >&2
+  fi
+  return 1
+}
+
+json_string() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  printf '"%s"' "$value"
+}
+
+cmd_list() {
+  local json=0 arg agent current="" installed is_default first=1
+  for arg in "$@"; do
+    case "$arg" in
+      --json) json=1 ;;
+      *) fail "Usage: zz agent list [--json]" ;;
+    esac
+  done
+  current="$(configured_agent || true)"
+  [[ "$json" -eq 0 ]] || printf '['
+  for agent in "${AGENTS[@]}"; do
+    installed=false
+    agent_installed "$agent" && installed=true
+    is_default=false
+    [[ "$agent" == "$current" ]] && is_default=true
+    if [[ "$json" -eq 1 ]]; then
+      [[ "$first" -eq 1 ]] || printf ','
+      printf '{"id":%s,"label":%s,"installed":%s,"default":%s}' \
+        "$(json_string "$agent")" "$(json_string "$(agent_label "$agent")")" "$installed" "$is_default"
+      first=0
+    else
+      printf '%-9s %-12s %s%s\n' "$agent" "$(agent_label "$agent")" \
+        "$([[ "$installed" == true ]] && printf 'installed' || printf 'not installed')" \
+        "$([[ "$is_default" == true ]] && printf ', default' || printf '')"
+    fi
+  done
+  [[ "$json" -eq 0 ]] || printf ']\n'
+}
+
+cmd_default() {
+  local agent name notify=0
+  local -a args=()
+  for agent in "$@"; do
+    case "$agent" in
+      --notify) notify=1 ;;
+      *) args+=("$agent") ;;
+    esac
+  done
+  set -- "${args[@]}"
+  if [[ $# -eq 0 ]]; then
+    if agent="$(default_agent)"; then
+      printf '%s\n' "$agent"
+      return 0
+    fi
+    no_default_hint
+    return 1
+  fi
+  [[ $# -eq 1 ]] || fail "Usage: zz agent default [claude|codex|opencode]"
+  name="$(normalize_agent "$1")" || fail "Unsupported agent: $1 (choose claude, codex, or opencode)"
+  agent_installed "$name" ||
+    fail "$(agent_label "$name") is not installed. Install it with: zz app install $(agent_choice "$name")"
+  mkdir -p "$(dirname "$CONFIG_FILE")"
+  printf '%s\n' "$name" >"$CONFIG_FILE"
+  printf 'Default coding agent: %s (%s)\n' "$(agent_label "$name")" "$name"
+  if [[ "$notify" -eq 1 ]] && command -v notify-send >/dev/null 2>&1; then
+    notify-send --app-name=zz --icon=dialog-information \
+      "Default coding agent: $(agent_label "$name")" \
+      "Crash diagnoses and the ZZ menu's Agent group launch it" >/dev/null 2>&1 || true
+  fi
+}
+
+# Each agent has its own spelling of "don't stop to ask" and its own way of
+# taking a first prompt.
+agent_command() {
+  local agent="$1"
+  local prompt="$2"
+  case "$agent" in
+    claude)
+      COMMAND=(claude --permission-mode auto)
+      [[ -n "$prompt" ]] && COMMAND+=(-- "$prompt")
+      ;;
+    codex)
+      COMMAND=(codex --approve-for-me)
+      [[ -n "$prompt" ]] && COMMAND+=(-- "$prompt")
+      ;;
+    opencode)
+      COMMAND=(opencode --auto)
+      [[ -n "$prompt" ]] && COMMAND+=(--prompt "$prompt")
+      ;;
+    *)
+      fail "Unsupported default agent: $agent (choose claude, codex, or opencode with: zz agent default <name>)"
+      ;;
+  esac
+  return 0
+}
+
+launch() {
+  local inline="$1"
+  local prompt="$2"
+  local agent
+  agent="$(default_agent)" || { no_default_hint || exit 1; }
+  agent_installed "$agent" ||
+    fail "$(agent_label "$agent") is not installed. Install it with: zz app install $(agent_choice "$agent"), or pick another with: zz agent default <name>"
+  agent_command "$agent" "$prompt"
+  # The terminal is started with the agent's resolved path so it needs no
+  # PATH of its own; the agent's subprocesses inherit the PATH built above.
+  COMMAND[0]="$(command -v "${COMMAND[0]}")"
+  if [[ "$inline" -eq 1 ]]; then
+    exec "${COMMAND[@]}"
+  fi
+  # One app id for every agent window, so window rules can single them out.
+  if command -v xdg-terminal-exec >/dev/null 2>&1; then
+    exec xdg-terminal-exec --app-id=zz-agent --title="ZZ agent" -- "${COMMAND[@]}"
+  fi
+  if command -v ghostty >/dev/null 2>&1; then
+    exec ghostty --class=zz-agent -e "${COMMAND[@]}"
+  fi
+  exec "${TERMINAL:-xterm}" -e "${COMMAND[@]}"
+}
+
+# The toast waits for its click in the background so the caller (the
+# first-run step at login) returns at once; --action implies --wait and
+# prints the action's name when clicked, on the button or the body.
+cmd_invite() {
+  local agent
+  if agent="$(configured_agent)"; then
+    printf 'Default coding agent already chosen: %s\n' "$(agent_label "$agent")"
+    return 0
+  fi
+  if ! any_agent_installed; then
+    printf 'No coding agent is installed; nothing to choose.\n'
+    return 0
+  fi
+  # Never a failure: the first-run step records this as done either way,
+  # and the menu's Agent group offers the same choice at any time.
+  if ! command -v notify-send >/dev/null 2>&1; then
+    printf 'notify-send is not installed; choose with: zz agent default <claude|codex|opencode>\n'
+    return 0
+  fi
+  (
+    # At login the shell may still be claiming the notification bus name;
+    # a toast sent into that gap is lost, so wait for the server first.
+    attempts=60
+    until busctl --user call org.freedesktop.Notifications /org/freedesktop/Notifications \
+      org.freedesktop.Notifications GetServerInformation >/dev/null 2>&1; do
+      [[ "$attempts" -gt 0 ]] || exit 0
+      attempts=$((attempts - 1))
+      sleep 0.5
+    done
+    chosen="$(notify-send --app-name=zz --urgency=critical --icon=dialog-information \
+      --action="choose=Choose an agent" \
+      "Set your default coding agent" \
+      "Crash diagnoses and the ZZ menu's Agent group use it. Click to choose." 2>/dev/null || true)"
+    [[ "$chosen" == "choose" ]] || exit 0
+    exec "${PICKER_COMMAND[@]}"
+  ) >/dev/null 2>&1 </dev/null &
+  printf 'Invited the default coding agent choice.\n'
+}
+
+main() {
+  local command="run" inline=0 prompt="" arg
+  local -a positional=()
+  if [[ $# -gt 0 ]]; then
+    case "$1" in
+      -h|--help|help)
+        usage
+        return 0
+        ;;
+      run|prompt|default|invite|list)
+        command="$1"
+        shift
+        ;;
+      --inline) ;;
+      *)
+        printf 'Unknown zz agent command: %s\n\n' "$1" >&2
+        usage >&2
+        return 1
+        ;;
+    esac
+  fi
+  for arg in "$@"; do
+    case "$arg" in
+      --inline) inline=1 ;;
+      -h|--help)
+        usage
+        return 0
+        ;;
+      *) positional+=("$arg") ;;
+    esac
+  done
+  case "$command" in
+    default)
+      cmd_default "${positional[@]}"
+      ;;
+    list)
+      cmd_list "${positional[@]}"
+      ;;
+    invite)
+      [[ ${#positional[@]} -eq 0 ]] || fail "Unexpected argument: ${positional[0]}"
+      cmd_invite
+      ;;
+    prompt)
+      [[ ${#positional[@]} -eq 1 && -n "${positional[0]}" ]] || fail "Usage: zz agent prompt <text> [--inline]"
+      launch "$inline" "${positional[0]}"
+      ;;
+    run)
+      [[ ${#positional[@]} -eq 0 ]] || fail "Unexpected argument: ${positional[0]} (to pass a prompt: zz agent prompt \"${positional[*]}\")"
+      launch "$inline" ""
+      ;;
+  esac
+}
+
+main "$@"

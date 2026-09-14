@@ -154,3 +154,16 @@ remove_first_run_hook() {
   [[ -e "$desktop_file" || -L "$desktop_file" ]] || return 0
   run_cmd_as_user "$TARGET_USER" rm -f "$desktop_file"
 }
+
+# ZZ picks no default coding agent, so the first login invites the choice
+# once with a notification whose click opens the picker. The agent command
+# sends nothing when a choice already exists and returns as soon as the
+# toast is up, so this never blocks the rest of first-run.
+first_run_invite_agent_choice() {
+  local launcher="$ROOT_DIR/bin/zz"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: %s agent invite\n' "$launcher"
+    return 0
+  fi
+  run_cmd_as_user "$TARGET_USER" "$launcher" agent invite
+}
