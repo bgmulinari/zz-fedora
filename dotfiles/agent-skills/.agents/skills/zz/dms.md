@@ -124,6 +124,7 @@ format is documented in `~/.zz/dotfiles/dms/.config/DankMaterialShell/plugins/Zz
 
 Plugins ZZ ships arrive as symlinks into `~/.zz`; treat them as read-only like any
 other product link. To customize one, copy it to a new directory with a new `id`.
+Writing a plugin, or changing a copy, is the `create-dms-plugin` skill's job.
 
 ## Notifications from scripts
 

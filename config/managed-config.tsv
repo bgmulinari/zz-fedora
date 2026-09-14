@@ -10,6 +10,10 @@ agent-skills	~/.agents/skills/diagnose-crash	product-link	backup-before-link	dot
 agent-skills	~/.claude/skills/diagnose-crash	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/diagnose-crash	-	Links the crash diagnosis assistant skill for Claude Code.
 agent-skills	~/.codex/skills/diagnose-crash	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/diagnose-crash	-	Links the crash diagnosis assistant skill for Codex.
 agent-skills	~/.pi/agent/skills/diagnose-crash	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/diagnose-crash	-	Links the crash diagnosis assistant skill for Pi.
+agent-skills	~/.agents/skills/create-dms-plugin	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/create-dms-plugin	-	Links the DMS plugin authoring assistant skill into the shared Agent Skills directory.
+agent-skills	~/.claude/skills/create-dms-plugin	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/create-dms-plugin	-	Links the DMS plugin authoring assistant skill for Claude Code.
+agent-skills	~/.codex/skills/create-dms-plugin	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/create-dms-plugin	-	Links the DMS plugin authoring assistant skill for Codex.
+agent-skills	~/.pi/agent/skills/create-dms-plugin	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/create-dms-plugin	-	Links the DMS plugin authoring assistant skill for Pi.
 shell	~/.bashrc	seed-if-missing	preserve	templates/shell/bashrc	-	Seeds a user-owned Bash entrypoint that loads the live ZZ shell defaults.
 shell	~/.profile	seed-if-missing	preserve	templates/shell/profile	-	Seeds a user-owned login-shell entrypoint that loads the live ZZ environment defaults.
 shell-fastfetch	~/.config/zz-fedora/shell.d/fastfetch	product-link	backup-before-link	dotfiles/shell-fastfetch/.shellrc.d/fastfetch	fastfetch	Links the selected Fastfetch shell integration.

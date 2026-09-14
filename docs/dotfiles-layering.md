@@ -108,8 +108,12 @@ The shipped `zz` skill covers customizing an installed desktop from
 shipped `diagnose-crash` skill is the method behind `zz crash diagnose`: the
 crash notification hands the agent the facts and points at the skill, so the
 investigation is edited in one place and works with whichever agent is the
-default. Both are always linked; only the watcher service behind the
-notifications is an optional choice.
+default. The shipped `create-dms-plugin` skill is for a plugin the user writes
+for their own desktop: it points the agent at the installed shell's own plugin
+guide, schema, and examples under `/usr/share/quickshell/dms/`, adds the
+ZZ-specific conventions, and stops short of shipping the plugin with ZZ, which
+stays in the repository task guide. All three are always linked; only the
+watcher service behind the crash notifications is an optional choice.
 
 ## Resetting a user-owned file
 

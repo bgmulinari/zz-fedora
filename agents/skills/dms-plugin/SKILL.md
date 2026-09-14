@@ -25,7 +25,8 @@ DMS plugin is not something the user installs from the registry: its source live
 the ZZ checkout, ZZ product-links the plugin directory into the user's DMS plugin
 directory, and a catalog unit decides who gets it. This skill covers the whole path
 from an idea to a plugin that the planner, the installer, the tests, and the running
-shell all agree on.
+shell all agree on. A plugin a user writes for their own desktop is the shipped
+`create-dms-plugin` skill's job (`dotfiles/agent-skills/`), not this guide's.
 
 Three layers, each with its own contract:
 

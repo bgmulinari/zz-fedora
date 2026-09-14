@@ -49,13 +49,15 @@ shipped_skill_names() {
   done
 }
 
-@test "base plan links the end-user skill into every assistant skills directory" {
+@test "base plan links every shipped skill into every assistant skills directory" {
   build_test_plan
 
   assert_plan_has "$PLAN_DIR/config/components.list" "agent-skills"
-  local dir
-  for dir in "${ASSISTANT_DIRS[@]}"; do
-    assert_plan_has "$PLAN_DIR/files/managed-files.list" "$dir/zz"
+  local name dir
+  for name in $(shipped_skill_names); do
+    for dir in "${ASSISTANT_DIRS[@]}"; do
+      assert_plan_has "$PLAN_DIR/files/managed-files.list" "$dir/$name"
+    done
   done
 }
 
@@ -100,4 +102,18 @@ shipped_skill_names() {
   refute_file_contains "$zz_skill" "sudo dnf install"
   assert_file_contains "$crash_skill" "run it through \`pkexec\`"
   assert_file_contains "$crash_skill" "print the full command and"
+}
+
+@test "the plugin authoring skill answers from the installed shell and stays out of the repository" {
+  local skill="$ROOT_DIR/$SKILLS_ROOT/create-dms-plugin/SKILL.md"
+  # The installed package carries the guide, schema, and examples for the exact
+  # release the plugin loads into; the skill points there instead of at memory.
+  assert_file_contains "$skill" "/usr/share/quickshell/dms/"
+  assert_file_contains "$skill" "PLUGINS/README.md"
+  assert_file_contains "$skill" "dms ipc call plugin-scan"
+  assert_file_contains "$skill" "~/.config/DankMaterialShell/plugins/"
+  # Shipping a plugin with ZZ is the repository task guide's job.
+  refute_file_contains "$skill" "managed-config"
+  refute_file_contains "$skill" "catalog/"
+  refute_file_contains "$skill" "install.sh"
 }
