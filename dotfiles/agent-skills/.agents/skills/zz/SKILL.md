@@ -9,7 +9,7 @@ description: >
   bar, launcher, notifications, lock screen, idle, control center, plugins, themes,
   wallpaper, accent colors, icon theme, night light, terminal config, shell prompt,
   screenshots, and user-facing zz commands (zz doctor, zz refresh, zz update, zz logs,
-  zz agent).
+  zz agent, zz crash).
   Excludes ZZ source development in ~/.zz and the repository's own test or catalog work.
 ---
 
@@ -33,7 +33,7 @@ contributing to ZZ itself.
 - Window behavior, gaps, borders, focus ring, animations, workspace and output settings
 - Themes, wallpapers, accent colors, icon theme, light/dark mode, fonts
 - The bar (DankBar), launcher, notifications, control center, lock screen, idle, night light
-- User-facing `zz` commands (`zz doctor`, `zz refresh ...`, `zz update ...`, `zz logs`, `zz defaults`, `zz agent ...`)
+- User-facing `zz` commands (`zz doctor`, `zz refresh ...`, `zz update ...`, `zz logs`, `zz defaults`, `zz agent ...`, `zz crash ...`)
 - Screenshots, clipboard history, DMS plugins from the registry
 
 **If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
@@ -149,6 +149,10 @@ niri msg windows          # open windows with app-id and title (for window rules
 | `zz ssh setup` | Key-only SSH access: import a GitHub account's keys (rerun to sync adds and removals) or paste one, start sshd, turn password logins off | `zz ssh setup` |
 | `zz ssh remove` | Disable sshd and its password-login restriction; asks before removing keys | `zz ssh remove` |
 | `zz agent` | Launch the default coding agent in a terminal; `default` chooses it (claude, codex, opencode; none until chosen), `prompt` starts it with a task | `zz agent default codex` |
+| `zz crash list` | Core dumps systemd-coredump keeps | `zz crash list` |
+| `zz crash diagnose` | Hand one core dump to the default agent with the diagnose-crash skill | `zz crash diagnose latest` |
+| `zz crash mute` | Silence crash notifications for one program (`off` lifts it; no argument lists) | `zz crash mute nautilus` |
+| `zz crash capture` | Turn the crash notifications on or off for every program | `zz crash capture off` |
 | `zz logs` | Latest installer log | `zz logs --tail` |
 | `zz debug` | Sanitized debug bundle for support | `zz debug` |
 

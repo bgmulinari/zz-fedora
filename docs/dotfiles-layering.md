@@ -104,7 +104,12 @@ Two kinds of assistant skills exist and they never mix:
   checkout and never linked into a home directory.
 
 The shipped `zz` skill covers customizing an installed desktop from
-`~/.config` and the `zz` commands; it excludes ZZ source development.
+`~/.config` and the `zz` commands; it excludes ZZ source development. The
+shipped `diagnose-crash` skill is the method behind `zz crash diagnose`: the
+crash notification hands the agent the facts and points at the skill, so the
+investigation is edited in one place and works with whichever agent is the
+default. Both are always linked; only the watcher service behind the
+notifications is an optional choice.
 
 ## Resetting a user-owned file
 

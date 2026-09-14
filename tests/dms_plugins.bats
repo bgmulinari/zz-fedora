@@ -305,7 +305,7 @@ EOF
   local menu="$ROOT_DIR/$ZZ_MENU_REL/menu.json"
   # Editors, monitors, and the agent close their own window; printing
   # commands keep theirs until a key is pressed.
-  assert_equal $'niri.edit\nsystem.monitor\nsystem.network' \
+  assert_equal $'crash.diagnose\nniri.edit\nsystem.monitor\nsystem.network' \
     "$(jq -r 'to_entries[] | select(.value.hold == false) | .key' "$menu" | sort)"
   run jq -e 'to_entries | map(.value) | map(select(.hold == false)) | all(.terminal == true)' "$menu"
   [ "$status" -eq 0 ]

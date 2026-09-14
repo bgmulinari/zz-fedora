@@ -56,6 +56,34 @@ setup() {
   refute_file_contains "$command_log" "user:test-user"
 }
 
+@test "installer mode leaves a home-linked user unit to first login instead of a failing global enable" {
+  build_test_plan "ai=crash-diagnosis"
+  TARGET_USER="test-user"
+  DRY_RUN=0
+  ZZ_INSTALLER_DEFER_START_SERVICES=1
+  command_log="$TEST_ROOT/installer-user-services.log"
+  # The config step has already linked the watcher unit into the target home
+  # by the time services are enabled; --global would not find it there.
+  mkdir -p "$TARGET_HOME/.config/systemd/user"
+  ln -s "$ROOT_DIR/dotfiles/crash-watch/.config/systemd/user/zz-crash-watch.service" \
+    "$TARGET_HOME/.config/systemd/user/zz-crash-watch.service"
+
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*" >>"$command_log"
+  }
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf 'user:%s:%s\n' "$user" "$*" >>"$command_log"
+  }
+
+  run enable_user_services
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Deferring home-linked user service to first login: zz-crash-watch.service"
+  refute_file_contains "$command_log" "zz-crash-watch.service"
+  assert_file_contains "$command_log" "root:systemctl --global enable app-com.mitchellh.ghostty.service"
+}
+
 @test "chroot install defers extra-data flatpaks, then first-run installs them in-session" {
   build_test_plan "media=spotify" "office=zoom,pinta"
   TARGET_USER="test-user"

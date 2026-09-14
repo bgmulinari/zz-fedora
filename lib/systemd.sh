@@ -13,6 +13,11 @@ user_service_wants_from_plan() {
   read_plan_file "$PLAN_DIR/services/user-wants.tsv"
 }
 
+user_service_linked_in_home() {
+  local unit_path="${TARGET_HOME:-$HOME}/.config/systemd/user/$1"
+  [[ -e "$unit_path" || -L "$unit_path" ]]
+}
+
 enable_user_service() {
   local service_name="$1"
   if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -25,6 +30,13 @@ enable_user_service() {
   fi
 
   if [[ "${ZZ_INSTALLER_DEFER_START_SERVICES:-0}" -eq 1 ]]; then
+    # --global reads only the system-wide user unit directories, so a unit
+    # ZZ links into the target home is invisible to it; first login enables
+    # that one with the user manager, which sees the link.
+    if user_service_linked_in_home "$service_name"; then
+      log_info "Deferring home-linked user service to first login: $service_name"
+      return 0
+    fi
     run_cmd_as_root systemctl --global enable "$service_name"
     return $?
   fi

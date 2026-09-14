@@ -1,0 +1,359 @@
+#!/usr/bin/env bash
+# zz-name: crash
+# zz-summary: Announce process crashes and hand a core dump to the default coding agent.
+# zz-usage: zz crash <list|diagnose <pid|latest>|mute [program] [on|off|toggle]|capture [on|off|toggle|status]|watch>
+set -Eeuo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ZZ_BIN="$ROOT_DIR/bin/zz"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/zz-fedora"
+MUTE_DIR="$STATE_DIR/crash-ignore"
+CAPTURE_OFF_FLAG="$STATE_DIR/crash-capture-off"
+WATCH_UNIT="zz-crash-watch.service"
+SKILL_FILE="$ROOT_DIR/dotfiles/agent-skills/.agents/skills/diagnose-crash/SKILL.md"
+
+# systemd-coredump journals every core dump under this MESSAGE_ID with
+# structured COREDUMP_* fields; see systemd.journal-fields(7).
+readonly COREDUMP_MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1
+
+# A crash loop dumps core repeatedly, so a program is announced at most once
+# per window.
+DEDUPE_SECONDS="${ZZ_CRASH_DEDUPE_SECONDS:-60}"
+# Extended regex of program names never worth announcing.
+IGNORE_PATTERN="${ZZ_CRASH_IGNORE:-}"
+# How long to wait for the notification server after a crash; the shell owns
+# it, so a shell crash takes it down and it returns with the restarted shell.
+NOTIFY_WAIT_SECONDS="${ZZ_CRASH_NOTIFY_WAIT_SECONDS:-10}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  zz crash list
+  zz crash diagnose <pid|latest> [--inline]
+  zz crash mute [--] [<program>] [on|off|toggle]
+  zz crash capture [on|off|toggle|status]
+  zz crash watch
+
+Commands:
+  list       List the core dumps systemd-coredump keeps (coredumpctl list).
+  diagnose   Hand one crash to the default coding agent with the diagnose-crash
+             skill: a PID from the list, or `latest` for the most recent one.
+             Opens a terminal window; --inline runs in the current one.
+  mute       Silence the crash notifications for one program (`on`, the
+             default), lift the mute (`off`), or list what is muted (no
+             arguments). Takes the binary's path as readily as its name.
+  capture    Turn the crash notifications on or off for every program, or show
+             the state. Off stops the watcher and keeps it off across logins;
+             `zz crash diagnose` still works by hand.
+  watch      Follow the journal for core dumps and offer a diagnosis for each;
+             the zz-crash-watch user service runs this.
+USAGE
+}
+
+fail() {
+  printf '%s\n' "$*" >&2
+  exit 1
+}
+
+# Reduce a process name or binary path to the one-component name the mute
+# flags are keyed on. A process can set its own name to anything, slashes
+# included, and a crash with no recorded binary falls back to it; the mute
+# turns this into a path, so it must never reach outside the flag directory.
+crash_program_name() {
+  local name="$1"
+  name="${name##*/}"
+  [[ -n "$name" && "$name" != "-" && "$name" != "." && "$name" != ".." ]] || return 1
+  printf '%s\n' "$name"
+}
+
+muted() {
+  [[ -f "$MUTE_DIR/$1" ]]
+}
+
+capture_enabled() {
+  [[ ! -f "$CAPTURE_OFF_FLAG" ]]
+}
+
+notification_server_ready() {
+  busctl --user call \
+    org.freedesktop.Notifications /org/freedesktop/Notifications \
+    org.freedesktop.Notifications GetServerInformation >/dev/null 2>&1
+}
+
+wait_for_notification_server() {
+  local attempts=$((NOTIFY_WAIT_SECONDS * 2))
+  while :; do
+    notification_server_ready && return 0
+    [[ "$attempts" -gt 0 ]] || return 1
+    attempts=$((attempts - 1))
+    sleep 0.5
+  done
+}
+
+notify() {
+  command -v notify-send >/dev/null 2>&1 || return 0
+  notify-send --app-name=zz --icon=dialog-error "$@" >/dev/null 2>&1 || true
+}
+
+# ---------------------------------------------------------------- list
+
+cmd_list() {
+  exec coredumpctl list --no-pager "$@"
+}
+
+# ---------------------------------------------------------------- diagnose
+
+# One row of `coredumpctl list`: TIME (four words) PID UID GID SIG COREFILE EXE SIZE.
+coredump_row() {
+  local pid="$1"
+  if [[ "$pid" == "latest" ]]; then
+    coredumpctl list --no-pager --no-legend 2>/dev/null | tail -1
+  else
+    coredumpctl list "$pid" --no-pager --no-legend 2>/dev/null | tail -1
+  fi
+}
+
+cmd_diagnose() {
+  local pid="" inline=0 arg row when
+  local -a rest=()
+  for arg in "$@"; do
+    case "$arg" in
+      --inline) inline=1 ;;
+      *) rest+=("$arg") ;;
+    esac
+  done
+  [[ ${#rest[@]} -ge 1 ]] || fail "Usage: zz crash diagnose <pid|latest> [--inline]   (see: zz crash list)"
+  pid="${rest[0]}"
+  if [[ "$pid" != "latest" && ! "$pid" =~ ^[0-9]+$ ]]; then
+    fail "Not a PID: $pid (see: zz crash list)"
+  fi
+  local name="${rest[1]:-unknown}" exe="${rest[2]:-unknown}" signal="${rest[3]:-unknown}"
+
+  # The notification passes the facts along; a hand-run diagnosis has only
+  # the PID, so the rest is read back from coredumpctl. A rotated-away core
+  # only costs the facts it would have supplied.
+  row="$(coredump_row "$pid" || true)"
+  if [[ "$pid" == "latest" ]]; then
+    [[ -n "$row" ]] || fail "No core dumps recorded (see: zz crash list)"
+    pid="$(awk '{ print $5 }' <<<"$row")"
+  fi
+  when="$(awk '{ print $1, $2, $3, $4 }' <<<"$row")"
+  when="${when:-unknown}"
+  if [[ -n "$row" ]]; then
+    [[ "$signal" != "unknown" ]] || signal="$(awk '{ print $8 }' <<<"$row")"
+    [[ "$exe" != "unknown" ]] || exe="$(awk '{ print $10 }' <<<"$row")"
+    [[ "$name" != "unknown" || "$exe" != /* ]] || name="${exe##*/}"
+  fi
+
+  local prompt
+  prompt="$(
+    cat <<PROMPT
+A process crashed on this ZZ Fedora desktop and I want to know why.
+
+What systemd-coredump recorded:
+  process:  $name
+  PID:      $pid
+  binary:   $exe
+  signal:   $signal
+  time:     $when
+
+Use the diagnose-crash skill: it covers how to investigate, what to tell me, and
+how to offer a fix. If your harness has no skill mechanism, read the skill file
+directly and follow it instead:
+
+  $SKILL_FILE
+PROMPT
+  )"
+  if [[ "$inline" -eq 1 ]]; then
+    exec "$ZZ_BIN" agent prompt "$prompt" --inline
+  fi
+  exec "$ZZ_BIN" agent prompt "$prompt"
+}
+
+# ---------------------------------------------------------------- mute
+
+list_mutes() {
+  local entry found=0
+  # Only regular files count, because that is all the watcher honours.
+  for entry in "$MUTE_DIR"/* "$MUTE_DIR"/.*; do
+    [[ -f "$entry" ]] || continue
+    printf '%s\n' "${entry##*/}"
+    found=1
+  done
+  [[ "$found" -eq 1 ]] || printf 'No programs muted. Every crash notifies.\n'
+}
+
+cmd_mute() {
+  local program action name
+  # A program may be named -h; `zz crash mute -- -h` is the way through.
+  [[ "${1:-}" == "--" ]] && shift
+  if [[ $# -eq 0 ]]; then
+    list_mutes
+    return 0
+  fi
+  program="$1"
+  action="${2:-on}"
+  name="$(crash_program_name "$program")" || fail "Not a program name: $program"
+  case "$action" in
+    on)
+      mkdir -p "$MUTE_DIR"
+      : >"$MUTE_DIR/$name"
+      ;;
+    off)
+      rm -f "$MUTE_DIR/$name"
+      ;;
+    toggle)
+      if muted "$name"; then
+        rm -f "$MUTE_DIR/$name"
+      else
+        mkdir -p "$MUTE_DIR"
+        : >"$MUTE_DIR/$name"
+      fi
+      ;;
+    *)
+      fail "Not an action: $action (use on, off, or toggle)"
+      ;;
+  esac
+  # Report what is now true rather than what was asked for.
+  if muted "$name"; then
+    printf 'Muted crash notifications for %s. Lift it with: zz crash mute %q off\n' "$name" "$name"
+  else
+    printf 'Crash notifications for %s are back on.\n' "$name"
+  fi
+}
+
+# ---------------------------------------------------------------- capture
+
+capture_status() {
+  if capture_enabled; then
+    printf 'Crash capture is on. Turn it off with: zz crash capture off\n'
+  else
+    printf 'Crash capture is off. Turn it on with: zz crash capture on\n'
+  fi
+}
+
+# The unit checks the same flag with ConditionPathExists, so stopping and
+# starting only settles this session; the next login reads the flag itself.
+capture_on() {
+  rm -f "$CAPTURE_OFF_FLAG"
+  systemctl --user start "$WATCH_UNIT" 2>/dev/null || true
+  notify "Crash capture enabled" "Crashes notify and offer an AI diagnosis again"
+}
+
+capture_off() {
+  mkdir -p "$STATE_DIR"
+  : >"$CAPTURE_OFF_FLAG"
+  systemctl --user stop "$WATCH_UNIT" 2>/dev/null || true
+  notify "Crash capture disabled" "zz crash diagnose still works by hand"
+}
+
+cmd_capture() {
+  local action="${1:-status}"
+  case "$action" in
+    status) ;;
+    on) capture_on ;;
+    off) capture_off ;;
+    toggle)
+      if capture_enabled; then
+        capture_off
+      else
+        capture_on
+      fi
+      ;;
+    *)
+      fail "Not an action: $action (use on, off, toggle, or status)"
+      ;;
+  esac
+  capture_status
+}
+
+# ---------------------------------------------------------------- watch
+
+# The toast waits for its click in the background, so the journal keeps
+# being read while it is on screen; the click runs the diagnosis. --action
+# implies --wait and prints the chosen action's name, and the shell invokes
+# the first action for a click on the body as well as on the button.
+announce() {
+  local name="$1" pid="$2" exe="$3" signal="$4"
+  wait_for_notification_server || return 1
+  (
+    chosen="$(notify-send --app-name=zz --urgency=critical --icon=dialog-error \
+      --action="diagnose=Diagnose with AI" \
+      "${name^} crashed" "Click to diagnose with AI" 2>/dev/null || true)"
+    [[ "$chosen" == "diagnose" ]] || exit 0
+    exec "$ZZ_BIN" crash diagnose "$pid" "$name" "$exe" "$signal"
+  ) &
+  return 0
+}
+
+cmd_watch() {
+  local -A last_notified=()
+  local entry uid comm pid exe signal name now
+  # -n 0 so a restart does not re-announce crashes already dealt with.
+  journalctl -f -n 0 -o json "MESSAGE_ID=$COREDUMP_MESSAGE_ID" 2>/dev/null |
+    while IFS= read -r entry; do
+      # A dash for a field that is empty as well as one that is missing: tab
+      # is IFS whitespace, so an empty field would collapse into the next
+      # delimiter and shift every field after it along one.
+      IFS=$'\t' read -r uid comm pid exe signal < <(
+        jq -r 'def field: if . == null or . == "" then "-" else . end;
+               [(._UID | field),
+                (.COREDUMP_COMM | field),
+                (.COREDUMP_PID | field),
+                (.COREDUMP_EXE | field),
+                (.COREDUMP_SIGNAL_NAME | field)] | @tsv' <<<"$entry" 2>/dev/null || true
+      ) || true
+      [[ "${pid:-}" =~ ^[0-9]+$ ]] || continue
+
+      # Only this user's crashes; a daemon dumping core is a sysadmin's problem.
+      [[ "${uid:-}" =~ ^[0-9]+$ && "$uid" -eq "$UID" ]] || continue
+
+      # The toast only offers a diagnosis, so it has nothing to offer without
+      # an agent. Checked per crash, so installing one takes effect at once.
+      "$ZZ_BIN" agent default >/dev/null 2>&1 || continue
+
+      # comm is truncated to 15 characters, so prefer the binary's basename.
+      name="$comm"
+      [[ "$exe" == /* ]] && name="$exe"
+      name="$(crash_program_name "$name" || printf 'unknown\n')"
+
+      if [[ -n "$IGNORE_PATTERN" && "$name" =~ $IGNORE_PATTERN ]]; then
+        continue
+      fi
+      # Muted at the end of a diagnosis, when the user was offered it and
+      # said yes.
+      muted "$name" && continue
+
+      now="$EPOCHSECONDS"
+      if [[ $((now - ${last_notified[$name]:-0})) -lt "$DEDUPE_SECONDS" ]]; then
+        continue
+      fi
+      # Only a delivered toast starts the dedupe window: a failed send that
+      # counted would silence the rest of a crash loop for a minute, and
+      # `journalctl -n 0` never replays what was missed.
+      if announce "$name" "$pid" "$exe" "$signal"; then
+        last_notified[$name]="$now"
+      fi
+    done
+}
+
+main() {
+  local command="${1:-}"
+  case "$command" in
+    ""|-h|--help|help)
+      usage
+      return 0
+      ;;
+    list|diagnose|mute|capture|watch)
+      shift
+      "cmd_$command" "$@"
+      ;;
+    *)
+      printf 'Unknown zz crash command: %s\n\n' "$command" >&2
+      usage >&2
+      return 1
+      ;;
+  esac
+}
+
+main "$@"

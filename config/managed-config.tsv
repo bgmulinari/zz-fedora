@@ -6,6 +6,10 @@ agent-skills	~/.agents/skills/zz	product-link	backup-before-link	dotfiles/agent-
 agent-skills	~/.claude/skills/zz	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/zz	-	Links the ZZ end-user assistant skill for Claude Code.
 agent-skills	~/.codex/skills/zz	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/zz	-	Links the ZZ end-user assistant skill for Codex.
 agent-skills	~/.pi/agent/skills/zz	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/zz	-	Links the ZZ end-user assistant skill for Pi.
+agent-skills	~/.agents/skills/diagnose-crash	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/diagnose-crash	-	Links the crash diagnosis assistant skill into the shared Agent Skills directory.
+agent-skills	~/.claude/skills/diagnose-crash	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/diagnose-crash	-	Links the crash diagnosis assistant skill for Claude Code.
+agent-skills	~/.codex/skills/diagnose-crash	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/diagnose-crash	-	Links the crash diagnosis assistant skill for Codex.
+agent-skills	~/.pi/agent/skills/diagnose-crash	product-link	backup-before-link	dotfiles/agent-skills/.agents/skills/diagnose-crash	-	Links the crash diagnosis assistant skill for Pi.
 shell	~/.bashrc	seed-if-missing	preserve	templates/shell/bashrc	-	Seeds a user-owned Bash entrypoint that loads the live ZZ shell defaults.
 shell	~/.profile	seed-if-missing	preserve	templates/shell/profile	-	Seeds a user-owned login-shell entrypoint that loads the live ZZ environment defaults.
 shell-fastfetch	~/.config/zz-fedora/shell.d/fastfetch	product-link	backup-before-link	dotfiles/shell-fastfetch/.shellrc.d/fastfetch	fastfetch	Links the selected Fastfetch shell integration.
@@ -33,6 +37,7 @@ dms	~/.config/matugen/dms/configs/zz-icon-theme.toml	product-link	backup-before-
 dms	~/.local/bin/zz-sync-icon-theme	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-icon-theme	dms	Links the icon-theme synchronization helper.
 dms	~/.config/DankMaterialShell/plugins/ZzMenu	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/ZzMenu	dms	Links the managed ZZ menu plugin: every zz command in the launcher and a bar button.
 dms-plugin-agent-usage	~/.config/DankMaterialShell/plugins/AgentUsage	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/AgentUsage	dms	Links the managed coding-agent usage bar widget plugin.
+crash-watch	~/.config/systemd/user/zz-crash-watch.service	product-link	backup-before-link	dotfiles/crash-watch/.config/systemd/user/zz-crash-watch.service	-	Links the crash watcher user unit that announces core dumps and offers an AI diagnosis.
 screenshot-tools	~/.config/satty/config.toml	seed-if-missing	preserve	templates/satty/config.toml	satty	Seeds the user-owned screenshot annotation editor defaults: save path, clipboard command, and the Enter and Escape actions.
 starship	~/.config/starship.toml	seed-if-missing	preserve	templates/starship.toml	starship	Seeds a user-owned Starship configuration.
 starship	~/.config/matugen/dms/configs/zz-starship.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-starship.toml	starship	Links the managed Starship-palette matugen drop-in.

@@ -17,6 +17,7 @@
 | `zz update` | Update ZZ itself, packages, or developer tools. |
 | `zz app` | Install or remove one catalog application without rerunning the whole install. |
 | `zz agent` | Launch the default coding agent, or choose which one that is. |
+| `zz crash` | Announce process crashes and hand a core dump to the default coding agent. |
 
 Run `zz --help` to list commands or `zz commands --json` for machine-readable
 command metadata.
@@ -107,8 +108,9 @@ zz agent default codex         # choose one
 zz agent list                  # the supported agents, installed and default state
 ```
 
-The default coding agent is the one the desktop launches from the ZZ menu's
-Agent group. ZZ picks none for you. The first login sends a one-time
+The default coding agent is the one the desktop launches: the crash
+notifications below hand their diagnosis to it, and the ZZ menu's Agent group
+starts it. ZZ picks none for you. The first login sends a one-time
 notification, "Set your default coding agent", whose click opens the ZZ menu
 at its Agent group; `zz agent invite` is that notification, and it sends
 nothing once an agent is chosen or while none of the three is installed.
@@ -117,14 +119,49 @@ The Agent group is built from `zz agent list --json`: a "Launch agent
 (Claude Code)" row naming the current default, and a "Set default agent"
 submenu with one row per installed agent (Claude Code `claude`, Codex
 `codex`, OpenCode `opencode`), the current one marked, that sets the choice
-and confirms it with a notification. The Agent group appears only once one
-of the three agents is installed. The choice is kept in
+and confirms it with a notification. The Agent and Crashes groups appear
+only once one of the three agents is installed. The choice is kept in
 `~/.config/zz-fedora/agent`.
 
 Agents launched this way run in their own don't-stop-to-ask mode
 (`claude --permission-mode auto`, `codex --approve-for-me`,
 `opencode --auto`), so expect them to act. The terminal window carries the
 app id `zz-agent` for window rules.
+
+## Crash diagnosis
+
+```bash
+zz crash list                  # the core dumps systemd-coredump keeps
+zz crash diagnose latest       # hand the most recent one to the default agent
+zz crash diagnose 4242         # or one PID from the list
+zz crash mute nautilus         # silence one program; `off` lifts it, no argument lists
+zz crash capture off           # silence every program; `on`, `toggle`, `status`
+```
+
+The `crash-diagnosis` choice in the AI category (selected by default) links the
+`zz-crash-watch` user service, which follows the journal for systemd-coredump
+entries. When one of your programs dumps core, a critical notification says
+"<program> crashed. Click to diagnose with AI"; the click opens the default
+agent in a terminal with the crash facts (process, PID, binary, signal, time)
+and the shipped `diagnose-crash` skill, which walks the agent through
+`coredumpctl` and symbolization against Fedora's debuginfod, then has it
+explain the cause, say how to address it, and offer to apply a fix (asking
+first). The skill is personal assistance only: it never files issues or
+reports crashes anywhere.
+
+Crashes belonging to other users, a program muted with `zz crash mute`, a name
+matching `ZZ_CRASH_IGNORE` (an extended regex), and repeats of one program
+within `ZZ_CRASH_DEDUPE_SECONDS` (60) are not announced; until a default
+agent is chosen nothing is, since the toast has nothing to offer.
+
+`zz crash capture off` stops the watcher and writes the flag the unit checks
+with `ConditionPathExists`, so it stays off across logins without the unit
+being disabled; `zz crash diagnose` still works by hand. Mutes are per
+program, keyed on the binary's basename (a process name is truncated to 15
+characters), and live under `~/.local/state/zz-fedora/crash-ignore/`; the
+diagnosis ends by offering one for the program it just explained. The ZZ
+menu's Crashes group carries the same commands. Symbolization needs `gdb`
+and the debuginfod client, which the choice installs.
 
 ## Updates
 

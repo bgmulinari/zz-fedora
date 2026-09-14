@@ -227,11 +227,16 @@ EOS
   assert_contains "$output" "claude    Claude Code  not installed"
 }
 
-@test "the menu shows the agent group only once an agent is installed" {
+@test "the menu shows the agent and crash groups only once an agent is installed" {
   local menu="$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/ZzMenu/menu.json"
   local guard="command -v claude || command -v codex || command -v opencode"
   assert_equal "$guard" "$(jq -r '.agent.when' "$menu")"
   assert_equal "agent" "$(jq -r '.agent.provider' "$menu")"
+  assert_equal "$guard" "$(jq -r '.crash.when' "$menu")"
+  # The capture switch and the mute list are about the watcher, which only
+  # the crash-diagnosis choice links.
+  run jq -e '[."crash.capture", ."crash.muted"] | all(.when | test("zz-crash-watch.service"))' "$menu"
+  [ "$status" -eq 0 ]
 }
 
 @test "zz agent invite is not a failure on a desktop without notify-send" {
