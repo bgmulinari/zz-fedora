@@ -62,5 +62,11 @@
       "noBackground": true,
       "fontScale": 1.2
     }
-  ]
+  ],
+  "acLockTimeout": 300,
+  "acPostLockMonitorTimeout": 30,
+  "batteryLockTimeout": 300,
+  "batteryPostLockMonitorTimeout": 30,
+  "fadeToDpmsGracePeriod": 10,
+  "fadeToLockGracePeriod": 10
 }
