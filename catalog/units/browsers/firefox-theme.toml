@@ -1,5 +1,6 @@
 id = "browsers-firefox-theme"
 description = "DMS theme synchronization for Firefox"
+config = ["firefox-theme"]
 
 # Fedora's python3 does not bundle pip; the firefox-theme action installs
 # the Pywalfox native host per user with `python3 -m pip`.

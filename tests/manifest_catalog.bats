@@ -817,8 +817,8 @@ TOML
   assert_equal "0" "$BUNDLE_MINIMAL_DESKTOP_SKIP"
   assert_equal "" "$BUNDLE_DEPENDENCIES"
   assert_equal "vendor:brave" "$BUNDLE_SOURCE_IDS"
-  assert_equal "" "$BUNDLE_CONFIG_COMPONENTS"
-  assert_equal "dnf" "$BUNDLE_BACKENDS"
+  assert_equal "browser-theme" "$BUNDLE_CONFIG_COMPONENTS"
+  assert_equal "dnf,action" "$BUNDLE_BACKENDS"
   assert_equal "Brave browser bundle for Fedora" "$BUNDLE_DESCRIPTION"
 
   load_bundle_descriptor base-bootstrap
@@ -838,9 +838,9 @@ TOML
 }
 
 @test "bundle steps expose backend, sources, and payload items per step" {
-  assert_equal $'0\tdnf\tvendor:brave' "$(bundle_steps browsers-brave)"
+  assert_equal $'0\tdnf\tvendor:brave\n1\taction\t' "$(bundle_steps browsers-brave)"
   assert_equal "brave-browser" "$(bundle_step_items browsers-brave 0)"
-  assert_equal "brave-browser" "$(bundle_items browsers-brave)"
+  assert_equal $'brave-browser\nbrowser-theme:brave' "$(bundle_items browsers-brave)"
 
   assert_equal $'0\tflatpak\tflathub' "$(bundle_steps office-pinta)"
   assert_equal "com.github.PintaProject.Pinta" "$(bundle_step_items office-pinta 0)"

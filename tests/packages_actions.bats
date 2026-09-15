@@ -264,7 +264,7 @@ EOF
   TARGET_HOME="$TEST_ROOT/firefox-home"
   ZZ_FIREFOX_POLICIES_FILE="$TEST_ROOT/firefox-policy/policies.json"
   command_log="$TEST_ROOT/firefox-theme-commands.log"
-  pywalfox_bin="$TARGET_HOME/.local/bin/pywalfox"
+  pywalfox_bin="$TARGET_HOME/.local/bin/zz-firefox-theme-host"
   mkdir -p "$TARGET_HOME" "$(dirname "$ZZ_FIREFOX_POLICIES_FILE")" "$(dirname "$pywalfox_bin")"
   printf '{"policies":{"DisableTelemetry":true}}\n' >"$ZZ_FIREFOX_POLICIES_FILE"
 
@@ -272,9 +272,7 @@ EOF
     local user="$1"
     shift
     printf '%s:%s\n' "$user" "$*" >>"$command_log"
-    if [[ "$*" == "env HOME=$TARGET_HOME $SYSTEM_PYTHON -m pywalfox install --executable $TARGET_HOME/.local/bin/pywalfox" ]]; then
-      printf '#!/usr/bin/env bash\n' >"$pywalfox_bin"
-      chmod +x "$pywalfox_bin"
+    if [[ "$*" == "env HOME=$TARGET_HOME $SYSTEM_PYTHON -m pywalfox install --executable $TARGET_HOME/.local/bin/zz-firefox-theme-host" ]]; then
       mkdir -p "$TARGET_HOME/.mozilla/native-messaging-hosts"
       jq -n \
         --arg executable "$pywalfox_bin" \
@@ -297,7 +295,7 @@ EOF
   assert_file_contains "$command_log" \
     "firefox-user:env HOME=$TARGET_HOME $SYSTEM_PYTHON -m pip install --user --quiet pywalfox"
   assert_file_contains "$command_log" \
-    "firefox-user:env HOME=$TARGET_HOME $SYSTEM_PYTHON -m pywalfox install --executable $TARGET_HOME/.local/bin/pywalfox"
+    "firefox-user:env HOME=$TARGET_HOME $SYSTEM_PYTHON -m pywalfox install --executable $TARGET_HOME/.local/bin/zz-firefox-theme-host"
   # The wal colors bridge points Pywalfox at the DMS template output.
   [ -L "$TARGET_HOME/.cache/wal/colors.json" ]
   assert_equal "$TARGET_HOME/.cache/wal/dank-pywalfox.json" "$(readlink "$TARGET_HOME/.cache/wal/colors.json")"

@@ -157,6 +157,8 @@ step_table_failure_policy() {
   TARGET_HOME="$TEST_ROOT/wants-home"
   mkdir -p "$TARGET_HOME"
   build_test_plan
+  # Synthetic units keep the real host's global DMS binding out of this test.
+  printf 'zz-test-session.service\tzz-test-shell.service\n' > "$PLAN_DIR/services/user-wants.tsv"
   DRY_RUN=0
   COMMAND=doctor
 
@@ -165,15 +167,15 @@ step_table_failure_policy() {
   # the user unit missing and had graded it fatal.
   run_without_bats_debug_trap readiness_reset
   run_without_bats_debug_trap readiness_generate_services
-  assert_file_contains "$(readiness_file)" $'service\tdms.service\tmissing\twarn\twanted by niri.service'
-  refute_file_contains "$(readiness_file)" $'service\tdms.service\tmissing\tfatal'
+  assert_file_contains "$(readiness_file)" $'service\tzz-test-shell.service\tmissing\twarn\twanted by zz-test-session.service'
+  refute_file_contains "$(readiness_file)" $'service\tzz-test-shell.service\tmissing\tfatal'
 
-  mkdir -p "$TARGET_HOME/.config/systemd/user/niri.service.wants"
-  ln -sfn /usr/lib/systemd/user/dms.service \
-    "$TARGET_HOME/.config/systemd/user/niri.service.wants/dms.service"
+  mkdir -p "$TARGET_HOME/.config/systemd/user/zz-test-session.service.wants"
+  ln -sfn /usr/lib/systemd/user/zz-test-shell.service \
+    "$TARGET_HOME/.config/systemd/user/zz-test-session.service.wants/zz-test-shell.service"
   run_without_bats_debug_trap readiness_reset
   run_without_bats_debug_trap readiness_generate_services
-  assert_file_contains "$(readiness_file)" $'service\tdms.service\tbound\tinfo\twanted by niri.service'
+  assert_file_contains "$(readiness_file)" $'service\tzz-test-shell.service\tbound\tinfo\twanted by zz-test-session.service'
 }
 
 @test "readiness grades user units in user and global scope, never fatal" {

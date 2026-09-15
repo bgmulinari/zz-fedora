@@ -1,0 +1,25 @@
+#!/usr/bin/python3
+"""Send the initial DMS palette, then hand native messaging to Pywalfox.
+
+Pywalfox only fetches on startup after a user has applied a theme once.
+Its normal colors response also initializes a new extension installation.
+"""
+
+import os
+import sys
+
+from pywalfox.config import ACTIONS
+from pywalfox.fetcher import get_pywal_colors
+from pywalfox.messenger import Messenger
+from pywalfox.response import Message
+
+
+def main():
+    success, colors, _ = get_pywal_colors()
+    if success:
+        Messenger(3).send_message(Message(ACTIONS["COLORS"], data=colors))
+    os.execv(sys.executable, [sys.executable, "-m", "pywalfox", *sys.argv[1:]])
+
+
+if __name__ == "__main__":
+    main()

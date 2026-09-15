@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# Privileged entrypoint: accepts one color, never caller-selected paths or code.
+# Installed as a root-owned copy; the sudo rule must not target the checkout.
+browser_policy_write() {
+  local directory="$1" color="$2" temporary
+  temporary="$(mktemp "$directory/.zz-theme.XXXXXX")" || return 1
+  if ! printf '{"BrowserThemeColor":"#%s"}\n' "$color" >"$temporary" ||
+    ! chmod 0644 "$temporary" || ! mv -fT "$temporary" "$directory/zz-theme.json"; then
+    rm -f "$temporary"
+    return 1
+  fi
+}
+
+browser_policy_trusted_path() {
+  local path="$1" mode
+  while [[ "$path" != / ]]; do
+    [[ ! -L "$path" && -e "$path" && "$(stat -c %u "$path")" == 0 ]] || return 1
+    mode="$(stat -c %a "$path")"
+    (( (8#$mode & 0022) == 0 )) || return 1
+    path="${path%/*}"
+    [[ -n "$path" ]] || path=/
+  done
+}
+
+browser_policy_main() {
+  export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+  [[ $# == 1 && "$1" =~ ^[0-9a-f]{6}$ ]] || {
+    echo 'Expected exactly six lowercase hex digits' >&2
+    return 2
+  }
+  [[ "$EUID" == 0 ]] || return 1
+  local directory failed=0
+  for directory in /etc/chromium/policies/managed /etc/opt/chrome/policies/managed /etc/brave/policies/managed; do
+    # The installer enrolls only selected browsers by creating this file.
+    [[ -e "$directory/zz-theme.json" || -L "$directory/zz-theme.json" ]] || continue
+    if [[ ! -f "$directory/zz-theme.json" ]] || ! browser_policy_trusted_path "$directory/zz-theme.json"; then
+      echo "Untrusted browser policy path: $directory/zz-theme.json" >&2
+      failed=1
+      continue
+    fi
+    browser_policy_write "$directory" "$1" || failed=1
+  done
+  return "$failed"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  browser_policy_main "$@"
+fi

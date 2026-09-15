@@ -1,5 +1,6 @@
 id = "browsers-chromium"
 description = "Chromium browser bundle for Fedora"
+config = ["browser-theme"]
 
 [choice]
 category = "browsers"
@@ -11,3 +12,7 @@ description = "Open-source browser focused on speed, safety, and stability"
 [[install]]
 backend = "dnf"
 packages = ["chromium"]
+
+[[install]]
+backend = "action"
+actions = ["browser-theme:chromium"]

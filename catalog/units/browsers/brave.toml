@@ -1,5 +1,6 @@
 id = "browsers-brave"
 description = "Brave browser bundle for Fedora"
+config = ["browser-theme"]
 
 [choice]
 category = "browsers"
@@ -12,3 +13,7 @@ description = "Privacy-focused browser with built-in ad and tracker blocking"
 backend = "dnf"
 sources = ["vendor:brave"]
 packages = ["brave-browser"]
+
+[[install]]
+backend = "action"
+actions = ["browser-theme:brave"]

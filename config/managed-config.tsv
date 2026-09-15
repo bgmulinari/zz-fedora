@@ -55,3 +55,8 @@ zed	~/.config/zed/settings.json	seed-if-missing	preserve	dotfiles/zed/.config/ze
 claude-code	~/.claude/settings.json	seed-if-missing	preserve	templates/claude/settings.json	-	Seeds user-owned Claude Code settings with commit and pull request attribution off.
 dms-plugin-compatibility-manager	~/.config/DankMaterialShell/plugins/CompatibilityManager	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/CompatibilityManager	dms	Links the managed Proton build manager and game selector.
 dms-plugin-compatibility-manager	~/.local/share/applications/proton-manager.desktop	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/CompatibilityManager/proton-manager.desktop	dms	Registers Proton Manager as a desktop application.
+browser-theme	~/.config/matugen/dms/configs/zz-browser-theme.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-browser-theme.toml	-	Renders the DMS browser theme seed and applies browser policies on theme changes.
+browser-theme	~/.local/bin/zz-sync-browser-theme	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-browser-theme	-	Reloads Chromium-family theme policies after a DMS palette render.
+browser-theme	/usr/lib/zz/browser-theme-policy	system-file	regenerate	dotfiles/browser-theme/browser-theme-policy	-	Installs the root-owned helper that writes only enrolled browser theme policies.
+browser-theme	/etc/sudoers.d/zz-browser-theme	system-file	regenerate	dotfiles/browser-theme/sudoers	-	Allows noninteractive writes of a single browser theme color.
+firefox-theme	~/.local/bin/zz-firefox-theme-host	product-link	backup-before-link	dotfiles/browser-theme/firefox-theme-host	-	Initializes the DMS palette on the first Firefox extension connection.

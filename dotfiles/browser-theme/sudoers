@@ -1,0 +1,2 @@
+# Theme refresh may only supply one RGB color to the root-owned policy helper.
+%wheel ALL=(root) NOPASSWD: /usr/bin/bash /usr/lib/zz/browser-theme-policy [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]

@@ -26,7 +26,9 @@ for Qt/KDE apps, JetBrainsMono Nerd Font.
 | Icon theme (Qt/KDE) | Breeze Dark in `~/.config/qt6ct/qt6ct.conf` and `kdeglobals`; not synced | change it in qt6ct |
 | VS Code | theme `Dynamic Base16 DankShell` (extension `danklinux.dms-theme`) | choose another theme in VS Code |
 | Zed | `DankShell Dark` / `DankShell Light` | choose another theme in Zed |
-| Firefox | Pywalfox, when the optional theme unit was installed | disable the extension |
+| Firefox | Pywalfox, installed with the browser and initialized automatically on first launch | disable the extension |
+| Zen | DMS `zen.css`, imported by each profile configured at installation; restart Zen after palette changes | remove the import from the profile's `chrome/userChrome.css` |
+| Chrome, Chromium, Brave, Helium | native browser theme generated from the DMS background color, refreshed through machine policy | remove the `zz-theme.json` policy file to opt out |
 
 If a target stops following the palette, the escape hatch was probably taken; check
 it before debugging DMS.

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+sync_browser_theme() {
+  local palette="${XDG_CACHE_HOME:-$HOME/.cache}/DankMaterialShell/browser-theme.color" color
+  [[ -s "$palette" ]] || return 0
+  color="$(<"$palette")"
+  [[ "$color" =~ ^#[0-9a-fA-F]{6}$ ]] || {
+    echo 'Invalid DMS browser theme color' >&2
+    return 1
+  }
+  color="${color,,}"
+  # Noninteractive: theme changes must never leave an authentication prompt.
+  sudo -n /usr/bin/bash /usr/lib/zz/browser-theme-policy "${color:1}" || return 1
+
+  local command process profile failed=0
+  while read -r command process profile; do
+    command -v "$command" >/dev/null 2>&1 || continue
+    # A process with a custom --user-data-dir must not cause this command to
+    # start a second browser in the normal profile on a theme change.
+    [[ -L "${XDG_CONFIG_HOME:-$HOME/.config}/$profile/SingletonLock" ]] || continue
+    pgrep -u "$(id -u)" -x "$process" >/dev/null || continue
+    "$command" --refresh-platform-policy --no-startup-window >/dev/null 2>&1 || failed=1
+  done <<'BROWSERS'
+chromium-browser chromium-browse chromium
+google-chrome-stable chrome google-chrome
+brave-browser brave BraveSoftware/Brave-Browser
+helium helium net.imput.helium
+BROWSERS
+  return "$failed"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  sync_browser_theme "$@"
+fi

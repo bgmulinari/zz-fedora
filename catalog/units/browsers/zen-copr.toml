@@ -12,3 +12,7 @@ description = "Privacy-focused browser with a customizable interface"
 backend = "dnf"
 sources = ["copr:sneexy/zen-browser"]
 packages = ["zen-browser"]
+
+[[install]]
+backend = "action"
+actions = ["browser-theme:zen"]

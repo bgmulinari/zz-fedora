@@ -1,5 +1,6 @@
 id = "browsers-helium-copr"
 description = "Helium browser bundle from COPR for Fedora"
+config = ["browser-theme"]
 
 [choice]
 category = "browsers"
@@ -12,3 +13,7 @@ description = "Privacy-first browser with built-in ad and tracker blocking"
 backend = "dnf"
 sources = ["copr:imput/helium"]
 packages = ["helium-bin"]
+
+[[install]]
+backend = "action"
+actions = ["browser-theme:helium"]

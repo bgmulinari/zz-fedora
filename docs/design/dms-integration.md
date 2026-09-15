@@ -295,6 +295,50 @@ with the blue accent (latte + blue in light mode).
   output `~/.cache/wal/dank-pywalfox.json`, the upstream-documented
   bridge. A pre-existing regular `colors.json` (a standalone-pywal
   palette) is backed up before the link replaces it.
+  The registered `zz-firefox-theme-host` adapter sends the current palette
+  when the extension connects, then hands native messaging to Pywalfox.
+  This initializes fresh profiles automatically: upstream Pywalfox's startup
+  fetch otherwise runs only after the user has applied a theme once.
+- Every other browser choice includes a `browser-theme:<choice>` action.
+  Zen's native profile registry is read from `~/.config/zen/profiles.ini`
+  or `~/.zen/profiles.ini`; before its first launch the action registers a
+  default profile. Each registered profile enables user stylesheets and
+  imports `~/.config/DankMaterialShell/zen.css` before personal CSS rules.
+  This is the [upstream DMS Zen integration](https://github.com/AvengeMedia/DankLinux-Docs/blob/master/docs/dankmaterialshell/application-themes.mdx),
+  not Pywalfox. Fresh installs load the CSS on their first launch. An already
+  running Zen needs a restart after setup or later palette changes; live
+  palette updates are not supported by this integration.
+- Chrome, Chromium, Brave, and Helium use Chromium's native
+  `BrowserThemeColor` machine policy. The `browser-theme` configuration component
+  installs a matugen drop-in that renders `colors.background.default.hex` to
+  `~/.cache/DankMaterialShell/browser-theme.color`. Its post-hook writes the color
+  policy and asks running browsers to reload it with
+  `--refresh-platform-policy --no-startup-window`, without restarting them.
+  Chromium derives its browser colors from this seed; it does not receive an
+  exact copy of every DMS palette entry.
+- The browser action enrolls the selected policy directory by creating
+  `zz-theme.json`: `/etc/chromium/policies/managed` for Fedora Chromium and
+  Helium, `/etc/opt/chrome/policies/managed` for Chrome, and
+  `/etc/brave/policies/managed` for Brave. The first install uses the current DMS
+  background when available, otherwise the shipped default's background until
+  DMS first renders. Profile preferences and profile locks are not modified.
+- `/usr/lib/zz/browser-theme-policy` is a root-owned script, updated as managed system configuration. A scoped
+  sudoers rule allows wheel users to invoke that fixed script with `/usr/bin/bash`
+  and pass exactly one six-digit hex color.
+  The helper accepts no paths, verifies root ownership and non-writable parents,
+  atomically replaces only enrolled `zz-theme.json` files, and leaves other
+  policies alone. The unprivileged post-hook runs the browser reload commands
+  only for browsers with a running default profile. No browser starts merely
+  because the theme changed.
+- These policies apply to every profile and make the browser report that its
+  theme is managed. Chromium and Helium share their policy directory. As with
+  other machine policies, multiple desktop users share the most recently applied
+  color. Removing `zz-theme.json` opts that policy directory out of future sync.
+- The integration follows the native-policy approach in
+  [Omarchy quattro](https://github.com/omacom/omarchy/blob/2fbac0c8e88eca704af1650ce721a494bd11a3d0/bin/omarchy-theme-set-browser).
+  Only `BrowserThemeColor` is emitted: Helium 0.17.0.1 accepts it but reports
+  Omarchy's `BrowserColorScheme` policy as unknown. DMS's mode-aware background
+  supplies the light/dark seed instead.
 
 ## Plugins
 

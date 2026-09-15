@@ -1,0 +1,5 @@
+# Chromium generates its own browser theme from DMS's mode-aware background.
+[templates.zzbrowser]
+input_path = '~/.zz/dotfiles/dms/.config/matugen/templates/browser-theme.color'
+output_path = '~/.cache/DankMaterialShell/browser-theme.color'
+post_hook = 'sh -c "command -v zz-sync-browser-theme >/dev/null 2>&1 && zz-sync-browser-theme"'

@@ -47,7 +47,7 @@ firefox_theme_policies_writable() {
 firefox_theme_manifest_host_owned() {
   local host="$1"
   case "${host##*/}" in
-    pywalfox|pywalfox.py|pywalfox-daemon|main.py) [[ -e "$host" ]] ;;
+    pywalfox|pywalfox.py|pywalfox-daemon|main.py|zz-firefox-theme-host) [[ -e "$host" ]] ;;
     *) return 1 ;;
   esac
 }
@@ -126,11 +126,12 @@ install_firefox_theme() {
 
   log_progress "Installing the Pywalfox native host"
   run_cmd_as_user "$TARGET_USER" env HOME="$TARGET_HOME" "$SYSTEM_PYTHON" -m pip install --user --quiet pywalfox || return 1
-  # pip --user installs the entry point to ~/.local/bin, which is not on
-  # the action runner's PATH, so name the executable explicitly instead of
-  # letting the pywalfox installer search for it.
+  # Actions precede managed-config deployment. Make the startup adapter
+  # available before registering it as the native messaging executable.
+  replace_user_path_with_product_link "$ROOT_DIR/dotfiles/browser-theme/firefox-theme-host" \
+    "$TARGET_HOME/.local/bin/zz-firefox-theme-host" || return 1
   run_cmd_as_user "$TARGET_USER" env HOME="$TARGET_HOME" "$SYSTEM_PYTHON" -m pywalfox install \
-    --executable "$TARGET_HOME/.local/bin/pywalfox" || return 1
+    --executable "$TARGET_HOME/.local/bin/zz-firefox-theme-host" || return 1
   install_firefox_theme_wal_link
   install_firefox_theme_policy
 }
