@@ -397,6 +397,42 @@ Shipped plugins:
   multi-device aggregation merges JSON snapshots from a user-chosen synced
   folder; rate limits are never merged.
 
+- **Proton manager** (`protonManager`, unit
+  `gaming-compatibility-manager`, component `dms-plugin-compatibility-manager`)
+  replaces the optional external Proton manager in the gaming catalog. Selected
+  installs enable its daemon through the plan-filtered plugin seed and link
+  `dotfiles/dms/.config/DankMaterialShell/plugins/CompatibilityManager/proton-manager.desktop`
+  into the user application directory. **Proton Manager** appears under **Apps**
+  in the DMS launcher; its desktop entry calls the daemon through plugin IPC to
+  open a normal `DankFloatingWindow`, like System Monitor, with move/resize
+  controls and normal focus switching. Closing unloads the UI once idle; read-only
+  requests are cancelled, while explicit mutations finish before unloading. It has no bar widget or launcher-plugin results. Its product-linked
+  directory is
+  `dotfiles/dms/.config/DankMaterialShell/plugins/CompatibilityManager/`.
+  The themed manager discovers native and Flatpak Steam, Heroic, Lutris, Bottles
+  and WineZGUI destinations. Source pickers offer multiple Proton forks, Wine
+  variants and launcher-supported DXVK/VKD3D components, with CPU filtering,
+  release notes and progress. Steam offers game search and numeric App IDs,
+  active and per-game selections. Missing or incompatible selected builds fail with a clear launch error.
+  Fedora Python 3 performs the work outside the QML event loop. An authenticated
+  `gh` CLI is used opportunistically for GitHub metadata, with anonymous HTTPS as
+  the fallback. Persistent page caching and rate-limit cooldowns reduce API traffic. No Steam config
+  files are rewritten. First use registers **Proton Manager** and requires one Steam
+  restart plus opt-in in each game's Compatibility settings; subsequent changes
+  route the next launch through a fixed Steam runtime contract. Builds needing
+  another runtime must be selected directly in Steam. The wrapper executes
+  installed builds in place, preserves launch arguments, and verifies the
+  runtime contract again at launch. JSON changes are atomic and mutations are
+  serialized per launcher destination. Downloads verify published SHA-512/SHA-256
+  checksums or asset digests; older assets without checksums are labelled HTTPS only.
+  Downloads reject unsafe archive paths/links and publish only after safe extraction;
+  cancellation cleans staging. Removal is restricted to unreferenced plugin-installed
+  builds while Steam and games are closed. Other launchers also require closing
+  the launcher and clearing references in its settings before removal. Non-Steam
+  runner selection stays in the owning launcher; Wine prefixes are not modified.
+  See the plugin's README for supported sources, first use,
+  storage, download limits and offline behavior.
+
 ## Greeter
 
 `dms-greeter` (greetd), maintained in the standalone

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Proton Manager
+GenericName=Game Compatibility Manager
+Comment=Manage Proton and Wine builds for Steam, Heroic, Lutris and other launchers
+Exec=dms ipc call plugins toggle protonManager
+TryExec=dms
+Icon=input-gaming
+Terminal=false
+StartupNotify=false
+Categories=Game;
+Keywords=Steam;Proton;Wine;Heroic;Lutris;Bottles;GE-Proton;CachyOS;compatibility;games;versions;

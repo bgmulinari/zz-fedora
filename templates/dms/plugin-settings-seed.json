@@ -4,5 +4,8 @@
   },
   "agentUsage": {
     "enabled": true
+  },
+  "protonManager": {
+    "enabled": true
   }
 }

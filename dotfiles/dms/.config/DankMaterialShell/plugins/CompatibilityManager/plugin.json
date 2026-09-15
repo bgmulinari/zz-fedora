@@ -1,0 +1,20 @@
+{
+  "id": "protonManager",
+  "name": "Proton Manager",
+  "description": "Proton and Wine builds for game launchers, with per-game Steam selection",
+  "version": "1.0.0",
+  "author": "Proton Manager contributors",
+  "type": "daemon",
+  "capabilities": [
+    "daemon"
+  ],
+  "component": "./Manager.qml",
+  "icon": "sports_esports",
+  "startupCheck": "./StartupCheck.qml",
+  "dependencies": [
+    "python3"
+  ],
+  "permissions": [
+    "process"
+  ]
+}

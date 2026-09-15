@@ -1,0 +1,20 @@
+id = "gaming-compatibility-manager"
+description = "Desktop Proton and Wine runtime manager with per-game Steam selection"
+config = ["dms-plugin-compatibility-manager"]
+
+[choice]
+category = "gaming"
+id = "compatibility-manager"
+label = "Proton Manager"
+default = true
+order = 20
+description = "Manage Proton and Wine builds for Steam, Heroic, Lutris and other launchers"
+
+[[install]]
+backend = "dnf"
+packages = ["python3"]
+
+[[install]]
+backend = "dnf"
+sources = ["copr:avengemedia/dms"]
+packages = ["dms"]

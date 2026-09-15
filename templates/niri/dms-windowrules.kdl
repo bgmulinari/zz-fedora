@@ -42,12 +42,6 @@ window-rule {
     open-floating true
 }
 
-// @id=zz-proton-manager-floating @name=Proton manager: open floating
-window-rule {
-    match app-id="^(net\\.davidotek\\.pupgui2|protonup-qt)$"
-    open-floating true
-}
-
 // @id=zz-screenshot-editor-floating @name=Screenshot editor: open floating
 window-rule {
     match app-id="^(com\\.gabm\\.satty|satty)$"
