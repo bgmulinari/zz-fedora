@@ -37,7 +37,7 @@ Three layers, each with its own contract:
 | Runtime (Process, FileView, sockets) | Installed Quickshell revision | `src/io/*.hpp` in the quickshell reference checkout |
 
 Read `CLAUDE.md` at the repository root before touching anything; it defines the invariants this
-skill relies on (catalog contracts, managed-config rules, no migrations, generic naming).
+skill relies on (catalog contracts, managed-config rules, no migrations).
 
 ## Step 0: Sync the references to the installed versions
 
@@ -259,9 +259,11 @@ installer will recreate it from the managed-config row.
 - **Do not commit state.** Nothing from `~/.local/state/DankMaterialShell/` or
   `~/.cache/DankMaterialShell/` belongs in the repo, including `plugin_settings.json`
   captured from a live session.
-- **Generic identifiers.** Name the unit after the feature (`desktop-disk-free`), not
-  after the shell or a vendor; the `dms-plugin-` component prefix follows the
-  existing `dms` component convention and is the only branded part.
+- **Name things what users call them.** The unit, choice, component, and plugin
+  directory carry the plugin's own name (`gaming-proton-manager`,
+  `dms-plugin-proton-manager`, `ProtonManager`), so `zz app list` and the wizard
+  read the same as the shell; the `dms-plugin-` component prefix follows the
+  existing `dms` component convention.
 - **Sibling QML files resolve by type name only.** A multi-file plugin uses its
   sibling types implicitly (`ZzMenuInventory {}`), the way the shipped plugins do.
   An explicit `import "."` and a `Loader`/`Qt.createComponent` with the plugin path
