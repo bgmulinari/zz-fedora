@@ -406,3 +406,26 @@ dms_seed_state_files_if_missing() {
     printf '{}\n' | write_user_file 0644 "$destination"
   fi
 }
+
+# Runs once in the desktop session, where the same backend used by Browse
+# Themes is available. A failed download leaves the first-run action pending.
+install_dms_registry_theme() {
+  local native_plan result
+  [[ "$SKIP_USER_CONFIG" -eq 1 ]] && return 0
+  native_plan="$(package_file_for_backend "$(native_backend)")"
+  plan_has_any_backend_entry "$native_plan" dms || return 0
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'DRY-RUN: install the selected default theme through the DMS registry\n'
+    return 0
+  fi
+  if ! result="$(run_cmd_as_user "$TARGET_USER" "$SYSTEM_PYTHON" \
+    "$ROOT_DIR/lib/dms_registry_theme.py" "$TARGET_HOME")"; then
+    log_warn "DMS registry theme installation failed; retrying at next login"
+    return 1
+  fi
+  # DMS started before the downloaded theme existed. Reload the shell so its
+  # selected custom theme and matugen outputs are initialized from that file.
+  if [[ "$result" == "installed" ]]; then
+    run_cmd_as_user "$TARGET_USER" systemctl --user restart dms.service || return 1
+  fi
+}

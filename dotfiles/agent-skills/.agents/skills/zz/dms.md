@@ -14,7 +14,7 @@ it regenerates the `~/.config/niri/dms/*.kdl` fragments and theme outputs.
 │                           # `dms ipc call settings set <key> <value>` for scalars
 ├── plugin_settings.json    # Plugin enablement and per-plugin settings
 ├── plugins/<Name>/         # User-installed plugins (registry or manual)
-└── themes/<id>/theme.json  # Registry themes (ZZ ships catppuccin as a product link)
+└── themes/<id>/theme.json  # User-owned registry themes (DMS downloads Catppuccin at first login)
 ~/.local/state/DankMaterialShell/session.json   # Wallpaper, dark mode, pinned apps
 ```
 

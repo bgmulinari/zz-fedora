@@ -266,6 +266,7 @@ module_85_first_run() {
     first_run_action_completed user-directories &&
     first_run_action_completed desktop-interface "$desktop_interface_fingerprint" &&
     first_run_action_completed desktop-defaults "$desktop_defaults_fingerprint" &&
+    first_run_action_completed dms-registry-theme &&
     first_run_action_completed dms-theme &&
     first_run_action_completed dms-gtk-theme &&
     first_run_action_completed dms-greeter-profile &&
@@ -289,7 +290,11 @@ module_85_first_run() {
     desktop-interface "$desktop_interface_fingerprint" first_run_apply_desktop_interface || failed=1
   run_first_run_action_once_for_input \
     desktop-defaults "$desktop_defaults_fingerprint" apply_desktop_defaults || failed=1
-  run_first_run_action_once dms-theme apply_dms_theme || failed=1
+  if run_first_run_action_once dms-registry-theme install_dms_registry_theme; then
+    run_first_run_action_once dms-theme apply_dms_theme || failed=1
+  else
+    failed=1
+  fi
   run_first_run_action_once dms-gtk-theme apply_dms_gtk_baseline || failed=1
   run_first_run_action_once dms-greeter-profile apply_dms_greeter_profile_sync || failed=1
   run_first_run_action_once agent-invitation first_run_invite_agent_choice || failed=1

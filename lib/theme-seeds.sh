@@ -29,7 +29,7 @@ install_bundled_wallpapers() {
 # DMS keeps its settings in an app-writable settings.json and its
 # wallpaper in an app-writable session.json; keys absent from either fall
 # back to the shell defaults. Seeding partial files before the first login
-# selects the vendored Catppuccin registry theme and the managed default
+# selects the Catppuccin registry theme downloaded at first login and the managed default
 # wallpaper without claiming ownership of files the Settings UI rewrites.
 # The dms-colors.json placeholder keeps the greeter cache symlink from
 # dangling until the shell generates the real palette.

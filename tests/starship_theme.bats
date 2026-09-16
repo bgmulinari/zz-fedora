@@ -7,11 +7,6 @@ setup() {
   setup_test_env
 }
 
-@test "Starship prompt uses the static ZZ palette with contrast coverage" {
-  python3 "$ROOT_DIR/tests/support/starship_contrast.py" \
-    "$ROOT_DIR/templates/starship.toml"
-}
-
 @test "Starship palette sync replaces only the marker-delimited block" {
   local home="$TEST_ROOT/starship-sync-home"
   mkdir -p "$home/.config" "$home/.cache/DankMaterialShell"
@@ -93,11 +88,11 @@ EOF
   assert_equal "600" "$(stat -c '%a' "$managed")"
 }
 
-@test "Starship matugen template covers exactly the static palette names" {
+@test "Starship matugen template covers the base palette names" {
   local static_names template_names
   static_names="$(awk '/# >>> ZZ STARSHIP PALETTE >>>/,/# <<< ZZ STARSHIP PALETTE <<</' \
-    "$ROOT_DIR/templates/starship.toml" | grep -oE '^[a-z0-9]+ =' | sort)"
-  template_names="$(grep -oE '^[a-z0-9]+ =' \
+    "$ROOT_DIR/templates/starship.toml" | grep -oE '^[a-z0-9_]+ =' | grep -v '^on_' | sort)"
+  template_names="$(grep -oE '^[a-z0-9_]+ =' \
     "$ROOT_DIR/dotfiles/dms/.config/matugen/templates/starship-palette.toml" | sort)"
   [ -n "$static_names" ]
   assert_equal "$static_names" "$template_names"
@@ -113,33 +108,49 @@ EOF
   [[ -x "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-starship-palette" ]]
 }
 
-@test "Starship prompt hides optional section separators when sections are empty" {
+@test "Starship prompt renders the Powerline layout in plain and Git directories" {
   command -v starship >/dev/null 2>&1 || skip "starship is not installed"
 
-  local empty_dir="$TEST_ROOT/starship-empty"
-  local git_dir="$TEST_ROOT/starship-git"
-  local git_language_dir="$TEST_ROOT/starship-git-language"
-  mkdir -p "$empty_dir" "$git_dir" "$git_language_dir"
-  git -C "$git_dir" init -q
-  git -C "$git_language_dir" init -q
-  touch "$git_language_dir/Cargo.toml"
+  local plain_dir="$TEST_ROOT/plain"
+  local git_dir="$TEST_ROOT/repository"
+  mkdir -p "$plain_dir" "$git_dir"
+  git -C "$git_dir" init -q -b prompt-test
 
-  local yellow_bg=$'\033[48;2;249;226;175'
-  local yellow_to_green=$'\033[48;2;166;227;161;38;2;249;226;175'
-  local yellow_to_blue=$'\033[48;2;137;180;250;38;2;249;226;175'
-  local blue_to_green=$'\033[48;2;166;227;161;38;2;137;180;250'
-  local prompt
+  local directory prompt
+  for directory in "$plain_dir" "$git_dir"; do
+    run env TERM=xterm-256color STARSHIP_CONFIG="$ROOT_DIR/templates/starship.toml" \
+      STARSHIP_SHELL=bash starship prompt --path "$directory"
+    [ "$status" -eq 0 ]
+    prompt="$output"
+    assert_contains "$prompt" ""
+    assert_contains "$prompt" ""
+    assert_contains "$prompt" ""
+    assert_contains "$prompt" ""
+    assert_contains "$prompt" ""
+    refute_contains "$prompt" "WARN"
+    refute_contains "$prompt" "ERROR"
+  done
+  assert_contains "$prompt" "prompt-test"
+}
 
-  prompt="$(cd "$empty_dir" && TERM=xterm-256color STARSHIP_CONFIG="$ROOT_DIR/templates/starship.toml" STARSHIP_SHELL=bash starship prompt)"
-  refute_contains "$prompt" "$yellow_bg"
-  assert_contains "$prompt" "$blue_to_green"
+@test "Starship foregrounds choose maximum contrast from one shared theme pair" {
+  local SYSTEM_PYTHON=/usr/bin/python3
+  "$SYSTEM_PYTHON" "$ROOT_DIR/tests/support/starship_foregrounds.py" "$ROOT_DIR"
+}
 
-  prompt="$(cd "$git_dir" && TERM=xterm-256color STARSHIP_CONFIG="$ROOT_DIR/templates/starship.toml" STARSHIP_SHELL=bash starship prompt)"
-  assert_contains "$prompt" "$yellow_bg"
-  assert_contains "$prompt" "$yellow_to_green"
-  refute_contains "$prompt" "$yellow_to_blue"
-
-  prompt="$(cd "$git_language_dir" && TERM=xterm-256color STARSHIP_CONFIG="$ROOT_DIR/templates/starship.toml" STARSHIP_SHELL=bash starship prompt)"
-  assert_contains "$prompt" "$yellow_to_blue"
-  assert_contains "$prompt" "$blue_to_green"
+@test "Starship sync corrects dark time text from the generated DMS palette" {
+  mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME/DankMaterialShell"
+  cp "$ROOT_DIR/templates/starship.toml" "$XDG_CONFIG_HOME/starship.toml"
+  cat >"$XDG_CACHE_HOME/DankMaterialShell/starship-palette.toml" <<'EOF'
+# >>> ZZ STARSHIP PALETTE >>>
+[palettes.zz]
+mauve = "#003e71"
+base = "#191c20"
+text = "#e0e2e8"
+# <<< ZZ STARSHIP PALETTE <<<
+EOF
+  run "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-starship-palette"
+  [ "$status" -eq 0 ]
+  assert_file_contains "$XDG_CONFIG_HOME/starship.toml" 'mauve = "#003e71"'
+  assert_file_contains "$XDG_CONFIG_HOME/starship.toml" 'on_mauve = "#e0e2e8"'
 }

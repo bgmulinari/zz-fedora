@@ -1,55 +1,79 @@
-#!/usr/bin/env bash
-set -Eeuo pipefail
+#!/usr/bin/python3
+"""Sync DMS colors into the marked palette of the user-owned Starship config."""
 
-# Replace the marker-delimited ZZ palette block in the user-owned Starship
-# configuration with the palette DMS just rendered. Runs as the post-hook
-# of the ZZ matugen drop-in; everything outside the markers is preserved,
-# and a configuration without the markers is left untouched (removing them
-# is how a user opts out of the sync).
+import os
+from pathlib import Path
+import re
+import stat
+import tempfile
+import tomllib
 
-palette_file="${XDG_CACHE_HOME:-$HOME/.cache}/DankMaterialShell/starship-palette.toml"
-config_file="${XDG_CONFIG_HOME:-$HOME/.config}/starship.toml"
-config_target="$config_file"
 
-start_marker='# >>> ZZ STARSHIP PALETTE >>>'
-end_marker='# <<< ZZ STARSHIP PALETTE <<<'
+START = "# >>> ZZ STARSHIP PALETTE >>>"
+END = "# <<< ZZ STARSHIP PALETTE <<<"
 
-[[ -s "$palette_file" && -f "$config_file" ]] || exit 0
-grep -Fxq "$start_marker" "$palette_file" || exit 0
-grep -Fxq "$end_marker" "$palette_file" || exit 0
-grep -Fxq "$start_marker" "$config_file" || exit 0
-grep -Fxq "$end_marker" "$config_file" || exit 0
 
-if [[ -L "$config_file" ]]; then
-  config_target="$(readlink -f -- "$config_file")"
-  [[ -f "$config_target" ]] || exit 1
-fi
+def luminance(color):
+    channels = [int(color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    linear = [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in channels]
+    return sum(v * weight for v, weight in zip(linear, (0.2126, 0.7152, 0.0722)))
 
-temp_file="$(mktemp "${config_target}.XXXXXX")"
-trap 'rm -f "$temp_file"' EXIT
-awk -v start="$start_marker" -v end="$end_marker" -v palette="$palette_file" '
-  $0 == start {
-    while ((getline line < palette) > 0) {
-      print line
-    }
-    close(palette)
-    skipping = 1
-    next
-  }
-  $0 == end {
-    skipping = 0
-    next
-  }
-  !skipping { print }
-' "$config_target" >"$temp_file"
 
-# Refuse to install a truncated result (for example a palette render that
-# lost its content): the block must still be present and non-empty.
-if ! grep -Fxq "$start_marker" "$temp_file" ||
-  ! grep -Eq '^\[palettes\.zz\]' "$temp_file"; then
-  exit 1
-fi
+def contrast(first, second):
+    a, b = sorted((luminance(first), luminance(second)))
+    return (b + 0.05) / (a + 0.05)
 
-chmod --reference="$config_target" "$temp_file"
-mv "$temp_file" "$config_target"
-trap - EXIT
+
+def readable_foregrounds(colors):
+    # Share the theme's background text/background pair across all segments.
+    # Pick the more legible shade without off-palette colors or overrides.
+    candidates = [colors[name] for name in ("text", "base") if name in colors]
+    if len(candidates) != 2:
+        return
+    for background in ("surface0", "peach", "green", "teal", "blue", "mauve"):
+        if background not in colors:
+            continue
+        name = "on_" + background
+        colors[name] = max(candidates, key=lambda color: contrast(color, colors[background]))
+
+
+def main():
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    cache_home = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    config_file = config_home / "starship.toml"
+    generated_file = cache_home / "DankMaterialShell/starship-palette.toml"
+    if not config_file.is_file():
+        return
+    original = config_file.read_text()
+    block = re.compile(r"^" + re.escape(START) + r"\n.*?^" + re.escape(END) + r"$", re.M | re.S)
+    if not block.search(original):
+        return  # Removing the markers opts out of palette synchronization.
+
+    colors = {}
+    if generated_file.is_file():
+        match = block.search(generated_file.read_text())
+        if match:
+            colors = tomllib.loads(match.group()).get("palettes", {}).get("zz", {})
+    if not colors:
+        return
+    readable_foregrounds(colors)
+    palette = START + "\n[palettes.zz]\n" + "".join(
+        f'{name} = "{value}"\n' for name, value in colors.items()
+    ) + END
+    updated = block.sub(lambda _: palette, original)
+    if updated == original:
+        return
+
+    target = config_file.resolve()  # Preserve user-managed configuration symlinks.
+    fd, temporary = tempfile.mkstemp(prefix=target.name + ".", dir=target.parent)
+    try:
+        with os.fdopen(fd, "w") as output:
+            output.write(updated)
+            os.fchmod(output.fileno(), stat.S_IMODE(target.stat().st_mode))
+        os.replace(temporary, target)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+if __name__ == "__main__":
+    main()

@@ -118,7 +118,7 @@ step_table_failure_policy() {
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/niri/dms/colors.kdl\tseed-if-missing\tpreserve\ttemplates/niri/dms-colors.kdl'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/DankMaterialShell/settings.json\tseed-if-missing\tpreserve\t-\tdms'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/state/DankMaterialShell/session.json\tseed-if-missing\tpreserve\t-\tdms'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/DankMaterialShell/themes/catppuccin/theme.json\tproduct-link\tbackup-before-link\t'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/DankMaterialShell/themes/catppuccin/theme.json\tfirst-run\tregenerate\t'
 }
 
 @test "managed config conflicts and base rationale are generated in plan" {
@@ -137,7 +137,7 @@ step_table_failure_policy() {
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.bashrc\tseed-if-missing\tpreserve\tshell'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/ghostty/themes/dankcolors\tseed-if-missing\tpreserve\tghostty'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/DankMaterialShell/settings.json\tseed-if-missing\tpreserve\tdms'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/DankMaterialShell/themes/catppuccin/theme.json\tproduct-link\tbackup-before-link\tdms'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/DankMaterialShell/themes/catppuccin/theme.json\tfirst-run\tregenerate\tdms'
 }
 
 @test "readiness treats handled backup-before-link conflicts as informational" {

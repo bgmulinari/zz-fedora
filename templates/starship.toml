@@ -1,16 +1,17 @@
 "$schema" = "https://starship.rs/config-schema.json"
+# DMS updates only the marked palette below; the prompt layout is user-owned.
 palette = "zz"
 
 format = """
-[](text)\
+[](surface0)\
 $os\
 $username\
-[](bg:blue fg:text)\
+[](fg:surface0 bg:peach)\
 $directory\
-${custom.git_start}\
+[](fg:peach bg:green)\
 $git_branch\
 $git_status\
-${custom.language_start}\
+[](fg:green bg:teal)\
 $c\
 $rust\
 $golang\
@@ -21,15 +22,16 @@ $kotlin\
 $haskell\
 $python\
 $dotnet\
-${custom.time_start_after_git}\
-${custom.time_start_after_blue}\
+[](fg:teal bg:blue)\
+$docker_context\
+[](fg:blue bg:mauve)\
 $time\
-[ ](fg:green)\
+[ ](fg:mauve)\
 $line_break$character"""
 
 [os]
 disabled = false
-style = "bg:text fg:surface0"
+style = "bg:surface0 fg:on_surface0"
 
 [os.symbols]
 Windows = "󰍲"
@@ -54,15 +56,15 @@ RedHatEnterprise = "󱄛"
 
 [username]
 show_always = true
-style_user = "bg:text fg:surface0"
-style_root = "bg:text fg:surface0"
+style_user = "bg:surface0 fg:on_surface0"
+style_root = "bg:surface0 fg:on_surface0"
 format = '[ $user ]($style)'
 
 [directory]
-style = "fg:surface0 bg:blue"
+style = "fg:on_peach bg:peach"
 format = "[ $path ]($style)"
 truncation_length = 3
-truncation_symbol = ".../"
+truncation_symbol = "…/"
 
 [directory.substitutions]
 "Documents" = "󰈙 "
@@ -71,157 +73,87 @@ truncation_symbol = ".../"
 "Pictures" = " "
 "Developer" = "󰲋 "
 
-[custom.git_start]
-command = "true"
-when = "git rev-parse --is-inside-work-tree >/dev/null 2>&1"
-shell = ["bash", "--noprofile", "--norc"]
-format = "[](fg:blue bg:yellow)"
-
-[custom.language_start]
-command = "true"
-when = '''
-has_language_context() {
-  local path extension
-  for path in Cargo.toml go.mod go.sum go.work glide.yaml Gopkg.yml Gopkg.lock .go-version package.json .node-version .nvmrc composer.json .php-version pom.xml build.gradle.kts build.sbt .java-version deps.edn project.clj build.boot .sdkmanrc stack.yaml cabal.project requirements.txt .python-version pyproject.toml Pipfile tox.ini setup.py __init__.py global.json project.json Directory.Build.props Directory.Build.targets Packages.props; do
-    [[ -e "$path" ]] && return 0
-  done
-  for path in node_modules Godeps; do
-    [[ -d "$path" ]] && return 0
-  done
-  for extension in c h rs go js mjs cjs ts mts cts php java class jar gradle clj cljc kt kts hs cabal hs-boot py ipynb csproj fsproj xproj; do
-    compgen -G "*.${extension}" >/dev/null && return 0
-  done
-  [[ -n "${VIRTUAL_ENV:-}" ]] && return 0
-  return 1
-}
-
-git rev-parse --is-inside-work-tree >/dev/null 2>&1 && has_language_context
-'''
-shell = ["bash", "--noprofile", "--norc"]
-format = "[](fg:yellow bg:blue)"
-
-[custom.time_start_after_git]
-command = "true"
-when = '''
-has_language_context() {
-  local path extension
-  for path in Cargo.toml go.mod go.sum go.work glide.yaml Gopkg.yml Gopkg.lock .go-version package.json .node-version .nvmrc composer.json .php-version pom.xml build.gradle.kts build.sbt .java-version deps.edn project.clj build.boot .sdkmanrc stack.yaml cabal.project requirements.txt .python-version pyproject.toml Pipfile tox.ini setup.py __init__.py global.json project.json Directory.Build.props Directory.Build.targets Packages.props; do
-    [[ -e "$path" ]] && return 0
-  done
-  for path in node_modules Godeps; do
-    [[ -d "$path" ]] && return 0
-  done
-  for extension in c h rs go js mjs cjs ts mts cts php java class jar gradle clj cljc kt kts hs cabal hs-boot py ipynb csproj fsproj xproj; do
-    compgen -G "*.${extension}" >/dev/null && return 0
-  done
-  [[ -n "${VIRTUAL_ENV:-}" ]] && return 0
-  return 1
-}
-
-git rev-parse --is-inside-work-tree >/dev/null 2>&1 && ! has_language_context
-'''
-shell = ["bash", "--noprofile", "--norc"]
-format = "[](fg:yellow bg:green)"
-
-[custom.time_start_after_blue]
-command = "true"
-when = '''
-has_language_context() {
-  local path extension
-  for path in Cargo.toml go.mod go.sum go.work glide.yaml Gopkg.yml Gopkg.lock .go-version package.json .node-version .nvmrc composer.json .php-version pom.xml build.gradle.kts build.sbt .java-version deps.edn project.clj build.boot .sdkmanrc stack.yaml cabal.project requirements.txt .python-version pyproject.toml Pipfile tox.ini setup.py __init__.py global.json project.json Directory.Build.props Directory.Build.targets Packages.props; do
-    [[ -e "$path" ]] && return 0
-  done
-  for path in node_modules Godeps; do
-    [[ -d "$path" ]] && return 0
-  done
-  for extension in c h rs go js mjs cjs ts mts cts php java class jar gradle clj cljc kt kts hs cabal hs-boot py ipynb csproj fsproj xproj; do
-    compgen -G "*.${extension}" >/dev/null && return 0
-  done
-  [[ -n "${VIRTUAL_ENV:-}" ]] && return 0
-  return 1
-}
-
-! git rev-parse --is-inside-work-tree >/dev/null 2>&1 || has_language_context
-'''
-shell = ["bash", "--noprofile", "--norc"]
-format = "[](fg:blue bg:green)"
-
 [git_branch]
 symbol = ""
-style = "bg:yellow"
-format = '[[ $symbol $branch ](fg:surface0 bg:yellow)]($style)'
+style = "fg:on_green bg:green"
+format = '[ $symbol $branch ]($style)'
 
 [git_status]
-style = "bg:yellow"
-format = '[[($all_status$ahead_behind )](fg:surface0 bg:yellow)]($style)'
+style = "fg:on_green bg:green"
+format = '[($all_status$ahead_behind )]($style)'
 
 [nodejs]
 symbol = ""
-style = "bg:blue"
-format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
+style = "fg:on_teal bg:teal"
+format = '[ $symbol( $version) ]($style)'
 
 [c]
 symbol = " "
-style = "bg:blue"
-format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
+style = "fg:on_teal bg:teal"
+format = '[ $symbol( $version) ]($style)'
 
 [rust]
 symbol = ""
-style = "bg:blue"
-format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
+style = "fg:on_teal bg:teal"
+format = '[ $symbol( $version) ]($style)'
 
 [golang]
 symbol = ""
-style = "bg:blue"
-format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
+style = "fg:on_teal bg:teal"
+format = '[ $symbol( $version) ]($style)'
 
 [php]
 symbol = ""
-style = "bg:blue"
-format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
+style = "fg:on_teal bg:teal"
+format = '[ $symbol( $version) ]($style)'
 
 [java]
 symbol = " "
-style = "bg:blue"
-format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
+style = "fg:on_teal bg:teal"
+format = '[ $symbol( $version) ]($style)'
 
 [kotlin]
 symbol = ""
-style = "bg:blue"
-format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
+style = "fg:on_teal bg:teal"
+format = '[ $symbol( $version) ]($style)'
 
 [haskell]
 symbol = ""
-style = "bg:blue"
-format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
+style = "fg:on_teal bg:teal"
+format = '[ $symbol( $version) ]($style)'
 
 [python]
 symbol = ""
-style = "bg:blue"
-format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
+style = "fg:on_teal bg:teal"
+format = '[ $symbol( $version) ]($style)'
 
 [dotnet]
 symbol = "󰪮"
-style = "bg:blue"
-format = '[[ $symbol( $version) ](fg:surface0 bg:blue)]($style)'
+style = "fg:on_teal bg:teal"
+format = '[ $symbol( $version) ]($style)'
+
+[docker_context]
+symbol = ""
+style = "fg:on_blue bg:blue"
+format = '[ $symbol( $context) ]($style)'
 
 [time]
 disabled = false
 time_format = "%R"
-style = "bg:green"
-format = '[[  $time](fg:surface0 bg:green)]($style)'
+style = "fg:on_mauve bg:mauve"
+format = '[  $time]($style)'
 
 [line_break]
 disabled = false
 
 [character]
 disabled = false
-success_symbol = '[](bold fg:blue)'
+success_symbol = '[](bold fg:green)'
 error_symbol = '[](bold fg:red)'
-vimcmd_symbol = '[](bold fg:blue)'
-vimcmd_replace_one_symbol = '[](bold fg:green)'
-vimcmd_replace_symbol = '[](bold fg:green)'
-vimcmd_visual_symbol = '[](bold fg:yellow)'
+vimcmd_symbol = '[](bold fg:green)'
+vimcmd_replace_one_symbol = '[](bold fg:mauve)'
+vimcmd_replace_symbol = '[](bold fg:mauve)'
+vimcmd_visual_symbol = '[](bold fg:lavender)'
 
 # >>> ZZ STARSHIP PALETTE >>>
 [palettes.zz]
@@ -255,4 +187,11 @@ surface0 = "#313244"
 base = "#1e1e2e"
 mantle = "#181825"
 crust = "#11111b"
+# Text colors are checked against their segment background during sync.
+on_surface0 = "#cdd6f4"
+on_peach = "#1e1e2e"
+on_green = "#1e1e2e"
+on_teal = "#1e1e2e"
+on_blue = "#1e1e2e"
+on_mauve = "#1e1e2e"
 # <<< ZZ STARSHIP PALETTE <<<

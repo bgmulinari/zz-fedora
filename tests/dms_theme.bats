@@ -8,21 +8,7 @@ setup() {
   source_core
 }
 
-@test "vendored Catppuccin registry theme is structurally valid with accessible contrast" {
-  "$SYSTEM_PYTHON" "$ROOT_DIR/tests/support/dms_theme.py" \
-    "$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/themes/catppuccin/theme.json"
-}
-
-@test "vendored theme carries the shipped mocha and latte blue variants" {
-  local theme="$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/themes/catppuccin/theme.json"
-
-  assert_equal "#89b4fa" "$(jq -r '.variants.accents[] | select(.id == "blue") | .mocha.primary' "$theme")"
-  assert_equal "#1e1e2e" "$(jq -r '.variants.flavors[] | select(.id == "mocha") | .dark.background' "$theme")"
-  run jq -e '.variants.flavors[] | select(.id == "latte") | (.light // .dark) | has("background")' "$theme"
-  [ "$status" -eq 0 ]
-}
-
-@test "DMS component plans the vendored theme link" {
+@test "DMS component plans registry theme installation at first login" {
   build_test_plan
 
   assert_plan_has \
@@ -109,7 +95,7 @@ setup() {
   [ "$status" -ne 0 ]
 }
 
-@test "DMS settings seed selects the vendored theme with blue accents in both modes" {
+@test "DMS settings seed selects the registry theme with blue accents in both modes" {
   local seed
   seed="$(dms_settings_seed_json)"
 
@@ -121,4 +107,33 @@ setup() {
   assert_equal "blue" "$(jq -r '.registryThemeVariants.catppuccin.dark.accent' <<<"$seed")"
   assert_equal "latte" "$(jq -r '.registryThemeVariants.catppuccin.light.flavor' <<<"$seed")"
   assert_equal "blue" "$(jq -r '.registryThemeVariants.catppuccin.light.accent' <<<"$seed")"
+}
+
+@test "registry theme download uses the Browse Themes backend and retries safely" {
+  "$SYSTEM_PYTHON" "$ROOT_DIR/tests/support/dms_registry_theme.py" "$ROOT_DIR"
+}
+
+@test "registry theme checkpoint retries failures and restarts DMS only after installation" {
+  build_test_plan
+  DRY_RUN=0
+  local count_file="$TEST_ROOT/registry-count"
+  run_cmd_as_user() {
+    shift
+    if [[ "$1" == "$SYSTEM_PYTHON" ]]; then
+      printf 'request\n' >>"$count_file"
+      [[ -f "$TEST_ROOT/network-ready" ]] || return 1
+      printf 'installed\n'
+    else
+      printf '%s\n' "$*" >>"$TEST_ROOT/restarts"
+    fi
+  }
+  run run_first_run_action_once dms-registry-theme install_dms_registry_theme
+  [ "$status" -ne 0 ]
+  [[ ! -f "$(first_run_action_marker dms-registry-theme)" ]]
+  touch "$TEST_ROOT/network-ready"
+  run_first_run_action_once dms-registry-theme install_dms_registry_theme
+  [[ -f "$(first_run_action_marker dms-registry-theme)" ]]
+  run_first_run_action_once dms-registry-theme install_dms_registry_theme
+  assert_equal "2" "$(wc -l <"$count_file")"
+  assert_equal "systemctl --user restart dms.service" "$(cat "$TEST_ROOT/restarts")"
 }

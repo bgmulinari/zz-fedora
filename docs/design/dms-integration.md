@@ -198,14 +198,11 @@ first matching output section.
 The default look is the official Catppuccin registry theme, mocha flavor
 with the blue accent (latte + blue in light mode).
 
-- `dotfiles/dms/.config/DankMaterialShell/themes/catppuccin/theme.json` is
-  vendored from the official plugin/theme registry
-  (https://github.com/AvengeMedia/dms-plugin-registry, `themes/catppuccin/theme.json`,
-  commit `b65b029182b781c7d61ecfe1561eaae3fd059554`, 2026-08-21). To update
-  it, fetch the same path from the registry HEAD, re-run
-  `tests/dms_theme.bats`, and record the new commit here. Installing a
-  registry theme is just placing its `theme.json` under
-  `~/.config/DankMaterialShell/themes/<id>/`; the file is product-linked.
+- Catppuccin is downloaded at first login through DMS's `themes.install`
+  backend request, the same operation used by Settings → Browse Themes.
+  ZZ does not bundle or product-link theme files. DMS owns the downloaded
+  `~/.config/DankMaterialShell/themes/catppuccin/` directory, including previews.
+  Registry updates and removal remain available in DMS Settings.
 - `~/.config/DankMaterialShell/settings.json` is seeded once
   (seed-if-missing) with the theme selection keys
   (`currentThemeCategory: "registry"`, `currentThemeName: "custom"`,
@@ -280,8 +277,18 @@ with the blue accent (latte + blue in light mode).
   and the post-hook `zz-sync-starship-palette` splices it into the
   marker-delimited `[palettes.zz]` block of the user-owned
   `starship.toml` (everything outside the markers is preserved; removing
-  the markers opts out). The static palette in `templates/starship.toml`
-  is the pre-first-render fallback.
+  the markers opts out). The prompt uses a fixed Powerline layout with native
+  Starship modules and direct DMS color mappings, without custom separator
+  commands. Every theme uses DMS's generated colors directly. The helper
+  derives `on_surface0`, `on_peach`, `on_green`, `on_teal`, `on_blue`, and
+  `on_mauve` for segment text. All sections share exactly two theme shades,
+  `text` (DMS `on_background`) and `base` (DMS `background`), choosing
+  whichever has the higher contrast against each background. There are no per-section overrides or white/black fallbacks;
+  achievable contrast depends on the theme's pair of shades.
+  The language, Docker, and clock backgrounds use terminal slots 14, 4, and
+  11 respectively. Backgrounds and separators keep the generated colors. Existing user-owned
+  layouts adopt these foreground tokens through `zz refresh starship.toml`.
+  The static palette in `templates/starship.toml` is only a pre-render fallback.
 - btop has no upstream DMS template and its `TTY` builtin leans on the
   terminal ANSI palette, whose generated slots are not a classic ramp; a
   ZZ matugen drop-in (`zz-btop.toml`) renders the managed
@@ -509,6 +516,12 @@ follows the theme through the cache symlinks.
 
 `modules/85-first-run.sh` keeps the independent-checkpoint model:
 
+- `dms-registry-theme` installs Catppuccin through the running DMS backend
+  when the seeded default is still selected and its file is missing. It
+  verifies the downloaded theme and restarts DMS once to load it. A failed
+  request leaves the checkpoint pending; already installed themes and user
+  theme selections are left alone. The theme-generation checkpoint runs
+  only after registry installation succeeds.
 - `dms-theme` waits for the shell socket (`dms ipc call wallpaper get`) and
   then for the generated theme artifacts this install consumes (Ghostty
   `dankcolors`, `DankMatugen.colors`). There is no explicit "apply" IPC —
@@ -528,9 +541,8 @@ follows the theme through the cache symlinks.
 
 ## Verification surface
 
-- `tests/dms_theme.bats` + `tests/support/dms_theme.py` validate the
-  vendored theme.json (structure and WCAG contrast on the flavor/accent
-  pairs).
+- `tests/dms_theme.bats` and `tests/support/dms_registry_theme.py` cover
+  registry requests, downloaded-file verification, retries, and idempotency.
 - `tests/dms_plugins.bats` + `tests/support/dms_plugin.py` validate the
   shipped plugin manifests against the upstream schema, the catalog wiring,
   the enablement seed, and the collectors against fixture transcripts.

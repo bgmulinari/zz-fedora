@@ -1,7 +1,7 @@
 # ZZ-managed matugen drop-in. DMS has no starship template, and starship
 # cannot include external files, so the palette renders to a cache file
 # and the post-hook splices it into the marker-delimited block of the
-# user-owned starship.toml.
+# user-owned starship.toml, then selects readable segment foregrounds.
 [templates.zzstarship]
 input_path = '~/.zz/dotfiles/dms/.config/matugen/templates/starship-palette.toml'
 output_path = '~/.cache/DankMaterialShell/starship-palette.toml'

@@ -111,7 +111,7 @@ dnf	yaru-icon-theme	theme-font	icon theme	Provides the selected desktop icon the
 dnf	breeze-icon-theme	theme-font	Qt icon theme	Provides the Breeze icon theme that qt6ct and kdeglobals select for Qt and KDE applications.
 dnf	qt6ct-kde	theme-font	KDE Qt6 theming	Provides patched qt6ct integration for KDE Qt6 applications such as Dolphin.
 dnf	zsh	installer-bootstrap	base shell	Provides the default login shell and managed shell config target.
-dnf	starship	theme-font	shell prompt	Provides the prompt themed by the static managed palette.
+dnf	starship	theme-font	shell prompt	Provides the prompt themed by the DMS-synchronized palette.
 dnf	zoxide	installer-bootstrap	shell navigation	Provides directory jumping in the base shell.
 dnf	fastfetch	installer-bootstrap	shell diagnostics	Provides quick system summary command.
 dnf	gh	installer-bootstrap	GitHub workflow	Provides GitHub CLI for development and diagnostics.
