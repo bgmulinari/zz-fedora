@@ -13,7 +13,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-PLUGIN = Path(__file__).resolve().parents[2] / 'dotfiles/dms/.config/DankMaterialShell/plugins/CompatibilityManager'
+PLUGIN = Path(__file__).resolve().parents[2] / 'dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager'
 sys.path.insert(0, str(PLUGIN / 'scripts'))
 spec = importlib.util.spec_from_file_location('manager', PLUGIN / 'scripts/manager.py')
 m = importlib.util.module_from_spec(spec)

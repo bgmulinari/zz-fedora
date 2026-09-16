@@ -46,7 +46,7 @@ Usage:
 
 Targets:
   all           Run dnf, flatpak, brew, npm, dotnet, and claude.
-  zz            Update ~/.zz and apply the current plan from saved selections.
+  zz            Update ~/.zz, apply the saved selections, and add new catalog defaults.
   dnf           Stage Fedora package updates for an offline upgrade.
   flatpak       Update Flatpak apps and runtimes.
   brew          Update Homebrew formulae.

@@ -9,21 +9,21 @@ setup() {
 }
 
 @test "Proton manager safely discovers, selects, launches and installs builds" {
-  run "$SYSTEM_PYTHON" "$ROOT_DIR/tests/support/compatibility_manager_test.py"
+  run "$SYSTEM_PYTHON" "$ROOT_DIR/tests/support/proton_manager_test.py"
   [ "$status" -eq 0 ] || { printf '%s\n' "$output"; return 1; }
 }
 
 @test "gaming manager plans dependencies, product link and default visibility" {
-  build_test_plan "gaming=compatibility-manager"
-  assert_plan_has "$PLAN_DIR/bundles.list" "gaming-compatibility-manager"
-  assert_plan_has "$PLAN_DIR/config/components.list" "dms-plugin-compatibility-manager"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/DankMaterialShell/plugins/CompatibilityManager"
+  build_test_plan "gaming=proton-manager"
+  assert_plan_has "$PLAN_DIR/bundles.list" "gaming-proton-manager"
+  assert_plan_has "$PLAN_DIR/config/components.list" "dms-plugin-proton-manager"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/DankMaterialShell/plugins/ProtonManager"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/share/applications/proton-manager.desktop"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "python3"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "dms"
   run default_choice_ids gaming
   [ "$status" -eq 0 ]
-  assert_contains "$output" "compatibility-manager"
+  assert_contains "$output" "proton-manager"
   run dms_plugin_settings_seed_json
   [ "$status" -eq 0 ]
   assert_equal true "$(jq -r '.protonManager.enabled' <<<"$output")"
@@ -43,7 +43,7 @@ setup() {
 }
 
 @test "Proton manager manifest and Python dependency agree with its surface" {
-  local dir="$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/CompatibilityManager"
+  local dir="$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager"
   "$SYSTEM_PYTHON" "$ROOT_DIR/tests/support/dms_plugin.py" "$dir"
   assert_equal python3 "$(jq -r '.dependencies[]' "$dir/plugin.json")"
   assert_file_contains "$dir/Manager.qml" '"/usr/bin/python3"'
@@ -53,7 +53,7 @@ setup() {
   assert_file_contains "$dir/Manager.qml" 'DankFloatingWindow {'
   assert_file_contains "$dir/Manager.qml" 'FloatingWindowControls {'
   assert_file_contains "$dir/Manager.qml" 'toplevel.activate()'
-  local entry="$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/CompatibilityManager/proton-manager.desktop"
+  local entry="$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager/proton-manager.desktop"
   assert_file_contains "$entry" 'Type=Application'
   assert_file_contains "$entry" 'Exec=dms ipc call plugins toggle protonManager'
   assert_file_contains "$entry" 'Categories=Game;'

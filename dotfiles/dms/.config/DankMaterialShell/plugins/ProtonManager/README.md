@@ -137,7 +137,7 @@ The `scripts/manager.py` helper accepts `scan`, `releases`, `select`,
 Mutations hold a per-installation nonblocking lock. `scripts/router.py` is copied
 into the stable Steam entrypoint on registration, so launching games does not
 need the shell running. Tests use disposable homes and fake Proton launchers:
-`bats tests/compatibility_manager.bats`.
+`bats tests/proton_manager.bats`.
 
 The stable-entry technique was informed by `proton-selector`; discovery and release handling were informed by `ProtonUp-Qt`.
 The implementation here is independent and uses the Python standard library.

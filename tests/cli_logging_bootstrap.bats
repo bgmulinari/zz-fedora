@@ -23,11 +23,11 @@ setup() {
     printf '%s\n' "$output" >&2
   fi
   [ "$status" -eq 0 ]
-  assert_contains "$output" "==> [1/9] Preflight"
-  assert_contains "$output" "==> [4/9] Base Setup"
-  assert_contains "$output" "==> [5/9] Optional Packages"
-  assert_contains "$output" "==> [6/9] Custom Actions"
-  assert_contains "$output" "==> [9/9] Doctor"
+  assert_contains "$output" "==> [1/10] Preflight"
+  assert_contains "$output" "==> [4/10] Base Setup"
+  assert_contains "$output" "==> [5/10] Optional Packages"
+  assert_contains "$output" "==> [6/10] Custom Actions"
+  assert_contains "$output" "==> [10/10] Doctor"
   assert_contains "$output" "sudo npm install -g @openai/codex"
   assert_contains "$output" "DRY-RUN: user login shell: brew list 'opencode' >/dev/null 2>&1 || brew install 'opencode'"
   assert_contains "$output" "DRY-RUN: install supported .NET SDK channels"
@@ -50,10 +50,49 @@ setup() {
   fi
   [ "$status" -eq 0 ]
   assert_contains "$output" "Update mode: 1"
-  assert_contains "$output" "==> [4/9] Base Setup"
+  assert_contains "$output" "==> [4/10] Base Setup"
   assert_contains "$output" "skipped: Optional Packages"
   assert_contains "$output" "skipped: Custom Actions"
-  assert_contains "$output" "==> [7/9] User Configuration"
+  # Nothing new since the selections were saved, so there is nothing to add.
+  assert_contains "$output" "skipped: New Defaults"
+  assert_contains "$output" "==> [8/10] User Configuration"
+}
+
+@test "installer update mode installs the defaults the catalog gained since the selections were saved" {
+  source_core
+  local offered_dev
+  offered_dev="$(all_choice_ids dev | grep -Fxv zed | paste -sd ,)"
+  mkdir -p "$XDG_CONFIG_HOME/zz-fedora"
+  cat >"$XDG_CONFIG_HOME/zz-fedora/selections.conf" <<EOF
+target_user=$TARGET_USER
+desktop_app_profile=full
+preferred_browser=firefox
+select.browsers=firefox
+select.dev=vscode
+offered.dev=$offered_dev
+EOF
+
+  run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
+    bash "$ROOT_DIR/install.sh" install --dry-run --no-tui --yes --use-saved --update
+
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "New default choice 'zed' in category 'dev' was added to the saved selections."
+  # The other saved choices stay as they were: update mode still installs
+  # no optional software from the saved selection itself.
+  assert_contains "$output" "skipped: Optional Packages"
+  assert_contains "$output" "==> [7/10] New Defaults"
+  assert_contains "$output" "Installing new defaults: Development / Zed"
+  assert_contains "$output" "Installing units: dev-zed"
+  run grep -E 'dnf install .* zed$' <<<"$output"
+  [ "$status" -eq 0 ]
+  run grep -E 'dnf install .* code$' <<<"$output"
+  [ "$status" -ne 0 ]
+  assert_file_contains "$XDG_CONFIG_HOME/zz-fedora/selections.conf" "select.dev=vscode,zed"
+  run grep -E '^offered\.dev=.*(^|,)zed(,|$)' "$XDG_CONFIG_HOME/zz-fedora/selections.conf"
+  [ "$status" -eq 0 ]
 }
 
 @test "installer update mode prunes obsolete saved choices and persists the current selection set" {
@@ -120,7 +159,7 @@ EOF
     printf '%s\n' "$output" >&2
   fi
   [ "$status" -eq 0 ]
-  assert_contains "$output" "==> [1/9] Preflight"
+  assert_contains "$output" "==> [1/10] Preflight"
   assert_contains "$output" "DRY-RUN:"
 }
 

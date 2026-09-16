@@ -152,7 +152,7 @@ niri msg windows          # open windows with app-id and title (for window rules
 |---------|---------|---------|
 | `zz doctor` | Desktop readiness and post-install checks | `zz doctor` |
 | `zz refresh` | Restore one user-owned file to the shipped default, backing it up first | `zz refresh niri/config.kdl` |
-| `zz update zz` | Fast-forward `~/.zz` and re-apply required config; skips optional software | `zz update zz` |
+| `zz update zz` | Fast-forward `~/.zz` and re-apply required config; installs only catalog defaults added since the selections were saved | `zz update zz` |
 | `zz update all` | Update dnf, flatpak, brew, npm, .NET, Claude Code | `zz update all --dry-run` |
 | `zz app list` | Every catalog choice with its selected and installed state | `zz app list` |
 | `zz app install <choice>` | Install one catalog choice and save it; only its units run; asks first (`--yes` skips) | `zz app install brave` |

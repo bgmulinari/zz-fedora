@@ -3,7 +3,9 @@
 ZZ keeps the product checkout at `~/.zz`. Git owns that tree, and
 `zz update zz` fast-forwards that checkout, rebuilds the current plan from
 saved selections, and applies its required and configuration work in update
-mode. Optional software installation is skipped. User configuration lives
+mode. Optional software installation is skipped, except for catalog defaults
+added since the selections were saved, which get a focused install of their
+own (see `docs/zz-cli.md`). User configuration lives
 outside the checkout and is never silently replaced; ZZ-managed links into
 `~/.zz` see updated defaults immediately, and newly declared links are created
 when the refreshed plan is applied.

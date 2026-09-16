@@ -214,9 +214,12 @@ build_plan_from_selections() {
   write_plan_summary
   write_managed_files_report
   # A choice change (add-choice, remove-choice) saves its selections itself,
-  # once the change has been applied.
+  # once the change has been applied, and so does an update that found new
+  # defaults to install (modules/40-new-defaults.sh).
   case "$COMMAND" in
-    install|wizard) save_selections ;;
+    install|wizard)
+      [[ "${#NEW_DEFAULT_CHOICES[@]}" -gt 0 ]] || save_selections
+      ;;
   esac
 }
 

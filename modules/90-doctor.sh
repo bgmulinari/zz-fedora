@@ -319,8 +319,8 @@ module_90_doctor() {
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
       doctor_warn_file "$(dms_plugin_settings_file)"
       doctor_warn_file "$user_config_home/DankMaterialShell/plugins/ZzMenu/plugin.json"
-      if doctor_plan_has_entry "$PLAN_DIR/config/components.list" "dms-plugin-compatibility-manager"; then
-        doctor_warn_file "$user_config_home/DankMaterialShell/plugins/CompatibilityManager/plugin.json"
+      if doctor_plan_has_entry "$PLAN_DIR/config/components.list" "dms-plugin-proton-manager"; then
+        doctor_warn_file "$user_config_home/DankMaterialShell/plugins/ProtonManager/plugin.json"
       fi
       if doctor_plan_has_entry "$PLAN_DIR/config/components.list" "dms-plugin-agent-usage"; then
         doctor_warn_file "$user_config_home/DankMaterialShell/plugins/AgentUsage/plugin.json"

@@ -89,7 +89,7 @@ stub_apply_steps() {
   run grep -E 'dnf install .* code$' <<<"$applied"
   [ "$status" -ne 0 ]
   assert_file_contains "$SAVED_SELECTIONS" "select.dev=vscode"
-  refute_file_contains "$SAVED_SELECTIONS" "zed"
+  refute_saved_choice dev zed
   # The full plan is what remains in the plan directory afterwards.
   assert_plan_has "$PLAN_DIR/bundles.list" "dev-vscode"
   assert_plan_has "$PLAN_DIR/bundles.list" "dev-zed"
@@ -125,7 +125,7 @@ stub_apply_steps() {
   run run_without_bats_debug_trap apply_choice_additions
   [ "$status" -ne 0 ]
   assert_file_contains "$SAVED_SELECTIONS" "select.dev=vscode"
-  refute_file_contains "$SAVED_SELECTIONS" "lazydocker"
+  refute_saved_choice dev lazydocker
 }
 
 @test "remove-choice uninstalls a tap-qualified Homebrew formula" {
@@ -142,7 +142,7 @@ stub_apply_steps() {
   assert_contains "$output" "USER-SHELL: brew list 'bjarneo/cliamp/cliamp' >/dev/null 2>&1 && brew uninstall 'bjarneo/cliamp/cliamp' || true"
   refute_contains "$output" "Left in place"
   assert_file_contains "$SAVED_SELECTIONS" "select.media=codecs"
-  refute_file_contains "$SAVED_SELECTIONS" "cliamp"
+  refute_saved_choice media cliamp
 }
 
 @test "remove-choice keeps a package that installed software outside the choice still needs" {
@@ -163,7 +163,7 @@ stub_apply_steps() {
   refute_contains "$output" "dnf remove"
   # The formula itself still leaves.
   assert_contains "$output" "brew uninstall 'bjarneo/cliamp/cliamp'"
-  refute_file_contains "$SAVED_SELECTIONS" "cliamp"
+  refute_saved_choice media cliamp
 }
 
 @test "dependency pruning keeps a chain that ends in installed software outside the set" {
@@ -268,8 +268,8 @@ EOF2
   assert_file_contains "$SAVED_SELECTIONS" "select.office=onlyoffice"
   assert_file_contains "$SAVED_SELECTIONS" "select.dotnet=ef"
   assert_file_contains "$SAVED_SELECTIONS" "select.ai="
-  refute_file_contains "$SAVED_SELECTIONS" "pinta"
-  refute_file_contains "$SAVED_SELECTIONS" "lazydocker"
+  refute_saved_choice office pinta
+  refute_saved_choice dev lazydocker
   refute_plan_has "$PLAN_DIR/bundles.list" "office-pinta"
   assert_plan_has "$PLAN_DIR/bundles.list" "dotnet-sdk"
 }
@@ -289,7 +289,7 @@ EOF2
   assert_contains "$output" "Keeping unit still selected elsewhere: dev-docker"
   refute_contains "$output" "Left in place, no automatic removal exists for: action docker-group"
   assert_file_contains "$SAVED_SELECTIONS" "select.dev=docker"
-  refute_file_contains "$SAVED_SELECTIONS" "docker-sudoless"
+  refute_saved_choice dev docker-sudoless
   assert_plan_has "$PLAN_DIR/actions/actions.list" "docker-post-install"
   refute_plan_has "$PLAN_DIR/actions/actions.list" "docker-group"
 }
@@ -350,6 +350,30 @@ EOF2
   run action_present "brew:bjarneo/cliamp/missing"
   [ "$status" -ne 0 ]
   run choice_installed media cliamp
+  [ "$status" -eq 0 ]
+}
+
+@test "installed state requires a unit's product links, not only its packages" {
+  choice_item_present() { return 0; }
+
+  # The Proton Manager unit's packages are base packages, so the plugin
+  # link and its desktop entry are what tell an installed choice apart.
+  run choice_installed gaming proton-manager
+  [ "$status" -ne 0 ]
+
+  mkdir -p "$TARGET_HOME/.config/DankMaterialShell/plugins" "$TARGET_HOME/.local/share/applications"
+  ln -s "$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager" \
+    "$TARGET_HOME/.config/DankMaterialShell/plugins/ProtonManager"
+  run choice_installed gaming proton-manager
+  [ "$status" -ne 0 ]
+
+  ln -s "$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager/proton-manager.desktop" \
+    "$TARGET_HOME/.local/share/applications/proton-manager.desktop"
+  run choice_installed gaming proton-manager
+  [ "$status" -eq 0 ]
+
+  # A unit without managed configuration is judged by its packages alone.
+  run choice_installed dev zed
   [ "$status" -eq 0 ]
 }
 

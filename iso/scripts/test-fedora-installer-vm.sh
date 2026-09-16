@@ -491,7 +491,7 @@ fi
 timeout "$timeout_seconds" qemu-system-x86_64 "${qemu_args[@]}" >"$qemu_log" 2>&1
 
 if [[ "$installer_ui" == "text" ]]; then
-  if ! grep -aFq 'ZZ Fedora (9/9): Completed Doctor' "$serial_log"; then
+  if ! grep -aFq 'ZZ Fedora (10/10): Completed Doctor' "$serial_log"; then
     err "headless install exited without the Doctor completion marker; inspect $serial_log"
     exit 1
   fi

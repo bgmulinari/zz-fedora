@@ -191,6 +191,26 @@ unit_installed() {
       choice_item_present "$backend" "$item" || return 1
     done < <(bundle_step_items "$unit" "$step_index")
   done < <(bundle_steps "$unit")
+  unit_config_installed "$unit"
+}
+
+# A unit's managed-config components are part of what it delivers: a
+# plugin unit whose packages the base already carries is installed only
+# once every product link of its components is in place.
+unit_config_installed() {
+  local unit="$1" component row row_component path mode _rest target
+  load_bundle_descriptor "$unit" || return 1
+  [[ -n "${BUNDLE_CONFIG_COMPONENTS:-}" ]] || return 0
+  load_managed_config_policy_cache
+  while IFS= read -r component; do
+    [[ -n "$component" ]] || continue
+    for row in "${MANAGED_CONFIG_POLICY_CACHE[@]}"; do
+      IFS=$'\t' read -r row_component path mode _rest <<<"$row"
+      [[ "$row_component" == "$component" && "$mode" == "product-link" ]] || continue
+      target="$(managed_config_target_path "$path")"
+      [[ -e "$target" ]] || return 1
+    done
+  done < <(split_csv "$BUNDLE_CONFIG_COMPONENTS")
   return 0
 }
 
@@ -314,11 +334,19 @@ apply_units_focused() {
   return "$status"
 }
 
+# A focused plan installs exactly the units it names, so the update-mode
+# skip of optional sources does not apply while it runs.
 install_focused_plan() {
-  module_05_bootstrap_tools || return 1
-  module_10_sources || return 1
-  module_32_optional_packages
-  module_35_custom_actions
+  local update_mode="$UPDATE_MODE" status=0
+  UPDATE_MODE=0
+  if module_05_bootstrap_tools && module_10_sources; then
+    module_32_optional_packages
+    module_35_custom_actions
+  else
+    status=1
+  fi
+  UPDATE_MODE="$update_mode"
+  return "$status"
 }
 
 # The saved selections record what is installed, so a choice is written

@@ -7,6 +7,16 @@ set -Eeuo pipefail
 declare -Ag CATEGORY_OVERRIDES=()
 declare -Ag CATEGORY_ADDITIONS=()
 declare -Ag CATEGORY_OVERRIDE_PRESENT=()
+# The choices the catalog offered in each category when the selections were
+# saved (the offered.<category> lines), so a later update can tell a default
+# the user never saw from one they declined.
+declare -Ag CATEGORY_OFFERED=()
+declare -Ag CATEGORY_OFFERED_PRESENT=()
+# "category<TAB>choice" pairs: the new defaults update mode selected for
+# this run, and the ones whose install failed and stay unrecorded so the
+# next update offers them again.
+declare -ag NEW_DEFAULT_CHOICES=()
+declare -ag DEFERRED_DEFAULT_CHOICES=()
 
 set_category_override() {
   local category="$1"
@@ -73,12 +83,21 @@ save_selections() {
       done < <(effective_choice_ids "$category")
       printf 'select.%s=%s\n' "$category" "$(join_by , "${values[@]:-}")"
     done
+    for category in $(category_names); do
+      local offered=()
+      while IFS= read -r item; do
+        [[ -n "$item" ]] || continue
+        array_contains "$category"$'\t'"$item" "${DEFERRED_DEFAULT_CHOICES[@]:-}" && continue
+        offered+=("$item")
+      done < <(all_choice_ids "$category")
+      printf 'offered.%s=%s\n' "$category" "$(join_by , "${offered[@]:-}")"
+    done
   } >"$SAVED_SELECTIONS"
 }
 
 load_saved_selections() {
   [[ -f "$SAVED_SELECTIONS" ]] || die "Saved selections not found at $SAVED_SELECTIONS"
-  local key value
+  local key value category
   while IFS='=' read -r key value || [[ -n "$key" ]]; do
     [[ -z "$key" ]] && continue
     case "$key" in
@@ -87,6 +106,11 @@ load_saved_selections() {
       preferred_browser) PREFERRED_BROWSER="$value" ;;
       select.*)
         set_category_override "${key#select.}" "$value"
+        ;;
+      offered.*)
+        category="$(normalize_category_name "${key#offered.}")"
+        CATEGORY_OFFERED["$category"]="$value"
+        CATEGORY_OFFERED_PRESENT["$category"]=1
         ;;
     esac
   done <"$SAVED_SELECTIONS"
@@ -130,4 +154,67 @@ normalize_saved_selections_for_update() {
     log_warn "Saved preferred browser '$PREFERRED_BROWSER' is no longer available and was removed."
     PREFERRED_BROWSER=""
   fi
+
+  select_new_default_choices
+}
+
+# Selects the defaults the catalog gained since the selections were saved.
+# A category's offered list records what the catalog had at the time, so a
+# default outside it was never declined; it joins the selection and
+# modules/40-new-defaults.sh installs it. A saved category without an
+# offered list says nothing about what was declined, so nothing is added to
+# it; a category the file does not know at all takes its defaults through
+# effective_choice_ids already. A nested default stays out while its
+# parent is unselected: the parent was offered and not taken.
+select_new_default_choices() {
+  local category choice_id parent
+  local -a offered=() selected=()
+  NEW_DEFAULT_CHOICES=()
+  for category in $(category_names); do
+    [[ -n "${CATEGORY_OVERRIDE_PRESENT[$category]:-}" ]] || continue
+    [[ -n "${CATEGORY_OFFERED_PRESENT[$category]:-}" ]] || continue
+    category_default_choices_enabled "$category" || continue
+    mapfile -t offered < <(split_csv "${CATEGORY_OFFERED[$category]}")
+    mapfile -t selected < <(effective_choice_ids "$category")
+    while IFS= read -r choice_id; do
+      [[ -n "$choice_id" ]] || continue
+      array_contains "$choice_id" "${offered[@]:-}" && continue
+      array_contains "$choice_id" "${selected[@]:-}" && continue
+      parent="$(choice_parent_id "$category" "$choice_id")"
+      if [[ -n "$parent" ]] && ! array_contains "$parent" "${selected[@]:-}"; then
+        log_info "New default choice '$choice_id' in category '$category' stays unselected because its parent '$parent' is not selected."
+        continue
+      fi
+      log_info "New default choice '$choice_id' in category '$category' was added to the saved selections."
+      add_category_selection "$category" "$choice_id"
+      NEW_DEFAULT_CHOICES+=("$category"$'\t'"$choice_id")
+      selected+=("$choice_id")
+    done < <(default_choice_ids "$category")
+  done
+}
+
+# Takes the new defaults out of the selection again and keeps them off the
+# offered lists, so an update whose install of them failed does not
+# remember them as done: the next update selects and installs them again.
+defer_new_default_choices() {
+  local pair category choice_id
+  local -a kept=() removed=()
+  local -A dropped=()
+  for pair in "${NEW_DEFAULT_CHOICES[@]:-}"; do
+    [[ -n "$pair" ]] || continue
+    IFS=$'\t' read -r category choice_id <<<"$pair"
+    dropped["$category"]+="${dropped[$category]:+,}$choice_id"
+    DEFERRED_DEFAULT_CHOICES+=("$pair")
+  done
+  for category in "${!dropped[@]}"; do
+    mapfile -t removed < <(split_csv "${dropped[$category]}")
+    kept=()
+    while IFS= read -r choice_id; do
+      [[ -n "$choice_id" ]] || continue
+      array_contains "$choice_id" "${removed[@]}" && continue
+      kept+=("$choice_id")
+    done < <(split_csv "${CATEGORY_ADDITIONS[$category]:-}")
+    CATEGORY_ADDITIONS["$category"]="$(join_by , "${kept[@]:-}")"
+  done
+  NEW_DEFAULT_CHOICES=()
 }

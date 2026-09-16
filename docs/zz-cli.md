@@ -192,6 +192,18 @@ mode reports it, removes it from the saved selections, and continues. Explicit
 unknown values passed through `--select` remain errors. ZZ does not uninstall
 software merely because its former choice was removed from the catalog.
 
+The saved selections also record, per category, which choices the catalog
+offered when they were saved (the `offered.<category>` lines). A choice the
+current catalog adds with `default = true` that the saved catalog never
+offered was never declined, so update mode selects it, reports it, and
+installs its units in a focused step the way `zz app install` does, then
+saves the enlarged selection. A default the saved catalog did offer stays
+as the user left it. A nested default is added only while its parent is
+selected, the minimal desktop profile takes no new desktop defaults, and a
+saved category without an offered list gets nothing added. If the focused
+install fails, the new defaults are left out of the saved selections and
+offered lists so the next update retries them.
+
 There are no product versions or release channels: the current upstream Git
 branch is the update source.
 
@@ -211,7 +223,10 @@ zz app remove office/pinta --dry-run
 choice is named by its id (`zed`, `spotify`) or by `category/id` when the
 same id exists in more than one category; `zz app list` shows every choice
 with its category, whether the saved selections include it, and whether it
-is installed right now.
+is installed right now. A choice counts as installed when every package,
+Flatpak, and action of its units is present and every product link of the
+managed configuration its units select exists, so a plugin whose packages
+the base already carries reads as missing until its link is in place.
 
 `zz app install` adds the choice to the saved selections, then applies only
 that choice's units and their dependencies: it enables the sources they

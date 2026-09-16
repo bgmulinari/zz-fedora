@@ -1224,7 +1224,7 @@ SH
   assert_file_contains "$script" "display_args=(-display egl-headless,gl=on -vga none -device virtio-vga-gl)"
   assert_file_contains "$script" "iso_extract_fedora_metadata \"\$input_iso\""
   assert_file_contains "$script" 'work_dir="$(cd "$work_dir" && pwd)"'
-  assert_file_contains "$script" "ZZ Fedora (9/9): Completed Doctor"
+  assert_file_contains "$script" "ZZ Fedora (10/10): Completed Doctor"
   assert_file_contains "$script" "ZZ Fedora complete"
   assert_file_contains "$script" "repo=fedora-%s&arch=%s"
   assert_file_contains "$script" "--cmdline \"console=ttyS0,115200n8 inst.cmdline\""

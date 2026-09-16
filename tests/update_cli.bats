@@ -24,7 +24,7 @@ make_fake_sudo_passthrough() {
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "zz update <target>"
-  assert_contains "$output" "zz            Update ~/.zz and apply the current plan from saved selections"
+  assert_contains "$output" "zz            Update ~/.zz, apply the saved selections, and add new catalog defaults."
   assert_contains "$output" "dotnet-tools"
   assert_contains "$output" "--dry-run"
   refute_contains "$output" "--reboot"

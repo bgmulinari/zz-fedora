@@ -295,6 +295,17 @@ refute_file_contains() {
   }
 }
 
+# The saved selections name every catalog choice in their offered lists, so
+# a choice's absence is asserted on its category's select line.
+refute_saved_choice() {
+  local category="$1"
+  local choice="$2"
+  ! grep -E "^select\.${category}=.*(^|=|,)${choice}(,|$)" "$SAVED_SELECTIONS" >/dev/null || {
+    printf 'expected %s not to select %s/%s\n' "$SAVED_SELECTIONS" "$category" "$choice" >&2
+    return 1
+  }
+}
+
 assert_file_line() {
   local file="$1"
   local line="$2"

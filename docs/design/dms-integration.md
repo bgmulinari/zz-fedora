@@ -442,17 +442,17 @@ Shipped plugins:
   folder; rate limits are never merged.
 
 - **Proton manager** (`protonManager`, unit
-  `gaming-compatibility-manager`, component `dms-plugin-compatibility-manager`)
+  `gaming-proton-manager`, component `dms-plugin-proton-manager`)
   replaces the optional external Proton manager in the gaming catalog. Selected
   installs enable its daemon through the plan-filtered plugin seed and link
-  `dotfiles/dms/.config/DankMaterialShell/plugins/CompatibilityManager/proton-manager.desktop`
+  `dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager/proton-manager.desktop`
   into the user application directory. **Proton Manager** appears under **Apps**
   in the DMS launcher; its desktop entry calls the daemon through plugin IPC to
   open a normal `DankFloatingWindow`, like System Monitor, with move/resize
   controls and normal focus switching. Closing unloads the UI once idle; read-only
   requests are cancelled, while explicit mutations finish before unloading. It has no bar widget or launcher-plugin results. Its product-linked
   directory is
-  `dotfiles/dms/.config/DankMaterialShell/plugins/CompatibilityManager/`.
+  `dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager/`.
   The themed manager discovers native and Flatpak Steam, Heroic, Lutris, Bottles
   and WineZGUI destinations. Source pickers offer multiple Proton forks, Wine
   variants and launcher-supported DXVK/VKD3D components, with CPU filtering,

@@ -122,6 +122,10 @@ Notes:
   the default install selects every non-browser choice. A plugin that should not be
   on by default therefore cannot be a wizard choice; ship it as a standalone dev copy
   or ask the user how they want the contract changed.
+- A new default choice reaches installed systems through `zz update zz`: the saved
+  selections record which choices the catalog offered, so update mode selects a
+  default it has never offered, installs its units in a focused step, and links the
+  plugin. Nothing else is needed for existing installs.
 - Adding a desktop choice touches two test fixtures that enumerate choices: the
   ordered desktop choice id list in `tests/anaconda_addon.bats`, and the plan-cache
   key in `tests/helpers/common.bash` (`build_test_plan` turns the selection string

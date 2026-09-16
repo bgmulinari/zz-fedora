@@ -1,10 +1,10 @@
-id = "gaming-compatibility-manager"
+id = "gaming-proton-manager"
 description = "Desktop Proton and Wine runtime manager with per-game Steam selection"
-config = ["dms-plugin-compatibility-manager"]
+config = ["dms-plugin-proton-manager"]
 
 [choice]
 category = "gaming"
-id = "compatibility-manager"
+id = "proton-manager"
 label = "Proton Manager"
 default = true
 order = 20

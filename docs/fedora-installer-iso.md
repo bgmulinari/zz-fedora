@@ -211,7 +211,7 @@ UEFI firmware path.
 
 For fast, deterministic iteration without VNC, use
 `--boot-mode direct --installer-ui text --graphics none`. Text-mode runs fail
-unless the serial log contains both the Doctor 9/9 marker and the final ZZ
+unless the serial log contains both the Doctor 10/10 marker and the final ZZ
 Fedora completion marker. Before publishing, also confirm the serial log shows
 the Doctor line `[ok] sshd.service not enabled` and no "Started sshd.service"
 boot message from the installed system.
