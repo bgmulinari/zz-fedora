@@ -638,10 +638,10 @@ EOF
   assert_equal "true" "$(jq -r '.agentUsage.enabled' "$plugins")"
   assert_equal "true" "$(jq -r '.launcherExample.enabled' "$plugins")"
   assert_equal '["launcherButton",{"id":"workspaceSwitcher","size":1}]' "$(jq -c '.barConfigs[0].leftWidgets' "$settings")"
-  # agentUsage lands before notificationButton, its next seed neighbor still
-  # in the section, since memUsage is gone; zzMenu follows the system tray
-  # as in the seed.
-  assert_equal '["systemTray","zzMenu","clipboard","agentUsage","notificationButton","battery"]' "$(jq -c '.barConfigs[0].rightWidgets' "$settings")"
+  # agentUsage lands before battery, its next seed neighbor still in the
+  # section, without reordering existing widgets; zzMenu follows the system
+  # tray as in the seed.
+  assert_equal '["systemTray","zzMenu","clipboard","notificationButton","agentUsage","battery"]' "$(jq -c '.barConfigs[0].rightWidgets' "$settings")"
   assert_equal "keep" "$(jq -r '.customThemeFile' "$settings")"
   assert_file_contains "$STATE_DIR/dms-placed-widgets" "zzMenu"
   assert_file_contains "$STATE_DIR/dms-placed-widgets" "agentUsage"

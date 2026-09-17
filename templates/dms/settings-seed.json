@@ -13,8 +13,12 @@
       }
     }
   },
-  "fontFamily": "JetBrainsMono Nerd Font",
+  "fontFamily": "Adwaita Sans",
   "monoFontFamily": "JetBrainsMono Nerd Font",
+  "launcherLogoMode": "custom",
+  "launcherLogoCustomPath": "/usr/share/icons/hicolor/scalable/apps/start-here.svg",
+  "launcherLogoColorOverride": "surface",
+  "launcherLogoSizeOffset": -2,
   "cornerRadius": 0,
   "popupTransparency": 0.9,
   "widgetBackgroundColor": "sth",
@@ -23,10 +27,13 @@
   "barElevationEnabled": false,
   "showWorkspaceIndex": true,
   "dockSmartAutoHide": true,
-  "animationSpeed": 4,
-  "popoutAnimationSpeed": 4,
-  "customAnimationDuration": 200,
-  "syncComponentAnimationSpeeds": false,
+  "notificationCompactMode": true,
+  "notificationShowTimeoutBar": true,
+  "notificationPopupBodyInvokesAction": true,
+  "updaterCheckOnStart": true,
+  "updaterUseCustomCommand": true,
+  "updaterCustomCommand": "zz update all",
+  "updaterIntervalSeconds": 86400,
   "niriLayoutGapsOverride": -2,
   "keyboardNumlock": true,
   "barConfigs": [
@@ -49,10 +56,17 @@
         "zzMenu",
         "clipboard",
         "cpuUsage",
-        "memUsage",
+        {
+          "id": "memUsage",
+          "showInGb": true
+        },
         "agentUsage",
-        "notificationButton",
         "battery",
+        "notificationButton",
+        {
+          "id": "systemUpdate",
+          "hideWhenIdle": true
+        },
         "controlCenterButton"
       ],
       "spacing": 0,

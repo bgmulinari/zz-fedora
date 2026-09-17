@@ -103,6 +103,8 @@ dnf	satty	default-app	screenshot annotation	Opens every capture from the shipped
 dnf	wl-clipboard	default-app	screenshot clipboard	Provides wl-copy, the clipboard command the screenshot annotation editor publishes the finished capture with.
 dnf	fontconfig	theme-font	font baseline	Provides font discovery and configuration.
 dnf	adw-gtk3-theme	theme-font	GTK theme	Provides Adwaita-compatible GTK3 theme assets.
+dnf	adwaita-sans-fonts	theme-font	DMS font	Provides Adwaita Sans, the default normal font in DMS.
+dnf	fedora-logos	theme-font	launcher logo	Provides the Fedora SVG used by the DMS launcher button.
 dnf	google-noto-sans-fonts	theme-font	font baseline	Provides default sans-serif coverage.
 dnf	google-noto-sans-cjk-fonts	theme-font	font baseline	Provides CJK glyph coverage.
 dnf	google-noto-color-emoji-fonts	theme-font	font baseline	Provides emoji glyph coverage.

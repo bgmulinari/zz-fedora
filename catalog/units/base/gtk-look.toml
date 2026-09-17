@@ -9,6 +9,8 @@ minimal_desktop_skip = true
 backend = "dnf"
 packages = [
   "adw-gtk3-theme",
+  "adwaita-sans-fonts",
+  "fedora-logos",
   "fontawesome-6-free-fonts",
   "fontconfig",
   "google-noto-color-emoji-fonts",

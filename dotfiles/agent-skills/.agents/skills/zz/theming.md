@@ -7,7 +7,7 @@ wallpaper-derived Material palette), renders it through matugen into every
 application ZZ wires up, and keeps them in sync on each change. The shipped default is
 the Catppuccin registry theme: mocha with the blue accent in dark mode, latte with the
 blue accent in light mode, Yaru-blue icons for GTK and the shell, Breeze Dark icons
-for Qt/KDE apps, JetBrainsMono Nerd Font.
+for Qt/KDE apps, Adwaita Sans for normal text, and JetBrainsMono Nerd Font for monospace text.
 
 **Commands:** `dms ipc call theme dark|light|toggle`, `dms ipc call wallpaper set <path>`,
 `dms ipc call wallpaper next|prev`, Settings > Theme / Wallpaper / Appearance
@@ -48,7 +48,7 @@ it before debugging DMS.
 ## Fonts
 
 `fontFamily` and `monoFontFamily` are DMS settings (Settings > Appearance); ZZ seeds
-`JetBrainsMono Nerd Font` for both. Ghostty's font is separate: `font-family` in
+`Adwaita Sans` for normal text and `JetBrainsMono Nerd Font` for monospace text. Ghostty's font is separate: `font-family` in
 `~/.config/ghostty/local`.
 
 ## Adding your own matugen template

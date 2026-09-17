@@ -89,6 +89,29 @@ assert settings == {"attribution": {"commit": "", "pr": "", "sessionUrl": False}
   refute_file_contains "$TARGET_HOME/.claude/settings.json" 'sessionUrl'
 }
 
+@test "Niri component seeds Xray preferences and leaves subsequent DMS edits intact" {
+  managed_config_required_command_available() {
+    return 0
+  }
+  mkdir -p "$PLAN_DIR/files"
+  : >"$(managed_config_deployment_plan_file)"
+  append_managed_config_component niri
+
+  run apply_managed_config_plan
+
+  [ "$status" -eq 0 ]
+  local layout="$TARGET_HOME/.config/niri/dms/layout.kdl"
+  [ -f "$layout" ]
+  [ ! -L "$layout" ]
+  assert_file_contains "$layout" 'xray false'
+  assert_file_contains "$layout" '// bar-xray off'
+
+  printf '// DMS regenerated layout after the user enabled Xray\n' >"$layout"
+  run apply_managed_config_plan
+  [ "$status" -eq 0 ]
+  assert_equal '// DMS regenerated layout after the user enabled Xray' "$(cat "$layout")"
+}
+
 @test "Zsh component links the product login environment" {
   managed_config_required_command_available() {
     return 0

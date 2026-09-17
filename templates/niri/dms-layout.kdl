@@ -1,0 +1,17 @@
+// Seed the ZZ Xray preferences; DMS owns and regenerates this file afterward.
+// Other layout settings come from DMS settings and the managed Niri defaults.
+layer-rule {
+    background-effect {
+        xray false
+    }
+}
+
+window-rule {
+    match app-id="^com.danklinux.dms$"
+    background-effect {
+        xray false
+    }
+}
+
+// DMS reads this marker to retain the separate Dank Bar Xray preference.
+// bar-xray off
