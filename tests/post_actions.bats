@@ -491,7 +491,7 @@ EOF
   assert_equal "blue" "$(jq -r '.registryThemeVariants.catppuccin.dark.accent' "$settings")"
   assert_equal "latte" "$(jq -r '.registryThemeVariants.catppuccin.light.flavor' "$settings")"
   assert_equal "JetBrainsMono Nerd Font" "$(jq -r '.monoFontFamily' "$settings")"
-  assert_equal "JetBrainsMono Nerd Font" "$(jq -r '.fontFamily' "$settings")"
+  assert_equal "Adwaita Sans" "$(jq -r '.fontFamily' "$settings")"
   assert_equal "Yaru-blue" "$(jq -r '.iconThemeDark' "$settings")"
   # Appearance defaults the managed desktop pins on top of the DMS defaults.
   assert_equal "0" "$(jq -r '.cornerRadius' "$settings")"
