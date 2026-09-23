@@ -187,45 +187,33 @@ apply_component() {
   [ "$status" -ne 0 ]
 }
 
-@test "zz menu covers every zz command and update target and names only real ones" {
+@test "zz menu keeps a short intent-grouped root and names only real zz commands" {
   local menu="$ROOT_DIR/$ZZ_MENU_REL/menu.json"
   local commands targets name
   commands="$("$ROOT_DIR/bin/zz" commands --json | jq -r '.[].name')"
   targets="$("$ROOT_DIR/bin/zz" update --help | awk '/^Targets:/ { active = 1; next } /^Options:/ { active = 0 } active && NF { print $1 }')"
   [[ -n "$commands" && -n "$targets" ]]
 
-  # Every command the launcher lists is a row, or the provider that lists it.
-  while IFS= read -r name; do
-    run jq -e --arg name "$name" \
-      'to_entries | map(.value) | any((.action // "" | test("^zz " + $name + "( |$)")) or (.provider // "") == $name)' "$menu"
-    [ "$status" -eq 0 ]
-  done <<<"$commands"
+  # The root is a handful of intent groups, not one entry per zz command.
+  assert_equal "apps update desktop setup troubleshoot learn" \
+    "$(jq -r '[keys_unsorted[] | select(contains(".") | not)] | join(" ")' "$menu")"
 
-  # Every zz action names a command that exists and runs in a terminal (the
-  # commands print, prompt, or ask for sudo); every provider is one the
-  # inventory implements.
+  # Every zz action names a command and update target that exist and runs
+  # in a terminal (the commands print, prompt, or ask for sudo); every
+  # provider is one the inventory implements.
   while IFS= read -r name; do
     grep -Fxq -- "$name" <<<"$commands"
   done < <(jq -r 'to_entries[] | .value.action // empty | select(startswith("zz ")) | split(" ")[1]' "$menu")
+  while IFS= read -r name; do
+    grep -Fxq -- "$name" <<<"$targets"
+  done < <(jq -r 'to_entries[] | .value.action // empty | select(startswith("zz update ")) | split(" ")[2]' "$menu")
   run jq -e 'to_entries | map(.value) | map(select(.action // "" | startswith("zz "))) | all(.terminal == true)' "$menu"
   [ "$status" -eq 0 ]
   assert_equal $'agent\napps\nrefresh' "$(jq -r 'to_entries[] | .value.provider // empty' "$menu" | sort)"
 
-  # The update group mirrors the updater's own target list.
-  while IFS= read -r name; do
-    run jq -e --arg target "$name" 'to_entries | map(.value.action // "") | any(. == "zz update " + $target)' "$menu"
-    [ "$status" -eq 0 ]
-  done <<<"$targets"
-  while IFS= read -r name; do
-    grep -Fxq -- "$name" <<<"$targets"
-  done < <(jq -r 'to_entries[] | .value.action // empty | select(startswith("zz update ")) | split(" ")[2]' "$menu")
-
-  # The groups beyond the CLI are present, and the compositor rows call the
-  # compositor, not a shell page.
-  run jq -e 'has("niri") and has("shell") and has("system") and has("learn")' "$menu"
-  [ "$status" -eq 0 ]
-  run jq -e 'to_entries | map(select(.key | startswith("niri."))) | all(.value.action | startswith("niri ") or contains("niri"))' "$menu"
-  [ "$status" -eq 0 ]
+  # Running every package manager and tool updater is the first row of the
+  # Update group.
+  assert_equal "zz update all" "$(jq -r '[to_entries[] | select(.key | startswith("update."))][0].value.action' "$menu")"
 }
 
 @test "zz menu inventory merges the overlay, honors guards, and expands the refresh provider offline" {
@@ -233,9 +221,9 @@ apply_component() {
   mkdir -p "$home/.config/zz-fedora"
   cat >"$home/.config/zz-fedora/menu.json" <<'EOF'
 {
-  "doctor": {"label": "Check-up"},
+  "troubleshoot.doctor": {"label": "Check-up"},
   "hidden": {"label": "Hidden", "action": "zz doctor --quiet", "when": "false"},
-  "extras": {"icon": "star", "label": "Extras", "when": "true"},
+  "extras": {"icon": "star", "label": "Extras", "when": "true", "aliases": ["bonus"]},
   "extras.hello": {"label": "Hello", "description": "Says hello", "action": "echo hello", "aliases": ["greeting"]},
   "extras.top": {"label": "Top", "description": "Runs a full-screen program", "action": "echo top", "terminal": true, "hold": false},
   "extras.more": {"label": "More", "description": "A nested group"},
@@ -249,10 +237,10 @@ EOF
 
   # An overridden shipped row keeps its action, terminal flag, and place;
   # only the label changed.
-  assert_equal "Check-up" "$(jq -r '.rows[] | select(.id == "doctor") | .label' <<<"$inventory")"
-  assert_equal "zz doctor" "$(jq -r '.rows[] | select(.id == "doctor") | .action' <<<"$inventory")"
-  assert_equal "true" "$(jq -r '.rows[] | select(.id == "doctor") | .terminal' <<<"$inventory")"
-  run jq -e '[.rows[].id] | (index("update.zz") < index("doctor")) and (index("doctor") < index("extras.hello"))' <<<"$inventory"
+  assert_equal "Check-up" "$(jq -r '.rows[] | select(.id == "troubleshoot.doctor") | .label' <<<"$inventory")"
+  assert_equal "zz doctor" "$(jq -r '.rows[] | select(.id == "troubleshoot.doctor") | .action' <<<"$inventory")"
+  assert_equal "true" "$(jq -r '.rows[] | select(.id == "troubleshoot.doctor") | .terminal' <<<"$inventory")"
+  run jq -e '[.rows[].id] | (index("update.zz") < index("troubleshoot.doctor")) and (index("troubleshoot.doctor") < index("extras.hello"))' <<<"$inventory"
   [ "$status" -eq 0 ]
 
   # A failed guard hides the row; a passing one keeps the group, whose rows
@@ -263,7 +251,7 @@ EOF
   run jq -e 'any(.rows[]; .id == "hidden") | not' <<<"$inventory"
   [ "$status" -eq 0 ]
   assert_equal "star" "$(jq -r '.rows[] | select(.id == "extras.hello") | .icon' <<<"$inventory")"
-  assert_equal "true" "$(jq -r '.rows[] | select(.id == "doctor") | .hold' <<<"$inventory")"
+  assert_equal "true" "$(jq -r '.rows[] | select(.id == "troubleshoot.doctor") | .hold' <<<"$inventory")"
   assert_equal "false" "$(jq -r '.rows[] | select(.id == "extras.top") | .hold' <<<"$inventory")"
   assert_equal "Extras" "$(jq -r '.rows[] | select(.id == "extras.hello") | .path[0]' <<<"$inventory")"
   assert_equal "false" "$(jq -r '.rows[] | select(.id == "extras.hello") | .terminal' <<<"$inventory")"
@@ -279,6 +267,10 @@ EOF
   assert_equal "Extras" "$(jq -r '.groups[] | select(.id == "extras.more") | .path[0]' <<<"$inventory")"
   assert_equal "star" "$(jq -r '.groups[] | select(.id == "extras.more") | .icon' <<<"$inventory")"
   assert_equal "" "$(jq -r '.groups[] | select(.id == "extras") | .parent' <<<"$inventory")"
+  # A group searches by its aliases too, the way a row does.
+  assert_equal "bonus" "$(jq -r '.groups[] | select(.id == "extras") | .aliases | join(",")' <<<"$inventory")"
+  assert_file_contains "$ROOT_DIR/$ZZ_MENU_REL/ZzMenuInventory.qml" 'aliases.join(" ")'
+
   assert_equal "extras.more" "$(jq -r '.rows[] | select(.id == "extras.more.deep") | .parent' <<<"$inventory")"
   assert_equal "extras" "$(jq -r '.rows[] | select(.id == "extras.more.deep") | .group' <<<"$inventory")"
   assert_equal "Extras More" "$(jq -r '.rows[] | select(.id == "extras.more.deep") | .path | join(" ")' <<<"$inventory")"
@@ -287,18 +279,18 @@ EOF
 
   # The refresh provider lists exactly what zz refresh --list can restore,
   # with the key quoted for the shell and a terminal to read the result in.
-  assert_equal "zz refresh niri/config.kdl" "$(jq -r '.rows[] | select(.id == "refresh.niri-config-kdl") | .action' <<<"$inventory")"
-  assert_equal "Refresh" "$(jq -r '.rows[] | select(.id == "refresh.niri-config-kdl") | .path[0]' <<<"$inventory")"
-  assert_equal "true" "$(jq -r '.rows[] | select(.id == "refresh.niri-config-kdl") | .terminal' <<<"$inventory")"
+  assert_equal "zz refresh niri/config.kdl" "$(jq -r '.rows[] | select(.id == "setup.refresh.niri-config-kdl") | .action' <<<"$inventory")"
+  assert_equal "Setup Reset a config to default" "$(jq -r '.rows[] | select(.id == "setup.refresh.niri-config-kdl") | .path | join(" ")' <<<"$inventory")"
+  assert_equal "true" "$(jq -r '.rows[] | select(.id == "setup.refresh.niri-config-kdl") | .terminal' <<<"$inventory")"
   local expected
   expected="$("$ROOT_DIR/bin/zz" refresh --list | wc -l)"
-  assert_equal "$expected" "$(jq -r '[.rows[] | select(.group == "refresh")] | length' <<<"$inventory")"
+  assert_equal "$expected" "$(jq -r '[.rows[] | select(.parent == "setup.refresh")] | length' <<<"$inventory")"
 
   # A broken overlay contributes nothing and leaves the shipped menu intact.
   printf '{ not json' >"$home/.config/zz-fedora/menu.json"
   run_zz_menu_inventory "$home"
   [ "$status" -eq 0 ]
-  assert_equal "Doctor" "$(jq -r '.rows[] | select(.id == "doctor") | .label' <<<"$output")"
+  assert_equal "Run checks" "$(jq -r '.rows[] | select(.id == "troubleshoot.doctor") | .label' <<<"$output")"
   run jq -e 'any(.rows[]; .id == "extras.hello") | not' <<<"$output"
   [ "$status" -eq 0 ]
   [[ ! -e "$ROOT_DIR/$ZZ_MENU_REL/scripts/__pycache__" ]]
@@ -306,9 +298,9 @@ EOF
 
 @test "zz menu terminal rows hold for output unless they run an interactive program" {
   local menu="$ROOT_DIR/$ZZ_MENU_REL/menu.json"
-  # Editors, monitors, and the agent close their own window; printing
+  # Editors and the agent close their own window; printing
   # commands keep theirs until a key is pressed.
-  assert_equal $'crash.diagnose\nniri.edit\nsystem.monitor\nsystem.network' \
+  assert_equal $'desktop.edit-niri\ntroubleshoot.crash.diagnose' \
     "$(jq -r 'to_entries[] | select(.value.hold == false) | .key' "$menu" | sort)"
   run jq -e 'to_entries | map(.value) | map(select(.hold == false)) | all(.terminal == true)' "$menu"
   [ "$status" -eq 0 ]
@@ -346,14 +338,14 @@ EOF
   # install, so the .NET rows show.
   run_zz_menu_inventory "$home"
   [ "$status" -eq 0 ]
-  run jq -e 'any(.rows[]; .id == "dotnet.devcert-status") and any(.rows[]; .id == "update.dotnet")' <<<"$output"
+  run jq -e 'any(.rows[]; .id == "setup.dotnet.devcert-status") and any(.rows[]; .id == "update.one.dotnet")' <<<"$output"
   [ "$status" -eq 0 ]
 
   # Without the install the rows stay hidden.
   rm -rf "$home/.dotnet"
   run_zz_menu_inventory "$home"
   [ "$status" -eq 0 ]
-  run jq -e 'any(.rows[]; .id == "dotnet.devcert-status") | not' <<<"$output"
+  run jq -e 'any(.rows[]; .id == "setup.dotnet.devcert-status") | not' <<<"$output"
   [ "$status" -eq 0 ]
 
   # The runner exports the same directories before the terminal starts.
@@ -382,23 +374,29 @@ EOF
   [ "$status" -eq 0 ]
   local inventory="$output"
 
-  # One subgroup per category under Apps; a row installs when absent and
-  # removes when present, and says which in its subtitle and icon.
-  assert_equal "apps" "$(jq -r '.groups[] | select(.id == "apps.dev") | .parent' <<<"$inventory")"
-  assert_equal "Development" "$(jq -r '.groups[] | select(.id == "apps.dev") | .label' <<<"$inventory")"
-  assert_equal "apps.dev" "$(jq -r '.rows[] | select(.id == "apps.dev.zed") | .parent' <<<"$inventory")"
-  assert_equal "zz app install dev/zed" "$(jq -r '.rows[] | select(.id == "apps.dev.zed") | .action' <<<"$inventory")"
-  assert_equal "Install: Editor" "$(jq -r '.rows[] | select(.id == "apps.dev.zed") | .description' <<<"$inventory")"
-  assert_equal "download" "$(jq -r '.rows[] | select(.id == "apps.dev.zed") | .icon' <<<"$inventory")"
-  assert_equal "true" "$(jq -r '.rows[] | select(.id == "apps.dev.zed") | .terminal' <<<"$inventory")"
-  assert_equal "zz app remove office/pinta" "$(jq -r '.rows[] | select(.id == "apps.office.pinta") | .action' <<<"$inventory")"
-  assert_equal "Installed, remove: Painter" "$(jq -r '.rows[] | select(.id == "apps.office.pinta") | .description' <<<"$inventory")"
-  assert_equal "check_circle" "$(jq -r '.rows[] | select(.id == "apps.office.pinta") | .icon' <<<"$inventory")"
-  run jq -e '.rows[] | select(.id == "apps.office.pinta") | .keywords | index("uninstall") != null' <<<"$inventory"
+  # The action comes first: Install lists only absent choices and Remove
+  # only installed ones, each by category, and Install is listed first.
+  assert_equal "Install,Remove" "$(jq -r '[.groups[] | select(.parent == "apps") | .label] | join(",")' <<<"$inventory")"
+  assert_equal "apps.install" "$(jq -r '.groups[] | select(.id == "apps.install.dev") | .parent' <<<"$inventory")"
+  assert_equal "Development" "$(jq -r '.groups[] | select(.id == "apps.install.dev") | .label' <<<"$inventory")"
+  assert_equal "apps.install.dev" "$(jq -r '.rows[] | select(.id == "apps.install.dev.zed") | .parent' <<<"$inventory")"
+  assert_equal "zz app install dev/zed" "$(jq -r '.rows[] | select(.id == "apps.install.dev.zed") | .action' <<<"$inventory")"
+  assert_equal "Editor" "$(jq -r '.rows[] | select(.id == "apps.install.dev.zed") | .description' <<<"$inventory")"
+  assert_equal "download" "$(jq -r '.rows[] | select(.id == "apps.install.dev.zed") | .icon' <<<"$inventory")"
+  assert_equal "true" "$(jq -r '.rows[] | select(.id == "apps.install.dev.zed") | .terminal' <<<"$inventory")"
+  assert_equal "zz app remove office/pinta" "$(jq -r '.rows[] | select(.id == "apps.remove.office.pinta") | .action' <<<"$inventory")"
+  assert_equal "delete" "$(jq -r '.rows[] | select(.id == "apps.remove.office.pinta") | .icon' <<<"$inventory")"
+  assert_equal "Add or remove apps Remove Office" "$(jq -r '.rows[] | select(.id == "apps.remove.office.pinta") | .path | join(" ")' <<<"$inventory")"
+  run jq -e '.rows[] | select(.id == "apps.remove.office.pinta") | .keywords | index("uninstall") != null' <<<"$inventory"
   [ "$status" -eq 0 ]
-  # The static listing row and the other provider share the launcher.
-  assert_equal "zz app list" "$(jq -r '.rows[] | select(.id == "apps.list") | .action' <<<"$inventory")"
-  assert_equal "zz refresh niri/config.kdl" "$(jq -r '.rows[] | select(.id == "refresh.niri-config-kdl") | .action' <<<"$inventory")"
+  # A choice appears under one action only, and an action with nothing to
+  # offer shows no empty category.
+  run jq -e '[.rows[].id] | (index("apps.remove.dev.zed") == null) and (index("apps.install.office.pinta") == null)' <<<"$inventory"
+  [ "$status" -eq 0 ]
+  run jq -e 'any(.groups[]; .id == "apps.remove.dev" or .id == "apps.install.office") | not' <<<"$inventory"
+  [ "$status" -eq 0 ]
+  # The other provider shares the launcher.
+  assert_equal "zz refresh niri/config.kdl" "$(jq -r '.rows[] | select(.id == "setup.refresh.niri-config-kdl") | .action' <<<"$inventory")"
 }
 
 @test "zz menu agent group names the default agent on its launch row and picks one from a submenu" {
@@ -430,14 +428,14 @@ EOF
     '$ROOT_DIR/$ZZ_MENU_REL/scripts/zz-menu-inventory' 2>/dev/null"
   [ "$status" -eq 0 ]
   local inventory="$output"
-  run jq -e 'any(.rows[]; .id == "agent.launch") | not' <<<"$inventory"
+  run jq -e 'any(.rows[]; .id == "setup.agent.launch") | not' <<<"$inventory"
   [ "$status" -eq 0 ]
-  assert_equal "agent" "$(jq -r '.groups[] | select(.id == "agent.default") | .parent' <<<"$inventory")"
-  assert_equal "No default chosen yet" "$(jq -r '.groups[] | select(.id == "agent.default") | .description' <<<"$inventory")"
-  assert_equal "agent.default.claude" "$(jq -r '[.rows[] | select(.parent == "agent.default") | .id] | join(",")' <<<"$inventory")"
-  assert_equal "zz agent default claude --notify" "$(jq -r '.rows[] | select(.id == "agent.default.claude") | .action' <<<"$inventory")"
-  assert_equal "false" "$(jq -r '.rows[] | select(.id == "agent.default.claude") | .terminal' <<<"$inventory")"
-  assert_equal "radio_button_unchecked" "$(jq -r '.rows[] | select(.id == "agent.default.claude") | .icon' <<<"$inventory")"
+  assert_equal "setup.agent" "$(jq -r '.groups[] | select(.id == "setup.agent.default") | .parent' <<<"$inventory")"
+  assert_equal "No default chosen yet" "$(jq -r '.groups[] | select(.id == "setup.agent.default") | .description' <<<"$inventory")"
+  assert_equal "setup.agent.default.claude" "$(jq -r '[.rows[] | select(.parent == "setup.agent.default") | .id] | join(",")' <<<"$inventory")"
+  assert_equal "zz agent default claude --notify" "$(jq -r '.rows[] | select(.id == "setup.agent.default.claude") | .action' <<<"$inventory")"
+  assert_equal "false" "$(jq -r '.rows[] | select(.id == "setup.agent.default.claude") | .terminal' <<<"$inventory")"
+  assert_equal "radio_button_unchecked" "$(jq -r '.rows[] | select(.id == "setup.agent.default.claude") | .icon' <<<"$inventory")"
 
   # Chosen: the launch row names it and the submenu marks it.
   : >"$home/chosen"
@@ -445,17 +443,17 @@ EOF
     '$ROOT_DIR/$ZZ_MENU_REL/scripts/zz-menu-inventory' 2>/dev/null"
   [ "$status" -eq 0 ]
   inventory="$output"
-  assert_equal "Launch agent (Codex CLI)" "$(jq -r '.rows[] | select(.id == "agent.launch") | .label' <<<"$inventory")"
-  assert_equal "zz agent run --inline" "$(jq -r '.rows[] | select(.id == "agent.launch") | .action' <<<"$inventory")"
-  assert_equal "true" "$(jq -r '.rows[] | select(.id == "agent.launch") | .terminal' <<<"$inventory")"
+  assert_equal "Launch agent (Codex CLI)" "$(jq -r '.rows[] | select(.id == "setup.agent.launch") | .label' <<<"$inventory")"
+  assert_equal "zz agent run --inline" "$(jq -r '.rows[] | select(.id == "setup.agent.launch") | .action' <<<"$inventory")"
+  assert_equal "true" "$(jq -r '.rows[] | select(.id == "setup.agent.launch") | .terminal' <<<"$inventory")"
   # The agent closes its own window; a pick needs no terminal at all.
-  assert_equal "false" "$(jq -r '.rows[] | select(.id == "agent.launch") | .hold' <<<"$inventory")"
-  assert_equal "true" "$(jq -r '.rows[] | select(.id == "agent.default.claude") | .hold' <<<"$inventory")"
-  assert_equal "Codex CLI is the default" "$(jq -r '.groups[] | select(.id == "agent.default") | .description' <<<"$inventory")"
-  assert_equal "check_circle" "$(jq -r '.rows[] | select(.id == "agent.default.codex") | .icon' <<<"$inventory")"
-  assert_equal "The default coding agent" "$(jq -r '.rows[] | select(.id == "agent.default.codex") | .description' <<<"$inventory")"
-  assert_equal "Make Claude Code the default" "$(jq -r '.rows[] | select(.id == "agent.default.claude") | .description' <<<"$inventory")"
-  run jq -e 'any(.rows[]; .id == "agent.default.opencode") | not' <<<"$inventory"
+  assert_equal "false" "$(jq -r '.rows[] | select(.id == "setup.agent.launch") | .hold' <<<"$inventory")"
+  assert_equal "true" "$(jq -r '.rows[] | select(.id == "setup.agent.default.claude") | .hold' <<<"$inventory")"
+  assert_equal "Codex CLI is the default" "$(jq -r '.groups[] | select(.id == "setup.agent.default") | .description' <<<"$inventory")"
+  assert_equal "check_circle" "$(jq -r '.rows[] | select(.id == "setup.agent.default.codex") | .icon' <<<"$inventory")"
+  assert_equal "The default coding agent" "$(jq -r '.rows[] | select(.id == "setup.agent.default.codex") | .description' <<<"$inventory")"
+  assert_equal "Make Claude Code the default" "$(jq -r '.rows[] | select(.id == "setup.agent.default.claude") | .description' <<<"$inventory")"
+  run jq -e 'any(.rows[]; .id == "setup.agent.default.opencode") | not' <<<"$inventory"
   [ "$status" -eq 0 ]
 }
 

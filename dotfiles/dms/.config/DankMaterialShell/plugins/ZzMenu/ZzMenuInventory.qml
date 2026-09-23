@@ -17,7 +17,7 @@ Item {
     readonly property string scriptsDir: pluginPath ? pluginPath + "/scripts" : ""
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string overlayPath: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/zz-fedora/menu.json"
-    // The default coding agent choice; the Agent group's rows name and mark it.
+    // The default coding agent choice; the AI agent group's rows name and mark it.
     readonly property string agentChoicePath: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/zz-fedora/agent"
 
     // Groups and rows as the inventory listed them, every row carrying its
@@ -80,6 +80,7 @@ Item {
             const path = Array.isArray(group.path) ? group.path : [];
             const label = String(group.label || group.id || "");
             const description = String(group.description || "");
+            const aliases = Array.isArray(group.aliases) ? group.aliases : [];
             nextGroups.push({
                 id: String(group.id || ""),
                 parent: String(group.parent || ""),
@@ -88,7 +89,7 @@ Item {
                 description: description,
                 path: path,
                 order: Number(group.order || 0),
-                search: [label, description, path.join(" ")].join(" ").toLowerCase()
+                search: [label, description, path.join(" "), aliases.join(" ")].join(" ").toLowerCase()
             });
         }
         const nextRows = [];

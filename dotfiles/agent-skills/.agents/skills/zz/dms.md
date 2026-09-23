@@ -115,10 +115,11 @@ dms ipc call plugins enable <id>
 ```
 
 The ZZ menu is one of them: click the ZZ button in the bar or press Super+Z
-for a menu of the `zz` commands, Niri and shell chores, system monitors, and docs
+for a short menu grouped by intent (Add or remove apps, Update, Desktop, Setup,
+Troubleshoot, Learn) over the everyday `zz` commands, Niri and shell chores, and docs
 links, navigated group by group with a search that narrows the current group first
 (Super+Z opens it centered like the launcher, the button under the bar;
-`dms ipc call widget toggleWith zzMenu root` is the keybind, `openWith zzMenu niri`
+`dms ipc call widget toggleWith zzMenu root` is the keybind, `openWith zzMenu desktop`
 opens a group, `widget toggle zzMenu` the popout; typing `zz` in the launcher searches the same rows).
 Super+Z is a seeded keybind: an install whose `~/.config/niri/dms/binds.kdl` predates the
 menu lacks it until the user adds the bind or runs `zz refresh niri/dms/binds.kdl`

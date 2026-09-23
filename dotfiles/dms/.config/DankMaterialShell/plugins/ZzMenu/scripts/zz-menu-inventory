@@ -9,7 +9,7 @@ catalog choices, `agent` the default coding agent and its picker), and prints th
 result as one JSON document:
 
   {"groups": [{"id", "parent", "path", "label", "icon", "description",
-               "order"}],
+               "aliases", "order"}],
    "rows": [{"id", "parent", "group", "path", "label", "icon",
              "description", "action", "terminal", "keywords", "order"}]}
 
@@ -279,8 +279,10 @@ CATEGORY_ICONS = {
 }
 
 def app_rows(group: dict) -> list[dict]:
-    """Rows for the `apps` provider: a subgroup per category, then one row
-    per choice that installs it when absent and removes it when present."""
+    """Rows for the `apps` provider: an Install group of the choices that are
+    absent and a Remove group of the ones present, each with a subgroup per
+    category. The action is picked before the app, so a row never removes
+    something the user meant to open or install."""
     listing = run_zz("app", "list", "--json", timeout=APP_LIST_TIMEOUT)
     if listing is None:
         return []
@@ -291,7 +293,17 @@ def app_rows(group: dict) -> list[dict]:
         return []
     if not isinstance(choices, list):
         return []
-    rows: list[dict] = []
+    actions = {
+        "install": {"icon": "download", "label": "Install",
+                    "description": "Catalog applications that are not installed yet",
+                    "aliases": ["add"]},
+        "remove": {"icon": "delete", "label": "Remove",
+                   "description": "Installed catalog applications",
+                   "aliases": ["uninstall"]},
+    }
+    # Install always lists before Remove; build() drops whichever is left
+    # without rows (nothing to remove, say), and so any empty category.
+    rows = [normalize(f"{group['id']}.{verb}", fields) for verb, fields in actions.items()]
     made: set[str] = set()
     for choice in choices:
         if not isinstance(choice, dict):
@@ -300,23 +312,21 @@ def app_rows(group: dict) -> list[dict]:
         choice_id = str(choice.get("id") or "")
         if not category or not choice_id:
             continue
-        installed = bool(choice.get("installed"))
-        verb = "remove" if installed else "install"
-        category_row_id = f"{group['id']}.{category}"
+        verb = "remove" if choice.get("installed") else "install"
+        category_row_id = f"{group['id']}.{verb}.{category}"
         if category_row_id not in made:
             made.add(category_row_id)
             rows.append(normalize(category_row_id, {
                 "icon": CATEGORY_ICONS.get(category, "apps"),
                 "label": str(choice.get("category_label") or category),
             }))
-        description = str(choice.get("description") or "")
         rows.append(normalize(f"{category_row_id}.{choice_id}", {
-            "icon": "check_circle" if installed else "download",
+            "icon": actions[verb]["icon"],
             "label": str(choice.get("label") or choice_id),
-            "description": ("Installed, remove" if installed else "Install") + (f": {description}" if description else ""),
+            "description": str(choice.get("description") or ""),
             "action": f"zz app {verb} {shlex.quote(category + '/' + choice_id)}",
             "terminal": True,
-            "aliases": ["uninstall" if installed else "add", verb, category],
+            "aliases": actions[verb]["aliases"] + [verb, category],
         }))
     return rows
 
@@ -472,6 +482,7 @@ def build(entries: dict[str, dict], guards: dict[str, bool]) -> dict:
             "label": entry["label"],
             "icon": icon_for(chain, entry),
             "description": entry["description"],
+            "aliases": entry["aliases"],
             "order": order,
         })
     return {"groups": groups, "rows": rows}

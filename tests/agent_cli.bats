@@ -103,7 +103,7 @@ EOS
   assert_file_contains "$COMMAND_LOG" "--action=choose=Choose an agent Set your default coding agent"
   refute_file_contains "$COMMAND_LOG" "dms "
 
-  # The click opens the ZZ menu at its Agent group, where the rows choose.
+  # The click opens the ZZ menu at Setup > AI agent, where the rows choose.
   : >"$COMMAND_LOG"
   FAKE_NOTIFY_CLICK=1 zz_agent invite
   [ "$status" -eq 0 ]
@@ -112,7 +112,7 @@ EOS
     sleep 0.1
     attempts=$((attempts - 1))
   done
-  assert_file_contains "$COMMAND_LOG" "dms ipc call widget openWith zzMenu agent"
+  assert_file_contains "$COMMAND_LOG" "dms ipc call widget openWith zzMenu setup.agent"
 
   # A chosen agent means the invitation has nothing to offer.
   : >"$COMMAND_LOG"
@@ -230,12 +230,12 @@ EOS
 @test "the menu shows the agent and crash groups only once an agent is installed" {
   local menu="$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/ZzMenu/menu.json"
   local guard="command -v claude || command -v codex || command -v opencode"
-  assert_equal "$guard" "$(jq -r '.agent.when' "$menu")"
-  assert_equal "agent" "$(jq -r '.agent.provider' "$menu")"
-  assert_equal "$guard" "$(jq -r '.crash.when' "$menu")"
+  assert_equal "$guard" "$(jq -r '."setup.agent".when' "$menu")"
+  assert_equal "agent" "$(jq -r '."setup.agent".provider' "$menu")"
+  assert_equal "$guard" "$(jq -r '."troubleshoot.crash".when' "$menu")"
   # The capture switch and the mute list are about the watcher, which only
   # the crash-diagnosis choice links.
-  run jq -e '[."crash.capture", ."crash.muted"] | all(.when | test("zz-crash-watch.service"))' "$menu"
+  run jq -e '[."troubleshoot.crash.capture", ."troubleshoot.crash.muted"] | all(.when | test("zz-crash-watch.service"))' "$menu"
   [ "$status" -eq 0 ]
 }
 

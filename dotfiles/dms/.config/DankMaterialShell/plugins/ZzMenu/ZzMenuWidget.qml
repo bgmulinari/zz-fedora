@@ -11,7 +11,7 @@ import qs.Modules.Plugins
 // the menu has two homes: a click drops it under the pill, while the
 // keybind opens the same panel centered on the screen over a dimmed
 // background, through the widget IPC (`dms ipc call widget toggleWith
-// zzMenu root`, or `openWith zzMenu niri` for a group). `widget toggle`
+// zzMenu root`, or `openWith zzMenu desktop` for a group). `widget toggle`
 // is the click.
 PluginComponent {
     id: root

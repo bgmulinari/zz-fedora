@@ -155,7 +155,7 @@ so rather than quietly doing it.
 
 A mute fixes nothing, and a mute offered in place of a fix that was within reach
 is the wrong answer. For every program rather than one, the switch is
-`zz crash capture off` (also in the ZZ menu under Crashes).
+`zz crash capture off` (also in the ZZ menu under Troubleshoot > Crashes).
 
 ## This is personal assistance, not bug triage
 

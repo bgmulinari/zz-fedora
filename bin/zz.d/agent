@@ -15,8 +15,8 @@ export PATH="$HOME/.local/bin:${PATH:-/usr/local/bin:/usr/bin}:${HOMEBREW_PREFIX
 # The supported agents, in listing order.
 AGENTS=(claude codex opencode)
 
-# The picker the invitation opens: the ZZ menu at its Agent group.
-PICKER_COMMAND=(dms ipc call widget openWith zzMenu agent)
+# The picker the invitation opens: the ZZ menu at Setup > AI agent.
+PICKER_COMMAND=(dms ipc call widget openWith zzMenu setup.agent)
 
 usage() {
   cat <<'USAGE'
@@ -38,10 +38,10 @@ chosen there is nothing to launch, and the crash notifications stay silent.
 The choice is kept in ~/.config/zz-fedora/agent.
 
 `list` shows the supported agents with their installed and default state;
---json is what the ZZ menu's Agent group is built from.
+--json is what the ZZ menu's AI agent group is built from.
 
 `invite` sends the one-time notification that asks for the choice; the
-first login runs it, and a click opens the ZZ menu at its Agent group. It
+first login runs it, and a click opens the ZZ menu at Setup > AI agent. It
 sends nothing once an agent is chosen, or while none is installed.
 USAGE
 }
@@ -179,7 +179,7 @@ cmd_default() {
   if [[ "$notify" -eq 1 ]] && command -v notify-send >/dev/null 2>&1; then
     notify-send --app-name=zz --icon=dialog-information \
       "Default coding agent: $(agent_label "$name")" \
-      "Crash diagnoses and the ZZ menu's Agent group launch it" >/dev/null 2>&1 || true
+      "Crash diagnoses and the ZZ menu's AI agent group launch it" >/dev/null 2>&1 || true
   fi
 }
 
@@ -246,7 +246,7 @@ cmd_invite() {
     return 0
   fi
   # Never a failure: the first-run step records this as done either way,
-  # and the menu's Agent group offers the same choice at any time.
+  # and the menu's AI agent group offers the same choice at any time.
   if ! command -v notify-send >/dev/null 2>&1; then
     printf 'notify-send is not installed; choose with: zz agent default <claude|codex|opencode>\n'
     return 0
@@ -264,7 +264,7 @@ cmd_invite() {
     chosen="$(notify-send --app-name=zz --urgency=critical --icon=dialog-information \
       --action="choose=Choose an agent" \
       "Set your default coding agent" \
-      "Crash diagnoses and the ZZ menu's Agent group use it. Click to choose." 2>/dev/null || true)"
+      "Crash diagnoses and the ZZ menu's AI agent group use it. Click to choose." 2>/dev/null || true)"
     [[ "$chosen" == "choose" ]] || exit 0
     exec "${PICKER_COMMAND[@]}"
   ) >/dev/null 2>&1 </dev/null &

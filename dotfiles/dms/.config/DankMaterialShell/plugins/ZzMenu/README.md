@@ -3,30 +3,34 @@
 The desktop's command menu. Click the **ZZ** button on the right of the bar,
 next to the system tray, and a menu drops down under it; press Super+Z and the same menu opens
 centered on the screen over a dimmed background, the way the launcher
-does. In it: the `zz`
-commands (update, doctor, refresh, logs, defaults, first run, debug bundle,
-.NET), the Niri chores the shell has no page for (edit the personal
-overrides, validate and reload the config, hotkey overlay, pick-a-window
-facts for window rules, outputs, compositor log), the shell itself
-(restart, rescan plugins, shell log), system monitors (system info, btop,
-netwatch, boot errors), documentation links, and an Apps group that lists
-the catalog's applications per category, each row installing the app when
-it is absent and removing it when it is present (`zz app`); the terminal
-that opens asks for confirmation before anything changes.
+does. The root is short and grouped by what you want to do:
+
+| Group | What is in it |
+|---|---|
+| Add or remove apps | Install (the catalog applications not installed yet) and Remove (the installed ones), each by category (`zz app`) |
+| Update | All package managers and tools (`zz update all`), ZZ itself, cleaning up unused packages, and one updater at a time |
+| Desktop | Edit the personal Niri overrides (checked when the editor closes), pick-a-window facts for window rules, outputs, restart the shell |
+| Setup | The AI agent, SSH access, the .NET dev certificate, resetting the default apps (file types, terminal, browser) or a config to the ZZ default; pick apps one by one in Settings > Default Apps |
+| Troubleshoot | Doctor, crashes, installer/compositor/shell/boot logs, plugin rescan, re-running first-login setup, the debug bundle |
+| Learn | The keybinding overlay and documentation links |
+
+The menu does not mirror the CLI: variants you rarely need from a menu
+stay in `zz` itself (`zz --help`). The terminal a row opens asks for
+confirmation before anything changes.
 
 The menu is navigated like a menu: a group opens as a submenu with a
 breadcrumb and a back arrow. Arrow keys (or Ctrl+N/P, Ctrl+J/K) move, Enter
 opens the row or the group, Backspace or Left goes up, Escape clears the
 search, then goes up, then closes. Typing searches the current group first
-and everything below it after that, so `val` inside Niri finds the validator
-and `niri val` from the root finds it too. The mouse works throughout.
+and everything below it after that, so `out` inside Desktop finds Outputs
+and `desk out` from the root finds it too. The mouse works throughout.
 
 A row runs detached, or, when marked `terminal`, in a terminal window that
-stays open until Enter is pressed so the output and any sudo prompt are on
+stays open until a key is pressed so the output and any sudo prompt are on
 screen. Right-clicking the bar button opens a terminal.
 
 The same rows are reachable from the app launcher by typing the trigger
-(`zz` by default) followed by a search (`zz upd dnf`, `zz refresh ghostty`).
+(`zz` by default) followed by a search (`zz upd dnf`, `zz reset ghostty`).
 That surface is search only: the launcher closes after any plugin row runs,
 so it cannot hold a submenu open, and each row shows its group path in the
 subtitle instead.
@@ -52,19 +56,21 @@ The widget answers the shell's widget IPC, which is what the keybind uses:
 
 ```bash
 dms ipc call widget toggleWith zzMenu root   # the centered menu (Super+Z)
-dms ipc call widget openWith zzMenu niri     # centered, at a group
+dms ipc call widget openWith zzMenu desktop  # centered, at a group
+dms ipc call widget openWith zzMenu setup.agent  # a nested group
 dms ipc call widget toggle zzMenu            # the popout under the bar button
 ```
 
 ## Menu definition
 
 `menu.json` is an object keyed by entry id. Dotted ids are the tree:
-`update.dnf` sits under `update`, and groups nest as deep as the ids do. An
+`update.one.dnf` sits under `update.one`, and groups nest as deep as the ids do. An
 entry with an `action` is a row, one with a `provider` is a group whose rows
 are enumerated at load time, and anything else is a plain group. Providers:
-`refresh` lists `zz refresh --list`; `apps` reads `zz app list --json` and
-builds one subgroup per category whose rows install or remove each choice
-according to its installed state.
+`refresh` lists `zz refresh --list`; `agent` reads `zz agent list --json`
+for a launch row and a default-agent picker; `apps` reads `zz app list --json` and
+builds an Install group of the absent choices and a Remove group of the
+installed ones, each with one subgroup per category.
 
 | Field | Meaning |
 |---|---|

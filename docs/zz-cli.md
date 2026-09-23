@@ -22,11 +22,11 @@
 Run `zz --help` to list commands or `zz commands --json` for machine-readable
 command metadata.
 
-The desktop shell exposes the same commands through the ZZ menu: click the
+The desktop shell exposes the everyday commands through the ZZ menu: click the
 ZZ button in the bar (a popout under it) or press Super+Z (centered, like
 the launcher), walk the groups, and pick a row; it runs in a terminal window that stays
 open until a key is pressed, unless the row starts an interactive program
-such as an editor, a monitor, or the coding agent, whose window closes when
+such as an editor or the coding agent, whose window closes when
 it exits. Typing `zz` in the
 launcher searches the same rows. Super+Z is part of the seeded keybinds:
 an install seeded before the menu shipped keeps its own
@@ -109,17 +109,17 @@ zz agent list                  # the supported agents, installed and default sta
 ```
 
 The default coding agent is the one the desktop launches: the crash
-notifications below hand their diagnosis to it, and the ZZ menu's Agent group
-starts it. ZZ picks none for you. The first login sends a one-time
+notifications below hand their diagnosis to it, and the ZZ menu's AI
+agent group (under Setup) starts it. ZZ picks none for you. The first login sends a one-time
 notification, "Set your default coding agent", whose click opens the ZZ menu
-at its Agent group; `zz agent invite` is that notification, and it sends
+at that group; `zz agent invite` is that notification, and it sends
 nothing once an agent is chosen or while none of the three is installed.
 
-The Agent group is built from `zz agent list --json`: a "Launch agent
+The AI agent group is built from `zz agent list --json`: a "Launch agent
 (Claude Code)" row naming the current default, and a "Set default agent"
 submenu with one row per installed agent (Claude Code `claude`, Codex
 `codex`, OpenCode `opencode`), the current one marked, that sets the choice
-and confirms it with a notification. The Agent and Crashes groups appear
+and confirms it with a notification. The AI agent and Crashes groups appear
 only once one of the three agents is installed. The choice is kept in
 `~/.config/zz-fedora/agent`.
 
@@ -246,9 +246,10 @@ skips the prompt. Both accept `--dry-run`, which prints the commands
 without a prompt and leaves the saved selections untouched, and both need
 root for package changes.
 
-The desktop menu's Apps group lists the same choices per category; each
-row installs the choice when it is absent and removes it when it is
-present, in a terminal.
+The desktop menu's "Add or remove apps" group offers the same choices in two
+branches, Install (the absent ones) and Remove (the installed ones), each by
+category; a row runs `zz app install` or `zz app remove` in a terminal, which
+asks before changing anything.
 
 ## Refreshing user configuration
 

@@ -411,17 +411,24 @@ Shipped plugins:
   the Super+Z bind opens the same panel in a centered `DankModal` over a
   dimmed background through the shell's widget IPC
   (`dms ipc call widget toggleWith zzMenu root`; `openWith zzMenu <group>`
-  opens a group). The rows: the `zz` commands, Niri chores the shell has no page
-  for (edit the personal overrides, validate and reload the config, hotkey
-  overlay, pick-a-window facts for window rules, outputs, compositor log), the shell itself
-  (restart, rescan plugins, shell log), system monitors, and documentation
-  links. The menu is data: `menu.json` in the plugin directory, an object
-  keyed by dotted ids where the dots are the tree, overlaid entry by entry
-  with `~/.config/zz-fedora/menu.json`. `scripts/zz-menu-inventory`
+  opens a group, a dotted id for a nested one). The root is organized by
+  intent, not by `zz` command, and stays short: Add or remove apps, Update,
+  Desktop (Niri chores the shell has no page for, and restarting the shell),
+  Setup (AI agent, SSH, the .NET dev certificate, resetting the default apps
+  or a config to the ZZ default), Troubleshoot (doctor, crashes, logs,
+  plugin rescan, first-run, debug bundle), and Learn (the keybinding overlay
+  and documentation links). The menu does not mirror the CLI: rarely needed
+  variants (single .NET updaters, the log path) stay CLI-only, and it
+  carries no shortcuts to apps the launcher already opens. The menu is data:
+  `menu.json` in the plugin directory, an object keyed by dotted ids where
+  the dots are the tree, overlaid entry by entry with
+  `~/.config/zz-fedora/menu.json`. `scripts/zz-menu-inventory`
   (`/usr/bin/python3`, stdlib) merges the two, evaluates every `when` guard
-  in one shell batch, expands the providers (`refresh` from
-  `zz refresh --list`; `apps` from `zz app list --json`, one subgroup per
-  category with rows that install or remove by state), and prints the groups
+  in one shell batch, expands the providers (`refresh` from `zz refresh
+  --list`; `agent` from `zz agent list --json`, a launch row and a
+  default-agent picker; `apps` from `zz app list --json`, an Install group
+  of the absent choices and a Remove group of the installed ones, each by
+  category, so the action is chosen before the app), and prints the groups
   (with their parent) and rows;
   `ZzMenuInventory.qml`, shared by both surfaces, runs it and the rows. The
   launcher surface behind the `zz` trigger is search only: the launcher
@@ -431,12 +438,12 @@ Shipped plugins:
   marked `terminal` runs through `scripts/zz-menu-run`, which opens
   `xdg-terminal-exec` (falling back to `ghostty`) and holds the window
   until a key is pressed so output and sudo prompts stay visible, except
-  after Ctrl-C; a row that also says `hold: false` (an editor, a monitor,
+  after Ctrl-C; a row that also says `hold: false` (an editor,
   the coding agent) gets a window that closes when the program exits.
   Other rows run detached in a login shell. It is base because a ZZ desktop without its
   own menu is incomplete and it needs no wizard visibility; the doctor
-  reads its manifest through the link. A test keeps `menu.json` in step
-  with `bin/zz.d/` and the updater's target list.
+  reads its manifest through the link. A test keeps every `zz` row naming
+  a real command and update target.
 - **Agent usage** (`agentUsage`, unit `ai-agent-usage`, component
   `dms-plugin-agent-usage`): a bar pill plus popout showing Claude Code and
   Codex rate limits with reset countdowns, tokens per day for the last week,
