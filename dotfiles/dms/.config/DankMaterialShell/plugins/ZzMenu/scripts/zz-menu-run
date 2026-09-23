@@ -2,7 +2,7 @@
 # Run one ZZ menu action in a terminal window. By default the window holds
 # after the command ends until a key is pressed, so output and any sudo
 # prompt are on screen; --no-hold is for interactive programs (an editor, a
-# monitor, a coding agent), whose window closes when they exit.
+# monitor, an AI agent), whose window closes when they exit.
 #
 # Usage: zz-menu-run [--no-hold] <command line>
 set -Eeuo pipefail

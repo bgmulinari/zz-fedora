@@ -680,7 +680,7 @@ EOF
   assert_equal "true" "$(jq -r '.rows[] | select(.id == "setup.agent.default.claude") | .hold' <<<"$inventory")"
   assert_equal "Codex CLI is the default" "$(jq -r '.groups[] | select(.id == "setup.agent.default") | .description' <<<"$inventory")"
   assert_equal "check_circle" "$(jq -r '.rows[] | select(.id == "setup.agent.default.codex") | .icon' <<<"$inventory")"
-  assert_equal "The default coding agent" "$(jq -r '.rows[] | select(.id == "setup.agent.default.codex") | .description' <<<"$inventory")"
+  assert_equal "The default AI agent" "$(jq -r '.rows[] | select(.id == "setup.agent.default.codex") | .description' <<<"$inventory")"
   assert_equal "Make Claude Code the default" "$(jq -r '.rows[] | select(.id == "setup.agent.default.claude") | .description' <<<"$inventory")"
   run jq -e 'any(.rows[]; .id == "setup.agent.default.opencode") | not' <<<"$inventory"
   [ "$status" -eq 0 ]

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # zz-name: crash
-# zz-summary: Announce process crashes and hand a core dump to the default coding agent.
+# zz-summary: Announce process crashes and hand a core dump to the default AI agent.
 # zz-usage: zz crash <list|diagnose <pid|latest>|mute [program] [on|off|toggle]|capture [on|off|toggle|status]|watch>
 set -Eeuo pipefail
 
@@ -36,7 +36,7 @@ Usage:
 
 Commands:
   list       List the core dumps systemd-coredump keeps (coredumpctl list).
-  diagnose   Hand one crash to the default coding agent with the diagnose-crash
+  diagnose   Hand one crash to the default AI agent with the diagnose-crash
              skill: a PID from the list, or `latest` for the most recent one.
              Opens a terminal window; --inline runs in the current one.
   mute       Silence the crash notifications for one program (`on`, the

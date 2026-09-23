@@ -1,5 +1,5 @@
 id = "ai-crash-diagnosis"
-description = "Crash notifications that hand a core dump to the default coding agent"
+description = "Crash notifications that hand a core dump to the default AI agent"
 config = ["crash-watch"]
 # The watcher follows the journal for systemd-coredump entries and offers a
 # diagnosis for each; `zz crash capture off` keeps the enabled unit inert.
@@ -11,7 +11,7 @@ id = "crash-diagnosis"
 label = "Crash diagnosis"
 default = true
 order = 60
-description = "Notify when a program crashes and offer to diagnose it with the default coding agent"
+description = "Notify when a program crashes and offer to diagnose it with the default AI agent"
 
 # libnotify sends the toast and waits for its click; gdb and the debuginfod
 # client symbolize the core for the diagnosis. coredumpctl itself comes with

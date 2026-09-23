@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # zz-name: agent
-# zz-summary: Launch the default coding agent, or choose which one that is.
+# zz-summary: Launch the default AI agent, or choose which one that is.
 # zz-usage: zz agent [run|prompt <text>] [--inline] | zz agent default [claude|codex|opencode] [--notify] | zz agent list [--json] | zz agent invite
 set -Eeuo pipefail
 
@@ -27,7 +27,7 @@ Usage:
   zz agent list [--json]
   zz agent invite
 
-Launch the default coding agent in a new terminal window, or in the current
+Launch the default AI agent in a new terminal window, or in the current
 terminal with --inline. `prompt` starts it with a task. Agents launched this
 way run in their own don't-stop-to-ask mode, so expect them to act.
 
@@ -108,9 +108,9 @@ default_agent() {
 # until one is chosen. The non-zero status is what callers test.
 no_default_hint() {
   if any_agent_installed; then
-    printf 'No default coding agent chosen. Choose one with: zz agent default <claude|codex|opencode>\n' >&2
+    printf 'No default AI agent chosen. Choose one with: zz agent default <claude|codex|opencode>\n' >&2
   else
-    printf 'No coding agent is installed. Install one with: zz app install claude-code, codex, or opencode\n' >&2
+    printf 'No AI agent is installed. Install one with: zz app install claude-code, codex, or opencode\n' >&2
   fi
   return 1
 }
@@ -175,10 +175,10 @@ cmd_default() {
     fail "$(agent_label "$name") is not installed. Install it with: zz app install $(agent_choice "$name")"
   mkdir -p "$(dirname "$CONFIG_FILE")"
   printf '%s\n' "$name" >"$CONFIG_FILE"
-  printf 'Default coding agent: %s (%s)\n' "$(agent_label "$name")" "$name"
+  printf 'Default AI agent: %s (%s)\n' "$(agent_label "$name")" "$name"
   if [[ "$notify" -eq 1 ]] && command -v notify-send >/dev/null 2>&1; then
     notify-send --app-name=zz --icon=dialog-information \
-      "Default coding agent: $(agent_label "$name")" \
+      "Default AI agent: $(agent_label "$name")" \
       "Crash diagnoses and the ZZ menu's AI agent group launch it" >/dev/null 2>&1 || true
   fi
 }
@@ -238,11 +238,11 @@ launch() {
 cmd_invite() {
   local agent
   if agent="$(configured_agent)"; then
-    printf 'Default coding agent already chosen: %s\n' "$(agent_label "$agent")"
+    printf 'Default AI agent already chosen: %s\n' "$(agent_label "$agent")"
     return 0
   fi
   if ! any_agent_installed; then
-    printf 'No coding agent is installed; nothing to choose.\n'
+    printf 'No AI agent is installed; nothing to choose.\n'
     return 0
   fi
   # Never a failure: the first-run step records this as done either way,
@@ -263,12 +263,12 @@ cmd_invite() {
     done
     chosen="$(notify-send --app-name=zz --urgency=critical --icon=dialog-information \
       --action="choose=Choose an agent" \
-      "Set your default coding agent" \
+      "Set your default AI agent" \
       "Crash diagnoses and the ZZ menu's AI agent group use it. Click to choose." 2>/dev/null || true)"
     [[ "$chosen" == "choose" ]] || exit 0
     exec "${PICKER_COMMAND[@]}"
   ) >/dev/null 2>&1 </dev/null &
-  printf 'Invited the default coding agent choice.\n'
+  printf 'Invited the default AI agent choice.\n'
 }
 
 main() {

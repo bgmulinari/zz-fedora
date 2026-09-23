@@ -37,25 +37,25 @@ zz_agent() {
 @test "no agent is the default until one is chosen" {
   zz_agent default
   [ "$status" -ne 0 ]
-  assert_contains "$output" "No coding agent is installed"
+  assert_contains "$output" "No AI agent is installed"
   assert_contains "$output" "zz app install claude-code"
 
   make_fake_command claude
   make_fake_command codex
   zz_agent default
   [ "$status" -ne 0 ]
-  assert_contains "$output" "No default coding agent chosen"
+  assert_contains "$output" "No default AI agent chosen"
   assert_contains "$output" "zz agent default <claude|codex|opencode>"
 
   zz_agent run --inline
   [ "$status" -ne 0 ]
-  assert_contains "$output" "No default coding agent chosen"
+  assert_contains "$output" "No default AI agent chosen"
   [[ ! -s "$COMMAND_LOG" ]]
 
   make_fake_command opencode
   zz_agent default opencode
   [ "$status" -eq 0 ]
-  assert_contains "$output" "Default coding agent: OpenCode (opencode)"
+  assert_contains "$output" "Default AI agent: OpenCode (opencode)"
   assert_equal "opencode" "$(cat "$AGENT_FILE")"
   zz_agent default
   [ "$status" -eq 0 ]
@@ -80,13 +80,13 @@ EOS
   # Nothing to choose from while none of the agents is installed.
   zz_agent invite
   [ "$status" -eq 0 ]
-  assert_contains "$output" "No coding agent is installed; nothing to choose"
+  assert_contains "$output" "No AI agent is installed; nothing to choose"
   [[ ! -s "$COMMAND_LOG" ]]
 
   make_fake_command codex
   zz_agent invite
   [ "$status" -eq 0 ]
-  assert_contains "$output" "Invited the default coding agent choice"
+  assert_contains "$output" "Invited the default AI agent choice"
   local attempts=50
   until grep -q "notify-send" "$COMMAND_LOG" || [[ "$attempts" -eq 0 ]]; do
     sleep 0.1
@@ -100,7 +100,7 @@ EOS
     attempts=$((attempts - 1))
   done
   assert_file_contains "$COMMAND_LOG" "--urgency=critical"
-  assert_file_contains "$COMMAND_LOG" "--action=choose=Choose an agent Set your default coding agent"
+  assert_file_contains "$COMMAND_LOG" "--action=choose=Choose an agent Set your default AI agent"
   refute_file_contains "$COMMAND_LOG" "dms "
 
   # The click opens the ZZ menu at Setup > AI agent, where the rows choose.
@@ -215,8 +215,8 @@ EOS
   make_fake_command notify-send
   zz_agent default codex --notify
   [ "$status" -eq 0 ]
-  assert_contains "$output" "Default coding agent: Codex CLI (codex)"
-  assert_file_contains "$COMMAND_LOG" "notify-send --app-name=zz --icon=dialog-information Default coding agent: Codex CLI"
+  assert_contains "$output" "Default AI agent: Codex CLI (codex)"
+  assert_file_contains "$COMMAND_LOG" "notify-send --app-name=zz --icon=dialog-information Default AI agent: Codex CLI"
 
   zz_agent list --json
   run jq -r '.[] | select(.default) | .id' <<<"$output"

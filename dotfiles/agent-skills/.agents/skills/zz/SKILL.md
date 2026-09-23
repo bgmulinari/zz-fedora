@@ -161,7 +161,7 @@ niri msg windows          # open windows with app-id and title (for window rules
 | `zz defaults` | Reapply default applications and browser preferences | `zz defaults` |
 | `zz ssh setup` | Key-only SSH access: import a GitHub account's keys (rerun to sync adds and removals) or paste one, start sshd, turn password logins off | `zz ssh setup` |
 | `zz ssh remove` | Disable sshd and its password-login restriction; asks before removing keys | `zz ssh remove` |
-| `zz agent` | Launch the default coding agent in a terminal; `default` chooses it (claude, codex, opencode; none until chosen), `prompt` starts it with a task | `zz agent default codex` |
+| `zz agent` | Launch the default AI agent in a terminal; `default` chooses it (claude, codex, opencode; none until chosen), `prompt` starts it with a task | `zz agent default codex` |
 | `zz crash list` | Core dumps systemd-coredump keeps | `zz crash list` |
 | `zz crash diagnose` | Hand one core dump to the default agent with the diagnose-crash skill | `zz crash diagnose latest` |
 | `zz crash mute` | Silence crash notifications for one program (`off` lifts it; no argument lists) | `zz crash mute nautilus` |

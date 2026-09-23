@@ -5,7 +5,7 @@ Reads the shipped menu.json beside this plugin, overlays the user's
 $XDG_CONFIG_HOME/zz-fedora/menu.json on top of it entry by entry, evaluates
 every `when` guard in one shell batch, expands provider-backed groups (the
 `refresh` provider lists what `zz refresh --list` can restore, `apps` the
-catalog choices, `agent` the default coding agent and its picker), and prints the
+catalog choices, `agent` the default AI agent and its picker), and prints the
 result as one JSON document:
 
   {"groups": [{"id", "parent", "path", "label", "icon", "description",
@@ -355,7 +355,7 @@ def agent_rows(group: dict) -> list[dict]:
         rows.append(normalize(f"{group['id']}.launch", {
             "icon": "terminal",
             "label": f"Launch agent ({label})",
-            "description": "Start the default coding agent in a terminal",
+            "description": "Start the default AI agent in a terminal",
             "action": "zz agent run --inline",
             "terminal": True,
             "hold": False,
@@ -376,7 +376,7 @@ def agent_rows(group: dict) -> list[dict]:
         rows.append(normalize(f"{set_id}.{agent_id}", {
             "icon": "check_circle" if current else "radio_button_unchecked",
             "label": label,
-            "description": "The default coding agent" if current else f"Make {label} the default",
+            "description": "The default AI agent" if current else f"Make {label} the default",
             "action": f"zz agent default {shlex.quote(agent_id)} --notify",
             "aliases": [agent_id],
         }))

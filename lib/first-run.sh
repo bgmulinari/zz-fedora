@@ -155,7 +155,7 @@ remove_first_run_hook() {
   run_cmd_as_user "$TARGET_USER" rm -f "$desktop_file"
 }
 
-# ZZ picks no default coding agent, so the first login invites the choice
+# ZZ picks no default AI agent, so the first login invites the choice
 # once with a notification whose click opens the picker. The agent command
 # sends nothing when a choice already exists and returns as soon as the
 # toast is up, so this never blocks the rest of first-run.

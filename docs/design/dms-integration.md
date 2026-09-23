@@ -439,7 +439,7 @@ Shipped plugins:
   `xdg-terminal-exec` (falling back to `ghostty`) and holds the window
   until a key is pressed so output and sudo prompts stay visible, except
   after Ctrl-C; a row that also says `hold: false` (an editor,
-  the coding agent) gets a window that closes when the program exits.
+  the AI agent) gets a window that closes when the program exits.
   Other rows run detached in a login shell. It is base because a ZZ desktop without its
   own menu is incomplete and it needs no wizard visibility; the doctor
   reads its manifest through the link. A test keeps every `zz` row naming

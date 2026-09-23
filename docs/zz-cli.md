@@ -16,8 +16,8 @@
 | `zz refresh` | Replace user-owned configs with the current ZZ defaults, backing them up first. |
 | `zz update` | Update ZZ itself, packages, or developer tools. |
 | `zz app` | Install or remove one catalog application without rerunning the whole install. |
-| `zz agent` | Launch the default coding agent, or choose which one that is. |
-| `zz crash` | Announce process crashes and hand a core dump to the default coding agent. |
+| `zz agent` | Launch the default AI agent, or choose which one that is. |
+| `zz crash` | Announce process crashes and hand a core dump to the default AI agent. |
 
 Run `zz --help` to list commands or `zz commands --json` for machine-readable
 command metadata.
@@ -26,7 +26,7 @@ The desktop shell exposes the everyday commands through the ZZ menu: click the
 ZZ button in the bar (a popout under it) or press Super+Z (centered, like
 the launcher), walk the groups, and pick a row; it runs in a terminal window that stays
 open until a key is pressed, unless the row starts an interactive program
-such as an editor or the coding agent, whose window closes when
+such as an editor or the AI agent, whose window closes when
 it exits. Typing `zz` in the
 launcher searches the same rows. Super+Z is part of the seeded keybinds:
 an install seeded before the menu shipped keeps its own
@@ -102,7 +102,7 @@ removing the authorized keys (`--remove-keys` and `--keep-keys` answer for
 scripts). The openssh packages stay installed because they also provide the
 client.
 
-## Coding agent
+## AI agent
 
 ```bash
 zz agent                       # the default agent in a new terminal window
@@ -113,10 +113,10 @@ zz agent default codex         # choose one
 zz agent list                  # the supported agents, installed and default state
 ```
 
-The default coding agent is the one the desktop launches: the crash
+The default AI agent is the one the desktop launches: the crash
 notifications below hand their diagnosis to it, and the ZZ menu's AI
 agent group (under Setup) starts it. ZZ picks none for you. The first login sends a one-time
-notification, "Set your default coding agent", whose click opens the ZZ menu
+notification, "Set your default AI agent", whose click opens the ZZ menu
 at that group; `zz agent invite` is that notification, and it sends
 nothing once an agent is chosen or while none of the three is installed.
 

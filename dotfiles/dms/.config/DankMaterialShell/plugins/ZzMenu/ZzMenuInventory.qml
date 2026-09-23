@@ -17,7 +17,7 @@ Item {
     readonly property string scriptsDir: pluginPath ? pluginPath + "/scripts" : ""
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string overlayPath: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/zz-fedora/menu.json"
-    // The default coding agent choice; the AI agent group's rows name and mark it.
+    // The default AI agent choice; the AI agent group's rows name and mark it.
     readonly property string agentChoicePath: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/zz-fedora/agent"
 
     // Groups and rows as the inventory listed them, every row carrying its
