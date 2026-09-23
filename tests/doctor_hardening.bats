@@ -251,7 +251,7 @@ step_table_failure_policy() {
   assert_contains "$output" "user service enabled app-com.mitchellh.ghostty.service"
 }
 
-@test "doctor fails and identifies failed system units" {
+@test "doctor warns about failed system units without failing" {
   build_test_plan
   COMMAND=doctor
   DRY_RUN=0
@@ -287,10 +287,10 @@ step_table_failure_policy() {
 
   capture_without_bats_debug_trap output status module_90_doctor
 
-  [ "$status" -ne 0 ]
-  assert_contains "$output" "failed system units detected"
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "[warn] failed system units detected"
   assert_contains "$output" "foomaticrip-upgrade.service"
-  assert_contains "$output" "Fatal desktop readiness checks failed: 1"
+  assert_contains "$output" "Doctor completed with no fatal readiness failures."
 }
 
 @test "doctor accepts an enabled sshd only when password logins are off" {

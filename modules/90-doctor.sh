@@ -72,6 +72,9 @@ doctor_check_user_enabled() {
   fi
 }
 
+# A failed unit elsewhere on the system (a network mount while offline, a
+# one-shot vendor service) says nothing about whether the desktop can start,
+# so it is reported but never counted as a fatal readiness failure.
 doctor_check_failed_system_units() {
   local failed_units=""
   if ! failed_units="$(systemctl list-units --state=failed --no-legend --no-pager --plain 2>/dev/null)"; then
@@ -85,7 +88,6 @@ doctor_check_failed_system_units() {
   fi
 
   printf '[warn] failed system units detected:\n%s\n' "$failed_units"
-  return 1
 }
 
 doctor_warn_command() {
@@ -493,7 +495,7 @@ module_90_doctor() {
   doctor_warn_enabled tuned-ppd
   doctor_warn_enabled cups
   doctor_warn_enabled avahi-daemon
-  doctor_check_failed_system_units || ((++fatal_checks))
+  doctor_check_failed_system_units
 
   log_progress "Checking privileged access"
   doctor_check_sshd
