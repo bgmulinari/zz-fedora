@@ -316,11 +316,12 @@ module_90_doctor() {
     fi
     # Shipped plugins are wired by the rendered enablement seed plus one
     # directory link each; reading a manifest through its link proves the
-    # link resolves. The ZZ menu rides the base dms component, agent usage
-    # its own optional one.
+    # link resolves. The ZZ menu and the keybinding list ride the base dms
+    # component, agent usage its own optional one.
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
       doctor_warn_file "$(dms_plugin_settings_file)"
       doctor_warn_file "$user_config_home/DankMaterialShell/plugins/ZzMenu/plugin.json"
+      doctor_warn_file "$user_config_home/DankMaterialShell/plugins/ZzKeybindings/plugin.json"
       if doctor_plan_has_entry "$PLAN_DIR/config/components.list" "dms-plugin-proton-manager"; then
         doctor_warn_file "$user_config_home/DankMaterialShell/plugins/ProtonManager/plugin.json"
       fi
@@ -339,9 +340,11 @@ module_90_doctor() {
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
       doctor_check_contains "$niri_config_home/dms/binds.kdl" 'dms ipc call spotlight toggle'
       doctor_check_contains "$niri_config_home/dms/binds.kdl" 'spawn "ghostty" "+new-window"'
-      # The ZZ menu bind ships with the seed; an install seeded before it
-      # existed keeps its own file, so a missing bind is a warning to act on.
+      # The ZZ menu and keybinding list binds ship with the seed; an install
+      # seeded before they existed keeps its own file, so a missing bind is
+      # a warning to act on.
       doctor_check_contains "$niri_config_home/dms/binds.kdl" 'dms ipc call widget toggleWith zzMenu root'
+      doctor_check_contains "$niri_config_home/dms/binds.kdl" 'dms ipc call plugins toggle zzKeybindings'
     fi
     [[ "$SKIP_USER_CONFIG" -eq 1 ]] ||
       doctor_check_contains "$niri_config_home/config.kdl" 'include "~/.zz/dotfiles/niri/.config/niri/defaults.kdl"'

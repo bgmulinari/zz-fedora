@@ -2,6 +2,9 @@
   "zzMenu": {
     "enabled": true
   },
+  "zzKeybindings": {
+    "enabled": true
+  },
   "agentUsage": {
     "enabled": true
   },

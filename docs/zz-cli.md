@@ -35,6 +35,11 @@ action `dms ipc call widget toggleWith zzMenu root`) or run
 `zz refresh niri/dms/binds.kdl`; `zz doctor` warns while it is missing. See
 `docs/design/dms-integration.md` for the plugin.
 
+Super+/ or Super+K opens the keybinding list: every Niri bind, searchable
+by name or chord, and Enter runs the one picked. It replaces Niri's own
+hotkey overlay, which has no bind. Both binds are seeded the same way
+(action `dms ipc call plugins toggle zzKeybindings`).
+
 ## Logs
 
 ```bash

@@ -12,7 +12,7 @@ does. The root is short and grouped by what you want to do:
 | Desktop | Edit the personal Niri overrides (checked when the editor closes), pick-a-window facts for window rules, outputs, restart the shell |
 | Setup | The AI agent, SSH access, the .NET dev certificate, resetting the default apps (file types, terminal, browser) or a config to the ZZ default; pick apps one by one in Settings > Default Apps |
 | Troubleshoot | Doctor, crashes, installer/compositor/shell/boot logs, plugin rescan, re-running first-login setup, the debug bundle |
-| Learn | The keybinding overlay and documentation links |
+| Learn | The keybinding list and documentation links |
 
 The menu does not mirror the CLI: variants you rarely need from a menu
 stay in `zz` itself (`zz --help`). The terminal a row opens asks for

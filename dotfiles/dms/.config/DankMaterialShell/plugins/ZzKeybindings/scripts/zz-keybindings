@@ -1,0 +1,460 @@
+#!/usr/bin/python3
+"""List the Niri keybindings as rows a person can read and run.
+
+The binds come from `dms keybinds show niri`, which parses the whole Niri
+configuration (every include, not only the DMS-editable fragment) the same
+way Settings > Keybinds does. Each bind becomes a row with:
+
+- a chord a person reads off their keyboard ("SUPER SHIFT + S", "~" for
+  grave, "," for comma, "VOLUME UP" for XF86AudioRaiseVolume);
+- a label: the bind's hotkey-overlay-title, or one derived from the key or
+  the action when the bind has none;
+- the same chord as keycaps, one list per chord ("SUPER", "SHIFT", "S");
+- the argv that runs the bind through `niri msg action`, so choosing a row
+  does what pressing the chord does, or an empty argv for the few binds the
+  command line cannot run (recent-windows actions such as next-window).
+
+DMS prints an action's arguments joined by spaces without quoting them
+(except `sh -c` and `bash -c` commands), so a `spawn` argument that itself
+holds a space reaches the program split in two; `spawn-sh` command lines
+are exact.
+
+A second chord for the same action joins the row of the first ("SUPER + LEFT
+/ SUPER + H"), rows are ordered by how often a person reaches for them, and
+binds hidden from the hotkey overlay (hotkey-overlay-title=null) stay hidden.
+
+Output is JSON ({"modKey", "rows", "error"}) by default, or aligned
+"CHORD  -> Label" text with --print.
+"""
+
+import json
+import re
+import subprocess
+import sys
+
+# The widest a merged chord may grow. A second chord that would push the
+# row past it opens a row of its own instead: two rows in line beat one
+# that juts out of the chord column.
+CHORD_COLUMN = 36
+
+MODIFIER_ORDER = ["SUPER", "SHIFT", "CTRL", "ALT", "ALTGR", "HYPER"]
+MODIFIER_NAMES = {
+    "super": "SUPER",
+    "win": "SUPER",
+    "ctrl": "CTRL",
+    "control": "CTRL",
+    "shift": "SHIFT",
+    "alt": "ALT",
+    "iso_level3_shift": "ALTGR",
+    "mod5": "ALTGR",
+    "iso_level5_shift": "HYPER",
+}
+
+# Keys named by what is printed on the keycap: "~" for grave, "," for
+# comma. The raw names stay searchable through each row's search text.
+KEY_NAMES = {
+    "grave": "~",
+    "comma": ",",
+    "period": ".",
+    "slash": "/",
+    "backslash": "\\",
+    "minus": "-",
+    "equal": "=",
+    "plus": "+",
+    "semicolon": ";",
+    "apostrophe": "'",
+    "bracketleft": "[",
+    "bracketright": "]",
+    "left": "←",
+    "right": "→",
+    "up": "↑",
+    "down": "↓",
+    "return": "RETURN",
+    "kp_enter": "ENTER",
+    "escape": "ESC",
+    "backspace": "BACKSPACE",
+    "print": "PRINT",
+    "page_up": "PAGE UP",
+    "page_down": "PAGE DOWN",
+    "wheelscrollup": "SCROLL UP",
+    "wheelscrolldown": "SCROLL DOWN",
+    "wheelscrollleft": "SCROLL LEFT",
+    "wheelscrollright": "SCROLL RIGHT",
+    "touchpadscrollup": "TOUCHPAD SCROLL UP",
+    "touchpadscrolldown": "TOUCHPAD SCROLL DOWN",
+    "touchpadscrollleft": "TOUCHPAD SCROLL LEFT",
+    "touchpadscrollright": "TOUCHPAD SCROLL RIGHT",
+    "mouseleft": "LEFT MOUSE BUTTON",
+    "mouseright": "RIGHT MOUSE BUTTON",
+    "mousemiddle": "MIDDLE MOUSE BUTTON",
+    "mouseback": "MOUSE BACK",
+    "mouseforward": "MOUSE FORWARD",
+}
+
+# Media keys say what they do on the keycap, so an untitled one is labelled
+# by its key rather than by the command behind it.
+MEDIA_KEYS = {
+    "xf86audioraisevolume": ("VOLUME UP", "Volume up"),
+    "xf86audiolowervolume": ("VOLUME DOWN", "Volume down"),
+    "xf86audiomute": ("MUTE", "Mute audio"),
+    "xf86audiomicmute": ("MIC MUTE", "Mute microphone"),
+    "xf86audioplay": ("PLAY", "Play or pause"),
+    "xf86audiopause": ("PAUSE", "Play or pause"),
+    "xf86audiostop": ("STOP", "Stop playback"),
+    "xf86audionext": ("NEXT TRACK", "Next track"),
+    "xf86audioprev": ("PREVIOUS TRACK", "Previous track"),
+    "xf86monbrightnessup": ("BRIGHTNESS UP", "Brightness up"),
+    "xf86monbrightnessdown": ("BRIGHTNESS DOWN", "Brightness down"),
+    "xf86kbdbrightnessup": ("KEYBOARD LIGHT UP", "Keyboard backlight up"),
+    "xf86kbdbrightnessdown": ("KEYBOARD LIGHT DOWN", "Keyboard backlight down"),
+    "xf86calculator": ("CALCULATOR", "Calculator"),
+    "xf86poweroff": ("POWER", "Power"),
+    "xf86sleep": ("SLEEP", "Sleep"),
+}
+
+# Niri action names that read badly word for word. Anything else becomes
+# its name in sentence case ("focus-column-left" -> "Focus column left").
+ACTION_LABELS = {
+    "close-window": "Close window",
+    "fullscreen-window": "Full screen",
+    "toggle-windowed-fullscreen": "Windowed full screen",
+    "maximize-column": "Maximize column",
+    "expand-column-to-available-width": "Expand column to fill the free space",
+    "toggle-window-floating": "Toggle window floating",
+    "switch-focus-between-floating-and-tiling": "Switch focus between floating and tiling",
+    "toggle-overview": "Overview",
+    "show-hotkey-overlay": "Niri hotkey overlay",
+    "toggle-keyboard-shortcuts-inhibit": "Pass shortcuts to the focused app",
+    "quit": "Quit Niri and log out",
+    "power-off-monitors": "Turn off monitors",
+    "focus-workspace-previous": "Previous workspace",
+    "focus-workspace-down": "Workspace below",
+    "focus-workspace-up": "Workspace above",
+    "move-column-to-workspace-down": "Move column to the workspace below",
+    "move-column-to-workspace-up": "Move column to the workspace above",
+    "move-window-to-workspace-down": "Move window to the workspace below",
+    "move-window-to-workspace-up": "Move window to the workspace above",
+    "switch-preset-column-width": "Cycle column width presets",
+    "switch-preset-column-width-back": "Cycle column width presets backwards",
+    "switch-preset-window-height": "Cycle window height presets",
+    "reset-window-height": "Reset window height",
+    "center-column": "Center column",
+    "center-visible-columns": "Center visible columns",
+    "consume-or-expel-window-left": "Pull window into the column on the left",
+    "consume-or-expel-window-right": "Pull window into the column on the right",
+    "toggle-column-tabbed-display": "Toggle tabbed column",
+    "screenshot": "Screenshot",
+    "screenshot-screen": "Screenshot the screen",
+    "screenshot-window": "Screenshot the window",
+}
+
+ACTION_WITH_REFERENCE = {
+    "focus-workspace": "Switch to workspace {}",
+    "move-column-to-workspace": "Move column to workspace {}",
+    "move-window-to-workspace": "Move window to workspace {}",
+}
+
+SIZE_ACTIONS = {
+    "set-column-width": "column width",
+    "set-window-width": "window width",
+    "set-window-height": "window height",
+}
+
+# Where a row ranks: the first rule whose pattern matches "<label>\t<action>"
+# (lowercased) decides, and rows of one rank keep the order DMS lists them
+# in (its categories alphabetically, config order within each). The
+# terminal leads, then the shell surfaces a person opens all day;
+# per-window chords follow; hardware keys, help (this list's own chord is
+# no news to someone reading it), and session-level switches close the list.
+PRIORITY_RULES = [
+    (r"terminal|\tspawn (ghostty|xdg-terminal-exec)( \+new-window)?$", 0),
+    (r"zzkeybindings", 90),
+    (r"zzmenu", 2),
+    (r"ipc call spotlight", 3),
+    (r"browser|about:blank", 4),
+    (r"file manager|nautilus", 5),
+    (r"ipc call control-center", 6),
+    (r"ipc call settings", 7),
+    (r"ipc call clipboard", 8),
+    (r"ipc call notifications", 9),
+    (r"^[^\t]*\tclose-window$", 10),
+    (r"\t(fullscreen-window|toggle-windowed-fullscreen|maximize-column|expand-column-to-available-width)$", 11),
+    (r"\ttoggle-window-floating$", 12),
+    (r"\ttoggle-overview$", 13),
+    (r"screenshot", 14),
+    (r"ipc call lock", 15),
+    (r"ipc call powermenu", 16),
+    (r"ipc call processlist", 17),
+    (r"\tspawn", 20),
+    (r"\tfocus-workspace", 32),
+    (r"\tmove-(column|window)-to-workspace", 33),
+    (r"\t(focus|move-column-to|move-window-to)-monitor", 34),
+    (r"\t(focus|move|swap|consume|expel)-[a-z-]*(column|window)", 30),
+    (r"\t(set|switch-preset|reset|center)-", 35),
+    (r"\tshow-hotkey-overlay$", 90),
+    (r"\t(toggle-keyboard-shortcuts-inhibit|power-off-monitors)$", 95),
+    (r"\tquit", 99),
+]
+DEFAULT_PRIORITY = 40
+MEDIA_PRIORITY = 80
+
+# The Niri action properties DMS appends to the arguments as name=value.
+# `niri msg action` takes the valued ones as --name=value and
+# skip-confirmation as a bare switch; delay-ms has no command-line form, so
+# a bind that carries it cannot be run from the list.
+VALUE_PROPERTIES = {"focus", "show-pointer", "write-to-disk"}
+SWITCH_PROPERTIES = {"skip-confirmation"}
+ACTION_PROPERTIES = VALUE_PROPERTIES | SWITCH_PROPERTIES | {"delay-ms"}
+
+
+def split_words(text):
+    """Split a DMS action string the way DMS writes it: space separated, with
+    double quotes grouping a value that holds spaces."""
+    parts = []
+    current = []
+    quoted = in_quote = escaped = False
+    for char in text:
+        if escaped:
+            current.append(char)
+            escaped = False
+        elif char == "\\":
+            escaped = True
+        elif char == '"':
+            quoted = True
+            in_quote = not in_quote
+        elif char == " " and not in_quote:
+            if current or quoted:
+                parts.append("".join(current))
+            current = []
+            quoted = False
+        else:
+            current.append(char)
+    if current or quoted:
+        parts.append("".join(current))
+    return parts
+
+
+def split_action(action):
+    """Return (name, positional arguments, properties) for a DMS action string."""
+    action = action.strip()
+    name, _, rest = action.partition(" ")
+    if name == "spawn-sh":
+        # One shell command line: DMS prints it unquoted, so the rest of the
+        # string is the command exactly as the bind runs it.
+        return name, [rest] if rest else [], {}
+    arguments = []
+    properties = {}
+    for word in split_words(rest):
+        key, sep, value = word.partition("=")
+        if sep and key in ACTION_PROPERTIES and name != "spawn":
+            properties[key] = value
+        else:
+            arguments.append(word)
+    return name, arguments, properties
+
+
+def niri_actions():
+    """The actions this Niri's `niri msg action` accepts, or None when it
+    cannot say (every action is then assumed runnable)."""
+    try:
+        result = subprocess.run(
+            ["niri", "msg", "action", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    actions = set(re.findall(r"^  ([a-z][a-z0-9-]*)$", result.stdout, re.MULTILINE))
+    return actions or None
+
+
+def niri_command(action, runnable=None):
+    """The argv that runs the bind, or [] when `niri msg action` cannot run
+    it (the recent-windows actions, a property with no option form)."""
+    name, arguments, properties = split_action(action)
+    if not name or (runnable is not None and name not in runnable):
+        return []
+    command = ["niri", "msg", "action", name]
+    for key, value in properties.items():
+        if key in VALUE_PROPERTIES:
+            command.append(f"--{key}={value}")
+        elif key in SWITCH_PROPERTIES:
+            if value.lower() == "true":
+                command.append(f"--{key}")
+        else:
+            return []
+    if arguments:
+        command.append("--")
+        command.extend(arguments)
+    return command
+
+
+def key_parts(key, mod_key):
+    """Split "Mod+Shift+Slash" into (sorted modifier names, key name)."""
+    tokens = [token for token in key.split("+") if token]
+    if not tokens:
+        return [], ""
+    *modifiers, main = tokens
+    names = []
+    for modifier in modifiers:
+        lower = modifier.lower()
+        if lower == "mod":
+            lower = (mod_key or "Super").lower()
+        names.append(MODIFIER_NAMES.get(lower, modifier.upper()))
+    ordered = sorted(set(names), key=lambda name: MODIFIER_ORDER.index(name) if name in MODIFIER_ORDER else len(MODIFIER_ORDER))
+    return ordered, main
+
+
+def key_label(main):
+    lower = main.lower()
+    if lower in MEDIA_KEYS:
+        return MEDIA_KEYS[lower][0]
+    if lower in KEY_NAMES:
+        return KEY_NAMES[lower]
+    if lower.startswith("xf86"):
+        return " ".join(re.findall(r"[A-Z]+[a-z0-9]*|[a-z0-9]+", main[4:])).upper() or main.upper()
+    return main.upper()
+
+
+def format_chord(modifiers, main):
+    label = key_label(main)
+    return f"{' '.join(modifiers)} + {label}" if modifiers else label
+
+
+def humanize(name):
+    words = name.replace("-", " ").strip()
+    return words[:1].upper() + words[1:]
+
+
+def action_label(action):
+    name, arguments, _ = split_action(action)
+    if name in ("spawn", "spawn-sh"):
+        return "Run " + " ".join(arguments) if arguments else humanize(name)
+    if name in ACTION_LABELS and not arguments:
+        return ACTION_LABELS[name]
+    if name in ACTION_WITH_REFERENCE and arguments:
+        return ACTION_WITH_REFERENCE[name].format(arguments[0])
+    if name in SIZE_ACTIONS and arguments:
+        change = arguments[0]
+        what = SIZE_ACTIONS[name]
+        if change.startswith("+"):
+            return f"Grow {what} by {change[1:]}"
+        if change.startswith("-"):
+            return f"Shrink {what} by {change[1:]}"
+        return f"Set {what} to {change}"
+    label = ACTION_LABELS.get(name, humanize(name))
+    return " ".join([label] + arguments)
+
+
+def bind_label(bind, main):
+    description = str(bind.get("desc") or "").strip()
+    if description:
+        return description
+    lower = main.lower()
+    if lower in MEDIA_KEYS:
+        return MEDIA_KEYS[lower][1]
+    return action_label(str(bind.get("action") or ""))
+
+
+def priority(label, action, main):
+    if main.lower().startswith("xf86"):
+        return MEDIA_PRIORITY
+    text = f"{label}\t{action}".lower()
+    for pattern, rank in PRIORITY_RULES:
+        if re.search(pattern, text):
+            return rank
+    return DEFAULT_PRIORITY
+
+
+def build_rows(sheet, runnable=None):
+    mod_key = str(sheet.get("modKey") or "Super")
+    groups = sheet.get("binds") or {}
+    rows = []
+    leads = {}
+    for category, binds in groups.items():
+        for bind in binds or []:
+            if not isinstance(bind, dict) or bind.get("hideOnOverlay"):
+                continue
+            action = str(bind.get("action") or "").strip()
+            key = str(bind.get("key") or "").strip()
+            if not action or not key:
+                continue
+            modifiers, main = key_parts(key, mod_key)
+            chord = format_chord(modifiers, main)
+            caps = modifiers + [key_label(main)]
+            label = bind_label(bind, main)
+            # An alternative chord shares the row only when it runs the same
+            # thing under the same name, and a bare hardware key never
+            # stands in for a modifier chord.
+            merge_key = (action, label, bool(modifiers))
+            lead = leads.get(merge_key)
+            if lead is not None:
+                joined = " / ".join(lead["chords"] + [chord])
+                if len(joined) <= CHORD_COLUMN:
+                    lead["chords"].append(chord)
+                    lead["caps"].append(caps)
+                    lead["keys"].append(key)
+                    continue
+            row = {
+                "chords": [chord],
+                "caps": [caps],
+                "keys": [key],
+                "label": label,
+                "action": action,
+                "category": str(category),
+                "command": niri_command(action, runnable),
+                "priority": priority(label, action, main),
+                "order": len(rows),
+            }
+            rows.append(row)
+            leads[merge_key] = row
+    rows.sort(key=lambda row: (row["priority"], row["order"]))
+    for row in rows:
+        row["chord"] = " / ".join(row["chords"])
+        row["search"] = " ".join([row["label"], row["chord"], " ".join(row["keys"]), row["action"]]).lower()
+        del row["order"]
+    return mod_key, rows
+
+
+def load_sheet():
+    try:
+        result = subprocess.run(
+            ["dms", "keybinds", "show", "niri"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise RuntimeError(f"dms keybinds show niri failed: {error}") from error
+    if result.returncode != 0:
+        message = (result.stderr or result.stdout).strip() or f"exit status {result.returncode}"
+        raise RuntimeError(f"dms keybinds show niri failed: {message}")
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"dms keybinds show niri printed no JSON: {error}") from error
+
+
+def main(argv):
+    print_mode = len(argv) > 1 and argv[1] in ("--print", "-p")
+    try:
+        mod_key, rows = build_rows(load_sheet(), niri_actions())
+    except RuntimeError as error:
+        if print_mode:
+            print(error, file=sys.stderr)
+            return 1
+        json.dump({"modKey": "Super", "rows": [], "error": str(error)}, sys.stdout)
+        return 1
+    if print_mode:
+        for row in rows:
+            print(f"{row['chord']:<{CHORD_COLUMN}}  → {row['label']}")
+        return 0
+    json.dump({"modKey": mod_key, "rows": rows, "error": None}, sys.stdout, ensure_ascii=False)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

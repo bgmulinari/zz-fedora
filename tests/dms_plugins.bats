@@ -8,6 +8,8 @@ AGENT_USAGE_REL="$PLUGIN_ROOT_REL/AgentUsage"
 AGENT_USAGE_COMPONENT="dms-plugin-agent-usage"
 ZZ_MENU_REL="$PLUGIN_ROOT_REL/ZzMenu"
 ZZ_MENU_PATH="~/.config/DankMaterialShell/plugins/ZzMenu"
+KEYBINDINGS_REL="$PLUGIN_ROOT_REL/ZzKeybindings"
+KEYBINDINGS_PATH="~/.config/DankMaterialShell/plugins/ZzKeybindings"
 AGENT_USAGE_PATH="~/.config/DankMaterialShell/plugins/AgentUsage"
 PLUGIN_SETTINGS_PATH="~/.config/DankMaterialShell/plugin_settings.json"
 
@@ -35,6 +37,44 @@ run_zz_menu_inventory() {
   mkdir -p "$home"
   run bash -c "env -i HOME='$home' PATH='/usr/bin:/bin' XDG_CONFIG_HOME='$home/.config' \
     '$ROOT_DIR/$ZZ_MENU_REL/scripts/zz-menu-inventory' 2>/dev/null"
+}
+
+# The keybinding script against a stubbed `dms` and `niri`: the cheat sheet
+# a test passes is what `dms keybinds show niri` prints, so no shell or
+# compositor config is read, and the stub niri lists the actions its
+# command line runs the way `niri msg action --help` does (no recent-windows
+# actions). Extra arguments go to the script (--print).
+run_keybindings() {
+  local sheet="$1"
+  shift
+  local stub="$BATS_TEST_TMPDIR/keybindings-bin"
+  mkdir -p "$stub"
+  printf '%s\n' "$sheet" >"$stub/sheet.json"
+  printf '#!/usr/bin/env bash\n[[ "$*" == "keybinds show niri" ]] || exit 2\ncat %q\n' "$stub/sheet.json" >"$stub/dms"
+  chmod +x "$stub/dms"
+  {
+    printf '#!/usr/bin/env bash\n[[ "$*" == "msg action --help" ]] || exit 2\n'
+    printf 'printf "Perform an action\\n\\nActions:\\n"\n'
+    local action
+    for action in quit spawn spawn-sh close-window toggle-overview focus-column-left focus-column-right \
+      move-column-left move-column-to-monitor-left focus-workspace move-column-to-workspace \
+      set-column-width show-hotkey-overlay screenshot; do
+      printf 'printf "  %s\\n          Help text\\n"\n' "$action"
+    done
+  } >"$stub/niri"
+  chmod +x "$stub/niri"
+  run env -i HOME="$BATS_TEST_TMPDIR" PATH="$stub:/usr/bin:/bin" \
+    "$ROOT_DIR/$KEYBINDINGS_REL/scripts/zz-keybindings" "$@"
+}
+
+# A cheat sheet with one category holding the given binds, each written as
+# key<TAB>action[<TAB>title].
+keybinding_sheet() {
+  local mod_key="$1"
+  shift
+  printf '%s\n' "$@" | jq -Rn --arg mod "$mod_key" '
+    [inputs | select(length > 0) | split("\t") | {key: .[0], action: .[1], desc: (.[2] // "")}]
+    | {title: "Niri Keybinds", provider: "niri", modKey: $mod, binds: {Other: .}}'
 }
 
 write_claude_transcript() {
@@ -185,6 +225,195 @@ apply_component() {
 
   run bash -c "grep -rn -E '/home/[A-Za-z0-9._-]+/' '$dir' | grep -v '/home/linuxbrew/'"
   [ "$status" -ne 0 ]
+}
+
+@test "keybindings plugin declares the daemon, script, dependencies, and keybind its files rely on" {
+  local dir="$ROOT_DIR/$KEYBINDINGS_REL"
+
+  assert_equal "zzKeybindings" "$(jq -r '.id' "$dir/plugin.json")"
+  assert_equal "daemon" "$(jq -r '.type' "$dir/plugin.json")"
+  assert_equal "./ZzKeybindings.qml" "$(jq -r '.component' "$dir/plugin.json")"
+  run jq -r '.dependencies[]' "$dir/plugin.json"
+  assert_contains "$output" "python3"
+  assert_contains "$output" "niri"
+  assert_contains "$output" "fzf"
+  assert_file_contains "$dir/StartupCheck.qml" "/usr/bin/python3"
+  assert_file_contains "$dir/StartupCheck.qml" "command -v niri"
+  assert_file_contains "$dir/StartupCheck.qml" "command -v fzf"
+  # The search is fzf, which the base shell-fzf unit installs everywhere.
+  assert_file_contains "$dir/ZzKeybindingsPanel.qml" "exec fzf --filter"
+  assert_file_contains "$ROOT_DIR/catalog/units/shell/fzf.toml" "[base]"
+
+  # The plugin IPC's toggle reaches the daemon's toggle(), which owns the
+  # centered modal; the panel is a sibling type resolved by name.
+  assert_file_contains "$dir/ZzKeybindings.qml" "function toggle()"
+  assert_file_contains "$dir/ZzKeybindings.qml" "DankModal {"
+  assert_file_contains "$dir/ZzKeybindings.qml" "ZzKeybindingsPanel {"
+  assert_file_contains "$dir/ZzKeybindings.qml" '"/scripts/zz-keybindings"'
+  assert_file_contains "$dir/ZzKeybindingsPanel.qml" "function handleKey"
+  assert_file_contains "$dir/ZzKeybindingsPanel.qml" "keyForwardTargets"
+  run grep -n 'import "\."' "$dir"/*.qml
+  [ "$status" -ne 0 ]
+
+  [[ -x "$dir/scripts/zz-keybindings" ]]
+  assert_equal "#!/usr/bin/python3" "$(head -n 1 "$dir/scripts/zz-keybindings")"
+
+  # Super+/ and Super+K open the list under one name, so they share its
+  # row; the ZZ menu's Learn row opens it too. Each falls back to Niri's
+  # own overlay when the plugin is not loaded (the IPC exits 0 either way).
+  local binds="$ROOT_DIR/templates/niri/dms-binds.kdl"
+  local open_list="dms ipc call plugins toggle zzKeybindings | grep -q TOGGLE_SUCCESS || niri msg action show-hotkey-overlay"
+  assert_file_contains "$binds" "Mod+Slash hotkey-overlay-title=\"Keybindings\" { spawn-sh \"$open_list\"; }"
+  assert_file_contains "$binds" "Mod+K hotkey-overlay-title=\"Keybindings\" { spawn-sh \"$open_list\"; }"
+  assert_equal "$open_list" "$(jq -r '."learn.keybindings".action' "$ROOT_DIR/$ZZ_MENU_REL/menu.json")"
+
+  run bash -c "grep -rn -E '/home/[A-Za-z0-9._-]+/' '$dir' | grep -v '/home/linuxbrew/'"
+  [ "$status" -ne 0 ]
+}
+
+@test "keybinding rows read like the keyboard and fall back to readable names" {
+  local tab=$'\t'
+  run_keybindings "$(keybinding_sheet Super \
+    "Mod+Return${tab}spawn ghostty +new-window${tab}Open Terminal" \
+    "Mod+Shift+Grave${tab}toggle-overview" \
+    "Mod+Comma${tab}spawn-sh dms ipc call settings focusOrToggle" \
+    "Mod+Ctrl+Left${tab}move-column-left" \
+    "Mod+3${tab}focus-workspace 3" \
+    "Mod+Minus${tab}set-column-width -10%" \
+    "Mod+WheelScrollDown${tab}focus-column-right" \
+    "XF86AudioRaiseVolume${tab}spawn-sh dms ipc call audio increment 3" \
+    "XF86Launch5${tab}spawn-sh true")" --print
+  [ "$status" -eq 0 ]
+
+  # A title wins; the chord reads SUPER, not the Mod placeholder.
+  assert_contains "$output" "SUPER + RETURN"
+  assert_contains "$output" "→ Open Terminal"
+  # Keys read as printed on the keycap, modifiers in one fixed order.
+  assert_contains "$output" "SUPER SHIFT + ~"
+  assert_contains "$output" "SUPER + ,"
+  assert_contains "$output" "SUPER CTRL + ←"
+  assert_contains "$output" "SUPER + SCROLL DOWN"
+  refute_contains "$output" "Grave"
+  # Untitled binds are named from the action, or from the media key.
+  assert_contains "$output" "→ Overview"
+  assert_contains "$output" "→ Run dms ipc call settings focusOrToggle"
+  assert_contains "$output" "→ Move column left"
+  assert_contains "$output" "→ Switch to workspace 3"
+  assert_contains "$output" "→ Shrink column width by 10%"
+  assert_contains "$output" "VOLUME UP"
+  assert_contains "$output" "→ Volume up"
+  assert_contains "$output" "LAUNCH5"
+
+  # Every arrow sits in one column.
+  [[ "$(LC_ALL=C.UTF-8 awk -F '→' '{ print length($1) }' <<<"$output" | sort -u | wc -l)" -eq 1 ]]
+
+  # A nested session binds Mod to Alt, and the chord says so.
+  run_keybindings "$(keybinding_sheet Alt "Mod+Q${tab}close-window")"
+  [ "$status" -eq 0 ]
+  assert_equal '["ALT","Q"]' "$(jq -c '.rows[0].caps[0]' <<<"$output")"
+  assert_equal "ALT + Q" "$(jq -r '.rows[0].chord' <<<"$output")"
+}
+
+@test "an alternative chord joins the row of the first only when it runs the same thing" {
+  local tab=$'\t'
+  run_keybindings "$(keybinding_sheet Super \
+    "Mod+Left${tab}focus-column-left" \
+    "Mod+H${tab}focus-column-left" \
+    "Mod+Q${tab}close-window${tab}Close window" \
+    "Mod+X${tab}spawn-sh close-all${tab}Close window" \
+    "XF86AudioPlay${tab}spawn-sh dms ipc call mpris playPause" \
+    "XF86AudioPause${tab}spawn-sh dms ipc call mpris playPause" \
+    "Mod+P${tab}spawn-sh dms ipc call mpris playPause${tab}Play or pause" \
+    "Mod+Ctrl+Shift+Alt+Left${tab}move-column-to-monitor-left" \
+    "Mod+Ctrl+Shift+Alt+H${tab}move-column-to-monitor-left")"
+  [ "$status" -eq 0 ]
+  local rows="$output"
+
+  # The chord declared first leads the shared row, one caps list per chord.
+  assert_equal "SUPER + ← / SUPER + H" "$(jq -r '.rows[] | select(.label == "Focus column left") | .chord' <<<"$rows")"
+  assert_equal '[["SUPER","←"],["SUPER","H"]]' "$(jq -c '.rows[] | select(.label == "Focus column left") | .caps' <<<"$rows")"
+  # A shared name is not a shared action.
+  assert_equal "2" "$(jq '[.rows[] | select(.label == "Close window")] | length' <<<"$rows")"
+  # Two media keys pair up, but a media key never stands in for a chord.
+  assert_equal "PLAY / PAUSE" "$(jq -r '.rows[] | select(.action | test("playPause")) | select(.caps[0][0] == "PLAY") | .chord' <<<"$rows")"
+  assert_equal "SUPER + P" "$(jq -r '.rows[] | select(.action | test("playPause")) | select(.caps[0][0] == "SUPER") | .chord' <<<"$rows")"
+  # A pair too wide for the chord column stays on two rows.
+  assert_equal "2" "$(jq '[.rows[] | select(.action == "move-column-to-monitor-left")] | length' <<<"$rows")"
+}
+
+@test "keybinding rows lead with the shell surfaces and close with hardware and session keys" {
+  local tab=$'\t'
+  run_keybindings "$(keybinding_sheet Super \
+    "Mod+Shift+E${tab}quit" \
+    "XF86AudioMute${tab}spawn-sh dms ipc call audio mute" \
+    "Mod+1${tab}focus-workspace 1" \
+    "Mod+Left${tab}focus-column-left" \
+    "Mod+Q${tab}close-window" \
+    "Mod+Return${tab}spawn ghostty +new-window${tab}Open Terminal" \
+    "Mod+B${tab}spawn ghostty +new-window -e btop${tab}Open btop" \
+    "Mod+D${tab}spawn-sh dms ipc call spotlight toggle${tab}DMS Launcher" \
+    "Mod+Z${tab}spawn-sh dms ipc call widget toggleWith zzMenu root${tab}ZZ Menu" \
+    "Mod+Slash${tab}spawn-sh dms ipc call plugins toggle zzKeybindings${tab}Keybindings" \
+    "Mod+Shift+Slash${tab}show-hotkey-overlay${tab}Show Niri Hotkeys")"
+  [ "$status" -eq 0 ]
+
+  assert_equal "Open Terminal|ZZ Menu|DMS Launcher|Close window|Open btop|Focus column left|Switch to workspace 1|Mute audio|Keybindings|Show Niri Hotkeys|Quit Niri and log out" \
+    "$(jq -r '[.rows[].label] | join("|")' <<<"$output")"
+}
+
+@test "a picked keybinding row runs the bind through niri msg action" {
+  local tab=$'\t'
+  run_keybindings "$(keybinding_sheet Super \
+    "Mod+Return${tab}spawn ghostty +new-window" \
+    "Print${tab}spawn-sh dms screenshot --stdout | satty --filename -" \
+    "Mod+3${tab}focus-workspace 3" \
+    "Mod+Minus${tab}set-column-width -10%" \
+    "Mod+Ctrl+3${tab}move-column-to-workspace 3 focus=false" \
+    "Mod+Q${tab}close-window" \
+    "Mod+Shift+E${tab}quit skip-confirmation=true" \
+    "Mod+Ctrl+E${tab}quit skip-confirmation=false" \
+    "Mod+P${tab}screenshot delay-ms=500" \
+    "Alt+Tab${tab}next-window")"
+  [ "$status" -eq 0 ]
+  local rows="$output"
+  command_for() {
+    jq -c --arg key "$1" '.rows[] | select(.keys | index($key)) | .command' <<<"$rows"
+  }
+
+  assert_equal '["niri","msg","action","spawn","--","ghostty","+new-window"]' "$(command_for Mod+Return)"
+  # A shell bind runs its command line verbatim, pipes and all.
+  assert_equal '["niri","msg","action","spawn-sh","--","dms screenshot --stdout | satty --filename -"]' "$(command_for Print)"
+  # Arguments follow --, so a negative change is not read as an option.
+  assert_equal '["niri","msg","action","focus-workspace","--","3"]' "$(command_for Mod+3)"
+  assert_equal '["niri","msg","action","set-column-width","--","-10%"]' "$(command_for Mod+Minus)"
+  # Action properties become the long options niri msg takes.
+  assert_equal '["niri","msg","action","move-column-to-workspace","--focus=false","--","3"]' "$(command_for Mod+Ctrl+3)"
+  assert_equal '["niri","msg","action","close-window"]' "$(command_for Mod+Q)"
+  # skip-confirmation is a bare switch, present only when set.
+  assert_equal '["niri","msg","action","quit","--skip-confirmation"]' "$(command_for Mod+Shift+E)"
+  assert_equal '["niri","msg","action","quit"]' "$(command_for Mod+Ctrl+E)"
+  # What the command line cannot run stays listed with no command: a
+  # property with no option form, an action niri msg does not offer.
+  assert_equal '[]' "$(command_for Mod+P)"
+  assert_equal '[]' "$(command_for Alt+Tab)"
+  assert_equal "Next window" "$(jq -r '.rows[] | select(.keys | index("Alt+Tab")) | .label' <<<"$rows")"
+}
+
+@test "keybinding rows hide overlay-hidden binds and report a failed cheat sheet" {
+  local sheet
+  sheet='{"modKey":"Super","binds":{"Window":[
+    {"key":"Mod+Q","desc":"","action":"close-window"},
+    {"key":"Mod+Y","desc":"","action":"focus-column-left","hideOnOverlay":true}]}}'
+  run_keybindings "$sheet"
+  [ "$status" -eq 0 ]
+  assert_equal "Close window" "$(jq -r '[.rows[].label] | join("|")' <<<"$output")"
+  assert_equal "null" "$(jq -r '.error' <<<"$output")"
+
+  # A cheat sheet that cannot be read leaves an error the list shows.
+  run_keybindings "not json"
+  [ "$status" -eq 1 ]
+  assert_equal "0" "$(jq '.rows | length' <<<"$output")"
+  assert_contains "$(jq -r '.error' <<<"$output")" "dms keybinds show niri"
 }
 
 @test "zz menu keeps a short intent-grouped root and names only real zz commands" {
@@ -477,11 +706,13 @@ EOF
 
   assert_plan_has "$PLAN_DIR/config/components.list" "dms"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "$ZZ_MENU_PATH"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "$KEYBINDINGS_PATH"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "$PLUGIN_SETTINGS_PATH"
   refute_plan_has "$PLAN_DIR/files/managed-files.list" "$AGENT_USAGE_PATH"
   run dms_plugin_settings_seed_json
   [ "$status" -eq 0 ]
   assert_equal "true" "$(jq -r '.zzMenu.enabled' <<<"$output")"
+  assert_equal "true" "$(jq -r '.zzKeybindings.enabled' <<<"$output")"
   assert_equal "null" "$(jq -r '.agentUsage' <<<"$output")"
 
   build_test_plan "ai=agent-usage"
@@ -529,11 +760,12 @@ record_dms_ipc() {
   assert_equal "true" "$(jq -r '.agentUsage.enabled' "$settings")"
   assert_file_contains "$ipc_log" "dms ipc call plugin-scan scan"
   assert_file_contains "$ipc_log" "dms ipc call plugins enable zzMenu"
+  assert_file_contains "$ipc_log" "dms ipc call plugins enable zzKeybindings"
   assert_file_contains "$ipc_log" "dms ipc call plugins enable agentUsage"
   assert_file_contains "$STATE_DIR/dms-placed-widgets" "zzMenu"
 
   # The user's own edits stand on the next apply, and the shell is left alone.
-  printf '{"zzMenu":{"enabled":false},"agentUsage":{"enabled":true}}\n' >"$settings"
+  printf '{"zzMenu":{"enabled":false},"zzKeybindings":{"enabled":true},"agentUsage":{"enabled":true}}\n' >"$settings"
   : >"$ipc_log"
   dms_apply_plugin_defaults
   assert_equal "false" "$(jq -r '.zzMenu.enabled' "$settings")"
@@ -670,6 +902,7 @@ EOF
 
 @test "plugin components link the repository plugin directories" {
   local menu_link="$TARGET_HOME/.config/DankMaterialShell/plugins/ZzMenu"
+  local keybindings_link="$TARGET_HOME/.config/DankMaterialShell/plugins/ZzKeybindings"
   local usage_link="$TARGET_HOME/.config/DankMaterialShell/plugins/AgentUsage"
 
   apply_component "dms"
@@ -678,6 +911,9 @@ EOF
   [[ -f "$menu_link/menu.json" ]]
   [[ -x "$menu_link/scripts/zz-menu-inventory" ]]
   assert_equal "$(readlink -f "$ROOT_DIR/$ZZ_MENU_REL")" "$(readlink -f "$menu_link")"
+  [[ -L "$keybindings_link" ]]
+  [[ -x "$keybindings_link/scripts/zz-keybindings" ]]
+  assert_equal "$(readlink -f "$ROOT_DIR/$KEYBINDINGS_REL")" "$(readlink -f "$keybindings_link")"
   [[ ! -e "$usage_link" ]]
 
   apply_component "$AGENT_USAGE_COMPONENT"

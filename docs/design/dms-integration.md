@@ -416,7 +416,7 @@ Shipped plugins:
   Desktop (Niri chores the shell has no page for, and restarting the shell),
   Setup (AI agent, SSH, the .NET dev certificate, resetting the default apps
   or a config to the ZZ default), Troubleshoot (doctor, crashes, logs,
-  plugin rescan, first-run, debug bundle), and Learn (the keybinding overlay
+  plugin rescan, first-run, debug bundle), and Learn (the keybinding list
   and documentation links). The menu does not mirror the CLI: rarely needed
   variants (single .NET updaters, the log path) stay CLI-only, and it
   carries no shortcuts to apps the launcher already opens. The menu is data:
@@ -444,6 +444,52 @@ Shipped plugins:
   own menu is incomplete and it needs no wizard visibility; the doctor
   reads its manifest through the link. A test keeps every `zz` row naming
   a real command and update target.
+- **Keybindings** (`zzKeybindings`, base, component `dms`): every Niri bind
+  in one searchable list that runs the bind picked. A daemon
+  plugin with no bar surface: the seeded Super+/ and Super+K binds call the shell's
+  plugin IPC (`dms ipc call plugins toggle zzKeybindings`), which reaches
+  the daemon's `toggle()`, and the daemon opens a centered `DankModal`.
+  `scripts/zz-keybindings` (`/usr/bin/python3`, stdlib) builds the rows on
+  every open from `dms keybinds show niri`, the parser behind Settings >
+  Keybinds, which reads the whole Niri config and not only the DMS
+  fragment. Each row is the chord as keycaps (Mod resolved to the
+  session's mod key, keys named as printed: `~`, `,`, `←`, `VOLUME UP`)
+  and a name: the `hotkey-overlay-title`, else one derived from the media
+  key or the action (`focus-workspace 3` reads "Switch to workspace 3").
+  A second chord for the identical action under the same name joins the
+  first's row while the pair fits the chord column; a bare hardware key
+  never pairs with a modifier chord. Rows are ranked by rules over name and
+  action (the terminal, the ZZ menu, the launcher, browser, and the other
+  shell surfaces first; window, workspace, monitor, and sizing chords next;
+  media keys, the list's own chords, the Niri overlay, and quit last), and
+  binds hidden with `hotkey-overlay-title=null` stay hidden. The search is
+  `fzf --filter` (base `shell-fzf` unit) over one line per row, so fzf
+  ranks matches and its query syntax works; a chord typed out in full is
+  lifted to the top, and ties keep the list's order. Unranked rows keep the
+  order DMS prints them in: its categories alphabetically, config order
+  within each. Enter or a
+  click runs the row's bind through `niri msg action` (`spawn-sh` gets the
+  command line verbatim; arguments follow `--`; action properties become
+  long options) after the modal has closed, so it acts on the window that
+  had focus. Ctrl+E opens Settings > Keyboard Shortcuts to edit binds. DMS
+  ships its own read-only cheat sheet (`dms ipc call keybinds toggle
+  niri`), and Niri has its hotkey overlay; this list replaces both because
+  it shows every bind either does and also ranks, names, merges, and runs
+  them. Niri's overlay therefore has no bind of its own (it already skips
+  its startup showing): the seeded binds and the ZZ menu row fall back to
+  it when the plugin IPC does not answer `TOGGLE_SUCCESS` (the IPC exits 0
+  either way), so a missing or failed plugin still leaves a reference on
+  the key. Super+K opens the list too, which takes the up key out of the
+  seeded H/J/K/L focus set; Super+Up still focuses the window above and
+  Super+Ctrl+K still moves it up. A `spawn` argument holding a space runs
+  split in two, because DMS prints arguments unquoted (`sh -c`, `bash -c`,
+  and `spawn-sh` are exact); binds `niri msg action` cannot run
+  (recent-windows actions such as `next-window`, the list read from the
+  installed `niri msg action --help`) stay listed but only work from the
+  keyboard.
+  It is base because the seeded binds and the ZZ menu's Learn row call it;
+  the doctor reads its manifest through the link and warns when the bind
+  is missing from an older `binds.kdl`.
 - **Agent usage** (`agentUsage`, unit `ai-agent-usage`, component
   `dms-plugin-agent-usage`): a bar pill plus popout showing Claude Code and
   Codex rate limits with reset countdowns, tokens per day for the last week,

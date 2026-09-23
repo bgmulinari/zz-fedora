@@ -128,6 +128,14 @@ and groups in `~/.config/zz-fedora/menu.json`
 (entries keyed by dotted id; `action`, `terminal`, `when`, `label`, `icon`); the
 format is documented in `~/.zz/dotfiles/dms/.config/DankMaterialShell/plugins/ZzMenu/README.md`.
 
+The keybinding list is another: Super+/ or Super+K (`dms ipc call plugins toggle zzKeybindings`)
+shows every Niri bind as keycaps and a name, searchable, and Enter runs the picked bind.
+It reads the live config through `dms keybinds show niri`, so a bind added anywhere in the
+Niri config shows up on the next open; its name is the bind's `hotkey-overlay-title`, and
+`hotkey-overlay-title=null` hides it. It replaces Niri's own hotkey overlay, which ZZ does
+not bind. Like Super+Z, the binds are seeded: an older `~/.config/niri/dms/binds.kdl` lacks
+them until the user adds them or runs `zz refresh niri/dms/binds.kdl` (`zz doctor` warns).
+
 Plugins ZZ ships arrive as symlinks into `~/.zz`; treat them as read-only like any
 other product link. To customize one, copy it to a new directory with a new `id`.
 Writing a plugin, or changing a copy, is the `create-dms-plugin` skill's job.

@@ -1,0 +1,23 @@
+{
+  "id": "zzKeybindings",
+  "name": "Keybindings",
+  "description": "Every Niri keybinding in one searchable list; pick a row to run it",
+  "version": "1.0.0",
+  "author": "ZZ",
+  "type": "daemon",
+  "capabilities": [
+    "daemon",
+    "command-execution"
+  ],
+  "component": "./ZzKeybindings.qml",
+  "icon": "keyboard",
+  "startupCheck": "./StartupCheck.qml",
+  "dependencies": [
+    "python3",
+    "niri",
+    "fzf"
+  ],
+  "permissions": [
+    "process"
+  ]
+}

@@ -44,7 +44,7 @@
   "troubleshoot.first-run": {"icon": "login", "label": "Re-run first-login setup", "description": "Run the idempotent first-login desktop setup again", "action": "zz first-run", "terminal": true},
   "troubleshoot.debug": {"icon": "bug_report", "label": "Create debug bundle", "description": "Create a local sanitized debug bundle", "action": "zz debug", "terminal": true},
   "learn": {"icon": "school", "label": "Learn", "description": "Keybindings and documentation for the pieces of this desktop"},
-  "learn.keybindings": {"icon": "keyboard", "label": "Keybindings", "description": "Show the compositor's keybinding overlay", "action": "niri msg action show-hotkey-overlay", "aliases": ["hotkeys", "shortcuts"]},
+  "learn.keybindings": {"icon": "keyboard", "label": "Keybindings", "description": "Every keybinding, searchable; pick one to run it", "action": "dms ipc call plugins toggle zzKeybindings | grep -q TOGGLE_SUCCESS || niri msg action show-hotkey-overlay", "aliases": ["hotkeys", "shortcuts", "keys"]},
   "learn.zz": {"icon": "menu_book", "label": "ZZ", "description": "The ZZ repository, its docs, and the zz command reference", "action": "xdg-open https://github.com/bgmulinari/zz-fedora"},
   "learn.niri": {"icon": "menu_book", "label": "Niri", "description": "The Niri wiki: configuration, window rules, and keybindings", "action": "xdg-open https://github.com/YaLTeR/niri/wiki"},
   "learn.shell": {"icon": "menu_book", "label": "Shell", "description": "DankMaterialShell documentation", "action": "xdg-open https://danklinux.com/docs"},
