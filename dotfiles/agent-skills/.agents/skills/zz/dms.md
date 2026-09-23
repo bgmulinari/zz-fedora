@@ -31,6 +31,10 @@ it regenerates the `~/.config/niri/dms/*.kdl` fragments and theme outputs.
 - `dms ipc call settings dump` prints the effective settings; `settings get <key>`
   reads one
 - Keys absent from the file inherit the DMS default, so a missing key is not a bug
+- To return to the ZZ defaults, confirm with the user, then
+  `zz refresh dms` (settings, plugin enablement, and session state), or
+  `zz refresh DankMaterialShell/settings.json` for the settings alone. It backs each
+  file up and restarts DMS itself
 
 ## Bar
 

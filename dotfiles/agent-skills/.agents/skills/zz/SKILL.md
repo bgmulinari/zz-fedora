@@ -206,6 +206,7 @@ generated file is overwritten on the next change.
 ```bash
 zz refresh --list                 # what can be restored
 zz refresh niri/config.kdl        # backs up as <file>.bak.<timestamp>, restores, prints the diff
+zz refresh dms                    # every DMS setting (settings, plugins, session); restarts dms.service
 ```
 
 Product links are not refreshable; updating `~/.zz` already refreshes them.
@@ -261,5 +262,6 @@ indexes.
 - "Move the bar to the bottom" -> Settings > Bar, or `dms ipc call bar setPosition index 0 bottom`
 - "Change my terminal font size" -> `font-size = 13` in `~/.config/ghostty/local`
 - "Reset my niri config" -> confirm, then `zz refresh niri/config.kdl`
+- "Reset DMS to the defaults" -> confirm, then `zz refresh dms`
 - "Update everything" -> `zz update all`, then `zz update zz`, then `zz doctor`
 - "Add a CPU temperature widget" -> Settings > Plugins > Browse, or `dms plugins browse`

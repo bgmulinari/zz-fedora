@@ -153,6 +153,13 @@ If the current file differs, `zz refresh` first creates an adjacent
 the diff. ZZ-managed links are intentionally excluded from this command
 because updating `~/.zz` already refreshes them.
 
+Seeded rows without a template source are refreshable when `zz refresh`
+maps them to a renderer: the DMS settings, session, and plugin enablement
+seeds come from the `lib/dms.sh` emitters the installer seeds with, so a
+refresh matches a fresh install. `zz refresh dms` refreshes all three, and
+refreshing any of them restarts a running `dms.service`. For a per-key reset
+during seed work, use `scripts/dms-seed-diff.sh --reset` below.
+
 ## Adding configuration
 
 1. Put live product defaults or assets under the appropriate directory in

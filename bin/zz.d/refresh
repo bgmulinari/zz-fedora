@@ -1,26 +1,59 @@
 #!/usr/bin/env bash
 # zz-name: refresh
-# zz-summary: Replace a user-owned config with the current ZZ default.
-# zz-usage: zz refresh <config-path> | zz refresh --list
+# zz-summary: Replace user-owned configs with the current ZZ defaults.
+# zz-usage: zz refresh <config-path>... | zz refresh --list
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MANIFEST="$ROOT_DIR/config/managed-config.tsv"
+DMS_UNIT="dms.service"
+DMS_CHANGED=0
+DEFAULT_WRITTEN=0
 
 usage() {
-  cat <<'EOF'
+  cat <<'EOF_USAGE'
 Usage:
-  zz refresh <config-path>
+  zz refresh <config-path>...
   zz refresh --list
 
-Replace one user-owned configuration file with the current ZZ default.
-If the existing file differs, it is saved beside the file as
+Replace user-owned configuration files with the current ZZ defaults.
+If an existing file differs, it is saved beside the file as
 <filename>.bak.<timestamp> before replacement.
 
 Paths below ~/.config are written relative to ~/.config, for example:
   zz refresh niri/config.kdl
   zz refresh ghostty/config
-EOF
+
+Reset every DMS setting to the ZZ defaults (settings, plugin enablement,
+and session state):
+  zz refresh dms
+
+DMS keeps its settings in memory and writes them back on any change, so a
+running dms.service is restarted after a DMS file is replaced.
+EOF_USAGE
+}
+
+# The DMS state seeds carry host paths and the planned plugin set, so they
+# are rendered by lib/dms.sh instead of copied from a template.
+rendered_default_emitter() {
+  # Managed-config paths are written with a literal ~/ prefix.
+  # shellcheck disable=SC2088
+  case "$1" in
+    "~/.config/DankMaterialShell/settings.json") printf 'dms_settings_seed_json\n' ;;
+    "~/.config/DankMaterialShell/plugin_settings.json") printf 'dms_plugin_settings_seed_json\n' ;;
+    "~/.local/state/DankMaterialShell/session.json") printf 'dms_session_seed_json\n' ;;
+    *) return 1 ;;
+  esac
+}
+
+# `dms` stands for every DMS file with a rendered default.
+refresh_alias_keys() {
+  [[ "$1" == "dms" ]] || return 1
+  local path _source _description
+  while IFS=$'\t' read -r path _source _description; do
+    rendered_default_emitter "$path" >/dev/null || continue
+    refresh_key_for_path "$path"
+  done < <(refreshable_rows)
 }
 
 refresh_key_for_path() {
@@ -32,15 +65,25 @@ refresh_key_for_path() {
   esac
 }
 
-list_refreshable_configs() {
-  local component path mode _conflict source _required description key
+# Seeded rows with a template to copy or a renderer to run.
+refreshable_rows() {
+  local component path mode _conflict source _required description
   while IFS=$'\t' read -r component path mode _conflict source _required description; do
     [[ -n "$component" && "$component" != \#* ]] || continue
-    [[ "$mode" == "seed-if-missing" && "$source" != "-" ]] || continue
+    [[ "$mode" == "seed-if-missing" ]] || continue
+    [[ "$source" != "-" ]] || rendered_default_emitter "$path" >/dev/null || continue
+    printf '%s\t%s\t%s\n' "$path" "$source" "$description"
+  done <"$MANIFEST"
+}
+
+list_refreshable_configs() {
+  local path _source description key
+  while IFS=$'\t' read -r path _source description; do
     key="$(refresh_key_for_path "$path" || true)"
     [[ -n "$key" ]] || continue
-    printf '%-34s %s\n' "$key" "$description"
-  done <"$MANIFEST"
+    printf '%-44s %s\n' "$key" "$description"
+  done < <(refreshable_rows)
+  printf '%-44s %s\n' dms "Resets every DMS setting: settings, plugin enablement, and session state."
 }
 
 normalize_refresh_key() {
@@ -63,6 +106,32 @@ next_backup_path() {
   printf '%s\n' "$candidate"
 }
 
+load_dms_renderers() {
+  declare -F dms_settings_seed_json >/dev/null && return 0
+  TARGET_HOME="$HOME"
+  # shellcheck source=../../lib/common.sh
+  source "$ROOT_DIR/lib/common.sh"
+  # shellcheck source=../../lib/files.sh
+  source "$ROOT_DIR/lib/files.sh"
+  # shellcheck source=../../lib/dms.sh
+  source "$ROOT_DIR/lib/dms.sh"
+}
+
+# Write the current default for a manifest row to stdout.
+emit_default() {
+  local path="$1" source="$2" emitter
+  if emitter="$(rendered_default_emitter "$path")"; then
+    load_dms_renderers
+    "$emitter"
+    return
+  fi
+  [[ -f "$ROOT_DIR/$source" ]] || {
+    printf 'ZZ default is missing: %s\n' "$ROOT_DIR/$source" >&2
+    return 1
+  }
+  cat -- "$ROOT_DIR/$source"
+}
+
 refresh_config() {
   local wanted
   wanted="$(normalize_refresh_key "$1")"
@@ -71,17 +140,15 @@ refresh_config() {
     return 1
   }
 
-  local component path mode _conflict source _required description key
+  local path source _description key
   local matched_path="" matched_source=""
-  while IFS=$'\t' read -r component path mode _conflict source _required description; do
-    [[ -n "$component" && "$component" != \#* ]] || continue
-    [[ "$mode" == "seed-if-missing" && "$source" != "-" ]] || continue
+  while IFS=$'\t' read -r path source _description; do
     key="$(refresh_key_for_path "$path" || true)"
     [[ "$key" == "$wanted" ]] || continue
     matched_path="$path"
     matched_source="$source"
     break
-  done <"$MANIFEST"
+  done < <(refreshable_rows)
 
   [[ -n "$matched_path" ]] || {
     printf 'Not a refreshable ZZ config: %s\n\n' "$1" >&2
@@ -91,41 +158,67 @@ refresh_config() {
   }
 
   local destination="$HOME/${matched_path#\~/}"
-  local default_file="$ROOT_DIR/$matched_source"
-  [[ -f "$default_file" ]] || {
-    printf 'ZZ default is missing: %s\n' "$default_file" >&2
-    return 1
-  }
   [[ "$destination" == "$HOME/"* ]] || {
     printf 'Refusing to refresh a path outside the home directory: %s\n' "$destination" >&2
     return 1
   }
+  if [[ -e "$destination" || -L "$destination" ]] && [[ ! -f "$destination" ]]; then
+    printf 'Refusing to replace a non-file config: %s\n' "$destination" >&2
+    return 1
+  fi
 
-  mkdir -p "$(dirname "$destination")"
+  local default_file status=0
+  default_file="$(mktemp)" || return 1
+  if emit_default "$matched_path" "$matched_source" >"$default_file"; then
+    install_default "$destination" "$default_file" || status=$?
+  else
+    status=1
+  fi
+  rm -f -- "$default_file"
+  [[ "$status" -eq 0 ]] || return "$status"
+
+  if [[ "$DEFAULT_WRITTEN" -eq 1 ]] && rendered_default_emitter "$matched_path" >/dev/null; then
+    DMS_CHANGED=1
+  fi
+}
+
+# Callers test this with ||, which suspends errexit, so every write is
+# checked explicitly. Sets DEFAULT_WRITTEN when the destination changed.
+install_default() {
+  local destination="$1" default_file="$2"
+  DEFAULT_WRITTEN=0
+  mkdir -p "$(dirname "$destination")" || return 1
   if [[ -e "$destination" || -L "$destination" ]]; then
-    [[ -f "$destination" ]] || {
-      printf 'Refusing to replace a non-file config: %s\n' "$destination" >&2
-      return 1
-    }
     if [[ ! -L "$destination" ]] && cmp -s "$destination" "$default_file"; then
       printf '%s already matches the current ZZ default.\n' "$destination"
       return 0
     fi
 
     local backup
-    backup="$(next_backup_path "$destination")"
-    cp -aL -- "$destination" "$backup"
-    rm -f -- "$destination"
-    install -m 0644 "$default_file" "$destination"
+    backup="$(next_backup_path "$destination")" || return 1
+    cp -aL -- "$destination" "$backup" || return 1
+    rm -f -- "$destination" || return 1
+    install -m 0644 "$default_file" "$destination" || return 1
+    DEFAULT_WRITTEN=1
     printf 'Replaced %s with the current ZZ default.\n' "$destination"
     printf 'Saved backup as %s.\n\n' "$backup"
     printf 'Changes (backup -> default):\n'
     diff -u -- "$backup" "$destination" || true
-    return 0
+  else
+    install -m 0644 "$default_file" "$destination" || return 1
+    DEFAULT_WRITTEN=1
+    printf 'Installed the current ZZ default at %s.\n' "$destination"
   fi
+}
 
-  install -m 0644 "$default_file" "$destination"
-  printf 'Installed the current ZZ default at %s.\n' "$destination"
+# Without a restart the running shell would write its in-memory settings
+# back over the refreshed file on the next change.
+restart_dms_if_running() {
+  [[ "$DMS_CHANGED" -eq 1 ]] || return 0
+  if systemctl --user is-active --quiet "$DMS_UNIT" 2>/dev/null; then
+    printf '\nRestarting %s so the shell loads the refreshed settings.\n' "$DMS_UNIT"
+    systemctl --user restart "$DMS_UNIT"
+  fi
 }
 
 main() {
@@ -145,11 +238,20 @@ main() {
       return 1
       ;;
     *)
-      [[ "$#" -eq 1 ]] || {
-        usage >&2
-        return 1
-      }
-      refresh_config "$1"
+      local arg config status=0
+      local -a configs=()
+      for arg in "$@"; do
+        if refresh_alias_keys "$arg" >/dev/null; then
+          mapfile -t -O "${#configs[@]}" configs < <(refresh_alias_keys "$arg")
+        else
+          configs+=("$arg")
+        fi
+      done
+      for config in "${configs[@]}"; do
+        refresh_config "$config" || status=1
+      done
+      restart_dms_if_running
+      return "$status"
       ;;
   esac
 }

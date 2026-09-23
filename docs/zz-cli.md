@@ -13,7 +13,7 @@
 | `zz defaults` | Reapply default applications and browser preferences. |
 | `zz dotnet` | Manage .NET development utilities. |
 | `zz ssh` | Set up, inspect, or remove key-only SSH access to this machine. |
-| `zz refresh` | Replace one user-owned config with the current ZZ default, backing it up first. |
+| `zz refresh` | Replace user-owned configs with the current ZZ defaults, backing them up first. |
 | `zz update` | Update ZZ itself, packages, or developer tools. |
 | `zz app` | Install or remove one catalog application without rerunning the whole install. |
 | `zz agent` | Launch the default coding agent, or choose which one that is. |
@@ -261,3 +261,16 @@ zz refresh ghostty/config
 differs, it writes an adjacent `.bak.<timestamp>` backup before installing
 the default from `~/.zz`. ZZ-managed linked files update directly with
 Git and are not refresh targets.
+
+The DMS state files are refreshable too. Their defaults are rendered rather
+than copied: the settings seed gains this home's theme and icon paths, the
+session seed the default wallpaper, and the plugin enablement only the
+shipped plugins the saved plan carries. DMS writes its in-memory settings
+back over the file on any change, so a running `dms.service` is restarted
+once after any of them is replaced. `zz refresh dms` refreshes all three,
+putting every DMS setting back to the ZZ defaults:
+
+```bash
+zz refresh dms
+zz refresh DankMaterialShell/settings.json   # settings only
+```

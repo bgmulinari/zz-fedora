@@ -43,7 +43,7 @@ setup() {
   assert_contains "$output" '"name":"refresh"'
   assert_contains "$output" '"usage":"zz dotnet <devcert> [options]"'
   assert_contains "$output" '"usage":"zz doctor [options]"'
-  assert_contains "$output" '"usage":"zz refresh <config-path> | zz refresh --list"'
+  assert_contains "$output" '"usage":"zz refresh <config-path>... | zz refresh --list"'
   assert_contains "$output" '"usage":"zz app <list|install|remove> [choice...] [options]"'
 }
 
