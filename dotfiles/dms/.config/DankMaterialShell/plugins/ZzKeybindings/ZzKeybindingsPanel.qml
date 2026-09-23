@@ -311,7 +311,7 @@ Item {
                     spacing: 0
 
                     StyledText {
-                        text: "Keybindings"
+                        text: "Keyboard Shortcuts"
                         font.pixelSize: Theme.fontSizeLarge
                         font.weight: Font.Bold
                         color: Theme.surfaceText
@@ -553,8 +553,8 @@ Item {
                     if (panel.host && panel.host.error)
                         return panel.host.error;
                     if (panel.host && panel.host.loading)
-                        return "Reading the keybindings…";
-                    return "No keybindings found";
+                        return "Reading the keyboard shortcuts…";
+                    return "No keyboard shortcuts found";
                 }
                 font.pixelSize: Theme.fontSizeMedium
                 color: Theme.surfaceVariantText

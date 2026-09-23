@@ -16,20 +16,20 @@ QtObject {
             if (exitCode === 10) {
                 done({
                     "title": "python3 is required",
-                    "details": "The keybinding list is built with /usr/bin/python3. Install the python3 package and re-enable this plugin."
+                    "details": "The keyboard shortcut list is built with /usr/bin/python3. Install the python3 package and re-enable this plugin."
                 });
                 return;
             }
             if (exitCode === 12) {
                 done({
                     "title": "fzf is required",
-                    "details": "The keybinding search runs through fzf. Install the fzf package and re-enable this plugin."
+                    "details": "The keyboard shortcut search runs through fzf. Install the fzf package and re-enable this plugin."
                 });
                 return;
             }
             done({
                 "title": "Niri is required",
-                "details": "The keybinding list reads and runs Niri binds. It only works in a Niri session."
+                "details": "The keyboard shortcut list reads and runs Niri binds. It only works in a Niri session."
             });
         });
     }

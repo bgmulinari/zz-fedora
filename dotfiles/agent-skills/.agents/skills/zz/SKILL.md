@@ -68,7 +68,7 @@ Reading it answers most questions before an edit:
 
 Personal changes go in the user-owned locations:
 - `~/.config/niri/local.kdl` - personal Niri overrides (loaded last, wins)
-- `~/.config/niri/dms/binds.kdl` - keybinds (also editable in DMS Settings > Keybinds)
+- `~/.config/niri/dms/binds.kdl` - keybinds (also editable in DMS Settings > Keyboard Shortcuts)
 - `~/.config/DankMaterialShell/settings.json` - DMS settings, owned by the Settings UI
 - `~/.config/ghostty/local` - personal Ghostty settings
 - `~/.shellrc.d/`, `~/.zshrc.d/` - personal shell fragments
@@ -239,7 +239,7 @@ rendered its templates yet: `zz first-run` waits for them; `dms restart` trigger
 1. **Is it a `zz`, `dms`, or `niri` command?** Use it directly
 2. **Does DMS own it** (theme, bar, displays, input, lock, idle, window rules from the UI)? Change it in Settings or through `dms ipc`; see [`dms.md`](dms.md)
 3. **Is it a config edit?** Edit the personal file (`local.kdl`, `ghostty/local`, `~/.shellrc.d/`), never `~/.zz/` and never a product link
-4. **Is it a keybind?** `~/.config/niri/dms/binds.kdl` or Settings > Keybinds; see [`niri.md`](niri.md)
+4. **Is it a keybind?** `~/.config/niri/dms/binds.kdl` or Settings > Keyboard Shortcuts; see [`niri.md`](niri.md)
 5. **Is it a theme or plugin?** Use the DMS registry (Settings > Theme / Plugins, `dms plugins`); see [`theming.md`](theming.md)
 6. **Is it a package?** `pkexec dnf install <pkg>` (announce it first, see Privilege Escalation) or `flatpak install`; ZZ does not wrap package installs after setup
 7. **Went wrong?** `zz refresh <file>` after confirming with the user, then `zz doctor`

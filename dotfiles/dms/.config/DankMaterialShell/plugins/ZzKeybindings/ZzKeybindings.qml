@@ -5,7 +5,7 @@ import qs.Common
 import qs.Modals.Common
 import qs.Modules.Plugins
 
-// The keybinding list: a centered modal, like the launcher, listing every
+// The keyboard shortcut list: a centered modal, like the launcher, listing every
 // Niri bind as keycaps and a name, searchable, and running the bind a row
 // stands for when it is picked. There is no bar button; the keybind opens
 // it through the plugin IPC (`dms ipc call plugins toggle zzKeybindings`),
@@ -75,7 +75,7 @@ PluginComponent {
         try {
             parsed = JSON.parse(text);
         } catch (e) {
-            error = "The keybinding list could not be read.";
+            error = "The keyboard shortcut list could not be read.";
             console.warn("zzKeybindings: script output is not JSON:", e);
             return;
         }

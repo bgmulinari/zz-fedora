@@ -395,7 +395,7 @@ setup() {
 
 @test "product Niri tree ships no binds so the DMS UI is the single keybind surface" {
   # DMS parses only ~/.config/niri/dms/binds.kdl. A binds block anywhere in the
-  # product tree would be invisible to Settings -> Keybinds and would collide
+  # product tree would be invisible to Settings -> Keyboard Shortcuts and would collide
   # with the seeded fragment, so this placement is a contract, not a detail.
   if grep -rl 'binds {' "$ROOT_DIR/dotfiles/niri" >"$TEST_ROOT/product-binds.txt" 2>&1; then
     printf 'binds blocks found in the product Niri tree:\n' >&2

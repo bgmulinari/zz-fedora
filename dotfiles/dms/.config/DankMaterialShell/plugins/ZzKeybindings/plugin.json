@@ -1,7 +1,7 @@
 {
   "id": "zzKeybindings",
-  "name": "Keybindings",
-  "description": "Every Niri keybinding in one searchable list; pick a row to run it",
+  "name": "Keyboard Shortcuts",
+  "description": "Every Niri keyboard shortcut in one searchable list; pick a row to run it",
   "version": "1.0.0",
   "author": "ZZ",
   "type": "daemon",

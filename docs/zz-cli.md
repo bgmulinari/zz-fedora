@@ -30,12 +30,12 @@ such as an editor or the AI agent, whose window closes when
 it exits. Typing `zz` in the
 launcher searches the same rows. Super+Z is part of the seeded keybinds:
 an install seeded before the menu shipped keeps its own
-`~/.config/niri/dms/binds.kdl`, so add the bind there (Settings > Keybinds,
+`~/.config/niri/dms/binds.kdl`, so add the bind there (Settings > Keyboard Shortcuts,
 action `dms ipc call widget toggleWith zzMenu root`) or run
 `zz refresh niri/dms/binds.kdl`; `zz doctor` warns while it is missing. See
 `docs/design/dms-integration.md` for the plugin.
 
-Super+/ or Super+K opens the keybinding list: every Niri bind, searchable
+Super+/ or Super+K opens the keyboard shortcut list: every Niri bind, searchable
 by name or chord, and Enter runs the one picked. It replaces Niri's own
 hotkey overlay, which has no bind. Both binds are seeded the same way
 (action `dms ipc call plugins toggle zzKeybindings`).

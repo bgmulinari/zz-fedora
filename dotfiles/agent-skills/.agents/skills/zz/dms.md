@@ -128,7 +128,7 @@ and groups in `~/.config/zz-fedora/menu.json`
 (entries keyed by dotted id; `action`, `terminal`, `when`, `label`, `icon`); the
 format is documented in `~/.zz/dotfiles/dms/.config/DankMaterialShell/plugins/ZzMenu/README.md`.
 
-The keybinding list is another: Super+/ or Super+K (`dms ipc call plugins toggle zzKeybindings`)
+The keyboard shortcut list is another: Super+/ or Super+K (`dms ipc call plugins toggle zzKeybindings`)
 shows every Niri bind as keycaps and a name, searchable, and Enter runs the picked bind.
 It reads the live config through `dms keybinds show niri`, so a bind added anywhere in the
 Niri config shows up on the next open; its name is the bind's `hotkey-overlay-title`, and

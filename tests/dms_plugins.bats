@@ -39,7 +39,7 @@ run_zz_menu_inventory() {
     '$ROOT_DIR/$ZZ_MENU_REL/scripts/zz-menu-inventory' 2>/dev/null"
 }
 
-# The keybinding script against a stubbed `dms` and `niri`: the cheat sheet
+# The keyboard shortcut script against a stubbed `dms` and `niri`: the cheat sheet
 # a test passes is what `dms keybinds show niri` prints, so no shell or
 # compositor config is read, and the stub niri lists the actions its
 # command line runs the way `niri msg action --help` does (no recent-windows
@@ -263,8 +263,8 @@ apply_component() {
   # own overlay when the plugin is not loaded (the IPC exits 0 either way).
   local binds="$ROOT_DIR/templates/niri/dms-binds.kdl"
   local open_list="dms ipc call plugins toggle zzKeybindings | grep -q TOGGLE_SUCCESS || niri msg action show-hotkey-overlay"
-  assert_file_contains "$binds" "Mod+Slash hotkey-overlay-title=\"Keybindings\" { spawn-sh \"$open_list\"; }"
-  assert_file_contains "$binds" "Mod+K hotkey-overlay-title=\"Keybindings\" { spawn-sh \"$open_list\"; }"
+  assert_file_contains "$binds" "Mod+Slash hotkey-overlay-title=\"Keyboard Shortcuts\" { spawn-sh \"$open_list\"; }"
+  assert_file_contains "$binds" "Mod+K hotkey-overlay-title=\"Keyboard Shortcuts\" { spawn-sh \"$open_list\"; }"
   assert_equal "$open_list" "$(jq -r '."learn.keybindings".action' "$ROOT_DIR/$ZZ_MENU_REL/menu.json")"
 
   run bash -c "grep -rn -E '/home/[A-Za-z0-9._-]+/' '$dir' | grep -v '/home/linuxbrew/'"
@@ -353,11 +353,11 @@ apply_component() {
     "Mod+B${tab}spawn ghostty +new-window -e btop${tab}Open btop" \
     "Mod+D${tab}spawn-sh dms ipc call spotlight toggle${tab}DMS Launcher" \
     "Mod+Z${tab}spawn-sh dms ipc call widget toggleWith zzMenu root${tab}ZZ Menu" \
-    "Mod+Slash${tab}spawn-sh dms ipc call plugins toggle zzKeybindings${tab}Keybindings" \
+    "Mod+Slash${tab}spawn-sh dms ipc call plugins toggle zzKeybindings${tab}Keyboard Shortcuts" \
     "Mod+Shift+Slash${tab}show-hotkey-overlay${tab}Show Niri Hotkeys")"
   [ "$status" -eq 0 ]
 
-  assert_equal "Open Terminal|ZZ Menu|DMS Launcher|Close window|Open btop|Focus column left|Switch to workspace 1|Mute audio|Keybindings|Show Niri Hotkeys|Quit Niri and log out" \
+  assert_equal "Open Terminal|ZZ Menu|DMS Launcher|Close window|Open btop|Focus column left|Switch to workspace 1|Mute audio|Keyboard Shortcuts|Show Niri Hotkeys|Quit Niri and log out" \
     "$(jq -r '[.rows[].label] | join("|")' <<<"$output")"
 }
 

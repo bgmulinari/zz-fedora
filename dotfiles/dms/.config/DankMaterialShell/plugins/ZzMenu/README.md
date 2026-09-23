@@ -12,7 +12,7 @@ does. The root is short and grouped by what you want to do:
 | Desktop | Edit the personal Niri overrides (checked when the editor closes), pick-a-window facts for window rules, outputs, restart the shell |
 | Setup | The AI agent, SSH access, the .NET dev certificate, resetting the default apps (file types, terminal, browser) or a config to the ZZ default; pick apps one by one in Settings > Default Apps |
 | Troubleshoot | Doctor, crashes, installer/compositor/shell/boot logs, plugin rescan, re-running first-login setup, the debug bundle |
-| Learn | The keybinding list and documentation links |
+| Learn | The keyboard shortcut list and documentation links |
 
 The menu does not mirror the CLI: variants you rarely need from a menu
 stay in `zz` itself (`zz --help`). The terminal a row opens asks for
@@ -95,7 +95,7 @@ Settings > Plugins > ZZ Menu: the launcher trigger, and whether the rows
 also show in the launcher without a trigger. The Super+Z bind in
 `~/.config/niri/dms/binds.kdl` opens the centered menu and does not depend
 on the trigger; it is seeded with that file, so an older file needs the
-bind added (Settings > Keybinds) or `zz refresh niri/dms/binds.kdl`.
+bind added (Settings > Keyboard Shortcuts) or `zz refresh niri/dms/binds.kdl`.
 
 Dependencies: `python3` (the inventory runs with `/usr/bin/python3`) and a
 terminal launcher (`xdg-terminal-exec`, falling back to `ghostty`).

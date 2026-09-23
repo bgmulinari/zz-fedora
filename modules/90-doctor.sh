@@ -316,7 +316,7 @@ module_90_doctor() {
     fi
     # Shipped plugins are wired by the rendered enablement seed plus one
     # directory link each; reading a manifest through its link proves the
-    # link resolves. The ZZ menu and the keybinding list ride the base dms
+    # link resolves. The ZZ menu and the keyboard shortcut list ride the base dms
     # component, agent usage its own optional one.
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
       doctor_warn_file "$(dms_plugin_settings_file)"
@@ -334,13 +334,13 @@ module_90_doctor() {
 
   log_progress "Checking managed configuration contents"
   if doctor_plan_has_entry "$native_plan" "niri"; then
-    # Keybinds live in the user-owned DMS fragment so Settings -> Keybinds can
+    # Keybinds live in the user-owned DMS fragment so Settings -> Keyboard Shortcuts can
     # edit them; DMS reads no other niri file. It rewrites the fragment on the
     # first UI edit, so check for the bind actions rather than the seed layout.
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
       doctor_check_contains "$niri_config_home/dms/binds.kdl" 'dms ipc call spotlight toggle'
       doctor_check_contains "$niri_config_home/dms/binds.kdl" 'spawn "ghostty" "+new-window"'
-      # The ZZ menu and keybinding list binds ship with the seed; an install
+      # The ZZ menu and keyboard shortcut list binds ship with the seed; an install
       # seeded before they existed keeps its own file, so a missing bind is
       # a warning to act on.
       doctor_check_contains "$niri_config_home/dms/binds.kdl" 'dms ipc call widget toggleWith zzMenu root'

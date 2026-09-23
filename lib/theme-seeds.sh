@@ -121,7 +121,7 @@ install_niri_dms_colors_seed_if_missing() {
 
 # The keybind defaults are seeded rather than linked from the product tree
 # because DMS rewrites this file whenever a bind is changed in
-# Settings -> Keybinds, and it is the only niri fragment its UI reads.
+# Settings -> Keyboard Shortcuts, and it is the only niri fragment its UI reads.
 install_niri_dms_binds_seed_if_missing() {
   local native_plan destination
   native_plan="$(package_file_for_backend "$(native_backend)")"

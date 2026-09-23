@@ -47,7 +47,7 @@ live ZZ defaults first and a user override last:
 | Surface | User-owned entrypoint or override | ZZ-managed default |
 | --- | --- | --- |
 | Niri | `~/.config/niri/config.kdl`, plus optional `~/.config/niri/local.kdl` | `dotfiles/niri/.config/niri/defaults.kdl` and its `cfg/` includes |
-| Niri keybinds | `~/.config/niri/dms/binds.kdl` (seeded once, then owned by DMS Settings → Keybinds) | `templates/niri/dms-binds.kdl` |
+| Niri keybinds | `~/.config/niri/dms/binds.kdl` (seeded once, then owned by DMS Settings → Keyboard Shortcuts) | `templates/niri/dms-binds.kdl` |
 | Niri window rules | `~/.config/niri/dms/windowrules.kdl` (seeded once, then owned by DMS Settings → Window Rules) | `templates/niri/dms-windowrules.kdl` |
 | DMS | `~/.config/DankMaterialShell/settings.json` and `~/.config/DankMaterialShell/plugin_settings.json` (seeded once, then owned by the Settings UI; a newly shipped plugin is still enabled and placed in the bar once, as it arrives) | Catppuccin is downloaded by DMS at first login and is user-owned; the plugin directories under `dotfiles/dms/.config/DankMaterialShell/plugins/`, each linked whole into `~/.config/DankMaterialShell/plugins/`; session state stays under `~/.local/state/DankMaterialShell/` |
 | Ghostty | `~/.config/ghostty/config` and optional `~/.config/ghostty/local` | `dotfiles/ghostty/.config/ghostty/config`, linked as `~/.config/ghostty/zz-defaults` |
@@ -70,7 +70,7 @@ state stays out of the repository.
 
 Niri keybinds are seeded rather than linked because DMS both reads and
 writes `~/.config/niri/dms/binds.kdl`: it is the only niri file
-Settings → Keybinds parses, so binds kept in the product `cfg/` tree
+Settings → Keyboard Shortcuts parses, so binds kept in the product `cfg/` tree
 would not appear in the UI at all. The trade is that updated keybind
 defaults reach an existing install only through
 `zz refresh niri/dms/binds.kdl`.

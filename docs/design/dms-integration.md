@@ -100,7 +100,7 @@ not model (`focus-follows-mouse` and `workspace-auto-back-and-forth`). The
 portable seed pins `keyboardNumlock = true` so moving ownership does not change
 ZZ's default.
 
-`dms/binds.kdl` is the *only* niri file the Settings → Keybinds page
+`dms/binds.kdl` is the *only* niri file the Settings → Keyboard Shortcuts page
 reads. `dms keybinds show niri` parses that fragment alone, so binds kept
 anywhere else — including a product-owned `cfg/keybinds.kdl` — are
 invisible to the UI and the page renders empty. Including the fragment is
@@ -416,7 +416,7 @@ Shipped plugins:
   Desktop (Niri chores the shell has no page for, and restarting the shell),
   Setup (AI agent, SSH, the .NET dev certificate, resetting the default apps
   or a config to the ZZ default), Troubleshoot (doctor, crashes, logs,
-  plugin rescan, first-run, debug bundle), and Learn (the keybinding list
+  plugin rescan, first-run, debug bundle), and Learn (the keyboard shortcut list
   and documentation links). The menu does not mirror the CLI: rarely needed
   variants (single .NET updaters, the log path) stay CLI-only, and it
   carries no shortcuts to apps the launcher already opens. The menu is data:
@@ -444,14 +444,14 @@ Shipped plugins:
   own menu is incomplete and it needs no wizard visibility; the doctor
   reads its manifest through the link. A test keeps every `zz` row naming
   a real command and update target.
-- **Keybindings** (`zzKeybindings`, base, component `dms`): every Niri bind
+- **Keyboard Shortcuts** (`zzKeybindings`, base, component `dms`): every Niri bind
   in one searchable list that runs the bind picked. A daemon
   plugin with no bar surface: the seeded Super+/ and Super+K binds call the shell's
   plugin IPC (`dms ipc call plugins toggle zzKeybindings`), which reaches
   the daemon's `toggle()`, and the daemon opens a centered `DankModal`.
   `scripts/zz-keybindings` (`/usr/bin/python3`, stdlib) builds the rows on
   every open from `dms keybinds show niri`, the parser behind Settings >
-  Keybinds, which reads the whole Niri config and not only the DMS
+  Keyboard Shortcuts, which reads the whole Niri config and not only the DMS
   fragment. Each row is the chord as keycaps (Mod resolved to the
   session's mod key, keys named as printed: `~`, `,`, `←`, `VOLUME UP`)
   and a name: the `hotkey-overlay-title`, else one derived from the media

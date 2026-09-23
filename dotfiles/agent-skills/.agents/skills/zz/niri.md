@@ -41,7 +41,7 @@ includes (`layout.kdl`, `rules.kdl`, `input.kdl`, `animation.kdl`, `misc.kdl`,
 
 ## Keybinds
 
-`~/.config/niri/dms/binds.kdl` is the only file DMS Settings > Keybinds reads or shows,
+`~/.config/niri/dms/binds.kdl` is the only file DMS Settings > Keyboard Shortcuts reads or shows,
 so keybinds go there, not in `local.kdl`. Format:
 
 ```kdl

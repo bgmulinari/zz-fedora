@@ -1,6 +1,6 @@
 // ZZ keybind defaults, seeded into ~/.config/niri/dms/binds.kdl.
 //
-// This file is user-owned: DMS reads it for Settings -> Keybinds and writes
+// This file is user-owned: DMS reads it for Settings -> Keyboard Shortcuts and writes
 // back to it when a bind is changed there. The first write rewrites the whole
 // file, dropping the comments and section grouping below while keeping every
 // bind, so treat that layout as seed-time formatting only.
@@ -21,13 +21,13 @@ binds {
     Mod+N hotkey-overlay-title="Open netwatch" { spawn "ghostty" "+new-window" "-e" "netwatch"; }
     Mod+W hotkey-overlay-title="Open Browser" { spawn-sh "xdg-open about:blank"; }
 
-    // Desktop shell. The keybinding list falls back to Niri's own hotkey
+    // Desktop shell. The keyboard shortcut list falls back to Niri's own hotkey
     // overlay when its plugin is not loaded.
     Mod+D hotkey-overlay-title="DMS Launcher" { spawn-sh "dms ipc call spotlight toggle"; }
     Mod+Space hotkey-overlay-title="DMS Launcher" { spawn-sh "dms ipc call spotlight toggle"; }
     Mod+Z hotkey-overlay-title="ZZ Menu" { spawn-sh "dms ipc call widget toggleWith zzMenu root"; }
-    Mod+Slash hotkey-overlay-title="Keybindings" { spawn-sh "dms ipc call plugins toggle zzKeybindings | grep -q TOGGLE_SUCCESS || niri msg action show-hotkey-overlay"; }
-    Mod+K hotkey-overlay-title="Keybindings" { spawn-sh "dms ipc call plugins toggle zzKeybindings | grep -q TOGGLE_SUCCESS || niri msg action show-hotkey-overlay"; }
+    Mod+Slash hotkey-overlay-title="Keyboard Shortcuts" { spawn-sh "dms ipc call plugins toggle zzKeybindings | grep -q TOGGLE_SUCCESS || niri msg action show-hotkey-overlay"; }
+    Mod+K hotkey-overlay-title="Keyboard Shortcuts" { spawn-sh "dms ipc call plugins toggle zzKeybindings | grep -q TOGGLE_SUCCESS || niri msg action show-hotkey-overlay"; }
     Mod+S hotkey-overlay-title="DMS Control Center" { spawn-sh "dms ipc call control-center toggle"; }
     Mod+Comma hotkey-overlay-title="DMS Settings" { spawn-sh "dms ipc call settings focusOrToggle"; }
     Mod+V hotkey-overlay-title="DMS Clipboard History" { spawn-sh "dms ipc call clipboard toggle"; }

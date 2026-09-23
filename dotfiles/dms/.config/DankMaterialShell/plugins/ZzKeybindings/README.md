@@ -1,6 +1,6 @@
-# Keybindings
+# Keyboard Shortcuts
 
-Every Niri keybinding in one list. Press Super+/ or Super+K and it opens centered on
+Every Niri keyboard shortcut in one list. Press Super+/ or Super+K and it opens centered on
 the screen, like the launcher: each row is a chord drawn as keycaps and
 what it does, the ones you use most first. Type to search by name or by
 chord; the search is fzf, so `clwin` finds Close window, `'vol` wants the
@@ -29,11 +29,11 @@ shares the first one's row.
 ## Shell IPC
 
 ```bash
-dms ipc call plugins toggle zzKeybindings   # the keybinds (Super+/, Super+K)
+dms ipc call plugins toggle zzKeybindings   # the list (Super+/, Super+K)
 ```
 
 The binds live in `~/.config/niri/dms/binds.kdl`, seeded once; an older
-file needs them added (Settings > Keybinds) or
+file needs them added (Settings > Keyboard Shortcuts) or
 `zz refresh niri/dms/binds.kdl`.
 
 Dependencies: `python3` (the rows are built with `/usr/bin/python3`),

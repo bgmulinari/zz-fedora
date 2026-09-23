@@ -2,7 +2,7 @@
 //
 // Keybinds are deliberately absent: they live in the user-owned
 // ~/.config/niri/dms/binds.kdl (seeded from templates/niri/dms-binds.kdl)
-// because DMS only surfaces binds from that fragment in Settings -> Keybinds.
+// because DMS only surfaces binds from that fragment in Settings -> Keyboard Shortcuts.
 
 include "./cfg/animation.kdl"
 include "./cfg/autostart.kdl"

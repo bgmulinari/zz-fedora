@@ -1,9 +1,9 @@
 #!/usr/bin/python3
-"""List the Niri keybindings as rows a person can read and run.
+"""List the Niri keyboard shortcuts as rows a person can read and run.
 
 The binds come from `dms keybinds show niri`, which parses the whole Niri
 configuration (every include, not only the DMS-editable fragment) the same
-way Settings > Keybinds does. Each bind becomes a row with:
+way Settings > Keyboard Shortcuts does. Each bind becomes a row with:
 
 - a chord a person reads off their keyboard ("SUPER SHIFT + S", "~" for
   grave, "," for comma, "VOLUME UP" for XF86AudioRaiseVolume);
