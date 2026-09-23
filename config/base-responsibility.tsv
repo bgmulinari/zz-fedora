@@ -88,6 +88,7 @@ dnf	ipp-usb	desktop-service	printer/scanner discovery	Supports driverless USB pr
 dnf	avahi	desktop-service	network discovery	Provides mDNS discovery for printers and local services.
 dnf	nss-mdns	desktop-service	network discovery	Resolves mDNS hostnames.
 dnf	nautilus	default-app	file manager	Provides the default graphical file manager.
+dnf	nautilus-python	default-app	file manager context menu	Loads the Python Nautilus extensions, including the managed Copy Full Path action and the Ghostty terminal action.
 dnf	ghostty-nautilus	default-app	file manager terminal action	Provides Ghostty integration in the Nautilus context menu.
 dnf	gvfs-mtp	file-integration	file manager	Enables MTP device access in Nautilus/GVFS.
 dnf	gvfs-nfs	file-integration	file manager	Enables NFS access in Nautilus/GVFS.
