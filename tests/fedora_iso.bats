@@ -495,8 +495,8 @@ SH
   [ "$(grep -Fxc -- "$input_url" "$ZZ_TEST_CURL_LOG")" -eq 2 ]
   [ "$(grep -Fxc -- "verified" "$ZZ_TEST_GPGV_LOG")" -eq 3 ]
 
-  checksum_url="${input_url%/*}/Fedora-Everything-$ZZ_TEST_FEDORA_RELEASE-1.7-x86_64-CHECKSUM"
-  checksum_file="$fixture_repo/release/input/Fedora-Everything-$ZZ_TEST_FEDORA_RELEASE-1.7-x86_64-CHECKSUM"
+  checksum_url="${input_url%/*}/Fedora-Everything-iso-$ZZ_TEST_FEDORA_RELEASE-1.7-x86_64-CHECKSUM"
+  checksum_file="$fixture_repo/release/input/Fedora-Everything-iso-$ZZ_TEST_FEDORA_RELEASE-1.7-x86_64-CHECKSUM"
   [ "$(grep -Fxc -- "$checksum_url" "$ZZ_TEST_CURL_LOG")" -eq 1 ]
   printf 'tampered checksum\n' >"$checksum_file"
   run env PATH="$FAKE_BIN:$PATH" "$fixture_repo/iso/scripts/build-fedora-installer-iso.sh"
@@ -530,6 +530,22 @@ SH
   [ "$status" -ne 0 ]
   assert_contains "$output" "invalid MINIMUM_FEDORA_RELEASE configuration"
   refute_contains "$output" "input ISO"
+}
+
+@test "Fedora ISO builder names the signed checksum file the way each release publishes it" {
+  source "$ROOT_DIR/iso/lib/build-common.sh"
+
+  run iso_everything_checksum_basename 44 1.7 x86_64
+  [ "$status" -eq 0 ]
+  [ "$output" = "Fedora-Everything-44-1.7-x86_64-CHECKSUM" ]
+
+  run iso_everything_checksum_basename 45 1.3 x86_64
+  [ "$status" -eq 0 ]
+  [ "$output" = "Fedora-Everything-iso-45-1.3-x86_64-CHECKSUM" ]
+
+  run iso_everything_checksum_basename 46 1.2 x86_64
+  [ "$status" -eq 0 ]
+  [ "$output" = "Fedora-Everything-iso-46-1.2-x86_64-CHECKSUM" ]
 }
 
 @test "Fedora ISO builder rejects a checksum signed by an unexpected key" {

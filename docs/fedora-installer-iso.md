@@ -58,13 +58,13 @@ files and moved into place only after they complete.
 The builder also caches Fedora's clear-signed checksum file and refreshes its
 OpenPGP keyring in `release/input/`. On every build, it verifies the checksum
 document with `gpgv`, derives the expected signer fingerprint from the
-installed Fedora release certificate under `/etc/pki/rpm-gpg/`, and checks the
-ISO's SHA-256 against both the authenticated checksum and release metadata.
-This verification also runs for a cached ISO. If the cached ISO or the cached
+installed Fedora release certificate under `/usr/share/pki/rpm-gpg/`, and
+checks the ISO's SHA-256 against both the authenticated checksum and release
+metadata. This verification also runs for a cached ISO. If the cached ISO or the cached
 checksum document fails verification, the builder removes it, downloads a
 replacement, and verifies the replacement before continuing; a downloaded
 checksum that still fails verification is removed rather than left in the
-cache. Keep the host's `fedora-repos` package current so the next
+cache. Keep the host's `fedora-gpg-keys` package current so the next
 stable release's certificate is present when Fedora publishes that release.
 Set `ZZ_FEDORA_RELEASE_KEY_DIR` to read the release certificates from another
 directory; pass it on the `sudo` command line, as in

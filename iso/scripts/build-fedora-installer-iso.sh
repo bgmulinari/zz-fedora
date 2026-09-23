@@ -41,7 +41,7 @@ resolved_arch=
 default_input_iso=
 default_input_sha256=
 default_arch="x86_64"
-release_key_dir="${ZZ_FEDORA_RELEASE_KEY_DIR:-/etc/pki/rpm-gpg}"
+release_key_dir="${ZZ_FEDORA_RELEASE_KEY_DIR:-/usr/share/pki/rpm-gpg}"
 
 while (($# > 0)); do
   case "$1" in

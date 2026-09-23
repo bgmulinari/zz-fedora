@@ -166,6 +166,20 @@ iso_ensure_verified_cached_input() {
   return "$verification_status"
 }
 
+# Fedora 45 composes name the signed checksum file
+# Fedora-Everything-iso-<release>-<compose>-<arch>-CHECKSUM; Fedora 44
+# publishes it without the "iso" component.
+iso_everything_checksum_basename() {
+  local release="$1"
+  local compose_version="$2"
+  local architecture="$3"
+  if ((10#$release >= 45)); then
+    printf 'Fedora-Everything-iso-%s-%s-%s-CHECKSUM\n' "$release" "$compose_version" "$architecture"
+  else
+    printf 'Fedora-Everything-%s-%s-%s-CHECKSUM\n' "$release" "$compose_version" "$architecture"
+  fi
+}
+
 iso_resolve_latest_everything() {
   local releases_file="$1"
   local architecture="$2"
@@ -367,7 +381,8 @@ iso_prepare_default_input() {
     return 1
   }
   local compose_version="${BASH_REMATCH[2]}"
-  local checksum_basename="Fedora-Everything-${resolved_release}-${compose_version}-${resolved_arch}-CHECKSUM"
+  local checksum_basename
+  checksum_basename="$(iso_everything_checksum_basename "$resolved_release" "$compose_version" "$resolved_arch")"
   local checksum_url="${metadata_input_url%/*}/$checksum_basename"
   local checksum_file="$cache_dir/$checksum_basename"
   local release_certificate="$release_key_dir/RPM-GPG-KEY-fedora-${resolved_release}-primary"
