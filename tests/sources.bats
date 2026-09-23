@@ -54,6 +54,24 @@ setup() {
   refute_contains "$output" "enable:optional-source"
 }
 
+@test "a plan without software sources enables nothing and succeeds" {
+  # A per-choice install plans only the chosen unit, which may need no
+  # repository at all.
+  source_plan_files() {
+    printf '%s\n' "$TEST_ROOT/no-sources.list"
+  }
+  : >"$TEST_ROOT/no-sources.list"
+  fedora_enable_sources() {
+    printf 'enable:%s\n' "$1"
+  }
+
+  run module_10_sources
+
+  [ "$status" -eq 0 ]
+  refute_contains "$output" "enable:"
+  refute_contains "$output" "bad array subscript"
+}
+
 @test "Fedora vendor and RPM Fusion source setup imports keys before repo installs" {
   DRY_RUN=0
   fedora_repo_enabled() {

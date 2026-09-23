@@ -41,6 +41,9 @@ module_10_sources() {
       append_unique source_ids "$source_id"
     done < <(read_plan_file "$source_file")
   done < <(source_plan_files)
+  # A per-choice install plans only the chosen unit, which may need no
+  # repository; "${source_ids[@]:-}" would then yield one empty id.
+  [[ "${#source_ids[@]}" -gt 0 ]] || return 0
 
   for source_id in "${source_ids[@]:-}"; do
     source_required_for_install "$source_id" || continue
