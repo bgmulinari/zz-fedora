@@ -56,6 +56,28 @@ class RegistryThemeTests(unittest.TestCase):
             registry.install_default(self.home)
         self.assertTrue(self.theme.is_file())
 
+    def test_clears_leftover_theme_dir(self):
+        self.theme.parent.mkdir(parents=True)
+        self.theme.symlink_to(self.home / 'gone.json')
+        (self.theme.parent / 'preview-dark.svg').write_text('<svg/>')
+        seen = []
+        with patch.object(registry, 'backend_socket', return_value='/test.sock'), \
+                patch.object(registry, 'install_theme',
+                             side_effect=lambda *a: (seen.append(self.theme.parent.exists()), self.downloaded())), \
+                contextlib.redirect_stdout(io.StringIO()):
+            registry.install_default(self.home)
+        self.assertEqual(seen, [False])
+        self.assertTrue(self.theme.is_file())
+
+    def test_keeps_unknown_files_in_leftover_theme_dir(self):
+        self.theme.parent.mkdir(parents=True)
+        (self.theme.parent / 'notes.txt').write_text('mine')
+        with patch.object(registry, 'install_theme') as install:
+            with self.assertRaisesRegex(RuntimeError, 'notes.txt'):
+                registry.install_default(self.home)
+            install.assert_not_called()
+        self.assertTrue((self.theme.parent / 'notes.txt').is_file())
+
     def test_verifies_backend_output(self):
         with patch.object(registry, 'backend_socket', return_value='/test.sock'), \
                 patch.object(registry, 'install_theme'):

@@ -267,8 +267,10 @@ than copied: the settings seed gains this home's theme and icon paths, the
 session seed the default wallpaper, and the plugin enablement only the
 shipped plugins the saved plan carries. DMS writes its in-memory settings
 back over the file on any change, so a running `dms.service` is restarted
-once after any of them is replaced. `zz refresh dms` refreshes all three,
-putting every DMS setting back to the ZZ defaults:
+once after any of them is replaced. Refreshing the settings also downloads
+the Catppuccin theme they select through the running DMS backend when it
+has been removed. `zz refresh dms` refreshes all three, putting every DMS
+setting back to the ZZ defaults:
 
 ```bash
 zz refresh dms

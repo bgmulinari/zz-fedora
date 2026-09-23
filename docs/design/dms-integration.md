@@ -202,7 +202,13 @@ with the blue accent (latte + blue in light mode).
   backend request, the same operation used by Settings → Browse Themes.
   ZZ does not bundle or product-link theme files. DMS owns the downloaded
   `~/.config/DankMaterialShell/themes/catppuccin/` directory, including previews.
-  Registry updates and removal remain available in DMS Settings.
+  Registry updates and removal remain available in DMS Settings. The
+  backend refuses to install over an existing theme directory, so a
+  leftover one without a `theme.json` (only preview images or a broken
+  link) is cleared first; one holding anything else stops the action with
+  its path instead of being deleted. `zz refresh` of the DMS settings runs
+  the same request when the theme is missing, since the first-run
+  checkpoint does not repeat once it has succeeded.
 - `~/.config/DankMaterialShell/settings.json` is seeded once
   (seed-if-missing) with the theme selection keys
   (`currentThemeCategory: "registry"`, `currentThemeName: "custom"`,

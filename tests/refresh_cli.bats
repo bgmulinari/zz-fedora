@@ -6,6 +6,28 @@ load "helpers/common"
 setup() {
   setup_test_env
   setup_fake_bin
+  # A short private runtime dir keeps the unix socket path under the length
+  # limit and the theme helper away from a real DMS backend on the host.
+  RUNTIME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/zz-rt.XXXXXX")"
+  THEME_FILE="$TARGET_HOME/.config/DankMaterialShell/themes/catppuccin/theme.json"
+  mkdir -p "$(dirname "$THEME_FILE")"
+  printf '{"id":"catppuccin"}\n' >"$THEME_FILE"
+}
+
+teardown() {
+  rm -rf "$RUNTIME_DIR"
+}
+
+# Serve one themes.install request on the DMS backend socket.
+start_fake_dms_backend() {
+  local socket="$RUNTIME_DIR/danklinux-1.sock"
+  /usr/bin/python3 "$ROOT_DIR/tests/support/fake_dms_backend.py" "$socket" "$TARGET_HOME" &
+  local attempt
+  for ((attempt = 0; attempt < 50; attempt++)); do
+    [[ -S "$socket" ]] && return 0
+    sleep 0.1
+  done
+  return 1
 }
 
 # systemctl stub that logs each call and answers is-active with the given
@@ -19,7 +41,8 @@ STUB
 }
 
 run_refresh() {
-  run env HOME="$TARGET_HOME" PATH="$FAKE_BIN:$PATH" bash "$ROOT_DIR/bin/zz" refresh "$@"
+  run env -u WAYLAND_DISPLAY -u DISPLAY -u DMS_SOCKET HOME="$TARGET_HOME" \
+    XDG_RUNTIME_DIR="$RUNTIME_DIR" PATH="$FAKE_BIN:$PATH" bash "$ROOT_DIR/bin/zz" refresh "$@"
 }
 
 @test "zz refresh lists only user-owned seeded configs" {
@@ -165,4 +188,31 @@ run_refresh() {
   [ "$status" -ne 0 ]
   assert_contains "$output" "Not a refreshable ZZ config"
   assert_file_contains "$COMMAND_LOG" "systemctl --user restart dms.service"
+}
+
+@test "zz refresh reinstalls a removed DMS theme before restarting the shell" {
+  fake_dms_unit 0
+  run_refresh DankMaterialShell/settings.json
+  [ "$status" -eq 0 ]
+  rm -rf "$(dirname "$THEME_FILE")"
+  : >"$COMMAND_LOG"
+  start_fake_dms_backend
+
+  run_refresh dms
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Installed the Catppuccin theme"
+  assert_equal catppuccin "$(jq -r '.id' "$THEME_FILE")"
+  assert_file_contains "$COMMAND_LOG" "systemctl --user restart dms.service"
+}
+
+@test "zz refresh reports a DMS theme it cannot reinstall" {
+  fake_dms_unit 3
+  rm -rf "$(dirname "$THEME_FILE")"
+
+  run_refresh DankMaterialShell/settings.json
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Could not install the Catppuccin theme"
+  [[ -f "$TARGET_HOME/.config/DankMaterialShell/settings.json" ]]
 }

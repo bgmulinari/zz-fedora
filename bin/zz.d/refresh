@@ -9,6 +9,7 @@ MANIFEST="$ROOT_DIR/config/managed-config.tsv"
 DMS_UNIT="dms.service"
 DMS_CHANGED=0
 DEFAULT_WRITTEN=0
+THEME_CHECK=0
 
 usage() {
   cat <<'EOF_USAGE'
@@ -180,6 +181,8 @@ refresh_config() {
   if [[ "$DEFAULT_WRITTEN" -eq 1 ]] && rendered_default_emitter "$matched_path" >/dev/null; then
     DMS_CHANGED=1
   fi
+  # shellcheck disable=SC2088
+  [[ "$matched_path" != "~/.config/DankMaterialShell/settings.json" ]] || THEME_CHECK=1
 }
 
 # Callers test this with ||, which suspends errexit, so every write is
@@ -209,6 +212,23 @@ install_default() {
     DEFAULT_WRITTEN=1
     printf 'Installed the current ZZ default at %s.\n' "$destination"
   fi
+}
+
+# The settings default selects the Catppuccin registry theme. First run
+# downloads it once, so a theme removed since then would leave the refreshed
+# settings pointing at nothing; fetch it again through the running backend.
+ensure_dms_theme() {
+  [[ "$THEME_CHECK" -eq 1 ]] || return 0
+  local result
+  load_dms_renderers
+  if ! result="$("$SYSTEM_PYTHON" "$ROOT_DIR/lib/dms_registry_theme.py" "$HOME")"; then
+    printf '\nCould not install the Catppuccin theme the DMS settings select.\n' >&2
+    printf 'Rerun "zz refresh dms" from the desktop session once DMS is running and online.\n' >&2
+    return 1
+  fi
+  [[ "$result" == "installed" ]] || return 0
+  printf '\nInstalled the Catppuccin theme through the DMS registry.\n'
+  DMS_CHANGED=1
 }
 
 # Without a restart the running shell would write its in-memory settings
@@ -250,6 +270,7 @@ main() {
       for config in "${configs[@]}"; do
         refresh_config "$config" || status=1
       done
+      ensure_dms_theme || status=1
       restart_dms_if_running
       return "$status"
       ;;

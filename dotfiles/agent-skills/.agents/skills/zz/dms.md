@@ -34,7 +34,8 @@ it regenerates the `~/.config/niri/dms/*.kdl` fragments and theme outputs.
 - To return to the ZZ defaults, confirm with the user, then
   `zz refresh dms` (settings, plugin enablement, and session state), or
   `zz refresh DankMaterialShell/settings.json` for the settings alone. It backs each
-  file up and restarts DMS itself
+  file up, downloads the Catppuccin theme again if it was removed, and restarts DMS
+  itself
 
 ## Bar
 
