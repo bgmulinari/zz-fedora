@@ -1243,6 +1243,7 @@ SH
   assert_file_contains "$script" "ZZ Fedora (10/10): Completed Doctor"
   assert_file_contains "$script" "ZZ Fedora complete"
   assert_file_contains "$script" "repo=fedora-%s&arch=%s"
+  assert_file_contains "$script" "services --enabled=NetworkManager --disabled=sshd"
   assert_file_contains "$script" "--cmdline \"console=ttyS0,115200n8 inst.cmdline\""
   assert_file_contains "$script" "direct_append+=\" console=ttyS0,115200n8 inst.cmdline\""
   assert_file_contains "$script" 'desktop_app_profile=$desktop_app_profile'

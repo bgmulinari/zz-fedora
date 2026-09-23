@@ -308,7 +308,8 @@ EOF
   printf 'repo --name="updates"\n'
   cat <<EOF
 
-services --enabled=NetworkManager
+# Match the production Kickstart so the VM validates the sshd-off default.
+services --enabled=NetworkManager --disabled=sshd
 
 %packages
 @core
