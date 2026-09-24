@@ -5,6 +5,7 @@ bats
 ShellCheck
 git
 jq
+nodejs24-bin
 python3
 findutils
 diffutils
