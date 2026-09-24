@@ -9,14 +9,17 @@ set -Eeuo pipefail
 # installs the package from the pinned COPR, re-asserts the greetd session
 # config, grants the greeter user read access to the target user's DMS
 # theme state (upstream `dms-greeter enable`/`sync` run as the invoking
-# user, so they cannot be used from the root install path), and enables
-# greetd as the fallback graphical login.
+# user, so they cannot be used from the root install path), keeps
+# fingerprint auth out of the greetd login stack, and enables greetd as the
+# fallback graphical login.
 
 DMS_GREETER_COPR_PROJECT="avengemedia/danklinux"
 DMS_GREETER_PACKAGE="dms-greeter"
 DMS_GREETER_USER="greeter"
 DMS_GREETER_CACHE_DIR="/var/cache/dms-greeter"
 DMS_GREETD_CONFIG="/etc/greetd/config.toml"
+DMS_GREETD_PAM="/etc/pam.d/greetd"
+DMS_PASSWORD_AUTH_PAM="/etc/pam.d/password-auth"
 
 dms_greeter_action_skipped() {
   local skip_file="$PLAN_DIR/system-skips.tsv"
@@ -107,6 +110,38 @@ ensure_dms_greetd_config() {
   dms_greetd_config_content | write_root_file 0644 "$DMS_GREETD_CONFIG"
 }
 
+# The greetd package authenticates through system-auth, where Fedora's
+# default authselect profile (with-fingerprint) puts pam_fprintd ahead of
+# pam_unix. A fingerprint login hands pam_gnome_keyring no password, so the
+# login keyring stays locked until something asks for a secret.
+# `dms-greeter sync` manages only its own block in this file and leaves an
+# included pam_fprintd to authselect, so its fingerprint toggle cannot turn
+# it off. Route greetd auth through password-auth, the authselect stack
+# without pam_fprintd; sudo and polkit keep fingerprint auth, and the
+# greeter toggle again decides whether login offers a fingerprint.
+dms_greetd_pam_auth_uses_system_auth() {
+  local pam_file="${1:-$DMS_GREETD_PAM}"
+  grep -Eq '^[[:space:]]*-?auth[[:space:]]+(include|substack)[[:space:]]+system-auth([[:space:]]|$)' "$pam_file"
+}
+
+dms_greetd_pam_password_auth_content() {
+  sed -E 's/^([[:space:]]*-?auth[[:space:]]+(include|substack)[[:space:]]+)system-auth([[:space:]]|$)/\1password-auth\3/' "$DMS_GREETD_PAM"
+}
+
+ensure_dms_greetd_pam_password_auth() {
+  if [[ ! -f "$DMS_GREETD_PAM" ]]; then
+    [[ "$DRY_RUN" -eq 1 ]] || die "DMS Greeter requires $DMS_GREETD_PAM, but the greetd package did not install it."
+    printf 'DRY-RUN: route %s auth through password-auth\n' "$DMS_GREETD_PAM"
+    return 0
+  fi
+  dms_greetd_pam_auth_uses_system_auth || return 0
+  # A missing include would make every greetd login fail.
+  [[ -f "$DMS_PASSWORD_AUTH_PAM" ]] ||
+    die "Cannot route $DMS_GREETD_PAM through password-auth: $DMS_PASSWORD_AUTH_PAM is missing."
+  log_progress "Routing greetd login auth through password-auth"
+  dms_greetd_pam_password_auth_content | write_root_file 0644 "$DMS_GREETD_PAM"
+}
+
 # The recursive grant is only needed once: the default ACLs make files
 # created afterwards inherit it, so an already-granted directory (its own
 # ACL carries the greeter group entry) skips the recursive walk on re-runs
@@ -189,6 +224,7 @@ install_dms_greeter() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'DRY-RUN: install DMS Greeter package %s from %s\n' "$DMS_GREETER_PACKAGE" "$(dms_greeter_copr_repo)"
     ensure_dms_greetd_config
+    ensure_dms_greetd_pam_password_auth
     if [[ "$SKIP_USER_CONFIG" -eq 1 ]]; then
       printf 'DRY-RUN: skip greeter user-state access and theme sync (user config skipped)\n'
     else
@@ -209,6 +245,7 @@ install_dms_greeter() {
   fedora_service_exists greetd || die "DMS Greeter requires greetd.service, but it is unavailable after package installation."
 
   ensure_dms_greetd_config
+  ensure_dms_greetd_pam_password_auth
 
   if [[ "$SKIP_USER_CONFIG" -eq 1 ]]; then
     log_info "Skipping DMS Greeter user-state access and theme sync: user config is skipped, keeping the greeter defaults."
@@ -231,6 +268,8 @@ verify_dms_greeter() {
     command -v dms-greeter >/dev/null 2>&1 &&
     systemctl is-enabled greetd >/dev/null 2>&1 &&
     dms_greetd_config_has_expected_session &&
+    [[ -f "$DMS_GREETD_PAM" ]] &&
+    ! dms_greetd_pam_auth_uses_system_auth &&
     {
       dms_greeter_user_sync_skipped || {
         id -nG "$TARGET_USER" 2>/dev/null | tr ' ' '\n' | grep -qx "$DMS_GREETER_USER" &&

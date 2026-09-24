@@ -206,6 +206,18 @@ doctor_check_dms_greetd_config() {
   return 1
 }
 
+# A fingerprint login leaves the login keyring locked; warn-level only,
+# since the greeter still logs in.
+doctor_warn_dms_greetd_pam() {
+  local pam_file="${DMS_GREETD_PAM:-/etc/pam.d/greetd}"
+  [[ -f "$pam_file" ]] || return 0
+  if dms_greetd_pam_auth_uses_system_auth "$pam_file"; then
+    printf '[warn] %s authenticates through system-auth, so a fingerprint login leaves the login keyring locked\n' "$pam_file"
+    return 0
+  fi
+  printf '[ok] %s authenticates without fingerprint, so login unlocks the keyring\n' "$pam_file"
+}
+
 doctor_dms_greeter_cache_dir() {
   printf '%s\n' "${DMS_GREETER_CACHE_DIR:-/var/cache/dms-greeter}"
 }
@@ -218,6 +230,7 @@ doctor_check_dms_greeter_setup() {
   doctor_check_command dms-greeter || failed=1
   doctor_check_file "$config_file" || failed=1
   doctor_check_dms_greetd_config "$config_file" || failed=1
+  doctor_warn_dms_greetd_pam
   # Greeter theme sync state; absent when the user sync was skipped, so
   # warn-level only.
   doctor_warn_file "$cache_dir/settings.json"

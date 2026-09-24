@@ -42,7 +42,7 @@ dnf	bash-completion	shell-tool	interactive Bash	Provides command completions for
 dnf	bats	development-tool	repository regression suite	Keeps the repository's Bats test suites runnable out of the box on the development-focused desktop.
 dnf	dnf5-plugins	installer-bootstrap	Fedora source setup and installer reruns	Provides the DNF5 COPR and config-manager commands used during source setup.
 dnf	niri	niri	Niri session	Provides the compositor and Wayland session entry.
-action	dms-greeter	desktop-service	graphical login	Installs DMS Greeter from COPR, ensures the greetd session config, grants the greeter user read access to the target user's DMS theme state, and enables the fallback graphical login.
+action	dms-greeter	desktop-service	graphical login	Installs DMS Greeter from COPR, ensures the greetd session config, grants the greeter user read access to the target user's DMS theme state, routes greetd login auth through password-auth so the login password unlocks the keyring, and enables the fallback graphical login.
 dnf	policycoreutils-python-utils	desktop-service	graphical login	Provides the SELinux policy tooling the DMS Greeter package scriptlets use for its binary and state-directory contexts.
 dnf	acl	desktop-service	graphical login	Provides setfacl for granting the greeter user traversal access to the target user's DMS configuration.
 dnf	greetd	desktop-service	graphical login	Provides the greetd daemon that runs DMS Greeter on the fallback graphical login path.

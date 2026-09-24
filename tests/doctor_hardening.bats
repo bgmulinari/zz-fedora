@@ -108,7 +108,7 @@ step_table_failure_policy() {
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tpavucontrol\tdefault-app\taudio mixer\tProvides a GUI mixer fallback for standalone Niri sessions.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tsatty\tdefault-app\tscreenshot annotation\tOpens every capture from the shipped screenshot keybinds in an annotation editor (arrows, shapes, text, blur, crop) before it is copied and saved.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tcopr:avengemedia/danklinux\tdesktop-service\tDMS ecosystem and Qt theme\tProvides quickshell, matugen, danksearch, DMS Greeter, and qt6ct-kde for the required base desktop.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tdms-greeter\tdesktop-service\tgraphical login\tInstalls DMS Greeter from COPR, ensures the greetd session config, grants the greeter user read access to the target user\'s DMS theme state, and enables the fallback graphical login.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tdms-greeter\tdesktop-service\tgraphical login\tInstalls DMS Greeter from COPR, ensures the greetd session config, grants the greeter user read access to the target user\'s DMS theme state, routes greetd login auth through password-auth so the login password unlocks the keyring, and enables the fallback graphical login.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tdesktop-cursor-theme\ttheme-font\tNiri and graphical applications\tInstalls the pinned cursor theme selected by the managed Niri and desktop environment defaults.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tpolicycoreutils-python-utils\tdesktop-service\tgraphical login\tProvides the SELinux policy tooling the DMS Greeter package scriptlets use for its binary and state-directory contexts.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tdms\tdms\tDMS shell\tInstalls the DMS (DankMaterialShell) desktop shell started by the dms.service user unit under the Niri session.'
@@ -550,6 +550,8 @@ step_table_failure_policy() {
 @test "doctor greeter setup passes on a managed greetd config and warns on sync state" {
   DMS_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
   printf '[default_session]\ncommand = "/usr/bin/dms-greeter --command niri"\nuser = "greeter"\n' >"$DMS_GREETD_CONFIG"
+  DMS_GREETD_PAM="$TEST_ROOT/greetd-pam"
+  printf 'auth       substack    system-auth\n' >"$DMS_GREETD_PAM"
   doctor_check_command() { return 0; }
   doctor_check_file() {
     printf '[ok] file %s\n' "$1"
@@ -560,6 +562,13 @@ step_table_failure_policy() {
   [ "$status" -eq 0 ]
   assert_contains "$output" "/var/cache/dms-greeter/settings.json"
   assert_contains "$output" "/var/cache/dms-greeter/colors.json"
+  assert_contains "$output" "[warn] $DMS_GREETD_PAM authenticates through system-auth"
+
+  printf 'auth       substack    password-auth\n' >"$DMS_GREETD_PAM"
+  run doctor_check_dms_greeter_setup
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "[ok] $DMS_GREETD_PAM authenticates without fingerprint"
 }
 
 @test "doctor verifies the terminal preference the defaults write" {

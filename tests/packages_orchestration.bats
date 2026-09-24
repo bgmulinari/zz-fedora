@@ -98,12 +98,14 @@ setup() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "dms-greeter"
 
   DRY_RUN=1
+  DMS_GREETD_PAM="$TEST_ROOT/missing-greetd-pam"
   detect_enabled_display_manager() { return 1; }
   run install_dms_greeter
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "install DMS Greeter package dms-greeter"
   assert_contains "$output" "/etc/greetd/config.toml"
+  assert_contains "$output" "route $DMS_GREETD_PAM auth through password-auth"
   assert_contains "$output" "usermod -aG greeter $TARGET_USER"
   assert_contains "$output" "chmod 2770 /var/cache/dms-greeter/users"
   assert_contains "$output" "link the greeter cache to the target user DMS state"
@@ -144,6 +146,71 @@ EOF
   [ "$status" -eq 0 ]
   run_without_bats_debug_trap ensure_dms_greetd_config
   [ ! -s "$TEST_ROOT/root.log" ]
+}
+write_fedora_greetd_pam() {
+  cat >"$DMS_GREETD_PAM" <<'EOF'
+#%PAM-1.0
+auth       substack    system-auth
+-auth       optional    pam_gnome_keyring.so
+auth       include     postlogin
+
+account    required    pam_nologin.so
+account    include     system-auth
+
+password   include     system-auth
+
+session    include     system-auth
+-session    optional    pam_gnome_keyring.so auto_start
+session    include     postlogin
+EOF
+}
+@test "DMS Greeter routes greetd login auth through password-auth once" {
+  DRY_RUN=0
+  DMS_GREETD_PAM="$TEST_ROOT/pam.d/greetd"
+  DMS_PASSWORD_AUTH_PAM="$TEST_ROOT/pam.d/password-auth"
+  mkdir -p "$TEST_ROOT/pam.d"
+  : >"$DMS_PASSWORD_AUTH_PAM"
+  write_fedora_greetd_pam
+  write_root_file() {
+    local mode="$1" destination="$2"
+    cat >"$TEST_ROOT/staged"
+    mv "$TEST_ROOT/staged" "$destination"
+    printf 'wrote:%s:%s\n' "$mode" "$destination" >>"$TEST_ROOT/root.log"
+  }
+
+  run_without_bats_debug_trap ensure_dms_greetd_pam_password_auth
+
+  assert_file_contains "$TEST_ROOT/root.log" "wrote:0644:$DMS_GREETD_PAM"
+  assert_file_contains "$DMS_GREETD_PAM" "auth       substack    password-auth"
+  run dms_greetd_pam_auth_uses_system_auth
+  [ "$status" -ne 0 ]
+  # Only the auth stack changes; the keyring unlock and the other stacks stay.
+  assert_file_contains "$DMS_GREETD_PAM" "-auth       optional    pam_gnome_keyring.so"
+  assert_file_contains "$DMS_GREETD_PAM" "account    include     system-auth"
+  assert_file_contains "$DMS_GREETD_PAM" "password   include     system-auth"
+  assert_file_contains "$DMS_GREETD_PAM" "session    include     system-auth"
+  assert_file_contains "$DMS_GREETD_PAM" "-session    optional    pam_gnome_keyring.so auto_start"
+
+  : >"$TEST_ROOT/root.log"
+  run_without_bats_debug_trap ensure_dms_greetd_pam_password_auth
+  [ ! -s "$TEST_ROOT/root.log" ]
+}
+@test "DMS Greeter keeps greetd PAM when password-auth is missing" {
+  DRY_RUN=0
+  DMS_GREETD_PAM="$TEST_ROOT/greetd-pam"
+  DMS_PASSWORD_AUTH_PAM="$TEST_ROOT/missing-password-auth"
+  write_fedora_greetd_pam
+  cp "$DMS_GREETD_PAM" "$TEST_ROOT/greetd-pam.orig"
+  write_root_file() {
+    printf 'wrote:%s\n' "$2" >>"$TEST_ROOT/root.log"
+  }
+
+  run ensure_dms_greetd_pam_password_auth
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "$DMS_PASSWORD_AUTH_PAM is missing"
+  [ ! -e "$TEST_ROOT/root.log" ]
+  cmp -s "$DMS_GREETD_PAM" "$TEST_ROOT/greetd-pam.orig"
 }
 @test "DMS Greeter rejects misleading tokens and wrong default-session users" {
   DRY_RUN=0
@@ -266,8 +333,10 @@ EOF
   build_test_plan
   DMS_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
   DMS_GREETER_CACHE_DIR="$TEST_ROOT/dms-greeter-cache"
+  DMS_GREETD_PAM="$TEST_ROOT/greetd-pam"
   TARGET_USER="dms-user"
   dms_greetd_config_content >"$DMS_GREETD_CONFIG"
+  printf 'auth       substack    password-auth\n' >"$DMS_GREETD_PAM"
   rpm() { return 0; }
   command() { return 0; }
   systemctl() { return 0; }
@@ -292,13 +361,20 @@ EOF
   ln -sfn "$TEST_ROOT/colors.json" "$DMS_GREETER_CACHE_DIR/colors.json"
   run verify_dms_greeter
   [ "$status" -eq 0 ]
+
+  # A greetd auth stack that still admits fingerprint logins fails verify.
+  printf 'auth       substack    system-auth\n' >"$DMS_GREETD_PAM"
+  run verify_dms_greeter
+  [ "$status" -ne 0 ]
 }
 @test "DMS Greeter action skips user sync with --skip-user-config" {
   build_test_plan
   DRY_RUN=0
   SKIP_USER_CONFIG=1
   DMS_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
+  DMS_GREETD_PAM="$TEST_ROOT/greetd-pam"
   dms_greetd_config_content >"$DMS_GREETD_CONFIG"
+  printf 'auth       substack    password-auth\n' >"$DMS_GREETD_PAM"
   detect_enabled_display_manager() { return 1; }
   install_dms_greeter_package() { return 0; }
   fedora_service_exists() { return 0; }
@@ -377,7 +453,9 @@ EOF
   DRY_RUN=0
   DMS_GREETD_CONFIG="$TEST_ROOT/greetd-config.toml"
   DMS_GREETER_CACHE_DIR="$TEST_ROOT/dms-greeter-cache"
+  DMS_GREETD_PAM="$TEST_ROOT/greetd-pam"
   dms_greetd_config_content >"$DMS_GREETD_CONFIG"
+  printf 'auth       substack    password-auth\n' >"$DMS_GREETD_PAM"
 
   detect_enabled_display_manager() {
     printf 'greetd.service\n'

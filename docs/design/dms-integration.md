@@ -600,6 +600,18 @@ adds only what the package cannot know:
   state dirs, the 2770 greeter-owned `/var/cache/dms-greeter{,/users}`
   cache, and the `settings.json`/`session.json`/`colors.json` symlinks into
   the user's live DMS state;
+- rewrites the `system-auth` auth include in `/etc/pam.d/greetd` to
+  `password-auth`. Fedora's default authselect profile enables
+  `with-fingerprint`, which puts `pam_fprintd` ahead of `pam_unix` in
+  `system-auth`; a fingerprint login gives `pam_gnome_keyring` no password,
+  so the login keyring stays locked and the first Secret Service client
+  (for example `gh` behind the GitHub widget) raises an unlock prompt.
+  `dms-greeter sync` manages only its own block in that file and leaves an
+  included `pam_fprintd` to authselect, so the greeter's "Enable
+  fingerprint at login" toggle cannot turn it off. `password-auth` is the
+  authselect stack without `pam_fprintd`: sudo and polkit keep fingerprint
+  auth, and the greeter toggle again decides whether login offers a
+  fingerprint (through its own managed block);
 - enables greetd as the fallback graphical login, skipping (with a recorded
   skip) when another display manager is already enabled.
 
