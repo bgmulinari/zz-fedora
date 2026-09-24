@@ -315,19 +315,15 @@ module_90_doctor() {
       doctor_warn_file "$(dms_session_file)"
     fi
     # Shipped plugins are wired by the rendered enablement seed plus one
-    # directory link each; reading a manifest through its link proves the
-    # link resolves. The ZZ menu and the keyboard shortcut list ride the base dms
-    # component, agent usage its own optional one.
+    # directory link each (dms_planned_plugin_dirs: the base dms component's
+    # ZZ menu and keyboard shortcut list, and each optional plugin's own);
+    # reading a manifest through its link proves the link resolves.
     if [[ "$SKIP_USER_CONFIG" -eq 0 ]]; then
       doctor_warn_file "$(dms_plugin_settings_file)"
-      doctor_warn_file "$user_config_home/DankMaterialShell/plugins/ZzMenu/plugin.json"
-      doctor_warn_file "$user_config_home/DankMaterialShell/plugins/ZzKeybindings/plugin.json"
-      if doctor_plan_has_entry "$PLAN_DIR/config/components.list" "dms-plugin-proton-manager"; then
-        doctor_warn_file "$user_config_home/DankMaterialShell/plugins/ProtonManager/plugin.json"
-      fi
-      if doctor_plan_has_entry "$PLAN_DIR/config/components.list" "dms-plugin-agent-usage"; then
-        doctor_warn_file "$user_config_home/DankMaterialShell/plugins/AgentUsage/plugin.json"
-      fi
+      local plugin_dir
+      while IFS= read -r plugin_dir; do
+        doctor_warn_file "$plugin_dir/plugin.json"
+      done < <(dms_planned_plugin_dirs)
     fi
   fi
   doctor_check_dir_has_files "$TARGET_HOME/.local/share/fonts/JetBrainsMonoNerdFont" '*.ttf'

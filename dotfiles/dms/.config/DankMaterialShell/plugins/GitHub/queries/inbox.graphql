@@ -1,0 +1,90 @@
+# The lists, each operation picked with operationName. Inbox is everything
+# the viewer's lists need in one request: the pull request and issue
+# searches of GitHub's own dashboards, the count the bar adds for
+# assignments, and the recently pushed repositories the viewer owns or works
+# in (which the Actions tab watches unless the settings name others, and
+# the repository picker offers). Badge is what the bar needs while nothing
+# is on screen: the counts alone. Repository is one repository's lists,
+# everyone's items in it, open and closed. Page is one search's next page as
+# a list scrolls to its end, or, without a cursor, the first pages of a
+# search with the viewer's words added. Resolve is what a github.com link
+# to #N is (an issue or a pull request, both under /issues/N), as a row
+# carries it, so a page opened from a link has its state before its own
+# load. The search strings come from GitHubLogic.js (searchFor), so every
+# operation asks the same questions; "query" is gh's own field, so the
+# variable is $search.
+query Inbox($first: Int!, $repos: Int!, $prReview: String!, $prCreated: String!, $prAssigned: String!, $prMentioned: String!, $issueAssigned: String!, $issueCreated: String!, $issueMentioned: String!, $prAssignedOnly: String!) {
+  viewer {
+    login
+    repositories(first: $repos, orderBy: {field: PUSHED_AT, direction: DESC}, affiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER], ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER], isArchived: false) {
+      nodes { nameWithOwner }
+    }
+  }
+  prReview: search(type: ISSUE, first: $first, query: $prReview) { ...results }
+  prCreated: search(type: ISSUE, first: $first, query: $prCreated) { ...results }
+  prAssigned: search(type: ISSUE, first: $first, query: $prAssigned) { ...results }
+  prMentioned: search(type: ISSUE, first: $first, query: $prMentioned) { ...results }
+  issueAssigned: search(type: ISSUE, first: $first, query: $issueAssigned) { ...results }
+  issueCreated: search(type: ISSUE, first: $first, query: $issueCreated) { ...results }
+  issueMentioned: search(type: ISSUE, first: $first, query: $issueMentioned) { ...results }
+  prAssignedOnly: search(type: ISSUE, first: 0, query: $prAssignedOnly) { issueCount }
+}
+
+query Badge($prReview: String!, $issueAssigned: String!, $prAssignedOnly: String!) {
+  viewer { login }
+  prReview: search(type: ISSUE, first: 0, query: $prReview) { issueCount }
+  issueAssigned: search(type: ISSUE, first: 0, query: $issueAssigned) { issueCount }
+  prAssignedOnly: search(type: ISSUE, first: 0, query: $prAssignedOnly) { issueCount }
+}
+
+query Repository($first: Int!, $prOpen: String!, $prMerged: String!, $prClosed: String!, $issueOpen: String!, $issueClosed: String!) {
+  prOpen: search(type: ISSUE, first: $first, query: $prOpen) { ...results }
+  prMerged: search(type: ISSUE, first: $first, query: $prMerged) { ...results }
+  prClosed: search(type: ISSUE, first: $first, query: $prClosed) { ...results }
+  issueOpen: search(type: ISSUE, first: $first, query: $issueOpen) { ...results }
+  issueClosed: search(type: ISSUE, first: $first, query: $issueClosed) { ...results }
+}
+
+query Page($search: String!, $first: Int!, $after: String) {
+  search(type: ISSUE, first: $first, after: $after, query: $search) { ...results }
+}
+
+query Resolve($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    issueOrPullRequest(number: $number) { __typename ...pr ...issue }
+  }
+}
+
+fragment results on SearchResultItemConnection {
+  issueCount
+  pageInfo { hasNextPage endCursor }
+  nodes { __typename ...pr ...issue }
+}
+
+fragment pr on PullRequest {
+  number
+  title
+  url
+  isDraft
+  state
+  updatedAt
+  author { login }
+  repository { nameWithOwner }
+  reviewDecision
+  comments { totalCount }
+  labels(first: 3) { nodes { name color } }
+  commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+}
+
+fragment issue on Issue {
+  number
+  title
+  url
+  state
+  stateReason
+  updatedAt
+  author { login }
+  repository { nameWithOwner }
+  comments { totalCount }
+  labels(first: 3) { nodes { name color } }
+}

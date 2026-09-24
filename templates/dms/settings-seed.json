@@ -60,6 +60,7 @@
           "id": "memUsage",
           "showInGb": true
         },
+        "github",
         "agentUsage",
         "battery",
         "notificationButton",

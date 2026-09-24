@@ -200,6 +200,19 @@ dms_component_plugin_ids() {
   done <"$(managed_config_policy_file)"
 }
 
+# Where the plan links shipped plugins, one directory per line: the plugin
+# directories among the plan's managed paths (none without a plan).
+dms_planned_plugin_dirs() {
+  # Managed-config paths are written with a literal ~/ prefix.
+  # shellcheck disable=SC2088
+  local plugins='~/.config/DankMaterialShell/plugins/' path
+  [[ -n "${PLAN_DIR:-}" ]] || return 0
+  while IFS= read -r path; do
+    [[ "$path" == "$plugins"?* && "${path#"$plugins"}" != */* ]] || continue
+    managed_config_target_path "$path"
+  done < <(read_plan_file "$PLAN_DIR/files/managed-files.list")
+}
+
 # Shipped plugin ids the live plugin_settings.json does not mention at all.
 dms_missing_plugin_ids() {
   jq -r --slurpfile seed <(dms_plugin_settings_seed_json) \

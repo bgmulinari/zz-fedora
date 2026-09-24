@@ -28,7 +28,9 @@ ID_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9]*$")
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$")
 QML_PATH_RE = re.compile(r"^\./.*\.qml$")
 REQUIRES_DMS_RE = re.compile(r"^(>=?|<=?|=|>|<)\d+\.\d+\.\d+$")
-HOME_PATH_RE = re.compile(r"/home/[A-Za-z0-9._-]+/")
+# A user's home; the Homebrew prefix under /home/linuxbrew is a fixed system
+# location, not a user.
+HOME_PATH_RE = re.compile(r"/home/(?!linuxbrew/)[A-Za-z0-9._-]+/")
 TYPES = ("widget", "daemon", "launcher", "desktop", "composite")
 SURFACES = ("widget", "desktop", "daemon", "launcher")
 PERMISSIONS = ("settings_read", "settings_write", "process", "network")
@@ -135,9 +137,21 @@ def scan_qml(report: Report, path: Path, label: str) -> str:
     except OSError as exc:
         report.error(f"{label}: cannot read {path.name}: {exc}")
         return ""
-    if HOME_PATH_RE.search(text):
-        report.error(f"{label}: {path.name} embeds a /home/<user>/ path; derive paths at runtime instead")
     return text
+
+
+# Nothing the plugin ships may carry a user's home path: every text file of
+# the directory, not only the QML the manifest names.
+def scan_home_paths(report: Report, plugin_dir: Path) -> None:
+    for path in sorted(plugin_dir.rglob("*")):
+        if not path.is_file() or "__pycache__" in path.parts:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if HOME_PATH_RE.search(text):
+            report.error(f"{path.relative_to(plugin_dir)} embeds a /home/<user>/ path; derive paths at runtime instead")
 
 
 def validate_manifest(report: Report, plugin_dir: Path, manifest: dict) -> None:
@@ -287,6 +301,7 @@ def validate_dir(plugin_dir: Path, schema: dict | None) -> Report:
                 report.warn(f"manifest key {key!r} is not in the schema (allowed, but check the spelling)")
 
     validate_manifest(report, plugin_dir, manifest)
+    scan_home_paths(report, plugin_dir)
     return report
 
 

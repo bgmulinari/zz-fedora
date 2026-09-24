@@ -1,0 +1,118 @@
+# A detail page in one request, picked with operationName: the page as
+# gh's own view shows it, what the viewer may change there, what it links
+# to, and the rendered HTML of every body (read only for the image URLs
+# GitHub signs for its viewer). PullRequest also brings its checks (the
+# first 100, and GitHub's verdict over all of them), reviews, and inline
+# review threads; Issue its parent, sub-issues, and the issues it is blocked
+# by or blocking. The long conversations stop at their newest
+# 100 comments, reviews, and threads, and say how many there are in all.
+# Permission is what a run page needs: whether the viewer may re-run or
+# cancel.
+query PullRequest($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    nameWithOwner
+    viewerPermission
+    viewerDefaultMergeMethod
+    pullRequest(number: $number) {
+      id number title url state isDraft body bodyHTML createdAt
+      author { login }
+      baseRefName headRefName headRefOid
+      headRepository { nameWithOwner }
+      additions deletions changedFiles
+      reviewDecision mergeable mergeStateStatus
+      viewerCanClose viewerCanReopen viewerCanUpdate viewerCanAssign locked
+      viewerCanSubscribe viewerSubscription
+      labels(first: 20) { nodes { name color } }
+      assignees(first: 20) { nodes { login } }
+      comments(last: 100) { totalCount nodes { ...comment } }
+      latestReviews(first: 50) { nodes { state author { login } } }
+      reviewRequests(first: 30) {
+        nodes {
+          requestedReviewer {
+            __typename
+            ... on User { login name }
+            ... on Team { name slug }
+            ... on Bot { login }
+            ... on Mannequin { login }
+          }
+        }
+      }
+      commits(last: 1) {
+        nodes {
+          commit {
+            statusCheckRollup {
+              state
+              contexts(first: 100) {
+                totalCount
+                nodes {
+                  __typename
+                  ... on CheckRun { name status conclusion detailsUrl checkSuite { workflowRun { workflow { name } } } }
+                  ... on StatusContext { context state description targetUrl }
+                }
+              }
+            }
+          }
+        }
+      }
+      closingIssuesReferences(first: 10) { nodes { ...related } }
+      reviews(last: 100) { totalCount nodes { databaseId state body bodyHTML submittedAt url author { login } } }
+      reviewThreads(last: 100) {
+        totalCount
+        nodes {
+          id isResolved isOutdated path line originalLine
+          viewerCanReply viewerCanResolve viewerCanUnresolve
+          comments(first: 50) {
+            totalCount
+            nodes { databaseId body bodyHTML createdAt url diffHunk author { login } pullRequestReview { databaseId } }
+          }
+        }
+      }
+    }
+  }
+}
+
+query Issue($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    nameWithOwner
+    viewerPermission
+    issue(number: $number) {
+      id number title url state stateReason body bodyHTML createdAt
+      author { login }
+      viewerCanClose viewerCanReopen viewerCanUpdate viewerCanAssign locked
+      viewerCanSubscribe viewerSubscription viewerThreadSubscriptionStatus viewerThreadSubscriptionFormAction
+      labels(first: 20) { nodes { name color } }
+      assignees(first: 20) { nodes { login } }
+      comments(last: 100) { totalCount nodes { ...comment } }
+      closedByPullRequestsReferences(first: 10) { nodes { number url state isDraft repository { nameWithOwner } } }
+      parent { ...related }
+      subIssuesSummary { total completed }
+      subIssues(first: 50) { nodes { ...related } }
+      blockedBy(first: 20) { nodes { ...related } }
+      blocking(first: 20) { nodes { ...related } }
+    }
+  }
+}
+
+query Permission($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    viewerPermission
+  }
+}
+
+fragment comment on IssueComment {
+  body
+  bodyHTML
+  createdAt
+  url
+  author { login }
+}
+
+fragment related on Issue {
+  number
+  title
+  url
+  state
+  stateReason
+  repository { nameWithOwner }
+  subIssuesSummary { total completed }
+}

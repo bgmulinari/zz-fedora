@@ -11,6 +11,9 @@ ZZ_MENU_PATH="~/.config/DankMaterialShell/plugins/ZzMenu"
 KEYBINDINGS_REL="$PLUGIN_ROOT_REL/ZzKeybindings"
 KEYBINDINGS_PATH="~/.config/DankMaterialShell/plugins/ZzKeybindings"
 AGENT_USAGE_PATH="~/.config/DankMaterialShell/plugins/AgentUsage"
+GITHUB_REL="$PLUGIN_ROOT_REL/GitHub"
+GITHUB_PATH="~/.config/DankMaterialShell/plugins/GitHub"
+GITHUB_COMPONENT="dms-plugin-github"
 PLUGIN_SETTINGS_PATH="~/.config/DankMaterialShell/plugin_settings.json"
 
 setup() {
@@ -126,7 +129,7 @@ apply_component() {
   apply_managed_config_plan
 }
 
-@test "shipped DMS plugin manifests validate against the upstream schema and layout rules" {
+@test "shipped DMS plugins validate against the upstream schema and layout rules and carry no user home path" {
   local plugin
   for plugin in "$ROOT_DIR/$PLUGIN_ROOT_REL"/*/; do
     "$SYSTEM_PYTHON" "$ROOT_DIR/tests/support/dms_plugin.py" "$plugin"
@@ -164,11 +167,6 @@ apply_component() {
   [[ -f "$dir/assets/codex.svg" ]]
   [[ -f "$dir/assets/codex-light.svg" ]]
   assert_file_contains "$dir/AgentUsageWidget.qml" '"assets/" + p.providerId + ".svg"'
-
-  # Nothing product-owned may carry a user home path (the Homebrew prefix
-  # under /home/linuxbrew is a fixed system location, not a user).
-  run bash -c "grep -rn -E '/home/[A-Za-z0-9._-]+/' '$dir' | grep -v '/home/linuxbrew/'"
-  [ "$status" -ne 0 ]
 }
 
 @test "zz menu plugin declares the surfaces, trigger, scripts, and dependencies its files rely on" {
@@ -222,9 +220,6 @@ apply_component() {
   assert_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" "dms ipc call widget toggleWith zzMenu root"
   assert_file_contains "$dir/ZzMenuWidget.qml" "DankModal {"
   assert_file_contains "$dir/ZzMenuWidget.qml" "import qs.Modals.Common"
-
-  run bash -c "grep -rn -E '/home/[A-Za-z0-9._-]+/' '$dir' | grep -v '/home/linuxbrew/'"
-  [ "$status" -ne 0 ]
 }
 
 @test "keybindings plugin declares the daemon, script, dependencies, and keybind its files rely on" {
@@ -266,9 +261,6 @@ apply_component() {
   assert_file_contains "$binds" "Mod+Slash hotkey-overlay-title=\"Keyboard Shortcuts\" { spawn-sh \"$open_list\"; }"
   assert_file_contains "$binds" "Mod+K hotkey-overlay-title=\"Keyboard Shortcuts\" { spawn-sh \"$open_list\"; }"
   assert_equal "$open_list" "$(jq -r '."learn.keybindings".action' "$ROOT_DIR/$ZZ_MENU_REL/menu.json")"
-
-  run bash -c "grep -rn -E '/home/[A-Za-z0-9._-]+/' '$dir' | grep -v '/home/linuxbrew/'"
-  [ "$status" -ne 0 ]
 }
 
 @test "keybinding rows read like the keyboard and fall back to readable names" {
@@ -709,17 +701,30 @@ EOF
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "$KEYBINDINGS_PATH"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "$PLUGIN_SETTINGS_PATH"
   refute_plan_has "$PLAN_DIR/files/managed-files.list" "$AGENT_USAGE_PATH"
+  refute_plan_has "$PLAN_DIR/files/managed-files.list" "$GITHUB_PATH"
   run dms_plugin_settings_seed_json
   [ "$status" -eq 0 ]
   assert_equal "true" "$(jq -r '.zzMenu.enabled' <<<"$output")"
   assert_equal "true" "$(jq -r '.zzKeybindings.enabled' <<<"$output")"
   assert_equal "null" "$(jq -r '.agentUsage' <<<"$output")"
+  assert_equal "null" "$(jq -r '.github' <<<"$output")"
+  # The doctor reads each planned plugin's manifest through its link.
+  local plugins="$TARGET_HOME/.config/DankMaterialShell/plugins"
+  run dms_planned_plugin_dirs
+  [ "$status" -eq 0 ]
+  assert_equal "$plugins/ZzKeybindings
+$plugins/ZzMenu" "$output"
 
   build_test_plan "ai=agent-usage"
   run dms_plugin_settings_seed_json
   [ "$status" -eq 0 ]
   assert_equal "true" "$(jq -r '.zzMenu.enabled' <<<"$output")"
   assert_equal "true" "$(jq -r '.agentUsage.enabled' <<<"$output")"
+  run dms_planned_plugin_dirs
+  [ "$status" -eq 0 ]
+  assert_equal "$plugins/AgentUsage
+$plugins/ZzKeybindings
+$plugins/ZzMenu" "$output"
 }
 
 # The shell is "running": every dms call is recorded instead of sent.
@@ -920,12 +925,20 @@ EOF
   [[ -L "$usage_link" ]]
   [[ -x "$usage_link/scripts/update-usage" ]]
   assert_equal "$(readlink -f "$ROOT_DIR/$AGENT_USAGE_REL")" "$(readlink -f "$usage_link")"
+
+  local github_link="$TARGET_HOME/.config/DankMaterialShell/plugins/GitHub"
+  [[ ! -e "$github_link" ]]
+  apply_component "$GITHUB_COMPONENT"
+  [[ -L "$github_link" ]]
+  [[ -f "$github_link/queries/inbox.graphql" ]]
+  assert_equal "$(readlink -f "$ROOT_DIR/$GITHUB_REL")" "$(readlink -f "$github_link")"
 }
 
 @test "settings seed places each shipped widget only when its plugin component is planned" {
-  local menu_id usage_id
+  local menu_id usage_id github_id
   menu_id="$(jq -r '.id' "$ROOT_DIR/$ZZ_MENU_REL/plugin.json")"
   usage_id="$(jq -r '.id' "$ROOT_DIR/$AGENT_USAGE_REL/plugin.json")"
+  github_id="$(jq -r '.id' "$ROOT_DIR/$GITHUB_REL/plugin.json")"
   local widgets='.barConfigs[0] | (.leftWidgets + .centerWidgets + .rightWidgets)'
 
   # The ZZ button sits on the right, right after the system tray.
@@ -940,8 +953,8 @@ EOF
   run dms_settings_seed_json
   [ "$status" -eq 0 ]
   local seed="$output"
-  run jq -e --arg menu "$menu_id" --arg usage "$usage_id" \
-    "($widgets | index(\$menu) != null) and ($widgets | index(\$usage) == null) and ($widgets | index(\"notificationButton\") != null)" <<<"$seed"
+  run jq -e --arg menu "$menu_id" --arg usage "$usage_id" --arg github "$github_id" \
+    "($widgets | index(\$menu) != null) and ($widgets | index(\$usage) == null) and ($widgets | index(\$github) == null) and ($widgets | index(\"notificationButton\") != null)" <<<"$seed"
   [ "$status" -eq 0 ]
   assert_equal "$(dms_theme_file)" "$(jq -r '.customThemeFile' <<<"$seed")"
 

@@ -1,0 +1,29 @@
+{
+  "id": "github",
+  "name": "GitHub",
+  "description": "Notifications, pull requests, issues, and Actions runs in the bar, through the GitHub CLI",
+  "version": "1.0.0",
+  "author": "ZZ",
+  "type": "composite",
+  "capabilities": [
+    "dankbar-widget",
+    "daemon"
+  ],
+  "components": {
+    "widget": "./GitHubWidget.qml",
+    "daemon": "./GitHubDaemon.qml"
+  },
+  "icon": "code",
+  "settings": "./Settings.qml",
+  "startupCheck": "./StartupCheck.qml",
+  "requires_dms": ">=1.5.0",
+  "dependencies": [
+    "gh",
+    "notify-send"
+  ],
+  "permissions": [
+    "settings_read",
+    "settings_write",
+    "process"
+  ]
+}

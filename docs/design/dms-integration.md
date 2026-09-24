@@ -507,6 +507,44 @@ Shipped plugins:
   multi-device aggregation merges JSON snapshots from a user-chosen synced
   folder; rate limits are never merged.
 
+- **GitHub** (`github`, unit `dev-github`, component `dms-plugin-github`):
+  the GitHub mark in the bar with a popout for notifications, pull
+  requests, issues, and Actions runs, and pages that act on them; the
+  plugin's README is the feature and `gh` command reference. Integration
+  points:
+  - It is a composite plugin: a `daemon` surface (`GitHubDaemon.qml`) owns
+    the data, the background polls, the desktop notifications, and the
+    pop-out windows once, and each bar's `widget` surface reads it through
+    `pluginService.pluginDaemonInstances`, so extra monitors add marks,
+    not requests; a panel on screen polls what it shows.
+  - It talks to GitHub only through `gh` (GraphQL query files under
+    `queries/`, `gh api` for notifications and job logs, `gh run`, and the
+    matching `gh` subcommand for a change), so it never handles a token: a
+    signed-out CLI dims the mark and the popout offers `gh auth login` in a
+    terminal. The only other network access is images: the signed URLs in
+    GitHub's rendered HTML and the public avatars on
+    `avatars.githubusercontent.com`, neither carrying a credential.
+    Subscribing to a page needs the `notifications` scope, which the bell
+    offers through `gh auth refresh -s notifications`.
+  - With nothing on screen it polls only the bar's counts (on the refresh
+    interval, 5 minutes by default; the same answer tells which account
+    `gh` is on, so `gh auth switch` shows up) and conditional notification
+    requests
+    (a 304 is free), and announces new threads through `notify-send`
+    (`libnotify`, which the unit installs; `gh` is base through `shell-gh`,
+    and the unit names it anyway). What was announced is plugin state per
+    account.
+  - Sizes, the popout's scope, the recent repositories, and the announce
+    record are plugin state
+    (`~/.local/state/DankMaterialShell/plugins/github_state.json`), not
+    settings, so they stay per machine. Windows are DMS windows (app id
+    `com.danklinux.dms`, which the seeded window rules open floating).
+  - The seeds enable it and place it before the agent usage pill.
+    `tests/github_plugin.bats` tests its logic library (`GitHubLogic.js`)
+    directly under Node, and its data layer (`GitHubData.qml`) in a
+    headless Quickshell with `gh` scripted (`tests/support/github_data`,
+    skipped where Quickshell is not installed).
+
 - **Proton manager** (`protonManager`, unit
   `gaming-proton-manager`, component `dms-plugin-proton-manager`)
   replaces the optional external Proton manager in the gaming catalog. Selected

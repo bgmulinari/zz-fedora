@@ -1,0 +1,20 @@
+id = "dev-github"
+description = "GitHub bar widget for the desktop shell"
+config = ["dms-plugin-github"]
+
+[choice]
+category = "dev"
+id = "github"
+label = "GitHub widget"
+default = true
+order = 90
+description = "Review pull requests, triage issues and notifications, and watch Actions runs from the bar through the GitHub CLI"
+
+# The widget does everything through gh, which the base shell-gh unit
+# already installs; naming it keeps the dependency explicit and is an
+# idempotent no-op on every install path. libnotify's notify-send carries
+# the desktop notifications, which wait for the click that opens the thread
+# in the popout. The shell itself is base.
+[[install]]
+backend = "dnf"
+packages = ["gh", "libnotify"]

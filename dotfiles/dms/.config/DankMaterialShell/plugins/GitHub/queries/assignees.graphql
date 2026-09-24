@@ -1,0 +1,7 @@
+# The people who can be assigned in a repository, for the assignee picker:
+# those whose login or name match $search ("" for the first ones).
+query($owner: String!, $name: String!, $search: String) {
+  repository(owner: $owner, name: $name) {
+    assignableUsers(first: 20, query: $search) { nodes { login name } }
+  }
+}

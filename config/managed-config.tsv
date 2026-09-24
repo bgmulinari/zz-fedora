@@ -43,6 +43,7 @@ dms	~/.local/bin/zz-sync-icon-theme	product-link	backup-before-link	dotfiles/dms
 dms	~/.config/DankMaterialShell/plugins/ZzMenu	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/ZzMenu	dms	Links the managed ZZ menu plugin: every zz command in the launcher and a bar button.
 dms	~/.config/DankMaterialShell/plugins/ZzKeybindings	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/ZzKeybindings	dms	Links the managed keyboard shortcut list plugin: every Niri bind, searchable and runnable.
 dms-plugin-agent-usage	~/.config/DankMaterialShell/plugins/AgentUsage	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/AgentUsage	dms	Links the managed coding-agent usage bar widget plugin.
+dms-plugin-github	~/.config/DankMaterialShell/plugins/GitHub	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/GitHub	dms	Links the managed GitHub bar widget plugin.
 crash-watch	~/.config/systemd/user/zz-crash-watch.service	product-link	backup-before-link	dotfiles/crash-watch/.config/systemd/user/zz-crash-watch.service	-	Links the crash watcher user unit that announces core dumps and offers an AI diagnosis.
 screenshot-tools	~/.config/satty/config.toml	seed-if-missing	preserve	templates/satty/config.toml	satty	Seeds the user-owned screenshot annotation editor defaults: save path, clipboard command, and the Enter and Escape actions.
 starship	~/.config/starship.toml	seed-if-missing	preserve	templates/starship.toml	starship	Seeds a user-owned Starship configuration.

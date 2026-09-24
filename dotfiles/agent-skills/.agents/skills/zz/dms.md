@@ -136,6 +136,21 @@ Niri config shows up on the next open; its name is the bind's `hotkey-overlay-ti
 not bind. Like Super+Z, the binds are seeded: an older `~/.config/niri/dms/binds.kdl` lacks
 them until the user adds them or runs `zz refresh niri/dms/binds.kdl` (`zz doctor` warns).
 
+The GitHub widget (optional `dev` choice `github`) is the GitHub mark in the bar: its
+popout lists notifications, pull requests, issues, and Actions runs (a dot on the mark
+means unread notifications) and acts on them; its README
+(`~/.config/DankMaterialShell/plugins/GitHub/README.md`) describes everything it does.
+It works only through the GitHub CLI, so a dimmed mark or a "not signed in" popout means
+`gh auth status` fails, and the fix is `gh auth login`, never a token in the plugin. The
+inbox needs the `notifications` or `repo` scope (`gh auth login` grants `repo`); following
+a page from its bell needs `notifications`, which `gh auth refresh -s notifications` adds. Settings > Plugins >
+GitHub picks what the bar counts, desktop notifications, the refresh interval, and the
+repositories the Actions tab watches; `dms ipc call widget openWith github
+<inbox|issues|prs|actions>` opens it at a tab, which a Niri bind can call. Its sizes,
+scope, and recent repositories live in
+`~/.local/state/DankMaterialShell/plugins/github_state.json`; deleting that file resets
+them.
+
 Plugins ZZ ships arrive as symlinks into `~/.zz`; treat them as read-only like any
 other product link. To customize one, copy it to a new directory with a new `id`.
 Writing a plugin, or changing a copy, is the `create-dms-plugin` skill's job.

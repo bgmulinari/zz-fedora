@@ -25,7 +25,7 @@ User plugins go in `~/.config/DankMaterialShell/plugins/<PascalName>/`, one dire
 per plugin with `plugin.json` at its root. The directory is PascalCase, the manifest
 `id` is camelCase, component paths in the manifest start with `./`.
 
-Plugins ZZ ships (the ZZ menu, agent usage) are symlinks into `~/.zz`, which is a Git
+Plugins ZZ ships (the ZZ menu, agent usage, GitHub) are symlinks into `~/.zz`, which is a Git
 checkout that `zz update zz` fast-forwards and that refuses to update when dirty. To
 build on one, copy its directory to a new name and give the copy a new `id`; do not
 edit the linked one.

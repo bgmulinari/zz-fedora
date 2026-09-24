@@ -8,6 +8,9 @@
   "agentUsage": {
     "enabled": true
   },
+  "github": {
+    "enabled": true
+  },
   "protonManager": {
     "enabled": true
   }
