@@ -139,9 +139,9 @@ $dir/GitHubData.qml" "$output"
   assert_equal 1 "${#lines[@]}"
   assert_contains "$output" "GitHubLogic.js"
   assert_file_contains "$dir/GitHubData.qml" 'const command = Logic.mediaDownload(url, path, mediaMaxBytes, mediaTimeoutSeconds);'
-  run grep -rhoE 'copyMedia\([a-z]+,' "$dir" --include='*.qml'
-  assert_equal "copyMedia(url,
-copyMedia(signed," "$output"
+  run bash -c "grep -rhoE 'copyMedia\\([a-z]+,' '$dir' --include='*.qml' | LC_ALL=C sort"
+  assert_equal "copyMedia(signed,
+copyMedia(url," "$output"
 }
 
 @test "github queries declare exactly the searches the lists ask" {
