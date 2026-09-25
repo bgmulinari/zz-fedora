@@ -77,6 +77,16 @@ PluginSettings {
         unit: "s"
     }
 
+    SliderSetting {
+        settingKey: "resumeSeconds"
+        label: "Keep my place"
+        description: "Opening the popout from the bar within this long of dismissing it shows what it showed, the issue or pull request included; after that it starts over at the list. 0 always starts over."
+        defaultValue: 300
+        minimum: 0
+        maximum: 1800
+        unit: "s"
+    }
+
     ListSettingWithInput {
         settingKey: "repositories"
         label: "Actions repositories"

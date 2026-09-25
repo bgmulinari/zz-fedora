@@ -4,15 +4,18 @@ import qs.Common
 import qs.Widgets
 import "GitHubLogic.js" as Logic
 
-// The popout: four tabs in GitHub's order (unread notifications, issues,
-// pull requests, Actions runs), each with the filters of GitHub's own
-// dashboards, a search field that narrows the list, and a detail page
-// (GitHubDetail) for the row that is opened. The scope button in the header
-// switches every tab from what involves the viewer to everything in one
-// repository (GitHubScopeMenu). Arrow keys move, Enter opens the detail,
-// Ctrl+Enter opens the row on GitHub, Delete marks a notification read, Tab
-// switches tabs, Left and Right switch filters, Escape goes back, then
-// closes. The same panel fills the popped-out window (windowed), where it
+// The popout: four tabs in GitHub's order (notifications, issues, pull
+// requests, Actions runs), each with the filters of GitHub's own pages, a
+// search field that narrows the list, and a detail page (GitHubDetail) for
+// the row that is opened. The scope button in the header switches every tab
+// from what involves the viewer to everything in one repository
+// (GitHubScopeMenu); the inbox then holds that repository's notifications.
+// Arrow keys move, Enter opens the detail, Ctrl+Enter opens the row on
+// GitHub, Tab switches tabs, Left and Right switch filters, Escape goes
+// back, then closes. In the inbox, as on github.com, rows check for a bulk
+// change; Delete marks the checked threads (or the row) done, Ctrl+I read,
+// Ctrl+M unsubscribes, and Space (Ctrl+Space while searching) checks the
+// row. The same panel fills the popped-out window (windowed), where it
 // never closes itself: the window stays until it is closed.
 Item {
     id: panel
@@ -67,7 +70,7 @@ Item {
     readonly property var scopeRuns: scopeState.runs
     // The header's refresh and open buttons act on whatever is on screen:
     // the lists, or the detail page when one is open.
-    readonly property bool busy: detailItem ? detail.loading : (scopeState.loading || scopeState.runsLoading || (!scope && github.loadingNotifications))
+    readonly property bool busy: detailItem ? detail.loading : (scopeState.loading || scopeState.runsLoading || (tab === "inbox" && scopeState.threadsLoading))
 
     property string tab: "inbox"
     property var filterIndexes: defaultFilters()
@@ -81,7 +84,7 @@ Item {
     readonly property int rowHeight: 58
     readonly property int visibleRows: Math.max(1, Math.floor(listArea.height / rowHeight))
 
-    readonly property var tabs: Logic.tabsFor(scope)
+    readonly property var tabs: Logic.TABS
     readonly property var currentFilters: Logic.filtersFor(scope, tab)
     readonly property int filterIndex: Math.min(filterIndexes[tab] || 0, currentFilters.length - 1)
     readonly property string filterKey: currentFilters[filterIndex].key
@@ -128,7 +131,7 @@ Item {
 
     function filterItems(key) {
         if (tab === "inbox")
-            return Logic.filterThreads(github.unreadNotifications, key);
+            return Logic.filterThreads(github.inboxThreads(scope), key);
         if (tab === "actions")
             return Logic.filterRuns(scopeRuns, key);
         return github.visibleItems(key);
@@ -139,6 +142,8 @@ Item {
     // follows and leads, with the loaded matches it missed (a number, a
     // repository name) after it.
     function computeRows() {
+        if (tab === "inbox")
+            return inboxRows();
         // A repository's search covers every state, and so do the loaded
         // rows it matches.
         let items = statesIgnored ? [].concat(...currentFilters.map(filter => filterItems(filter.key))) : filterItems(filterKey);
@@ -153,6 +158,35 @@ Item {
         for (const item of found)
             seen[item.url] = true;
         return found.concat(items.filter(item => !seen[item.url]));
+    }
+
+    // The inbox's search is github.com's: qualifiers (Logic.inboxQuery) and
+    // the words of the rows.
+    readonly property var inboxQuery: Logic.inboxQuery(tab === "inbox" ? query : "")
+
+    // github.com's All / Unread toggle over the inbox.
+    property bool unreadOnly: false
+
+    function setUnreadOnly(on) {
+        unreadOnly = on;
+        checked = {};
+        selectedIndex = 0;
+        list.positionViewAtBeginning();
+    }
+
+    function inboxRows() {
+        const q = inboxQuery;
+        if (q.unsupported !== "")
+            return [];
+        let items = filterItems(filterKey);
+        if (unreadOnly)
+            items = items.filter(thread => github.isUnread(thread));
+        if (q.words.length === 0 && Object.keys(q.qualifiers).length === 0)
+            return items;
+        return items.filter(thread => {
+            const subject = github.subjectOf(thread);
+            return Logic.threadMatches(thread, q, github.isUnread(thread), subject ? subject.author : "");
+        });
     }
 
     // ------------------------------------------------------------- search
@@ -181,7 +215,7 @@ Item {
             searchResult = null;
             searching = false;
             if (tab === "inbox" && query.trim() !== "")
-                github.loadAllNotifications();
+                github.loadAllThreads(scope);
             return;
         }
         const key = searchKey;
@@ -250,11 +284,13 @@ Item {
             chipEntries = liveChips;
     }
 
+    // The inbox's chips count what is unread, as github.com's inbox does.
     function chipModel() {
+        const unread = tab === "inbox" ? github.inboxThreads(scope).filter(thread => github.isUnread(thread)) : [];
         return currentFilters.map(filter => ({
                     "label": filter.label,
                     "value": filter.key,
-                    "count": tab === "actions" || tab === "inbox" ? filterItems(filter.key).length : github.total(filter.key)
+                    "count": tab === "inbox" ? Logic.filterThreads(unread, filter.key).length : (tab === "actions" ? filterItems(filter.key).length : github.total(filter.key))
                 }));
     }
 
@@ -281,11 +317,21 @@ Item {
         return true;
     }
 
-    // Fetches the repository on screen unless what is kept of it is fresh
-    // (20 seconds).
+    // How long what came from GitHub counts as fresh: a list shown again
+    // within it is not asked for again, nor a page coming back on screen.
+    readonly property int freshMs: 20000
+
+    // Fetches the repository on screen unless what is kept of it is fresh.
     function loadScope() {
-        if (scope && Date.now() - scopeState.at > 20000)
+        if (scope && Date.now() - scopeState.at > freshMs)
             github.refreshRepo(scope);
+        loadInbox();
+    }
+
+    // The inbox on screen, unless what is kept of it is fresh.
+    function loadInbox() {
+        if (tab === "inbox" && Date.now() - scopeState.threadsAt > freshMs)
+            github.refreshThreads(scope);
     }
 
     // While the list shows, a repository's lists follow GitHub every two
@@ -295,6 +341,8 @@ Item {
     // answers; a page over the list polls what it shows itself.
     function poll() {
         const s = scopeState;
+        if (tab === "inbox" && s.threadsAt > 0 && Date.now() - s.threadsAt > 120000)
+            github.refreshThreads(scope);
         if (scope && Date.now() - s.at > 120000)
             github.refreshRepo(scope);
         else if (tab === "actions" && Date.now() - s.runsFullAt > 60000)
@@ -318,11 +366,6 @@ Item {
             poll();
     }
 
-    onScopeChanged: {
-        if (scope && tab === "inbox")
-            tab = "issues";
-    }
-
     // A repository whose lists came is one the viewer opened lately.
     onScopeStateChanged: {
         if (scope && scopeState && scopeState.at > 0 && !scopeState.error && !scopeState.loading)
@@ -336,15 +379,12 @@ Item {
         detailStack = [];
         detailItem = null;
         clearQuery();
+        checked = {};
         selectedIndex = 0;
         list.positionViewAtBeginning();
     }
 
     function showTab(id) {
-        // The inbox is the viewer's: asking for it (from the bar's menu or
-        // a desktop notification) goes back to the viewer's scope.
-        if (id === "inbox" && scope)
-            setScope("");
         if (tabs.every(t => t.id !== id))
             return;
         tab = id;
@@ -353,7 +393,16 @@ Item {
             github.refreshRuns(scope);
         if (id === "inbox" && Date.now() - github.notificationsAt > 30000)
             github.refreshNotifications();
+        loadInbox();
         focusInput();
+    }
+
+    // The viewer's own inbox, which the bar's menu and a desktop
+    // notification count and announce.
+    function showInbox() {
+        if (scope)
+            setScope("");
+        showTab("inbox");
     }
 
     function stepTab(delta) {
@@ -363,6 +412,7 @@ Item {
 
     function setFilter(index) {
         filterIndexes = Logic.withKey(filterIndexes, tab, (index + currentFilters.length) % currentFilters.length);
+        checked = {};
         selectedIndex = 0;
         list.positionViewAtBeginning();
     }
@@ -425,21 +475,68 @@ Item {
         Qt.openUrlExternally(item.url);
     }
 
-    // "Mark all read" takes a second click, like the other changes that
-    // cannot be taken back from here.
-    property bool markAllArmed: false
-    // The unfiltered inbox reads everything, as GitHub's own button does.
-    readonly property bool markAllEverything: !scope && filterKey === "all" && query === ""
+    // ------------------------------------------------------------ checking
+    //
+    // Inbox rows check as on github.com, and a change applies to the
+    // checked threads, or to the highlighted row when none is checked.
+    // thread id -> true.
+    property var checked: ({})
+    readonly property var checkedRows: tab === "inbox" ? rows.filter(row => !!checked[row.id]) : []
+    readonly property bool allChecked: rows.length > 0 && checkedRows.length === rows.length
+    // Everything the inbox has, which "Mark as read" reads in one request
+    // (GitHub's Mark all as read), those past the loaded pages too.
+    readonly property bool everythingChecked: allChecked && filterKey === "all" && query.trim() === ""
 
-    function markAllRead() {
-        if (!markAllArmed) {
-            markAllArmed = true;
-            disarmMarkAll.restart();
-            return;
-        }
-        markAllArmed = false;
-        github.markAllRead(rows, markAllEverything);
+    function toggleChecked(item) {
+        if (item && item.kind === "notification")
+            checked = Logic.withKey(checked, item.id, checked[item.id] ? undefined : true);
     }
+
+    function checkAll(on) {
+        const next = {};
+        if (on)
+            for (const row of rows)
+                next[row.id] = true;
+        checked = next;
+    }
+
+    function targets() {
+        if (checkedRows.length > 0)
+            return checkedRows;
+        return selectedRow && selectedRow.kind === "notification" ? [selectedRow] : [];
+    }
+
+    // An inbox action (Logic.INBOX_ACTIONS) on threads.
+    function act(key, threads) {
+        if (key === "done")
+            github.markDone(threads);
+        else if (key === "read")
+            github.markThreadsRead(threads);
+        else if (key === "unsubscribe")
+            github.unsubscribe(threads);
+    }
+
+    // The same on the checked threads or the highlighted row. Read with
+    // everything checked is GitHub's "Mark all as read", which reads the
+    // threads past the loaded pages too and cannot be taken back: it takes
+    // a second press (a click or Ctrl+I) within a few seconds.
+    function actOnTargets(key) {
+        if (key === "read" && everythingChecked) {
+            if (!markAllArmed) {
+                markAllArmed = true;
+                disarmMarkAll.restart();
+                return;
+            }
+            markAllArmed = false;
+            github.markAllRead(scope, rows);
+        } else {
+            act(key, targets());
+        }
+        checked = {};
+    }
+
+    property bool markAllArmed: false
+    onEverythingCheckedChanged: markAllArmed = false
 
     Timer {
         id: disarmMarkAll
@@ -479,6 +576,7 @@ Item {
             "scope": scope,
             "tab": tab,
             "filterIndexes": filterIndexes,
+            "unreadOnly": unreadOnly,
             "query": query,
             "detailItem": detailItem,
             "detailStack": detailStack
@@ -490,6 +588,7 @@ Item {
             scope = Logic.isRepo(state.scope) ? state.scope : "";
             tab = tabs.some(t => t.id === state.tab) ? state.tab : tabs[0].id;
             filterIndexes = Object.assign(defaultFilters(), state.filterIndexes || {});
+            unreadOnly = state.unreadOnly === true;
             field.text = state.query || "";
             detailStack = state.detailStack || [];
             detailItem = state.detailItem || null;
@@ -501,6 +600,11 @@ Item {
     // Everything on screen again from GitHub: the scope's lists (from
     // their first page), its runs, and the search shown.
     function refresh() {
+        // The viewer's own inbox, once loaded, comes with refreshInbox.
+        if (tab === "inbox" && (scope || scopeState.threadsAt === 0))
+            github.refreshThreads(scope, {
+                "reset": true
+            });
         if (scope)
             github.refreshRepo(scope, {
                 "reset": true
@@ -523,8 +627,10 @@ Item {
             return false;
         if (searchActive)
             return searchFresh && searchResult.more;
+        // Unread, the inbox pages on only while there may be unread threads
+        // past the newest 50 the background poll knows.
         if (tab === "inbox")
-            return github.moreNotifications && query.trim() === "";
+            return scopeState.threadsMore && query.trim() === "" && (!unreadOnly || github.moreNotifications);
         return github.listOf(filterKey).more;
     }
     readonly property bool pageLoading: {
@@ -532,14 +638,14 @@ Item {
             return false;
         if (searchActive)
             return searching;
-        return tab === "inbox" ? github.loadingMoreNotifications : github.listOf(filterKey).loading;
+        return tab === "inbox" ? scopeState.threadsPaging : github.listOf(filterKey).loading;
     }
 
     function loadNextPage() {
         if (searchActive)
             loadMoreSearch();
         else if (tab === "inbox")
-            github.loadMoreNotifications();
+            github.loadMoreThreads(scope);
         else if (tab !== "actions")
             github.loadMore(filterKey);
     }
@@ -607,9 +713,25 @@ Item {
                 activate(selectedRow);
             break;
         case Qt.Key_Delete:
-            if (query || !selectedRow || selectedRow.kind !== "notification")
+            // The field's own Delete while there is text after the cursor.
+            if (tab !== "inbox" || field.cursorPosition < query.length)
                 return;
-            github.markRead(selectedRow);
+            actOnTargets("done");
+            break;
+        case Qt.Key_I:
+            if (!control || tab !== "inbox")
+                return;
+            actOnTargets("read");
+            break;
+        case Qt.Key_M:
+            if (!control || tab !== "inbox")
+                return;
+            actOnTargets("unsubscribe");
+            break;
+        case Qt.Key_Space:
+            if (tab !== "inbox" || !selectedRow || (query && !control))
+                return;
+            toggleChecked(selectedRow);
             break;
         case Qt.Key_Escape:
             if (query)
@@ -678,26 +800,72 @@ Item {
             focusInput();
     }
 
+    // How long a dismissed popout keeps its place: opened again from the bar
+    // within it, it shows what it showed (the page, where it was scrolled,
+    // the tab, the search); later, or opened for something (a tab, a
+    // notification), it starts over. 0 always starts over. The widget sets
+    // it from the plugin's settings.
+    property int resumeSeconds: 0
+    // When the popout last went away; 0 before it ever showed.
+    property real hiddenAt: 0
+
+    GitHubScrollPlace {
+        id: listPlace
+        target: list
+    }
+
+    function wentAway() {
+        hiddenAt = Date.now();
+        listPlace.keep();
+        detail.place.keep();
+    }
+
+    function cameBack() {
+        if (Logic.resumes(initialTab, hiddenAt, Date.now(), resumeSeconds))
+            resume();
+        else
+            reset();
+    }
+
+    // The popout as it was left, brought up to date like a fresh open: the
+    // lists, and a page gone a while from screen (which keeps its place
+    // when GitHub answers the same).
+    function resume() {
+        scopeMenu.close();
+        loadScope();
+        if (detailItem && Date.now() - hiddenAt > freshMs)
+            detail.reload();
+        listPlace.restore();
+        detail.place.restore();
+        focusInput();
+        opened();
+    }
+
     // Every open of the popout: its last scope, the tab asked for or the
     // list's top, and fresh data (the lists and the inbox refresh as the
     // panel comes on screen: GitHubData.onWatchedChanged).
     function reset() {
         scopeMenu.close();
-        applyScope(startScope);
+        // Asked for the inbox (the bar's menu, a desktop notification):
+        // the viewer's, which those count.
+        applyScope(initialTab === "inbox" ? "" : startScope);
         showTab(initialTab || tab);
         loadScope();
         focusInput();
         opened();
     }
 
-    // The host keeps this item alive between opens, so every open starts
-    // over at the list; the reset waits for the visibility change, or for
-    // the popout hand-over when the content arrives already showing.
+    // The host keeps this item alive between opens, so an open starts over
+    // at the list unless it comes back within resumeSeconds (cameBack);
+    // that waits for the visibility change, or for the popout hand-over
+    // when the content arrives already showing.
     Connections {
         target: panel.parentPopout
         function onShouldBeVisibleChanged() {
             if (panel.parentPopout.shouldBeVisible)
-                panel.reset();
+                panel.cameBack();
+            else
+                panel.wentAway();
         }
     }
 
@@ -709,6 +877,13 @@ Item {
     onRowsChanged: {
         if (selectedIndex >= rows.length)
             selectedIndex = Math.max(0, rows.length - 1);
+        // A thread that left the rows (done, or filtered out) is no longer
+        // checked.
+        const shown = {};
+        for (const row of rows)
+            shown[row.id] = true;
+        if (Object.keys(checked).some(id => !shown[id]))
+            checked = Object.keys(checked).filter(id => shown[id]).reduce((next, id) => Logic.withKey(next, id, true), {});
     }
 
     // The chips set their own index on a click; a tab or scope switch sets
@@ -731,10 +906,12 @@ Item {
         anchors.fill: parent
         spacing: Theme.spacingS
 
+        // A page's header holds the page's compact header: two lines, more
+        // when its title wraps.
         Item {
             id: header
             width: parent.width
-            height: 40
+            height: panel.detailItem ? Math.max(48, compactHeader.implicitHeight + Theme.spacingS) : 40
 
             // A window has no title bar of its own: the header moves it,
             // and a double click maximizes it.
@@ -772,35 +949,75 @@ Item {
                     color: Theme.surfaceText
                 }
 
-                Column {
+                // On a page, the header says what the page is, as
+                // github.com's sticky header does: the number with its
+                // state under it, and the title and branches beside them
+                // (GitHubCompactHeader). On the lists, the account.
+                Item {
+                    id: headerText
+                    readonly property bool condensed: !!panel.detailItem
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - x
-                    spacing: 0
+                    height: header.height
 
-                    StyledText {
-                        width: parent.width
-                        text: panel.detailItem ? detail.headerTitle : "GitHub"
-                        font.pixelSize: Theme.fontSizeLarge
-                        font.weight: Font.Bold
-                        color: panel.detailItem ? Theme.primary : Theme.surfaceText
-                        elide: Text.ElideRight
+                    Column {
+                        id: headerLead
+                        anchors.verticalCenter: parent.verticalCenter
+                        // On a page, the number and its state center on
+                        // each other, as wide as the wider of the two.
+                        width: headerText.condensed ? Math.max(headerNumber.implicitWidth, stateBadge.width) : parent.width
+                        spacing: headerText.condensed ? 2 : 0
+
+                        // On a page, the number opens it on GitHub (so does
+                        // Enter).
+                        GitHubLinkText {
+                            id: headerNumber
+                            x: headerText.condensed ? Math.round((parent.width - width) / 2) : 0
+                            width: headerText.condensed ? implicitWidth : parent.width
+                            page: detail
+                            action: panel.detailItem ? () => detail.openOnGitHub() : null
+                            text: panel.detailItem ? detail.headerTitle : "GitHub"
+                            font.pixelSize: Theme.fontSizeLarge
+                            font.weight: Font.Bold
+                            color: panel.detailItem ? Theme.primary : Theme.surfaceText
+                            elide: Text.ElideRight
+                        }
+
+                        Item {
+                            width: parent.width
+                            height: headerText.condensed ? stateBadge.height : (subtitle.text !== "" ? subtitle.implicitHeight : 0)
+
+                            // The account on the lists, which opens on GitHub.
+                            GitHubLinkText {
+                                id: subtitle
+                                width: Math.min(implicitWidth, parent.width)
+                                visible: !headerText.condensed && text !== ""
+                                text: panel.github.login ? "@" + panel.github.login : ""
+                                action: () => Qt.openUrlExternally(Logic.profileUrl(panel.github.login))
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                                elide: Text.ElideMiddle
+                            }
+
+                            // Until a page says where it stands, its row
+                            // may not know either.
+                            GitHubStateBadge {
+                                id: stateBadge
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                page: detail
+                                visible: headerText.condensed && (!!detail.detail || !(panel.detailItem && panel.detailItem.stateUnknown))
+                            }
+                        }
                     }
 
-                    // The repository on a detail page, the account on the
-                    // lists; both open on GitHub.
-                    GitHubLinkText {
-                        width: Math.min(implicitWidth, parent.width)
-                        visible: text !== ""
-                        text: panel.detailItem ? detail.headerSubtitle : (panel.github.login ? "@" + panel.github.login : "")
-                        action: () => {
-                            if (panel.detailItem)
-                                detail.openLink(Logic.repoUrl(panel.detailItem.repo));
-                            else
-                                Qt.openUrlExternally(Logic.profileUrl(panel.github.login));
-                        }
-                        font.pixelSize: Theme.fontSizeSmall
-                        color: Theme.surfaceVariantText
-                        elide: Text.ElideMiddle
+                    GitHubCompactHeader {
+                        id: compactHeader
+                        anchors.left: headerLead.right
+                        anchors.leftMargin: Theme.spacingM
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: headerText.condensed
+                        page: detail
                     }
                 }
             }
@@ -877,14 +1094,6 @@ Item {
                     height: 1
                 }
 
-                DankActionButton {
-                    visible: !panel.detailItem && panel.tab === "inbox" && panel.rows.length > 0
-                    iconName: "done_all"
-                    iconColor: panel.markAllArmed ? Theme.primary : Theme.surfaceVariantText
-                    tooltipText: panel.markAllArmed ? (panel.markAllEverything ? "Click again to mark every notification read" : (panel.rows.length === 1 ? "Click again to mark this one read" : "Click again to mark these " + panel.rows.length + " read")) : (panel.markAllEverything ? "Mark all as read" : "Mark these as read")
-                    onClicked: panel.markAllRead()
-                }
-
                 // Whether the page's notifications reach the viewer, as
                 // github.com's Subscribe button in its sidebar; a click
                 // flips it.
@@ -919,15 +1128,13 @@ Item {
                     onClicked: panel.detailItem ? detail.reload() : panel.refresh()
                 }
 
+                // A page opens on GitHub from its number.
                 DankActionButton {
+                    visible: !panel.detailItem
                     iconName: "open_in_new"
                     iconColor: Theme.surfaceVariantText
-                    tooltipText: panel.detailItem ? "Open on GitHub (Enter)" : (panel.scope ? "Open " + panel.scope + " on GitHub" : "Open GitHub")
+                    tooltipText: panel.scope ? "Open " + panel.scope + " on GitHub" : "Open GitHub"
                     onClicked: {
-                        if (panel.detailItem) {
-                            detail.openOnGitHub();
-                            return;
-                        }
                         Qt.openUrlExternally(Logic.tabUrl(panel.scope, panel.tab));
                         panel.close();
                     }
@@ -1057,7 +1264,7 @@ Item {
                         required property var modelData
                         readonly property bool selected: modelData.id === panel.tab
                         // Counted while on screen only, like the rows.
-                        readonly property string count: panel.listShowing ? panel.github.countText(panel.github.tabCount(panel.scope, modelData.id), modelData.id) : ""
+                        readonly property string count: panel.listShowing ? panel.github.countText(panel.github.tabCount(panel.scope, modelData.id), modelData.id, panel.scope) : ""
 
                         width: tabRow.cellWidth
                         height: tabRow.height
@@ -1148,7 +1355,7 @@ Item {
                 if (panel.tab === "actions")
                     return panel.scope ? "Filter runs by title, workflow, or branch" : "Filter runs by title, workflow, branch, or repository";
                 if (panel.tab === "inbox")
-                    return "Search by title, repository, number, or reason";
+                    return "Filter: is:unread, reason:mention, repo:owner/name, author:name, or words";
                 return panel.scope ? "Search " + panel.scope + ": words, #number, label:bug, author:name…" : "Search GitHub: words, #number, or label:bug, repo:owner/name…";
             }
             showClearButton: true
@@ -1169,9 +1376,148 @@ Item {
             width: parent.width
             height: panel.height - header.height - tabRow.height - chips.height - field.height - footer.height - layout.spacing * 5
 
+            // github.com's bar over the inbox: Select all, and All / Unread,
+            // which once rows are checked give way to what to do with them.
+            Item {
+                id: bulkBar
+                visible: panel.tab === "inbox"
+                width: parent.width
+                height: visible ? 36 : 0
+
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: parent.width
+                    height: 1
+                    color: Theme.withAlpha(Theme.outlineVariant, 0.5)
+                }
+
+                Row {
+                    visible: panel.rows.length > 0
+                    anchors.left: parent.left
+                    anchors.leftMargin: Theme.spacingS
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: Theme.spacingS
+
+                    DankActionButton {
+                        anchors.verticalCenter: parent.verticalCenter
+                        buttonSize: 28
+                        iconName: panel.allChecked ? "check_box" : (panel.checkedRows.length > 0 ? "indeterminate_check_box" : "check_box_outline_blank")
+                        iconSize: Theme.iconSizeSmall + 2
+                        iconColor: panel.checkedRows.length > 0 ? Theme.primary : Theme.surfaceVariantText
+                        tooltipText: panel.checkedRows.length > 0 ? "Uncheck all" : "Select all"
+                        onClicked: {
+                            panel.checkAll(!panel.allChecked && panel.checkedRows.length === 0);
+                            panel.focusInput();
+                        }
+                    }
+
+                    StyledText {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: panel.checkedRows.length === 0 ? "Select all" : (panel.everythingChecked && panel.scopeState.threadsMore ? "All " + panel.rows.length + " loaded selected" : panel.checkedRows.length + " selected")
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.weight: Font.DemiBold
+                        color: Theme.surfaceText
+                    }
+                }
+
+                // All / Unread, as github.com draws it: two segments, the
+                // chosen one raised.
+                Rectangle {
+                    visible: panel.checkedRows.length === 0
+                    anchors.right: parent.right
+                    anchors.rightMargin: Theme.spacingXS
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: segments.implicitWidth + 4
+                    height: 28
+                    radius: Theme.cornerRadius
+                    color: Theme.withAlpha(Theme.surfaceText, 0.05)
+                    border.width: 1
+                    border.color: Theme.withAlpha(Theme.outlineVariant, 0.8)
+
+                    Row {
+                        id: segments
+                        anchors.centerIn: parent
+                        spacing: 0
+
+                        Repeater {
+                            model: [
+                                {
+                                    "label": "All",
+                                    "unread": false
+                                },
+                                {
+                                    "label": "Unread",
+                                    "unread": true
+                                }
+                            ]
+
+                            Rectangle {
+                                id: segment
+                                required property var modelData
+                                readonly property bool chosen: panel.unreadOnly === modelData.unread
+                                width: segmentText.implicitWidth + Theme.spacingM * 2
+                                height: 24
+                                radius: Theme.cornerRadius - 2
+                                color: chosen ? Theme.surfaceContainerHighest : (segmentArea.containsMouse ? Theme.withAlpha(Theme.surfaceText, 0.06) : "transparent")
+                                border.width: chosen ? 1 : 0
+                                border.color: Theme.withAlpha(Theme.outlineVariant, 0.9)
+
+                                StyledText {
+                                    id: segmentText
+                                    anchors.centerIn: parent
+                                    text: segment.modelData.label
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    font.weight: segment.chosen ? Font.DemiBold : Font.Normal
+                                    color: segment.chosen ? Theme.surfaceText : Theme.surfaceVariantText
+                                }
+
+                                MouseArea {
+                                    id: segmentArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        panel.setUnreadOnly(segment.modelData.unread);
+                                        panel.focusInput();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Row {
+                    visible: panel.checkedRows.length > 0
+                    anchors.right: parent.right
+                    anchors.rightMargin: Theme.spacingXS
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: Theme.spacingXS
+
+                    Repeater {
+                        model: Logic.INBOX_ACTIONS
+
+                        GitHubPillButton {
+                            required property var modelData
+                            readonly property bool markAll: modelData.key === "read" && panel.everythingChecked
+                            anchors.verticalCenter: parent.verticalCenter
+                            compact: true
+                            icon: modelData.icon
+                            text: markAll ? (panel.markAllArmed ? "Click again to mark all as read" : "Mark all as read") : modelData.label
+                            tone: markAll && panel.markAllArmed ? Theme.error : Theme.primary
+                            tonal: markAll && panel.markAllArmed
+                            onActivated: {
+                                panel.actOnTargets(modelData.key);
+                                panel.focusInput();
+                            }
+                        }
+                    }
+                }
+            }
+
             DankListView {
                 id: list
                 anchors.fill: parent
+                anchors.topMargin: bulkBar.height
                 clip: true
                 model: panel.rows
                 currentIndex: panel.selectedIndex
@@ -1203,7 +1549,7 @@ Item {
                                     return "Scroll for more";
                                 if (panel.searchActive)
                                     return "Searching GitHub…";
-                                return panel.tab === "inbox" && panel.query.trim() !== "" ? "Loading notifications to search…" : "Loading more…";
+                                return panel.tab === "inbox" && panel.query.trim() !== "" ? "Loading notifications to filter…" : "Loading more…";
                             }
                             font.pixelSize: Theme.fontSizeSmall
                             color: Theme.surfaceVariantText
@@ -1221,9 +1567,14 @@ Item {
                     github: panel.github
                     now: panel.now
                     selected: index === panel.selectedIndex
+                    checked: !!panel.checked[modelData.id]
                     onHovered: panel.selectedIndex = index
                     onActivated: panel.activate(modelData)
-                    onMarkedRead: panel.github.markRead(modelData)
+                    onCheckToggled: {
+                        panel.toggleChecked(modelData);
+                        panel.focusInput();
+                    }
+                    onActed: key => panel.act(key, [modelData])
                     onOpenedExternally: panel.openExternally(modelData)
                 }
             }
@@ -1264,21 +1615,28 @@ Item {
                             if (failure)
                                 return failure;
                         }
+                        if (panel.tab === "inbox") {
+                            if (panel.inboxQuery.unsupported !== "")
+                                return panel.inboxQuery.unsupported;
+                            if (s.threadsError)
+                                return s.threadsError;
+                            if (s.threadsAt === 0)
+                                return "Loading…";
+                        }
                         if (panel.searchActive && (panel.searching || !panel.searchFresh))
                             return "Searching GitHub…";
                         if (panel.searchFresh && panel.searchResult.error)
                             return panel.searchResult.error;
-                        if (panel.tab === "inbox" && panel.query && g.loadingMoreNotifications)
-                            return "Loading notifications to search…";
+                        if (panel.tab === "inbox" && panel.query && (s.threadsPaging || s.threadsLoading))
+                            return "Loading notifications to filter…";
                         if (panel.query)
                             return "Nothing matches “" + panel.query + "”";
-                        if (panel.tab === "inbox") {
-                            if (g.notificationsError)
-                                return g.notificationsError;
-                            if (g.notificationsAt === 0)
-                                return "Loading…";
-                            return panel.filterKey === "all" ? "No unread notifications." : "Nothing unread here.";
-                        }
+                        if (panel.tab === "inbox" && panel.filterKey !== "all")
+                            return panel.unreadOnly ? "Nothing unread here." : "Nothing here.";
+                        if (panel.tab === "inbox" && panel.unreadOnly)
+                            return "No unread notifications.";
+                        if (panel.tab === "inbox")
+                            return panel.scope ? "No notifications from " + panel.scope + "." : "All caught up!";
                         if (panel.tab === "actions" && panel.scope)
                             return panel.filterKey === "all" ? "No workflow runs in " + panel.scope + "." : "Nothing here right now.";
                         if (panel.scope)
@@ -1307,9 +1665,9 @@ Item {
                 const g = panel.github;
                 let context = "";
                 if (panel.tab === "inbox") {
-                    if (g.moreNotifications && panel.filterKey === "all")
-                        context = g.unreadNotifications.length + " loaded";
-                    return (context !== "" ? context + " · " : "") + "↵ open · del mark read · ctrl+↵ browser";
+                    if (panel.scopeState.threadsMore && panel.query.trim() === "")
+                        context = g.inboxThreads(panel.scope).length + " loaded";
+                    return (context !== "" ? context + " · " : "") + ["↵ open", "space select"].concat(Logic.INBOX_ACTIONS.map(action => action.shortcut.toLowerCase() + " " + action.hint)).join(" · ");
                 } else if (panel.tab === "actions" && panel.scope) {
                     context = panel.scopeRuns.length + (panel.scopeRuns.length === 1 ? " run" : " runs");
                 } else if (panel.tab === "actions") {

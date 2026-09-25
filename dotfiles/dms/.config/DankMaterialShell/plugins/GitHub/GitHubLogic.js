@@ -1,10 +1,11 @@
 .pragma library
 
 // The GitHub plugin's pure logic: what each list asks GitHub, how GitHub's
-// answers become rows and pages, how links, job logs, and Markdown are read,
-// and the rules for what a change hides or announces. Nothing here touches
-// QML, gh, or the clock unless handed one, so GitHubData and the views call
-// it and tests/support/github_logic.js runs it under Node.
+// answers become rows and pages, how links and job logs are read, and the
+// rules for what a change hides or announces (GitHubMarkdown.js reads the
+// bodies). Nothing here touches QML, gh, or the clock unless handed one, so
+// GitHubData and the views call it and tests/support/github_logic.js runs
+// it under Node.
 
 // ---------------------------------------------------------------- lists
 //
@@ -121,22 +122,31 @@ var TABS = [
 ];
 
 var FIXED_FILTERS = {
+    // GitHub's default inbox filters, in its order.
     "inbox": [
         {
             "key": "all",
             "label": "All"
         },
         {
+            "key": "assign",
+            "label": "Assigned"
+        },
+        {
+            "key": "participating",
+            "label": "Participating"
+        },
+        {
             "key": "mention",
             "label": "Mentioned"
         },
         {
-            "key": "review_requested",
-            "label": "Review requests"
+            "key": "team_mention",
+            "label": "Team mentioned"
         },
         {
-            "key": "assign",
-            "label": "Assigned"
+            "key": "review_requested",
+            "label": "Review requested"
         }
     ],
     "actions": [
@@ -205,12 +215,6 @@ function searchBase(key) {
     if (repo)
         return "repo:" + repo + (kindOf(key) === "pr" ? " is:pr" : " is:issue") + " sort:updated-desc";
     return searchFor(key).replace(/\bis:open\s+/, "");
-}
-
-// The tabs in GitHub's order. A repository has no inbox of its own:
-// notifications are the viewer's.
-function tabsFor(scope) {
-    return scope ? TABS.filter(tab => tab.id !== "inbox") : TABS.slice();
 }
 
 function filtersFor(scope, tab) {
@@ -369,6 +373,34 @@ var NOTIFICATION_ICONS = {
     "RepositoryDependabotAlertsThread": "security"
 };
 
+// What the inbox does to a thread, in github.com's order: under the pointer
+// on a row, in the bar over checked rows, and by key (hint: the footer's
+// word for it). `unreadOnly` offers it only for an unread thread.
+var INBOX_ACTIONS = [
+    {
+        "key": "done",
+        "icon": "check",
+        "label": "Done",
+        "shortcut": "Del",
+        "hint": "done"
+    },
+    {
+        "key": "read",
+        "icon": "drafts",
+        "label": "Mark as read",
+        "shortcut": "Ctrl+I",
+        "hint": "read",
+        "unreadOnly": true
+    },
+    {
+        "key": "unsubscribe",
+        "icon": "notifications_off",
+        "label": "Unsubscribe",
+        "shortcut": "Ctrl+M",
+        "hint": "unsubscribe"
+    }
+];
+
 // The subject arrives as an API URL whose shape depends on its type; the
 // known ones map to their page, anything else to the repository.
 function normalizeThread(thread) {
@@ -395,6 +427,7 @@ function normalizeThread(thread) {
         "id": String(thread.id || ""),
         "type": type,
         "reason": String(thread.reason || ""),
+        "unread": !!thread.unread,
         "title": String(subject.title || ""),
         "repo": repo,
         "number": number,
@@ -421,15 +454,166 @@ function itemForThread(thread) {
     };
 }
 
-function filterThreads(threads, key) {
-    if (key === "mention")
-        return threads.filter(thread => thread.reason === "mention" || thread.reason === "team_mention");
-    return key === "all" ? threads : threads.filter(thread => thread.reason === key);
+// The reasons that come from watching a repository rather than taking part
+// in a thread; every other thread is one the viewer participates in, as
+// the notifications API's participating=true answers.
+var WATCHING_REASONS = ["subscribed", "ci_activity", "security_alert"];
+
+function isParticipating(thread) {
+    return WATCHING_REASONS.indexOf(thread.reason) < 0;
 }
 
-// The next page of the unread inbox continues before the oldest thread
-// loaded, not at a page number: marking threads read shrinks the unread
-// list, which would shift numbered pages over threads not yet seen. A
+function filterThreads(threads, key) {
+    if (key === "all")
+        return threads;
+    if (key === "participating")
+        return threads.filter(isParticipating);
+    return threads.filter(thread => thread.reason === key);
+}
+
+// ------------------------------------------------------ inbox search
+//
+// github.com's inbox filters by qualifiers rather than text: is: (read,
+// unread, or what the subject is), reason:, repo:, org:, and author: (who
+// opened the subject). Values of one qualifier widen the search (any of
+// them), different qualifiers narrow it (all of them), and the words that
+// are left match the row's text, which GitHub's own inbox cannot search.
+// The notifications API keeps nothing saved or done, so is:saved and
+// is:done have nothing to show here.
+
+var SUBJECT_TYPES = {
+    "check-suite": ["CheckSuite"],
+    "commit": ["Commit"],
+    "gist": ["Gist"],
+    "issue-or-pull-request": ["Issue", "PullRequest"],
+    "issue": ["Issue"],
+    "pr": ["PullRequest"],
+    "pull-request": ["PullRequest"],
+    "release": ["Release"],
+    "repository-invitation": ["RepositoryInvitation"],
+    "repository-vulnerability-alert": ["RepositoryVulnerabilityAlert", "RepositoryDependabotAlertsThread"],
+    "repository-advisory": ["RepositoryAdvisory"],
+    "discussion": ["Discussion"]
+};
+var INBOX_QUALIFIERS = ["is", "reason", "repo", "org", "author"];
+
+// { qualifiers: { name: [value] }, words: [word], unsupported: "" }: the
+// value lowercased, dashes and underscores alike.
+function inboxQuery(text) {
+    const out = {
+        "qualifiers": {},
+        "words": [],
+        "unsupported": ""
+    };
+    for (const part of String(text || "").split(/\s+/)) {
+        const match = part.match(/^([a-zA-Z]+):(.+)$/);
+        const name = match ? match[1].toLowerCase() : "";
+        if (INBOX_QUALIFIERS.indexOf(name) < 0) {
+            if (part !== "")
+                out.words.push(part.toLowerCase());
+            continue;
+        }
+        let value = match[2].toLowerCase();
+        if (name === "is" || name === "reason")
+            value = value.replace(/_/g, "-");
+        if (name === "is" && (value === "saved" || value === "done")) {
+            out.unsupported = "GitHub's API does not share " + value + " notifications, so is:" + value + " works on github.com only.";
+            continue;
+        }
+        out.qualifiers[name] = (out.qualifiers[name] || []).concat([value]);
+    }
+    return out;
+}
+
+// Whether a thread passes a query from inboxQuery. `unread` is whether it
+// is unread now, and `author` who opened its subject, "" while unknown.
+function threadMatches(thread, query, unread, author) {
+    const q = query.qualifiers;
+    const any = (name, test) => !q[name] || q[name].some(test);
+    const repo = String(thread.repo || "").toLowerCase();
+    // An app answers to its name, its bot's login, and app/name alike.
+    const person = name => String(name || "").toLowerCase().replace(/^app\//, "").replace(/\[bot\]$/, "");
+    const login = person(author);
+    if (!any("is", value => value === "unread" ? unread : (value === "read" ? !unread : (SUBJECT_TYPES[value] || []).indexOf(thread.type) >= 0)))
+        return false;
+    if (!any("reason", value => value === "participating" ? isParticipating(thread) : thread.reason === value.replace(/-/g, "_")))
+        return false;
+    if (!any("repo", value => repo === value) || !any("org", value => repo.split("/")[0] === value))
+        return false;
+    if (!any("author", value => login !== "" && login === person(value)))
+        return false;
+    return query.words.length === 0 || rowMatches(thread, query.words);
+}
+
+// What a notification's subject is now (its state and who opened it),
+// which the notifications API leaves out. One GraphQL request looks up a
+// page of them, each repository once: { query, vars, keys }, where keys
+// maps each alias to the subject's url. Names travel as variables, never
+// inside the query.
+var SUBJECT_FIELDS = "__typename ... on PullRequest { state isDraft author { login } } ... on Issue { state stateReason author { login } }";
+
+function subjectsQuery(threads) {
+    const repos = {};
+    for (const thread of threads) {
+        if ((thread.type !== "PullRequest" && thread.type !== "Issue") || !(thread.number > 0) || !isRepo(thread.repo))
+            continue;
+        const list = repos[thread.repo] || (repos[thread.repo] = []);
+        if (!list.some(other => other.number === thread.number))
+            list.push(thread);
+    }
+    const params = [];
+    const parts = [];
+    const vars = {};
+    const keys = {};
+    let r = 0;
+    for (const repo in repos) {
+        const [owner, name] = repo.split("/");
+        vars["o" + r] = owner;
+        vars["n" + r] = name;
+        params.push("$o" + r + ": String!", "$n" + r + ": String!");
+        const inner = repos[repo].map((thread, i) => {
+            const alias = "r" + r + "s" + i;
+            vars["k" + alias] = thread.number;
+            params.push("$k" + alias + ": Int!");
+            keys[alias] = thread.url;
+            return alias + ": issueOrPullRequest(number: $k" + alias + ") { " + SUBJECT_FIELDS + " }";
+        });
+        parts.push("r" + r + ": repository(owner: $o" + r + ", name: $n" + r + ") { " + inner.join(" ") + " }");
+        r++;
+    }
+    return {
+        "query": parts.length === 0 ? "" : "query Subjects(" + params.join(", ") + ") { " + parts.join(" ") + " }",
+        "vars": vars,
+        "keys": keys
+    };
+}
+
+// The answer to subjectsQuery: url -> { kind, state, isDraft, stateReason,
+// author }. A repository GitHub cannot show (deleted, or no longer
+// readable) leaves its subjects out.
+function subjectsOf(data, keys) {
+    const out = {};
+    for (const repoAlias in (data || {})) {
+        const repo = data[repoAlias];
+        for (const alias in (repo || {})) {
+            const node = repo[alias];
+            if (!node || !keys[alias] || (node.__typename !== "PullRequest" && node.__typename !== "Issue"))
+                continue;
+            out[keys[alias]] = {
+                "kind": node.__typename === "PullRequest" ? "pr" : "issue",
+                "state": String(node.state || "OPEN"),
+                "isDraft": !!node.isDraft,
+                "stateReason": String(node.stateReason || ""),
+                "author": node.author ? String(node.author.login || "") : ""
+            };
+        }
+    }
+    return out;
+}
+
+// The next page of an inbox continues before the oldest thread loaded, not
+// at a page number: marking threads done shrinks the inbox, which would
+// shift numbered pages over threads not yet seen. A
 // second of overlap keeps threads updated in the same second; the caller
 // drops the ones it has.
 function olderThan(threads) {
@@ -546,7 +730,8 @@ function outcomeGlyph(value) {
 
 // What a pull request, an issue, or a run is and where it stands; `state`
 // overrides the item's own (a page's load knows better than its row). A
-// notification says only what its subject is.
+// notification says what its subject is until its state is known
+// (subjectsOf), and then shows as that subject.
 function itemGlyph(item, state) {
     if (item.kind === "notification")
         return glyph(NOTIFICATION_ICONS[item.type] || "notifications", "plain");
@@ -674,6 +859,11 @@ function splitJobLog(text, steps) {
 
 function escapeHtml(text) {
     return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// An HTML fragment's text: tags dropped, the common entities read.
+function htmlText(html) {
+    return String(html).replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
 }
 
 function tint(color, html) {
@@ -814,11 +1004,17 @@ function workflowUrl(repo, name) {
 // A requested reviewer: a person's profile, or a team of the repository's
 // organization.
 function reviewerUrl(repo, reviewer) {
-    return reviewer.slug ? "https://github.com/orgs/" + String(repo).split("/")[0] + "/teams/" + reviewer.slug : profileUrl(reviewer.login);
+    return reviewer.slug ? teamUrl(String(repo).split("/")[0], reviewer.slug) : profileUrl(reviewer.login);
+}
+
+function teamUrl(org, slug) {
+    return "https://github.com/orgs/" + org + "/teams/" + slug;
 }
 
 // A tab's page on github.com, for the viewer or in a repository.
 function tabUrl(scope, tab) {
+    if (tab === "inbox")
+        return "https://github.com/notifications" + (scope ? "?query=" + encodeURIComponent("repo:" + scope) : "");
     if (scope)
         return repoUrl(scope) + ({
                 "prs": "/pulls",
@@ -880,10 +1076,22 @@ function graphqlArgs(file, operation, vars) {
     const args = ["api", "graphql", "-F", "query=@" + file];
     if (operation)
         args.push("-f", "operationName=" + operation);
+    return args.concat(variableArgs(vars));
+}
+
+// The variables alone, for a query written here (subjectsQuery).
+function variableArgs(vars) {
+    const args = [];
     for (const name in vars) {
         const value = vars[name];
         if (value === null || value === undefined)
             continue;
+        // A list, one entry each (gh's key[]=value).
+        if (Array.isArray(value)) {
+            for (const entry of value)
+                args.push("-f", name + "[]=" + entry);
+            continue;
+        }
         if (typeof value === "number" || typeof value === "boolean")
             args.push("-F", name + "=" + value);
         else
@@ -1020,6 +1228,121 @@ function itemName(item) {
     if (item.kind === "run")
         return String(item.workflowName || "run") + " #" + item.number;
     return item.repo + "#" + item.number;
+}
+
+// ------------------------------------------------------------ reactions
+//
+// GitHub's eight reactions, in its picker's order.
+var REACTIONS = [
+    {
+        "content": "THUMBS_UP",
+        "emoji": "👍",
+        "name": "+1"
+    },
+    {
+        "content": "THUMBS_DOWN",
+        "emoji": "👎",
+        "name": "-1"
+    },
+    {
+        "content": "LAUGH",
+        "emoji": "😄",
+        "name": "laugh"
+    },
+    {
+        "content": "HOORAY",
+        "emoji": "🎉",
+        "name": "hooray"
+    },
+    {
+        "content": "CONFUSED",
+        "emoji": "😕",
+        "name": "confused"
+    },
+    {
+        "content": "HEART",
+        "emoji": "❤️",
+        "name": "heart"
+    },
+    {
+        "content": "ROCKET",
+        "emoji": "🚀",
+        "name": "rocket"
+    },
+    {
+        "content": "EYES",
+        "emoji": "👀",
+        "name": "eyes"
+    }
+];
+
+// A post's reactions (queries/detail.graphql's reactions fragment):
+// { id, canReact, groups: { content: { count, mine } } } with the reactions
+// someone gave, or null for a node without them.
+function reactionsOf(node) {
+    if (!node || !node.id || !Array.isArray(node.reactionGroups))
+        return null;
+    const groups = {};
+    for (const group of node.reactionGroups) {
+        const count = group && group.reactors ? Number(group.reactors.totalCount || 0) : 0;
+        if (count > 0)
+            groups[String(group.content)] = {
+                "count": count,
+                "mine": !!group.viewerHasReacted
+            };
+    }
+    return {
+        "id": String(node.id),
+        "canReact": !!node.viewerCanReact,
+        "groups": groups
+    };
+}
+
+// The groups with the viewer's reaction to `content` given (on) or taken
+// back, counted as GitHub will.
+function withReaction(groups, content, on) {
+    const current = groups[content] || {
+        "count": 0,
+        "mine": false
+    };
+    if (current.mine === on)
+        return groups;
+    const count = current.count + (on ? 1 : -1);
+    return withKey(groups, content, count > 0 ? {
+        "count": count,
+        "mine": on
+    } : undefined);
+}
+
+// The chips a post shows: the reactions given, in the picker's order.
+function reactionChips(groups) {
+    return REACTIONS.filter(reaction => groups && groups[reaction.content]).map(reaction => Object.assign({}, reaction, groups[reaction.content]));
+}
+
+// Who gave a post's reactions (queries/detail.graphql's Reactors): content
+// -> { total, people: [{ login, name }] } (the first 10), or null.
+function reactorsOf(node) {
+    if (!node || !Array.isArray(node.reactionGroups))
+        return null;
+    const out = {};
+    for (const group of node.reactionGroups) {
+        const reactors = group ? group.reactors : null;
+        if (!reactors || !(reactors.totalCount > 0))
+            continue;
+        out[String(group.content)] = {
+            "total": Number(reactors.totalCount),
+            "people": nodesOf(reactors).filter(person => !!person.login).map(person => ({
+                        "login": String(person.login),
+                        "name": String(person.name || "")
+                    }))
+        };
+    }
+    return out;
+}
+
+function reactionArgs(subjectId, content, on) {
+    const field = on ? "addReaction" : "removeReaction";
+    return ["api", "graphql", "-f", "query=mutation($id: ID!, $content: ReactionContent!) { " + field + "(input: {subjectId: $id, content: $content}) { reaction { content } } }", "-f", "id=" + subjectId, "-f", "content=" + content];
 }
 
 // ----------------------------------------------------------- detail pages
@@ -1238,9 +1561,9 @@ function stateLabel(kind, state, stateReason, isDraft, runOutcome) {
 // page itself (the fields gh's own view gives, with the checks already
 // read, and what it links to: the issues or pull requests that close it, an
 // issue's parent, sub-issues, and blockers), what the viewer may change
-// there, and the signed URLs of its images. The connections that stop short
-// (the newest 100 comments, reviews, and threads) say how many there are in
-// all.
+// there, and which of its posts name images or videos (renderingOf). The
+// connections that stop short (the newest 100 comments, reviews, and
+// threads) say how many there are in all.
 function normalizeDetail(kind, repository) {
     const node = repository ? (kind === "pr" ? repository.pullRequest : repository.issue) : null;
     if (!node)
@@ -1252,7 +1575,8 @@ function normalizeDetail(kind, repository) {
                 },
                 "body": String(comment.body || ""),
                 "createdAt": String(comment.createdAt || ""),
-                "url": String(comment.url || "")
+                "url": String(comment.url || ""),
+                "reactions": reactionsOf(comment)
             }));
     const detail = {
         "kind": kind,
@@ -1267,6 +1591,7 @@ function normalizeDetail(kind, repository) {
         "author": {
             "login": loginOf(node)
         },
+        "reactions": reactionsOf(node),
         "labels": labelsOf(node.labels),
         "assignees": nodesOf(node.assignees).map(person => ({
                     "login": String(person.login || "")
@@ -1274,10 +1599,6 @@ function normalizeDetail(kind, repository) {
         "comments": comments,
         "commentsTotal": totalOf(node.comments, comments.length)
     };
-    const images = {};
-    imagePairs(node.body, node.bodyHTML, images);
-    for (const comment of nodesOf(node.comments))
-        imagePairs(comment.body, comment.bodyHTML, images);
     if (kind === "pr") {
         const commits = nodesOf(node.commits);
         const rollup = commits.length > 0 && commits[0].commit ? commits[0].commit.statusCheckRollup : null;
@@ -1290,16 +1611,12 @@ function normalizeDetail(kind, repository) {
                             "nodes": nodesOf(thread.comments)
                         }
                     }));
-        for (const review of reviews)
-            imagePairs(review.body, review.bodyHTML, images);
-        for (const thread of threads)
-            for (const comment of nodesOf(thread.comments))
-                imagePairs(comment.body, comment.bodyHTML, images);
         Object.assign(detail, {
             "baseRefName": String(node.baseRefName || ""),
             "headRefName": String(node.headRefName || ""),
             "headRepo": node.headRepository ? String(node.headRepository.nameWithOwner || "") : "",
             "headSha": String(node.headRefOid || ""),
+            "commitsTotal": totalOf(node.commits, 0),
             "additions": Number(node.additions || 0),
             "deletions": Number(node.deletions || 0),
             "changedFiles": Number(node.changedFiles || 0),
@@ -1359,7 +1676,7 @@ function normalizeDetail(kind, repository) {
     return {
         "detail": detail,
         "access": access,
-        "images": images
+        "rendering": renderingOf(node)
     };
 }
 
@@ -1380,6 +1697,7 @@ function buildTimeline(detail) {
                 "url": String(comment.url || ""),
                 "body": String(comment.body || ""),
                 "state": "",
+                "reactions": comment.reactions || null,
                 "threads": []
             }));
     const reviews = detail.reviews || [];
@@ -1400,6 +1718,7 @@ function buildTimeline(detail) {
                 "url": String(first.url || ""),
                 "body": "",
                 "state": "COMMENTED",
+                "reactions": null,
                 "threads": [thread]
             });
         }
@@ -1417,6 +1736,9 @@ function buildTimeline(detail) {
             "url": String(review.url || ""),
             "body": body,
             "state": String(review.state || ""),
+            // A review without a summary has nothing to react to on
+            // github.com either.
+            "reactions": body !== "" ? reactionsOf(review) : null,
             "threads": threads
         });
     }
@@ -1441,39 +1763,193 @@ function hunkLines(hunk) {
     return String(hunk || "").split("\n").filter(line => line.indexOf("@@") !== 0).slice(-4);
 }
 
-// Pairs each image a Markdown body names with the signed URL its rendered
-// HTML loads, in document order. Emoji images exist only in the HTML and
-// are skipped; a body whose counts disagree pairs what GitHub marked with
-// its canonical source and leaves the rest as links.
-function imagePairs(markdown, html, into) {
+// The images a Markdown body names, in document order: a picture's
+// sources (its image for a scheme) too.
+function imagesIn(markdown) {
     const wanted = [];
-    const md = String(markdown || "");
-    const pattern = /!\[[^\]]*\]\(\s*<?([^)\s>]+)|<img\b[^>]*\bsrc=["']([^"']+)["']/gi;
+    const pattern = /!\[[^\]]*\]\(\s*<?([^)\s>]+)|<img\b[^>]*\bsrc=["']([^"']+)["']|<source\b[^>]*\bsrcset=["']\s*([^"'\s,]+)/gi;
     let m;
-    while ((m = pattern.exec(md)) !== null)
-        wanted.push(m[1] || m[2]);
-    const shown = [];
-    const tags = String(html || "").match(/<img\b[^>]*>/gi) || [];
-    for (const tag of tags) {
-        if (/class="[^"]*emoji/i.test(tag))
-            continue;
-        const src = tag.match(/\bsrc="([^"]+)"/i);
-        const canonical = tag.match(/\bdata-canonical-src="([^"]+)"/i);
-        if (src)
-            shown.push({
-                "src": src[1].replace(/&amp;/g, "&"),
-                "canonical": canonical ? canonical[1].replace(/&amp;/g, "&") : ""
-            });
+    while ((m = pattern.exec(String(markdown || ""))) !== null)
+        wanted.push(m[1] || m[2] || m[3]);
+    return wanted;
+}
+
+// A video attachment: its URL on a line of its own.
+var VIDEO = /^\s*(https:\/\/github\.com\/user-attachments\/assets\/[\w-]+|https:\/\/user-images\.githubusercontent\.com\/\S+\.(?:mp4|mov|webm))\s*$/i;
+
+// The video attachments a Markdown body names, in document order.
+function videosIn(markdown) {
+    const wanted = [];
+    for (const line of String(markdown || "").split("\n")) {
+        const m = line.match(VIDEO);
+        if (m)
+            wanted.push(m[1]);
     }
+    return wanted;
+}
+
+// The posts of a page answer whose bodies name images or videos: [{ id,
+// body }]. Only their rendered HTML is asked for (queries/detail.graphql's
+// Rendered), since GitHub takes a while to render every body and most name
+// neither.
+function renderingOf(node) {
+    const out = [];
+    const add = post => {
+        if (post && post.id && (imagesIn(post.body).length > 0 || videosIn(post.body).length > 0) && !out.some(entry => entry.id === String(post.id)))
+            out.push({
+                "id": String(post.id),
+                "body": String(post.body || "")
+            });
+    };
+    add(node);
+    nodesOf(node.comments).forEach(add);
+    nodesOf(node.reviews).forEach(add);
+    for (const thread of nodesOf(node.reviewThreads))
+        nodesOf(thread.comments).forEach(add);
+    return out;
+}
+
+// What GitHub rendered for the images and videos of the Rendered answer's
+// nodes: post id -> (the URL its body names -> imagePairs' entry).
+function renderedImages(nodes, rendering) {
+    const posts = {};
+    for (const node of (nodes || [])) {
+        const entry = node ? rendering.find(other => other.id === node.id) : null;
+        if (entry)
+            imagePairs(entry.body, node.bodyHTML, posts[entry.id] = {});
+    }
+    return posts;
+}
+
+// Pairs each image a Markdown body names with what its rendered HTML shows
+// for it: { src (the signed URL it loads), animated (GitHub marks a GIF or
+// another moving picture), raster (its file, or the one GitHub proxies,
+// says a picture of pixels: not a drawing such as an SVG, which scales) },
+// in document order. Emoji images exist only in
+// the HTML and are skipped; a body whose counts disagree pairs what GitHub
+// marked with its canonical source and leaves the rest as links. Each video
+// pairs with the player GitHub rendered for it, in a section whose summary
+// names its file: { src, video: true, name }.
+function imagePairs(markdown, html, into) {
+    const wanted = imagesIn(markdown);
+    const shown = [];
+    const text = String(html || "");
+    const attr = (tag, name) => {
+        const found = tag.match(new RegExp("\\s" + name + "=\"([^\"]*)\"", "i"));
+        return found ? found[1].replace(/&amp;/g, "&") : "";
+    };
+    for (const tag of (text.match(/<img\b[^>]*>|<source\b[^>]*>/gi) || [])) {
+        const src = /^<source/i.test(tag) ? attr(tag, "srcset").trim().split(/[\s,]+/)[0] : attr(tag, "src");
+        if (/class="[^"]*emoji/i.test(tag) || src === "")
+            continue;
+        shown.push({
+            "src": src,
+            "canonical": attr(tag, "data-canonical-src"),
+            "animated": /\sdata-animated-image\b/i.test(tag)
+        });
+    }
+    const raster = url => /\.(png|jpe?g|gif|webp|bmp)$/i.test(String(url).split(/[?#]/)[0]);
+    const image = entry => ({
+            "src": entry.src,
+            "animated": entry.animated,
+            "raster": raster(entry.src) || raster(entry.canonical)
+        });
     for (let i = 0; i < wanted.length; i++) {
         if (wanted.length === shown.length) {
-            into[wanted[i]] = shown[i].src;
+            into[wanted[i]] = image(shown[i]);
         } else {
             const match = shown.find(entry => entry.canonical === wanted[i]);
             if (match)
-                into[wanted[i]] = match.src;
+                into[wanted[i]] = image(match);
         }
     }
+    const videos = videosIn(markdown);
+    const players = [];
+    const pattern = /<video\b[^>]*>/gi;
+    let m;
+    while ((m = pattern.exec(text)) !== null) {
+        const opened = text.lastIndexOf("<details", m.index);
+        const section = opened >= 0 ? text.slice(opened, m.index) : "";
+        const summaries = section.indexOf("</details") < 0 ? section.match(/<summary\b[^>]*>[\s\S]*?<\/summary>/gi) || [] : [];
+        if (attr(m[0], "src") !== "")
+            players.push({
+                "src": attr(m[0], "src"),
+                "name": summaries.length > 0 ? htmlText(summaries[summaries.length - 1]).replace(/\s+/g, " ").trim() : ""
+            });
+    }
+    for (let i = 0; i < videos.length; i++) {
+        // The signed URL carries the attachment's id; in order otherwise.
+        const id = videos[i].split("/").pop();
+        const match = players.find(entry => entry.src.indexOf(id) >= 0) || (videos.length === players.length ? players[i] : null);
+        if (match)
+            into[videos[i]] = {
+                "src": match.src,
+                "video": true,
+                "name": match.name
+            };
+    }
+}
+
+// The command that copies an animated image (GitHubData.copyMedia): curl
+// fetching the signed URL alone (no header or credential of any kind, a
+// .curlrc's included, which --disable, first, leaves unread; over HTTPS
+// only, redirects included) straight into `file`, and stopping past
+// `maxBytes` (a response that does not say its size included) or
+// `seconds`; it prints how many bytes came.
+function mediaDownload(url, file, maxBytes, seconds) {
+    return ["curl", "--disable", "--silent", "--show-error", "--fail", "--location", "--max-redirs", "3", "--proto", "=https", "--proto-redir", "=https", "--max-filesize", String(maxBytes), "--max-time", String(seconds), "--create-dirs", "--output", file, "--write-out", "%{size_download}", "--url", String(url)];
+}
+
+// One renewal of a page's media URLs at a time (GitHubDetail.refreshMedia):
+// ask(done, start) runs start(finished) unless one is on its way, whose end
+// the ask then waits for, or one finished within `quietMs`, which answers
+// it at once; done() runs once the URLs are as new as they get. reset()
+// forgets both, for another page.
+function renewals(quietMs, clock) {
+    const now = clock || (() => Date.now());
+    let waiting = null;
+    let finishedAt = -Infinity;
+    return {
+        "ask": (done, start) => {
+            if (waiting) {
+                if (done)
+                    waiting.push(done);
+                return;
+            }
+            if (now() - finishedAt < quietMs) {
+                if (done)
+                    done();
+                return;
+            }
+            const asked = waiting = done ? [done] : [];
+            start(() => {
+                if (waiting !== asked)
+                    return;
+                waiting = null;
+                finishedAt = now();
+                for (const callback of asked)
+                    callback();
+            });
+        },
+        "reset": () => {
+            waiting = null;
+            finishedAt = -Infinity;
+        }
+    };
+}
+
+// The name of a media file's local copy (GitHubData.copyMedia): a hash of
+// where it lives, its query (a signature that changes) left out, and its
+// kind's extension.
+function mediaKey(url) {
+    const place = String(url || "").split("?")[0];
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < place.length; i++) {
+        hash ^= place.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    const ext = place.match(/\.(gif|webp|png|apng)$/i);
+    return hash.toString(16).padStart(8, "0") + "." + (ext ? ext[1].toLowerCase() : "gif");
 }
 
 // ------------------------------------------------------------ formatting
@@ -1526,8 +2002,6 @@ function duration(fromIso, toIso, now) {
     return Math.floor(minutes / 60) + "h " + (minutes % 60) + "m";
 }
 
-// A copy of an object with one key set, or removed when the value is
-// undefined, for the properties that must be reassigned to notify.
 // `list` with the entries of `more` it does not have yet, by `key` ("url"
 // for rows, "id" for threads), in order.
 function appendNew(list, more, key) {
@@ -1537,6 +2011,8 @@ function appendNew(list, more, key) {
     return list.concat(more.filter(entry => !seen[entry[key]] && (seen[entry[key]] = true)));
 }
 
+// A copy of an object with one key set, or removed when the value is
+// undefined, for the properties that must be reassigned to notify.
 function withKey(object, key, value) {
     const next = Object.assign({}, object);
     if (value === undefined)
@@ -1546,315 +2022,16 @@ function withKey(object, key, value) {
     return next;
 }
 
-// ------------------------------------------------------------- Markdown
-//
-// GitHub-flavored Markdown as the popout carries it, parsed into blocks
-// that each render as their own item, with inline markup as rich text in
-// the theme's colors. Supported: ATX headings; paragraphs with hard line
-// breaks kept; bold, italic, strikethrough (** __ * _ ~~); inline code;
-// links, autolinks, and bare URLs; images (a line of images shows them,
-// an image inside prose is a link); `#123` and `@user` as GitHub links;
-// bullet, numbered, nested, and task lists; block quotes; fenced code
-// (``` and ~~~); pipe tables; horizontal rules. HTML comments and the tags
-// GitHub bodies use for layout (details, summary, picture, p, div, span,
-// kbd, sub, sup, center, headings, ...) are dropped for their text, and
-// <img> and <br> become an image and a line break, all outside code:
-// fenced code and inline code keep every character. Anything else reads as
-// its text.
-//
-// style: { link, codeFont, codeSize, codeBackground, codeText, border }.
+// ---------------------------------------------------------------- popout
 
-function linkHtml(url, html, style) {
-    return "<a href=\"" + escapeHtml(url) + "\" style=\"text-decoration:none\"><span style=\"color:" + String(style.link) + "\">" + html + "</span></a>";
+// Whether the popout, shown again, takes up where it was: opened from the
+// bar (not for a tab or a notification) within `resumeSeconds` of going
+// away (0: never).
+function resumes(initialTab, hiddenAt, now, resumeSeconds) {
+    return initialTab === "" && hiddenAt > 0 && now - hiddenAt < resumeSeconds * 1000;
 }
 
-// GitHub links read as references (owner/repo#12), other links as their
-// host and path.
-function linkLabel(url, repo) {
-    const ref = url.match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/(?:pull|issues)\/(\d+)\/?$/);
-    if (ref)
-        return (ref[1] === repo ? "" : ref[1]) + "#" + ref[2];
-    const bare = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-    return bare.length > 48 ? bare.slice(0, 45) + "…" : bare;
-}
-
-function codeSpanHtml(code, style) {
-    return "<span style=\"font-family:'" + style.codeFont + "'; font-size:" + Math.round(style.codeSize) + "px; background-color:" + String(style.codeBackground) + "; color:" + String(style.codeText) + "\">&nbsp;" + escapeHtml(code) + "&nbsp;</span>";
-}
-
-function emphasis(s) {
-    s = s.replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, "<b>$1</b>");
-    s = s.replace(/__(?=\S)([\s\S]*?\S)__/g, "<b>$1</b>");
-    s = s.replace(/(^|[^*\w])\*(?=\S)([^*\n]*?\S)\*(?!\w)/g, "$1<i>$2</i>");
-    s = s.replace(/(^|[^_\w])_(?=\S)([^_\n]*?\S)_(?!\w)/g, "$1<i>$2</i>");
-    s = s.replace(/~~(?=\S)([\s\S]*?\S)~~/g, "<s>$1</s>");
-    return s;
-}
-
-// Sets text aside behind a marker no body contains (its index between two
-// control characters) while the rest is rewritten, and puts it back.
-function stasher() {
-    const kept = [];
-    return {
-        "keep": text => {
-            kept.push(text);
-            return "\u0001" + (kept.length - 1) + "\u0002";
-        },
-        "restore": text => text.replace(/\u0001(\d+)\u0002/g, (m, i) => kept[Number(i)])
-    };
-}
-
-function inlineHtml(text, repo, style) {
-    const stash = stasher();
-    const keep = stash.keep;
-    let s = String(text || "");
-    s = s.replace(/(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)/g, (m, ticks, code) => keep(codeSpanHtml(code.trim(), style)));
-    s = s.replace(/!\[([^\]]*)\]\(\s*<?([^)\s>]+)>?[^)]*\)/g, (m, alt, url) => keep(linkHtml(url, escapeHtml(alt || "image"), style)));
-    s = s.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (m, label, url) => keep(linkHtml(url, emphasis(escapeHtml(label)), style)));
-    s = s.replace(/<(https?:\/\/[^>\s]+)>/g, (m, url) => keep(linkHtml(url, escapeHtml(linkLabel(url, repo)), style)));
-    s = s.replace(/https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"]/g, url => keep(linkHtml(url, escapeHtml(linkLabel(url, repo)), style)));
-    s = escapeHtml(s);
-    s = s.replace(/(^|[^\w/`])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))(?![\w-])/g, (m, pre, user) => pre + keep(linkHtml(profileUrl(user), "@" + user, style)));
-    if (repo !== "")
-        s = s.replace(/(^|[^\w&/])#(\d+)\b/g, (m, pre, n) => pre + keep(linkHtml(repoUrl(repo) + "/issues/" + n, "#" + n, style)));
-    s = emphasis(s);
-    s = s.replace(/\n/g, "<br>");
-    return stash.restore(s);
-}
-
-// Drops HTML comments and layout tags for their text, outside code: fenced
-// blocks and inline code spans are set aside first and put back as written.
-function cleanMarkdown(text) {
-    const stash = stasher();
-    const keep = stash.keep;
-    const lines = String(text || "").replace(/\r\n/g, "\n").split("\n");
-    const out = [];
-    for (let i = 0; i < lines.length; i++) {
-        const fence = lines[i].match(/^\s*(`{3,}|~{3,})/);
-        if (!fence) {
-            out.push(lines[i]);
-            continue;
-        }
-        const block = [lines[i]];
-        let j = i + 1;
-        while (j < lines.length && lines[j].trim().indexOf(fence[1]) !== 0)
-            block.push(lines[j++]);
-        if (j < lines.length)
-            block.push(lines[j]);
-        out.push(keep(block.join("\n")));
-        i = j;
-    }
-    let s = out.join("\n");
-    s = s.replace(/(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)/g, span => keep(span));
-    s = s.replace(/<!--[\s\S]*?-->/g, "");
-    s = s.replace(/<img\b[^>]*>/gi, tag => {
-        const src = tag.match(/\bsrc=["']([^"']+)["']/i);
-        const alt = tag.match(/\balt=["']([^"']*)["']/i);
-        return src ? "![" + (alt ? alt[1] : "image") + "](" + src[1] + ")" : "";
-    });
-    s = s.replace(/<br\s*\/?>/gi, "\n");
-    s = s.replace(/<\/?(details|summary|picture|source|sub|sup|p|div|span|kbd|b|i|em|strong|a|ins|del|center|h[1-6])\b[^>]*>/gi, "");
-    s = s.replace(/\n{3,}/g, "\n\n").trim();
-    return stash.restore(s);
-}
-
-function isListLine(line) {
-    return /^\s*([-*+]|\d+[.)])\s+/.test(line);
-}
-
-// A line holding nothing but images (each possibly wrapped in a link) shows
-// them as pictures; an image inside prose stays a link.
-function isImageLine(line) {
-    return /^\s*((\[\s*)?!\[[^\]]*\]\(\s*<?[^)\s>]+>?[^)]*\)(\s*\]\([^)]*\))?\s*)+$/.test(line);
-}
-
-function lineImages(line) {
-    const found = [];
-    const pattern = /(?:\[\s*)?!\[([^\]]*)\]\(\s*<?([^)\s>]+)>?[^)]*\)(?:\s*\]\(([^)\s]+)[^)]*\))?/g;
-    let m;
-    while ((m = pattern.exec(line)) !== null)
-        found.push({
-            "type": "image",
-            "alt": m[1] || "image",
-            "url": m[2],
-            "href": m[3] || m[2],
-            "size": m[0].length
-        });
-    return found;
-}
-
-function startsBlock(line) {
-    return /^\s*(```|~~~|#{1,6}\s|>)/.test(line) || isListLine(line) || isImageLine(line);
-}
-
-function tableCells(line) {
-    return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(cell => cell.trim());
-}
-
-function tableHtml(rows, repo, style) {
-    let html = "<table border=\"1\" cellspacing=\"0\" cellpadding=\"5\" style=\"border-collapse:collapse; border-color:" + String(style.border) + "\">";
-    for (let r = 0; r < rows.length; r++) {
-        html += "<tr>";
-        for (const cell of rows[r]) {
-            const inner = inlineHtml(cell, repo, style);
-            html += r === 0 ? "<th align=\"left\">" + inner + "</th>" : "<td>" + inner + "</td>";
-        }
-        html += "</tr>";
-    }
-    return html + "</table>";
-}
-
-// The blocks of a body: { type, html | text | items | url, size }, size
-// being how much of the source the block holds (for cutting a long body).
-function parseMarkdown(text, repo, style) {
-    const lines = cleanMarkdown(text).split("\n");
-    const blocks = [];
-    const add = (block, source) => {
-        block.size = source.length;
-        blocks.push(block);
-    };
-    let i = 0;
-    while (i < lines.length) {
-        const line = lines[i];
-        let m;
-        if (line.trim() === "") {
-            i++;
-            continue;
-        }
-        if ((m = line.match(/^\s*(`{3,}|~{3,})/))) {
-            const fence = m[1];
-            const body = [];
-            i++;
-            while (i < lines.length && lines[i].trim().indexOf(fence) !== 0)
-                body.push(lines[i++]);
-            i++;
-            add({
-                "type": "code",
-                "text": body.join("\n"),
-                "lines": body.length
-            }, body.join("\n"));
-            continue;
-        }
-        if ((m = line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/))) {
-            add({
-                "type": "heading",
-                "level": m[1].length,
-                "html": inlineHtml(m[2], repo, style)
-            }, line);
-            i++;
-            continue;
-        }
-        if (isImageLine(line)) {
-            for (const image of lineImages(line))
-                blocks.push(image);
-            i++;
-            continue;
-        }
-        if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
-            add({
-                "type": "rule"
-            }, line);
-            i++;
-            continue;
-        }
-        if (/^\s*>/.test(line)) {
-            const body = [];
-            while (i < lines.length && /^\s*>/.test(lines[i]))
-                body.push(lines[i++].replace(/^\s*>\s?/, ""));
-            add({
-                "type": "quote",
-                "html": inlineHtml(body.join("\n").trim(), repo, style)
-            }, body.join("\n"));
-            continue;
-        }
-        if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|?\s*:?-{3,}/.test(lines[i + 1])) {
-            const source = [line];
-            const rows = [tableCells(line)];
-            i += 2;
-            while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
-                source.push(lines[i]);
-                rows.push(tableCells(lines[i++]));
-            }
-            add({
-                "type": "table",
-                "html": tableHtml(rows, repo, style)
-            }, source.join("\n"));
-            continue;
-        }
-        if (isListLine(line)) {
-            const items = [];
-            const indents = [];
-            const source = [];
-            while (i < lines.length) {
-                const l = lines[i];
-                if (l.trim() === "") {
-                    let j = i + 1;
-                    while (j < lines.length && lines[j].trim() === "")
-                        j++;
-                    if (j < lines.length && isListLine(lines[j])) {
-                        i = j;
-                        continue;
-                    }
-                    break;
-                }
-                const lm = l.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
-                if (lm) {
-                    const indent = lm[1].replace(/\t/g, "    ").length;
-                    if (indents.indexOf(indent) < 0)
-                        indents.push(indent);
-                    let body = lm[3];
-                    let task = "";
-                    const tm = body.match(/^\[([ xX])\]\s+(.*)$/);
-                    if (tm) {
-                        task = tm[1] === " " ? "open" : "done";
-                        body = tm[2];
-                    }
-                    items.push({
-                        "indent": indent,
-                        "marker": /\d/.test(lm[2]) ? lm[2].replace(")", ".") : "",
-                        "task": task,
-                        "text": body
-                    });
-                    source.push(l);
-                    i++;
-                } else if (/^\s+\S/.test(l) && items.length > 0) {
-                    items[items.length - 1].text += "\n" + l.trim();
-                    source.push(l);
-                    i++;
-                } else {
-                    break;
-                }
-            }
-            indents.sort((a, b) => a - b);
-            add({
-                "type": "list",
-                "items": items.map(item => ({
-                            "level": Math.min(indents.indexOf(item.indent), 4),
-                            "marker": item.marker,
-                            "task": item.task,
-                            "html": inlineHtml(item.text, repo, style)
-                        }))
-            }, source.join("\n"));
-            continue;
-        }
-        const body = [lines[i++]];
-        while (i < lines.length && lines[i].trim() !== "" && !startsBlock(lines[i]))
-            body.push(lines[i++]);
-        add({
-            "type": "paragraph",
-            "html": inlineHtml(body.join("\n"), repo, style)
-        }, body.join("\n"));
-    }
-    return blocks;
-}
-
-// How many leading blocks fit a budget of source characters; at least one.
-function blocksWithin(blocks, budget) {
-    let used = 0;
-    for (let i = 0; i < blocks.length; i++) {
-        used += blocks[i].size || 0;
-        if (used > budget)
-            return Math.max(1, i);
-    }
-    return blocks.length;
+// A scroll position a view can take: within its content, the top first.
+function scrollClamp(y, originY, contentHeight, height) {
+    return Math.max(originY, Math.min(y, originY + contentHeight - height));
 }

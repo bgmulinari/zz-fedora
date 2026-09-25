@@ -7,8 +7,8 @@ import "GitHubLogic.js" as Logic
 
 // Everything the plugin knows about GitHub, all of it through the GitHub
 // CLI, kept once for every bar and window (the daemon owns it): the lists
-// from GraphQL searches (queries/inbox.graphql), unread notifications from
-// the REST notifications endpoint, Actions runs from `gh run list`, a page
+// from GraphQL searches (queries/inbox.graphql), notifications from the
+// REST notifications endpoint, Actions runs from `gh run list`, a page
 // from queries/detail.graphql or `gh run view`, and every change from the
 // matching gh subcommand. The plugin never sees a token; signing in is
 // `gh auth login`, and a signed-out CLI turns into a readable state here.
@@ -94,7 +94,8 @@ Item {
     }
 
     // Runs gh in place of a process when set: a function (args, done) that
-    // calls done(code, stdout, stderr) once. The tests script gh with it.
+    // calls done(code, stdout, stderr) once. The tests script gh with it, and
+    // the copies of animated images (their whole command, curl first).
     property var runner: null
 
     // options: timeout (ms); owner, an item whose destruction drops the
@@ -130,7 +131,13 @@ Item {
     // GitHub's answer ({ data, errors }) whenever it has data, even when gh
     // exits 1 over an error in part of it, and otherwise null and why.
     function graphql(file, operation, vars, callback, options) {
-        gh(Logic.graphqlArgs(pluginDir + "/queries/" + file + ".graphql", operation, vars), (code, out, err) => {
+        graphqlCall(Logic.graphqlArgs(pluginDir + "/queries/" + file + ".graphql", operation, vars), callback, options);
+    }
+
+    // The same for `gh api graphql` arguments written elsewhere (a query
+    // built for the threads at hand, a mutation).
+    function graphqlCall(args, callback, options) {
+        gh(args, (code, out, err) => {
             const answer = Logic.graphqlAnswer(out);
             if (answer && answer.data) {
                 callback(answer, "");
@@ -162,6 +169,124 @@ Item {
         if (toast)
             ToastService.showInfo(toast);
     }
+
+    // --------------------------------------------------------------- media
+    //
+    // Qt plays an animated image (a GIF) straight from its download once and
+    // stops, since it cannot rewind a download without keeping every frame
+    // decoded; from a file it loops as on github.com. So each one is copied,
+    // from the signed URL GitHub rendered for it, into the session's runtime
+    // directory: callback(the file's URL, or "" when no copy could be made).
+    // curl makes the copy (Logic.mediaDownload), the only download the
+    // plugin makes without gh: the signed URL carries its own access, and
+    // nothing else is sent. It writes straight to the file, so the shell
+    // never holds a download. The runtime directory is memory, so what it
+    // holds is bounded: a copy stops past its size or time, a few download
+    // at once, the copies least lately used go past a total, and the shell
+    // starting (the daemon) clears what an earlier one left. A copy that
+    // failed is not tried again for a while.
+    readonly property string mediaDir: Quickshell.env("XDG_RUNTIME_DIR") ? Quickshell.env("XDG_RUNTIME_DIR") + "/dms-github/media" : ""
+    readonly property int mediaMaxBytes: 40 * 1024 * 1024
+    readonly property int mediaKeptBytes: 160 * 1024 * 1024
+    readonly property int mediaTimeoutSeconds: 60
+    readonly property int mediaRetryMs: 600000
+    // Key (Logic.mediaKey) -> { file, bytes, used, waiting, failedAt }.
+    property var mediaCopies: ({})
+
+    Component.onCompleted: {
+        if (mediaDir !== "")
+            Quickshell.execDetached(["rm", "-rf", mediaDir]);
+    }
+
+    function copyMedia(url, callback) {
+        const key = Logic.mediaKey(url);
+        const entry = mediaCopies[key];
+        if (entry && entry.file !== "") {
+            entry.used = Date.now();
+            callback(entry.file);
+            return;
+        }
+        if (entry && entry.waiting) {
+            entry.waiting.push(callback);
+            return;
+        }
+        if (mediaDir === "" || (entry && Date.now() - entry.failedAt < mediaRetryMs)) {
+            callback("");
+            return;
+        }
+        mediaCopies[key] = {
+            "file": "",
+            "bytes": 0,
+            "used": Date.now(),
+            "waiting": [callback],
+            "failedAt": 0
+        };
+        mediaQueue.push({
+            "key": key,
+            "url": url
+        });
+        nextCopy();
+    }
+
+    // Copies wait their turn, a few at a time, so what the downloads hold
+    // at once stays bounded too.
+    property var mediaQueue: []
+    property int mediaCopying: 0
+    readonly property int mediaCopiesAtOnce: 2
+
+    function nextCopy() {
+        if (mediaCopying >= mediaCopiesAtOnce || mediaQueue.length === 0)
+            return;
+        const next = mediaQueue.shift();
+        mediaCopying++;
+        downloadCopy(next.key, next.url, mediaCopies[next.key]);
+    }
+
+    function downloadCopy(key, url, copy) {
+        const path = mediaDir + "/" + key;
+        const done = (code, out) => {
+            const bytes = Number(String(out).trim());
+            // A copy cut short (too large, too slow, refused) leaves what
+            // came of it.
+            if (code !== 0 || !(bytes > 0))
+                Quickshell.execDetached(["rm", "-f", path]);
+            copy.file = code === 0 && bytes > 0 ? "file://" + path : "";
+            copy.bytes = copy.file !== "" ? bytes : 0;
+            copy.failedAt = copy.file === "" ? Date.now() : 0;
+            const waiting = copy.waiting;
+            copy.waiting = null;
+            for (const callback of waiting)
+                callback(copy.file);
+            if (copy.file !== "")
+                trimMedia();
+            mediaCopying--;
+            nextCopy();
+        };
+        const command = Logic.mediaDownload(url, path, mediaMaxBytes, mediaTimeoutSeconds);
+        if (runner) {
+            runner(command, done);
+            return;
+        }
+        const proc = ghProcess.createObject(data, {
+            command: command,
+            done: done,
+            timeoutMs: (mediaTimeoutSeconds + 10) * 1000
+        });
+        proc.running = true;
+    }
+
+    // Past what the copies may hold, the least lately used go.
+    function trimMedia() {
+        const made = Object.keys(mediaCopies).filter(key => mediaCopies[key].file !== "").sort((a, b) => mediaCopies[a].used - mediaCopies[b].used);
+        let total = made.reduce((sum, key) => sum + mediaCopies[key].bytes, 0);
+        while (total > mediaKeptBytes && made.length > 1) {
+            const key = made.shift();
+            total -= mediaCopies[key].bytes;
+            Quickshell.execDetached(["rm", "-f", mediaDir + "/" + key]);
+            delete mediaCopies[key];
+        }
+    }
+
 
     // ------------------------------------------------------------ watchers
     //
@@ -243,19 +368,20 @@ Item {
     }
 
     // What a tab's count says, for the tabs and the bar's menu alike: unread
-    // notifications, runs in progress, or its first list's total.
+    // notifications (a repository's among its loaded inbox), runs in
+    // progress, or its first list's total.
     function tabCount(scope, tab) {
         if (tab === "inbox")
-            return unreadNotifications.length;
+            return scope ? inboxThreads(scope).filter(thread => isUnread(thread)).length : unreadNotifications.length;
         if (tab === "actions")
             return Logic.filterRuns(scopeOf(scope).runs, "active").length;
         return total(Logic.primaryKey(scope, tab));
     }
 
-    // The count as a badge writes it: "" for none, and a "+" on the unread
-    // notifications while there are more than the pages loaded.
-    function countText(count, tab) {
-        return count > 0 ? String(count) + (tab === "inbox" && moreNotifications ? "+" : "") : "";
+    // The count as a badge writes it: "" for none, and a "+" on the
+    // viewer's unread notifications while there are more than a page.
+    function countText(count, tab, scope) {
+        return count > 0 ? String(count) + (tab === "inbox" && !scope && moreNotifications ? "+" : "") : "";
     }
 
     function sameJson(a, b) {
@@ -453,7 +579,17 @@ Item {
             "runsAt": 0,
             "runsFullAt": 0,
             "runsLoading": false,
-            "runsError": ""
+            "runsError": "",
+            "threads": [],
+            "threadPages": 1,
+            "threadsMore": false,
+            "threadsLoading": false,
+            "threadsPaging": false,
+            "threadsThen": null,
+            "threadsWanted": 0,
+            "threadsGen": 0,
+            "threadsAt": 0,
+            "threadsError": ""
         })
     readonly property var watchedRepos: {
         const configured = [];
@@ -521,10 +657,13 @@ Item {
     function refreshInbox(options) {
         const opts = options || {};
         if (opts.reset) {
-            dropNotificationPages();
             refreshNotifications({
                 "again": true
             });
+            if (scopeOf("").threadsAt > 0)
+                refreshThreads("", {
+                    "reset": true
+                });
             refreshRuns("", {
                 "again": true
             });
@@ -657,7 +796,6 @@ Item {
         again = {};
         pushedRepos = [];
         notifications = [];
-        dropNotificationPages();
         loadingNotifications = false;
         loadingBadge = false;
         notificationsModified = "";
@@ -665,6 +803,10 @@ Item {
         notificationsFullAt = 0;
         notificationsError = "";
         readThreads = {};
+        doneThreads = {};
+        reactorsKept = {};
+        subjects = {};
+        subjectsAsked = {};
         tokenScopes = null;
         runAccess = {};
         jobLogs = {};
@@ -874,9 +1016,12 @@ Item {
 
     // -------------------------------------------------------- notifications
     //
-    // The unread threads of the notifications inbox, newest first. The REST
-    // API has no search behind it, so a read thread leaves the list the
-    // moment it is marked; it comes back only if it changes again.
+    // Two views of the notifications. The unread ones (the newest 50) are
+    // what the bar's dot, the Inbox count, and the desktop notifications
+    // follow; they are polled in the background, conditionally, so an
+    // unchanged inbox costs nothing. An inbox as github.com shows it (every
+    // thread not marked done, read or not) is fetched per scope only while
+    // a panel shows it (see inboxes below).
 
     property var notifications: []
     property bool loadingNotifications: false
@@ -885,13 +1030,21 @@ Item {
     // what the desktop notifications compare against.
     readonly property bool notificationsReady: login !== "" && notificationsAt > 0
     property string notificationsError: ""
-    // Thread id -> the updatedAt it had when it was marked read here.
-    property var readThreads: ({})
     readonly property int notificationPage: 50
+    // Marks made here, thread id -> the updatedAt the thread had then, so
+    // a thread shows read or done at once and stays so until it changes
+    // again (as on github.com, where new activity brings a done thread
+    // back); pruneMarks drops those GitHub no longer lists.
+    property var readThreads: ({})
+    property var doneThreads: ({})
+    readonly property var unreadNotifications: notifications.filter(thread => isUnread(thread) && !isDone(thread))
+    // A full page means there may be more unread than it holds.
+    readonly property bool moreNotifications: notifications.length >= notificationPage
     // The scopes of gh's token, as the notification polls report them
     // (X-OAuth-Scopes); null when GitHub does not say, as for a
-    // fine-grained token. Following a page's notifications needs the
-    // notifications scope, which gh auth login does not ask for.
+    // fine-grained token. Following a page's notifications (GraphQL) needs
+    // the notifications scope, which gh auth login does not ask for; the
+    // REST notification calls take repo as well.
     property var tokenScopes: null
     readonly property bool canSubscribe: tokenScopes === null || tokenScopes.indexOf("notifications") >= 0
 
@@ -905,174 +1058,13 @@ Item {
     // nothing changed, which does not count against the rate limit.
     property string notificationsModified: ""
     property double notificationsFullAt: 0
-    // Threads from the pages after the first, as the inbox scrolls. Every
-    // full answer about the first page checks them again (reconcilePages),
-    // so they hold no thread read elsewhere since and leave no gap where new
-    // threads pushed others off the first page; pagesGen drops a page asked
-    // for before.
-    property var extraNotifications: []
-    property int notificationPages: 1
-    property bool lastPageFull: false
-    property bool loadingMoreNotifications: false
-    property int pagesGen: 0
-    // What the page on its way was asked for (a search's next page), so a
-    // refresh that drops it can ask again against the new first page.
-    property var pagesThen: null
-    readonly property var allNotifications: extraNotifications.length === 0 ? notifications : Logic.appendNew(notifications, extraNotifications, "id")
-    readonly property var unreadNotifications: allNotifications.filter(thread => readThreads[thread.id] !== thread.updatedAt)
-    // A full last page means there are more.
-    readonly property bool moreNotifications: notificationPages > 1 ? lastPageFull : notifications.length >= notificationPage
 
-    // The notifications API has no text search, so searching the inbox
-    // fetches the pages after the loaded ones (up to
-    // `notificationSearchPages`) and the search filters those.
-    readonly property int notificationSearchPages: 10
-
-    function loadAllNotifications() {
-        loadNotificationPages(notificationSearchPages);
+    function isUnread(thread) {
+        return !!thread && thread.unread && readThreads[thread.id] !== thread.updatedAt;
     }
 
-    // Pages until `pages` are loaded or there are no more.
-    function loadNotificationPages(pages) {
-        if (!moreNotifications || loadingMoreNotifications || notificationPages >= pages)
-            return;
-        loadMoreNotifications(() => loadNotificationPages(pages));
-    }
-
-    function dropNotificationPages() {
-        pagesGen++;
-        extraNotifications = [];
-        notificationPages = 1;
-        lastPageFull = false;
-        loadingMoreNotifications = false;
-        pagesThen = null;
-    }
-
-    // The unread threads of the page before the oldest of `loaded`
-    // (Logic.olderThan), so marking threads read meanwhile skips none:
-    // done(threads not in `loaded`, whether there may be more), or
-    // done(null, why not). More than a page of threads updated in that one
-    // second brings the same page back; the next page of the same look then
-    // goes on past them.
-    function fetchOlder(loaded, done) {
-        const before = Logic.olderThan(loaded);
-        if (before === "") {
-            done([], false);
-            return;
-        }
-        const known = {};
-        for (const thread of loaded)
-            known[thread.id] = true;
-        const step = page => {
-            gh(["api", "notifications?per_page=" + notificationPage + "&before=" + encodeURIComponent(before) + (page > 1 ? "&page=" + page : "")], (code, out, err) => {
-                let list = null;
-                try {
-                    list = code === 0 ? JSON.parse(out || "[]") : null;
-                } catch (e) {
-                    list = null;
-                }
-                if (!Array.isArray(list)) {
-                    done(null, Logic.failureText(Logic.describeFailure(code, err)));
-                    return;
-                }
-                const threads = list.filter(thread => thread && thread.unread).map(thread => Logic.normalizeThread(thread)).filter(thread => !known[thread.id]);
-                const full = list.length >= notificationPage;
-                if (full && threads.length === 0 && page < notificationSearchPages) {
-                    step(page + 1);
-                    return;
-                }
-                done(threads, full && threads.length > 0);
-            });
-        };
-        step(1);
-    }
-
-    function loadMoreNotifications(then) {
-        if (!moreNotifications || loadingMoreNotifications)
-            return;
-        const gen = pagesGen;
-        loadingMoreNotifications = true;
-        pagesThen = then || null;
-        fetchOlder(allNotifications, (threads, more) => {
-            if (gen !== pagesGen)
-                return;
-            loadingMoreNotifications = false;
-            pagesThen = null;
-            if (!threads) {
-                ToastService.showError("GitHub: more notifications", more);
-                return;
-            }
-            extraNotifications = extraNotifications.concat(threads);
-            notificationPages++;
-            lastPageFull = more;
-            if (typeof then === "function")
-                then();
-        });
-    }
-
-    // After a full answer about the first page, the later pages come from
-    // older answers. A first page that is not full holds every unread
-    // thread; otherwise the later pages are fetched again, as far as they
-    // went, and take the old ones' place once all came (which stay on
-    // screen until then, or when the fetch fails). A next page on its way
-    // was asked for against the old first page: it is dropped, and asked
-    // for again once the pages agree with the new one.
-    function reconcilePages() {
-        const pages = notificationPages;
-        const interrupted = loadingMoreNotifications;
-        const resume = pagesThen;
-        const again = () => {
-            if (interrupted)
-                loadMoreNotifications(resume);
-        };
-        if (pages <= 1 || notifications.length < notificationPage) {
-            if (pages > 1 || interrupted)
-                dropNotificationPages();
-            again();
-            return;
-        }
-        const gen = ++pagesGen;
-        pagesThen = null;
-        loadingMoreNotifications = true;
-        const staged = [];
-        let fetched = 0;
-        const step = () => {
-            fetchOlder(notifications.concat(staged), (threads, more) => {
-                if (gen !== pagesGen)
-                    return;
-                if (!threads) {
-                    loadingMoreNotifications = false;
-                    return;
-                }
-                staged.push(...threads);
-                fetched++;
-                if (more && fetched < pages - 1) {
-                    step();
-                    return;
-                }
-                extraNotifications = staged;
-                notificationPages = 1 + fetched;
-                lastPageFull = more;
-                loadingMoreNotifications = false;
-                pruneRead();
-                again();
-            });
-        };
-        step();
-    }
-
-    // Threads marked read here stay in readThreads only while GitHub still
-    // lists them (it can lag behind the mark).
-    function pruneRead() {
-        const listed = {};
-        for (const thread of allNotifications)
-            listed[thread.id] = true;
-        const next = {};
-        for (const id in readThreads)
-            if (listed[id])
-                next[id] = readThreads[id];
-        if (Object.keys(next).length !== Object.keys(readThreads).length)
-            readThreads = next;
+    function isDone(thread) {
+        return !!thread && doneThreads[thread.id] === thread.updatedAt;
     }
 
     // options: conditional polls send Last-Modified back; threads read
@@ -1118,13 +1110,8 @@ Item {
             notificationsAt = Date.now();
             return;
         }
-        let list = null;
-        try {
-            list = code === 0 ? JSON.parse(body || "[]") : null;
-        } catch (e) {
-            list = null;
-        }
-        if (!Array.isArray(list)) {
+        const list = threadList(code, body);
+        if (!list) {
             const failure = Logic.describeFailure(code, err);
             if (failure === "signedOut")
                 authState = "signedOut";
@@ -1140,87 +1127,544 @@ Item {
         // is past, and the badge query says for which account.
         if (authState !== "ok")
             refreshBadge();
-        const threads = list.filter(thread => thread && thread.unread).map(thread => Logic.normalizeThread(thread));
-        if (!sameJson(threads, notifications))
-            notifications = threads;
+        const threads = list.filter(thread => thread.unread);
         notificationsAt = Date.now();
-        reconcilePages();
-        pruneRead();
+        if (!sameJson(threads, notifications)) {
+            notifications = threads;
+            freshenInboxes();
+            if (watched)
+                lookupSubjects(threads);
+        }
+        pruneMarks();
     }
 
-    // Hides threads at once and restores any GitHub refuses.
-    function setRead(threads, read) {
-        const next = Object.assign({}, readThreads);
+    // A notifications answer as threads, or null when it is none.
+    function threadList(code, body) {
+        let list = null;
+        try {
+            list = code === 0 ? JSON.parse(body || "[]") : null;
+        } catch (e) {
+            list = null;
+        }
+        return Array.isArray(list) ? list.filter(thread => !!thread).map(thread => Logic.normalizeThread(thread)) : null;
+    }
+
+    // Marks stay only while GitHub still lists their threads (it can lag
+    // behind a mark), and so do the subjects looked up for them.
+    function pruneMarks() {
+        const listed = {};
+        const urls = {};
+        for (const thread of allThreads()) {
+            listed[thread.id] = true;
+            urls[thread.url] = true;
+        }
+        const kept = (marks, keys) => {
+            const next = {};
+            for (const key in marks)
+                if (keys[key])
+                    next[key] = marks[key];
+            return Object.keys(next).length === Object.keys(marks).length ? marks : next;
+        };
+        readThreads = kept(readThreads, listed);
+        doneThreads = kept(doneThreads, listed);
+        subjects = kept(subjects, urls);
+        subjectsAsked = kept(subjectsAsked, urls);
+    }
+
+    function setMarks(kind, threads, on) {
+        const next = Object.assign({}, kind === "done" ? doneThreads : readThreads);
         for (const thread of threads) {
-            if (read)
+            if (on)
                 next[thread.id] = thread.updatedAt;
             else
                 delete next[thread.id];
         }
-        readThreads = next;
+        if (kind === "done")
+            doneThreads = next;
+        else
+            readThreads = next;
+    }
+
+    // Marks threads `kind` at once, then runs one gh call per thread, a
+    // few at a time: `argsFor(thread)` is a list of calls made in turn (the
+    // next only once the one before went through). Threads GitHub refuses
+    // have their mark taken back, and one toast says how many and why, and
+    // what went through before a later call failed (`partly`: why a thread
+    // whose first call went through is still in the inbox).
+    function eachThread(threads, kind, title, argsFor, partly) {
+        setMarks(kind, threads, true);
+        let next = 0;
+        let running = 0;
+        const refused = [];
+        let halfway = 0;
+        let why = "";
+        const worker = () => {
+            if (next >= threads.length) {
+                if (--running === 0 && refused.length > 0) {
+                    setMarks(kind, refused, false);
+                    const count = refused.length > 1 ? refused.length + " notifications were not changed. " : "";
+                    ToastService.showError("GitHub: " + title, (halfway > 0 && partly ? partly + " " : count) + why);
+                }
+                return;
+            }
+            const thread = threads[next++];
+            const calls = argsFor(thread);
+            const step = i => {
+                if (i >= calls.length) {
+                    worker();
+                    return;
+                }
+                gh(calls[i], (code, out, err) => {
+                    if (code === 0) {
+                        step(i + 1);
+                        return;
+                    }
+                    refused.push(thread);
+                    if (i > 0)
+                        halfway++;
+                    why = Logic.failureText(Logic.describeFailure(code, err));
+                    worker();
+                });
+            };
+            step(0);
+        };
+        running = Math.min(4, threads.length);
+        for (let i = 0; i < running; i++)
+            worker();
     }
 
     function markRead(thread) {
-        if (!thread || readThreads[thread.id] === thread.updatedAt)
-            return;
-        setRead([thread], true);
-        gh(["api", "-X", "PATCH", "notifications/threads/" + thread.id], (code, out, err) => {
-            if (code === 0)
-                return;
-            setRead([thread], false);
-            ToastService.showError("GitHub: notification", Logic.failureText(Logic.describeFailure(code, err)));
-        });
+        markThreadsRead([thread]);
+    }
+
+    function markThreadsRead(threads) {
+        const list = threads.filter(thread => isUnread(thread));
+        if (list.length > 0)
+            eachThread(list, "read", "mark as read", thread => [["api", "-X", "PATCH", "notifications/threads/" + thread.id]]);
     }
 
     // Opening a pull request or an issue reads its notification, as a visit
     // to the page on github.com does.
     function markReadFor(url) {
-        for (const thread of unreadNotifications.filter(thread => thread.url === url))
-            markRead(thread);
+        const found = allThreads().filter(thread => thread.url === url && isUnread(thread));
+        if (found.length > 0)
+            markThreadsRead(Logic.appendNew([], found, "id"));
     }
 
-    // Marks notifications read. `everything` is GitHub's "Mark all as
-    // read": one request reads every thread up to the newest one given,
-    // including those past the fetched page. Otherwise (a filter or a
-    // search on screen) exactly the given threads are marked, a few at a
-    // time, so nothing off screen is touched. What is hidden is kept first,
-    // so a refusal puts back exactly that.
-    function markAllRead(threads, everything) {
-        const list = threads.filter(thread => readThreads[thread.id] !== thread.updatedAt);
-        if (list.length === 0)
+    // Every thread kept: the unread ones and every inbox loaded.
+    function allThreads() {
+        let all = notifications;
+        for (const s in scopes)
+            all = all.concat(scopes[s].threads);
+        return all;
+    }
+
+    // github.com's "Mark all as read" for a scope: one request reads every
+    // thread up to the newest one given, those past the loaded pages too.
+    function markAllRead(scope, threads) {
+        const newest = threads.reduce((latest, thread) => thread.updatedAt > latest ? thread.updatedAt : latest, "");
+        if (newest === "")
             return;
-        const affected = everything ? unreadNotifications.slice() : list;
-        setRead(affected, true);
-        const failed = (restore, code, err) => {
-            setRead(restore, false);
-            ToastService.showError("GitHub: notifications", Logic.failureText(Logic.describeFailure(code, err)));
-        };
-        if (everything) {
-            const newest = list.reduce((latest, thread) => thread.updatedAt > latest ? thread.updatedAt : latest, "");
-            gh(["api", "-X", "PUT", "notifications", "-f", "last_read_at=" + newest], (code, out, err) => {
-                if (code !== 0) {
-                    failed(affected, code, err);
-                    return;
-                }
-                // GitHub marks a large inbox in the background; look again
-                // once it had time to.
-                notificationsSoon.restart();
+        const affected = allThreads().filter(thread => isUnread(thread) && (!scope || thread.repo === scope) && thread.updatedAt <= newest);
+        setMarks("read", affected, true);
+        gh(["api", "-X", "PUT", scope ? "repos/" + scope + "/notifications" : "notifications", "-f", "last_read_at=" + newest], (code, out, err) => {
+            if (code !== 0) {
+                setMarks("read", affected, false);
+                ToastService.showError("GitHub: notifications", Logic.failureText(Logic.describeFailure(code, err)));
+                return;
+            }
+            // GitHub marks a large inbox in the background; look again
+            // once it had time to.
+            notificationsSoon.restart();
+        });
+    }
+
+    // Done, as on github.com: the thread leaves the inbox until something
+    // new happens in it.
+    function markDone(threads) {
+        const list = threads.filter(thread => !isDone(thread));
+        if (list.length > 0)
+            eachThread(list, "done", "mark as done", thread => [doneArgs(thread)]);
+    }
+
+    // Unsubscribe, as on github.com: the thread is ignored (no notifications
+    // from it, a watched repository's included, until the viewer is
+    // mentioned or comments again), and it leaves the inbox.
+    function unsubscribe(threads) {
+        const list = threads.filter(thread => !isDone(thread));
+        if (list.length > 0)
+            eachThread(list, "done", "unsubscribe", thread => [["api", "-X", "PUT", "notifications/threads/" + thread.id + "/subscription", "-F", "ignored=true"], doneArgs(thread)], "Unsubscribed, but still in the inbox:");
+    }
+
+    function doneArgs(thread) {
+        return ["api", "-X", "DELETE", "notifications/threads/" + thread.id];
+    }
+
+    // ------------------------------------------------------------- inboxes
+    //
+    // A scope's inbox (in its scope record): the viewer's notifications, or
+    // those from one repository, read or unread, not done, newest first,
+    // fetched a page at a time as it scrolls. The next page continues before
+    // the oldest thread loaded (Logic.olderThan), so threads marked done
+    // meanwhile skip none; a refresh brings the inbox again as far as it was
+    // loaded and only then takes the old pages' place, so no thread slips
+    // between pages; threadsGen drops a next page asked for before it.
+
+    // The notifications API has no search, so searching an inbox fetches
+    // the pages after the loaded ones (up to `notificationSearchPages`) and
+    // the search filters those.
+    readonly property int notificationSearchPages: 10
+
+    function threadsPath(scope, extra) {
+        return (scope ? "repos/" + scope + "/notifications" : "notifications") + "?all=true&per_page=" + notificationPage + (extra || "");
+    }
+
+    // A scope's inbox as it shows: the loaded threads, with the unread ones
+    // the background poll found since (newer, or not loaded yet) in their
+    // place, so new activity shows before the inbox's next look and the
+    // unread view has every unread thread the poll knows; less those
+    // marked done here.
+    function inboxThreads(scope) {
+        let threads = scopeOf(scope).threads;
+        const unread = notifications.filter(thread => !scope || thread.repo === scope);
+        if (unread.length > 0) {
+            const byId = {};
+            for (const thread of unread)
+                byId[thread.id] = thread;
+            const known = {};
+            threads = threads.map(thread => {
+                known[thread.id] = true;
+                const other = byId[thread.id];
+                return other && other.updatedAt > thread.updatedAt ? other : thread;
             });
+            const missing = unread.filter(thread => !known[thread.id]);
+            if (missing.length > 0)
+                threads = threads.concat(missing).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+        }
+        return threads.some(thread => isDone(thread)) ? threads.filter(thread => !isDone(thread)) : threads;
+    }
+
+    // The threads of the page before the oldest of `loaded`: done(threads
+    // not in `loaded`, whether there may be more), or done(null, why not).
+    // More than a page of threads updated in that one second brings the
+    // same page back; the next page of the same look then goes on past
+    // them.
+    function fetchOlder(scope, loaded, done) {
+        const before = Logic.olderThan(loaded);
+        if (before === "") {
+            done([], false);
             return;
         }
-        let next = 0;
-        const worker = () => {
-            if (next >= list.length)
-                return;
-            const thread = list[next++];
-            gh(["api", "-X", "PATCH", "notifications/threads/" + thread.id], (code, out, err) => {
-                if (code !== 0)
-                    failed([thread], code, err);
-                worker();
+        const known = {};
+        for (const thread of loaded)
+            known[thread.id] = true;
+        const step = page => {
+            gh(["api", threadsPath(scope, "&before=" + encodeURIComponent(before) + (page > 1 ? "&page=" + page : ""))], (code, out, err) => {
+                const list = threadList(code, out);
+                if (!list) {
+                    done(null, Logic.failureText(Logic.describeFailure(code, err)));
+                    return;
+                }
+                const threads = list.filter(thread => !known[thread.id]);
+                const full = list.length >= notificationPage;
+                if (full && threads.length === 0 && page < notificationSearchPages) {
+                    step(page + 1);
+                    return;
+                }
+                done(threads, full && threads.length > 0);
             });
         };
-        for (let i = 0; i < Math.min(4, list.length); i++)
-            worker();
+        step(1);
+    }
+
+    // options: reset (the viewer's Refresh: back to the first page), again,
+    // newest (the first page, merged into what is loaded when it reaches
+    // it: new activity comes first, and the older pages stay as they are).
+    function refreshThreads(scope, options) {
+        const s = scope || "";
+        const opts = options || {};
+        if (pluginDir === "" || (s !== "" && !Logic.isRepo(s)))
+            return;
+        const record = scopeOf(s);
+        if (record.threadsLoading) {
+            if (opts.again || opts.reset)
+                askAgain("threads:" + s, opts.reset);
+            return;
+        }
+        const pages = opts.reset ? 1 : record.threadPages;
+        const interrupted = record.threadsPaging && !opts.reset;
+        const resume = record.threadsThen;
+        const gen = record.threadsGen + 1;
+        patchScope(s, {
+            "threadsLoading": true,
+            "threadsPaging": false,
+            "threadsThen": null,
+            "threadsGen": gen
+        });
+        const settle = fields => {
+            patchScope(s, Object.assign({
+                "threadsLoading": false,
+                "threadsAt": Date.now()
+            }, fields));
+            if (fields.threads) {
+                pruneMarks();
+                lookupSubjects(fields.threads);
+            }
+            const reset = takeAgain("threads:" + s);
+            if (reset !== null)
+                refreshThreads(s, {
+                    "reset": reset
+                });
+            else if (interrupted && fields.threads)
+                loadMoreThreads(s, resume);
+            else
+                takeWanted(s);
+        };
+        gh(["api", threadsPath(s)], (code, out, err) => {
+            if (scopeOf(s).threadsGen !== gen)
+                return;
+            const first = threadList(code, out);
+            if (!first) {
+                const failure = Logic.describeFailure(code, err);
+                settle({
+                    "threadsError": /scope|403/i.test(failure) ? "gh cannot read notifications with its current token. Run gh auth refresh -s notifications." : Logic.failureText(failure)
+                });
+                return;
+            }
+            const full = first.length >= notificationPage;
+            // The older pages stay as they are when the newest page reaches
+            // them: its oldest thread is one they hold, unchanged (anything
+            // newer since is in the page). Otherwise more came than a page
+            // holds, and the inbox comes again as far as it was loaded.
+            const kept = scopeOf(s).threads;
+            const last = full ? first[first.length - 1] : null;
+            const reach = last ? kept.findIndex(thread => thread.id === last.id && thread.updatedAt === last.updatedAt) : -1;
+            if (opts.newest && reach >= 0) {
+                const newest = {};
+                for (const thread of first)
+                    newest[thread.id] = true;
+                settle({
+                    "threads": first.concat(kept.slice(reach + 1).filter(thread => !newest[thread.id])),
+                    "threadsError": ""
+                });
+                return;
+            }
+            if (!full || pages <= 1) {
+                settle({
+                    "threads": first,
+                    "threadPages": 1,
+                    "threadsMore": full,
+                    "threadsError": ""
+                });
+                return;
+            }
+            const staged = [];
+            let fetched = 0;
+            const step = () => {
+                fetchOlder(s, first.concat(staged), (threads, more) => {
+                    if (scopeOf(s).threadsGen !== gen)
+                        return;
+                    // The old pages stay rather than a first page alone.
+                    if (!threads) {
+                        settle({});
+                        return;
+                    }
+                    staged.push(...threads);
+                    fetched++;
+                    if (more && fetched < pages - 1) {
+                        step();
+                        return;
+                    }
+                    settle({
+                        "threads": first.concat(staged),
+                        "threadPages": 1 + fetched,
+                        "threadsMore": more,
+                        "threadsError": ""
+                    });
+                });
+            };
+            step();
+        }, {
+            "timeout": 45000
+        });
+    }
+
+    function loadMoreThreads(scope, then) {
+        const s = scope || "";
+        const record = scopeOf(s);
+        if (!record.threadsMore || record.threadsLoading || record.threadsPaging)
+            return;
+        const gen = record.threadsGen;
+        patchScope(s, {
+            "threadsPaging": true,
+            "threadsThen": then || null
+        });
+        fetchOlder(s, record.threads, (threads, more) => {
+            const current = scopeOf(s);
+            if (current.threadsGen !== gen)
+                return;
+            if (!threads) {
+                patchScope(s, {
+                    "threadsPaging": false,
+                    "threadsThen": null,
+                    "threadsWanted": 0
+                });
+                ToastService.showError("GitHub: more notifications", more);
+                return;
+            }
+            patchScope(s, {
+                "threads": Logic.appendNew(current.threads, threads, "id"),
+                "threadPages": current.threadPages + 1,
+                "threadsMore": more,
+                "threadsPaging": false,
+                "threadsThen": null
+            });
+            lookupSubjects(threads);
+            if (typeof then === "function")
+                then();
+            else
+                takeWanted(s);
+        });
+    }
+
+    // Pages until `pages` are loaded or there are no more. Asked while the
+    // inbox is being fetched, the depth waits for that to settle (a search
+    // typed as the inbox opens still covers the pages it needs).
+    function loadThreadPages(scope, pages) {
+        const record = scopeOf(scope);
+        if (record.threadsLoading || record.threadsPaging) {
+            if (pages > record.threadsWanted)
+                patchScope(scope, {
+                    "threadsWanted": pages
+                });
+            return;
+        }
+        if (!record.threadsMore || record.threadPages >= pages)
+            return;
+        loadMoreThreads(scope, () => loadThreadPages(scope, pages));
+    }
+
+    function takeWanted(scope) {
+        const wanted = scopeOf(scope).threadsWanted;
+        if (wanted <= 0)
+            return;
+        patchScope(scope, {
+            "threadsWanted": 0
+        });
+        loadThreadPages(scope, wanted);
+    }
+
+    function loadAllThreads(scope) {
+        loadThreadPages(scope, notificationSearchPages);
+    }
+
+    // The inboxes on screen follow a change in the unread notifications
+    // (new activity, or threads read elsewhere) at once: their newest page.
+    function freshenInboxes() {
+        if (!watched)
+            return;
+        const shown = {};
+        for (const owner of watchers)
+            shown[String(owner.scope || "")] = true;
+        for (const s in shown)
+            if (scopeOf(s).threadsAt > 0)
+                refreshThreads(s, {
+                    "newest": true
+                });
+    }
+
+    // What a pull request or issue thread's subject is now (Logic.subjectsOf):
+    // url -> { kind, state, isDraft, stateReason, author }. A thread is
+    // looked up again once it changes.
+    property var subjects: ({})
+    // url -> the updatedAt of the thread when it was asked for.
+    property var subjectsAsked: ({})
+
+    function subjectOf(thread) {
+        return thread ? subjects[thread.url] || null : null;
+    }
+
+    function lookupSubjects(threads) {
+        const wanted = Logic.appendNew([], threads.filter(thread => (thread.type === "PullRequest" || thread.type === "Issue") && thread.number > 0 && !(subjectsAsked[thread.url] >= thread.updatedAt)), "url");
+        if (wanted.length === 0)
+            return;
+        const asked = Object.assign({}, subjectsAsked);
+        for (const thread of wanted)
+            asked[thread.url] = thread.updatedAt;
+        subjectsAsked = asked;
+        for (let i = 0; i < wanted.length; i += notificationPage) {
+            const chunk = wanted.slice(i, i + notificationPage);
+            const request = Logic.subjectsQuery(chunk);
+            if (request.query === "")
+                continue;
+            graphqlCall(["api", "graphql", "-f", "query=" + request.query].concat(Logic.variableArgs(request.vars)), answer => {
+                if (!answer) {
+                    // Asked again with the next look.
+                    const retry = Object.assign({}, subjectsAsked);
+                    for (const thread of chunk)
+                        delete retry[thread.url];
+                    subjectsAsked = retry;
+                    return;
+                }
+                const found = Logic.subjectsOf(answer.data, request.keys);
+                if (Object.keys(found).length > 0)
+                    subjects = Object.assign({}, subjects, found);
+            });
+        }
+    }
+
+    // ------------------------------------------------------------ reactions
+
+    // Adds or takes back the viewer's reaction on a post (its node id), then
+    // done(ok). The post shows it at once, so nothing is asked for again; a
+    // reaction GitHub refuses says why.
+    function react(subjectId, content, on, done, owner) {
+        graphqlCall(Logic.reactionArgs(subjectId, content, on), (answer, failure) => {
+            const ok = !!answer && answer.errors.length === 0;
+            if (ok)
+                reactorsKept = Logic.withKey(reactorsKept, subjectId, undefined);
+            else
+                ToastService.showError("GitHub: reaction", answer ? answer.errors[0].message : Logic.failureText(failure));
+            if (done)
+                done(ok);
+        }, {
+            "account": false,
+            "owner": owner || null
+        });
+    }
+
+    // Who reacted to a post (Logic.reactorsOf), asked for when the pointer
+    // rests on one of its reactions and kept for a minute, less once the
+    // viewer changes one: id -> { at, groups }.
+    property var reactorsKept: ({})
+    readonly property int reactorsKeptMs: 60000
+
+    function loadReactors(subjectId, callback, owner) {
+        const kept = reactorsKept[subjectId];
+        if (kept && Date.now() - kept.at < reactorsKeptMs) {
+            callback(kept.groups);
+            return;
+        }
+        graphql("detail", "Reactors", {
+            "id": subjectId
+        }, answer => {
+            const groups = answer ? Logic.reactorsOf(answer.data.node) : null;
+            if (groups) {
+                const now = Date.now();
+                const next = {};
+                for (const id in reactorsKept)
+                    if (now - reactorsKept[id].at < reactorsKeptMs)
+                        next[id] = reactorsKept[id];
+                next[subjectId] = {
+                    "at": now,
+                    "groups": groups
+                };
+                reactorsKept = next;
+            }
+            callback(groups);
+        }, {
+            "owner": owner || null
+        });
     }
 
     // ------------------------------------------------------------- job logs
@@ -1316,6 +1760,62 @@ Item {
             "owner": owner,
             "timeout": 45000
         });
+    }
+
+    // The signed URLs of the images and videos posts name ([{ id, body }],
+    // Logic.renderingOf), 100 posts a request (GitHub's most): callback(url
+    // -> Logic.imagePairs' entry, settled), with what is kept at once and
+    // again with the rest once every request settled (settled true). GitHub signs the URLs for a few
+    // minutes, so a post's are kept for less than that: a page opened again
+    // meanwhile shows its pictures from the cache instead of downloading
+    // them again. `fresh` asks again for every post (a URL that expired).
+    property var mediaSigned: ({})
+    readonly property int mediaSignedMs: 180000
+
+    function loadMedia(rendering, callback, owner, fresh) {
+        const now = Date.now();
+        const kept = {};
+        for (const id in mediaSigned)
+            if (now - mediaSigned[id].at < mediaSignedMs)
+                kept[id] = mediaSigned[id];
+        mediaSigned = kept;
+        const found = {};
+        const wanted = [];
+        for (const entry of rendering) {
+            const post = kept[entry.id];
+            if (!fresh && post && post.body === entry.body)
+                Object.assign(found, post.found);
+            else
+                wanted.push(entry);
+        }
+        if (Object.keys(found).length > 0 || wanted.length === 0)
+            callback(Object.assign({}, found), wanted.length === 0);
+        let pending = 0;
+        for (let i = 0; i < wanted.length; i += 100) {
+            const chunk = wanted.slice(i, i + 100);
+            pending++;
+            graphql("detail", "Rendered", {
+                "ids": chunk.map(entry => entry.id)
+            }, answer => {
+                const posts = answer ? Logic.renderedImages(answer.data.nodes, chunk) : {};
+                const signed = Object.assign({}, mediaSigned);
+                for (const entry of chunk) {
+                    if (!posts[entry.id])
+                        continue;
+                    signed[entry.id] = {
+                        "body": entry.body,
+                        "at": now,
+                        "found": posts[entry.id]
+                    };
+                    Object.assign(found, posts[entry.id]);
+                }
+                mediaSigned = signed;
+                if (--pending === 0)
+                    callback(found, true);
+            }, {
+                "owner": owner || null
+            });
+        }
     }
 
     // A run's page as gh views it, or null and why not.
@@ -1532,8 +2032,11 @@ Item {
     Timer {
         id: notificationsSoon
         interval: 5000
-        onTriggered: data.refreshNotifications({
-            "again": true
-        })
+        onTriggered: {
+            data.refreshNotifications({
+                "again": true
+            });
+            data.freshenInboxes();
+        }
     }
 }

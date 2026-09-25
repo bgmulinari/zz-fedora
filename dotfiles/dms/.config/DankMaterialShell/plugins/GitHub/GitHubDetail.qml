@@ -35,13 +35,47 @@ Item {
     // What the viewer may change here; null until GitHub answers, and no
     // change is offered before it does.
     property var access: null
-    // Original image URL -> the signed URL GitHub renders it from.
+    // Original image or video URL -> what GitHub rendered for it
+    // (Logic.imagePairs): the signed URL it loads from, and more.
     property var images: ({})
+    // The posts that name media (Logic.renderingOf), whose signed URLs are
+    // asked for again when one expired (refreshMedia).
+    property var rendering: []
+    // Renewals of those URLs, one at a time.
+    readonly property var mediaRenewal: Logic.renewals(20000)
     // The thread the comment box answers instead of the page: the thread's
     // first comment id, whom it answers, and where.
     property var replyTo: null
     // The conversation shows its latest entries until asked for all.
     property bool showAll: false
+    // The reaction picker open on this page (GitHubReactions), one at a
+    // time; a click anywhere else or Escape closes it, as on github.com.
+    property var openPicker: null
+    // The reaction chip the pointer rests on, and who gave that reaction
+    // once GitHub says: { chip, emoji, people, total }.
+    property var reactorsChip: null
+    property var reactorsShown: null
+
+    function showReactors(chip, subjectId, reaction) {
+        reactorsChip = chip;
+        github.loadReactors(subjectId, groups => {
+            const group = groups ? groups[reaction.content] : null;
+            if (reactorsChip !== chip || !group || group.people.length === 0)
+                return;
+            reactorsShown = {
+                "emoji": reaction.emoji,
+                "people": group.people,
+                "total": group.total
+            };
+        }, detailPage);
+    }
+
+    function hideReactors(chip) {
+        if (reactorsChip !== chip)
+            return;
+        reactorsChip = null;
+        reactorsShown = null;
+    }
     readonly property int shownEntries: 12
     property string loadError: ""
     property bool loading: false
@@ -88,6 +122,47 @@ Item {
 
     readonly property var timeline: kind === "run" ? [] : Logic.buildTimeline(detail)
     readonly property var shownTimeline: showAll ? timeline : timeline.slice(-shownEntries)
+    // The entries on screen, by key: the posts follow a change to the page
+    // (a reaction, a check, an edit) in place, and only an entry that was
+    // not on screen builds a post.
+    readonly property var entriesByKey: {
+        const byKey = {};
+        shownTimeline.forEach((entry, i) => byKey[entryKeys[i]] = entry);
+        return byKey;
+    }
+    readonly property var entryKeys: {
+        const seen = {};
+        return shownTimeline.map(entry => {
+            const key = entry.url || entry.type + ":" + entry.login + ":" + entry.at;
+            seen[key] = (seen[key] || 0) + 1;
+            return seen[key] > 1 ? key + "#" + seen[key] : key;
+        });
+    }
+
+    ListModel {
+        id: shownPosts
+    }
+
+    onEntryKeysChanged: {
+        const keys = entryKeys;
+        for (let i = shownPosts.count - 1; i >= 0; i--)
+            if (keys.indexOf(shownPosts.get(i).key) < 0)
+                shownPosts.remove(i);
+        for (let i = 0; i < keys.length; i++) {
+            if (i < shownPosts.count && shownPosts.get(i).key === keys[i])
+                continue;
+            let at = -1;
+            for (let j = i + 1; j < shownPosts.count && at < 0; j++)
+                if (shownPosts.get(j).key === keys[i])
+                    at = j;
+            if (at >= 0)
+                shownPosts.move(at, i, 1);
+            else
+                shownPosts.insert(i, {
+                    "key": keys[i]
+                });
+        }
+    }
     readonly property var comments: detail && kind !== "run" ? (detail.comments || []) : []
     readonly property var checks: kind === "pr" && detail ? (detail.checks || []) : []
     readonly property var checksReport: kind === "pr" && detail ? Logic.checksReport(checks, detail.checksState, detail.checksTotal) : null
@@ -111,6 +186,8 @@ Item {
         detail = null;
         access = null;
         images = {};
+        rendering = [];
+        mediaRenewal.reset();
         showAll = false;
         loadError = "";
         armed = "";
@@ -183,10 +260,41 @@ Item {
                 detail = page.detail;
             if (!github.sameJson(page.access, access))
                 access = page.access;
-            if (!github.sameJson(page.images, images))
-                images = page.images;
             loadError = "";
+            rendering = page.rendering;
+            showMedia(false);
         }, detailPage);
+    }
+
+    // The signed URLs of the images and videos the posts name, asked for
+    // apart from the page (GitHubData.loadMedia, which keeps them a few
+    // minutes); the text shows meanwhile, and each picture as its URL
+    // comes. `fresh` asks GitHub again for all of them; `done` runs once
+    // every answer is in.
+    function showMedia(fresh, done) {
+        const here = stillHere();
+        github.loadMedia(rendering, (found, settled) => {
+            if (!here())
+                return;
+            const next = Object.assign({}, images, found);
+            if (!github.sameJson(next, images))
+                images = next;
+            if (settled && done)
+                done();
+        }, detailPage, fresh);
+    }
+
+    // A picture or a video whose signed URL expired (GitHub's last a few
+    // minutes) asks for new ones: done() once they came (Logic.renewals:
+    // a renewal on its way takes the ask along, and one just finished is
+    // the answer already).
+    function refreshMedia(done) {
+        if (rendering.length === 0) {
+            if (done)
+                done();
+            return;
+        }
+        mediaRenewal.ask(done, finished => showMedia(true, finished));
     }
 
     Connections {
@@ -230,7 +338,6 @@ Item {
         const number = detail ? detail.number : item.number;
         return number ? "Run #" + number : "Run";
     }
-    readonly property string headerSubtitle: item ? item.repo : ""
 
     function metaText() {
         if (!current)
@@ -553,6 +660,10 @@ Item {
 
     function handleKey(event) {
         const control = event.modifiers & Qt.ControlModifier;
+        if (event.key === Qt.Key_Escape && openPicker) {
+            openPicker.picking = false;
+            return true;
+        }
         switch (event.key) {
         case Qt.Key_Escape:
         case Qt.Key_Backspace:
@@ -615,240 +726,278 @@ Item {
             spacing: Theme.spacingL
 
             // ---------- Title block ----------
+            // What the header (GitHubCompactHeader) leaves out: the
+            // repository, counts, links, assignees, the size, and labels.
             Column {
                 width: parent.width
                 spacing: Theme.spacingS
 
-                StyledText {
-                    width: parent.width
-                    text: !detailPage.current ? "" : String((detailPage.kind === "run" ? detailPage.current.displayTitle : (detailPage.detail ? detailPage.detail.title : detailPage.current.title)) || "")
-                    textFormat: Text.PlainText
-                    font.pixelSize: Theme.fontSizeLarge + 2
-                    font.weight: Font.Bold
-                    lineHeight: 1.15
-                    color: Theme.surfaceText
-                    wrapMode: Text.Wrap
-                }
-
-                // State, author, and age on the left; the assignees on the
-                // right, where github.com keeps them in its sidebar.
+                // Two sides, as github.com splits a page and its sidebar:
+                // what it is on the left (the repository, counts, links, and
+                // labels), its size and who is assigned on the right, each
+                // side from the top.
                 Item {
                     width: parent.width
-                    height: Math.max(stateFlow.implicitHeight, assigneeBox.height)
+                    height: Math.max(leftSide.implicitHeight, rightSide.implicitHeight)
 
-                    Flow {
-                        id: stateFlow
-                        width: parent.width - (assigneeBox.visible ? assigneeBox.width + Theme.spacingM : 0)
+                    Column {
+                        id: leftSide
+                        width: parent.width - (rightSide.implicitWidth > 0 ? rightSide.implicitWidth + Theme.spacingM : 0)
                         spacing: Theme.spacingS
 
-                        Rectangle {
-                            visible: !!detailPage.detail || !(detailPage.item && detailPage.item.stateUnknown)
+                        Flow {
+                            id: stateFlow
+                            width: parent.width
+                            spacing: Theme.spacingXS
+
+                            // The repository (the header shows the number),
+                            // which opens on GitHub, then how many comments, a
+                            // pull request's commits (opening its Commits tab),
+                            // or which workflow ran (how a run started is in
+                            // the header).
+                            GitHubLinkText {
+                                page: detailPage
+                                height: 24
+                                verticalAlignment: Text.AlignVCenter
+                                visible: text !== ""
+                                text: detailPage.item ? detailPage.item.repo : ""
+                                url: Logic.repoUrl(text)
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                            }
+
+                            StyledText {
+                                readonly property string meta: detailPage.kind !== "run" ? detailPage.metaText() : ""
+                                visible: meta !== ""
+                                height: 24
+                                verticalAlignment: Text.AlignVCenter
+                                text: "· " + meta
+                                textFormat: Text.PlainText
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                            }
+
+                            GitHubLinkText {
+                                page: detailPage
+                                height: 24
+                                verticalAlignment: Text.AlignVCenter
+                                visible: workflow !== ""
+                                readonly property string workflow: detailPage.kind === "run" && detailPage.current ? String(detailPage.current.workflowName || "") : ""
+                                text: "· " + workflow
+                                url: detailPage.item ? Logic.workflowUrl(detailPage.item.repo, workflow) : ""
+                                font.pixelSize: Theme.fontSizeSmall
+                                font.weight: Font.DemiBold
+                                color: Theme.surfaceText
+                            }
+
+                            GitHubLinkText {
+                                readonly property int commits: detailPage.detail && detailPage.kind === "pr" ? Number(detailPage.detail.commitsTotal || 0) : 0
+                                page: detailPage
+                                visible: commits > 0
+                                height: 24
+                                verticalAlignment: Text.AlignVCenter
+                                text: "· " + commits + (commits === 1 ? " commit" : " commits")
+                                url: detailPage.itemUrl + "/commits"
+                                external: true
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                            }
+
+                            // The pull requests that close this issue, or the
+                            // issues this pull request closes, as github.com
+                            // shows them beside the state; each opens here.
+                            Repeater {
+                                model: detailPage.detail && detailPage.kind !== "run" ? (detailPage.detail.linked || []) : []
+
+                                IssueChip {
+                                    required property var modelData
+                                    target: modelData
+                                    text: Logic.refLabel(modelData, detailPage.item.repo)
+                                }
+                            }
+
+                            // The issue this one is a sub-issue of.
+                            IssueChip {
+                                readonly property var parentIssue: detailPage.detail && detailPage.kind === "issue" ? detailPage.detail.parent : null
+                                visible: !!parentIssue
+                                target: parentIssue
+                                text: parentIssue ? "Parent: " + parentIssue.title : ""
+                                maxTextWidth: Math.max(80, stateFlow.width - 140)
+                            }
+                        }
+
+                        // Labels in their GitHub colors, each opening the issues or
+                        // pull requests that carry it.
+                        Flow {
+                            readonly property var labels: detailPage.detail && detailPage.kind !== "run" ? (detailPage.detail.labels || []) : []
+                            visible: labels.length > 0
+                            width: parent.width
+                            spacing: Theme.spacingXS
+
+                            Repeater {
+                                model: parent.labels
+
+                                GitHubLabelChip {
+                                    required property var modelData
+                                    name: modelData.name
+                                    hex: modelData.color
+                                    action: () => detailPage.openLink(Logic.labelUrl(detailPage.item.repo, modelData.name))
+                                }
+                            }
+                        }
+                    }
+
+                    Column {
+                        id: rightSide
+                        anchors.right: parent.right
+                        spacing: Theme.spacingS
+
+                        // The size of the change opens its Files changed tab.
+                        Item {
+                            anchors.right: parent.right
+                            visible: detailPage.kind === "pr" && !!detailPage.detail
+                            width: diffStat.implicitWidth
                             height: 24
-                            width: stateRow.implicitWidth + Theme.spacingM * 2
-                            radius: 12
-                            color: Theme.withAlpha(stateGlyph.color, 0.16)
 
                             Row {
-                                id: stateRow
-                                anchors.centerIn: parent
+                                id: diffStat
+                                anchors.verticalCenter: parent.verticalCenter
                                 spacing: Theme.spacingXS
 
-                                GitHubStatusIcon {
-                                    id: stateGlyph
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    item: detailPage.current
-                                    itemState: detailPage.itemState
-                                    size: Theme.iconSizeSmall
+                                StyledText {
+                                    text: detailPage.detail && detailPage.kind === "pr" ? "+" + detailPage.detail.additions : ""
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    font.weight: Font.DemiBold
+                                    font.underline: diffArea.containsMouse
+                                    color: Theme.success
                                 }
 
                                 StyledText {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: detailPage.stateText
+                                    text: detailPage.detail && detailPage.kind === "pr" ? "−" + detailPage.detail.deletions : ""
                                     font.pixelSize: Theme.fontSizeSmall
                                     font.weight: Font.DemiBold
-                                    color: stateGlyph.color
+                                    font.underline: diffArea.containsMouse
+                                    color: Theme.error
+                                }
+
+                                StyledText {
+                                    text: detailPage.detail && detailPage.kind === "pr" ? "· " + detailPage.detail.changedFiles + (detailPage.detail.changedFiles === 1 ? " file" : " files") : ""
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    font.underline: diffArea.containsMouse
+                                    color: Theme.surfaceVariantText
                                 }
                             }
-                        }
 
-                        // The pull requests that close this issue, or the
-                        // issues this pull request closes, as github.com
-                        // shows them beside the state; each opens here.
-                        Repeater {
-                            model: detailPage.detail && detailPage.kind !== "run" ? (detailPage.detail.linked || []) : []
-
-                            IssueChip {
-                                required property var modelData
-                                target: modelData
-                                text: Logic.refLabel(modelData, detailPage.item.repo)
+                            MouseArea {
+                                id: diffArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: detailPage.openLink(detailPage.itemUrl + "/files")
                             }
                         }
 
-                        // The issue this one is a sub-issue of.
-                        IssueChip {
-                            readonly property var parentIssue: detailPage.detail && detailPage.kind === "issue" ? detailPage.detail.parent : null
-                            visible: !!parentIssue
-                            target: parentIssue
-                            text: parentIssue ? "Parent: " + parentIssue.title : ""
-                            maxTextWidth: Math.max(80, stateFlow.width - 140)
-                        }
-
-                        // Which workflow ran; who opened a pull request or an
-                        // issue is in its description's header instead.
-                        GitHubLinkText {
-                            page: detailPage
+                        // "Assigned to" the first assignee ("you" when that is
+                        // the viewer), the rest as a count; spelled out, since a
+                        // name alone reads as a second author. Whoever may
+                        // assign gets github.com's "Assign yourself" when no one
+                        // is, and the picker (GitHubAssigneeMenu) behind the pen.
+                        Row {
+                            id: assigneeBox
+                            readonly property var assignees: detailPage.detail && detailPage.kind !== "run" ? (detailPage.detail.assignees || []) : []
+                            readonly property string first: assignees.length > 0 ? String(assignees[0].login) : ""
+                            readonly property bool canAssign: !!detailPage.detail && detailPage.kind !== "run" && !!detailPage.access && detailPage.access.canAssign
+                            visible: assignees.length > 0 || canAssign
+                            anchors.right: parent.right
                             height: 24
-                            verticalAlignment: Text.AlignVCenter
-                            visible: detailPage.kind === "run" && text !== ""
-                            text: detailPage.kind === "run" && detailPage.current ? String(detailPage.current.workflowName || "") : ""
-                            url: detailPage.item ? Logic.workflowUrl(detailPage.item.repo, text) : ""
-                            font.pixelSize: Theme.fontSizeSmall
-                            font.weight: Font.DemiBold
-                            color: Theme.surfaceText
-                        }
+                            spacing: Theme.spacingXS
 
-                        StyledText {
-                            visible: text !== ""
-                            height: 24
-                            verticalAlignment: Text.AlignVCenter
-                            text: detailPage.kind === "run" ? "· " + detailPage.metaText() : detailPage.metaText()
-                            textFormat: Text.PlainText
-                            font.pixelSize: Theme.fontSizeSmall
-                            color: Theme.surfaceVariantText
-                        }
-                    }
+                            DankIcon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: "assignment_ind"
+                                size: Theme.iconSizeSmall
+                                color: Theme.surfaceVariantText
+                            }
 
-                    // "Assigned to" the first assignee ("you" when that is
-                    // the viewer), the rest as a count; spelled out, since a
-                    // name alone reads as a second author. Whoever may
-                    // assign gets github.com's "Assign yourself" when no one
-                    // is, and the picker (GitHubAssigneeMenu) behind the pen.
-                    Row {
-                        id: assigneeBox
-                        readonly property var assignees: detailPage.detail && detailPage.kind !== "run" ? (detailPage.detail.assignees || []) : []
-                        readonly property string first: assignees.length > 0 ? String(assignees[0].login) : ""
-                        readonly property bool canAssign: !!detailPage.detail && detailPage.kind !== "run" && !!detailPage.access && detailPage.access.canAssign
-                        visible: assignees.length > 0 || canAssign
-                        anchors.right: parent.right
-                        height: 24
-                        spacing: Theme.spacingXS
+                            StyledText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: assigneeBox.assignees.length > 0 ? "Assigned to" : "No one ·"
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                            }
 
-                        DankIcon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            name: "assignment_ind"
-                            size: Theme.iconSizeSmall
-                            color: Theme.surfaceVariantText
-                        }
+                            GitHubLinkText {
+                                page: detailPage
+                                visible: assigneeBox.assignees.length === 0
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Assign yourself"
+                                action: () => detailPage.setAssigned(detailPage.github.login, true)
+                                font.pixelSize: Theme.fontSizeSmall
+                                font.weight: Font.DemiBold
+                                color: Theme.primary
+                            }
 
-                        StyledText {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: assigneeBox.assignees.length > 0 ? "Assigned to" : "No one ·"
-                            font.pixelSize: Theme.fontSizeSmall
-                            color: Theme.surfaceVariantText
-                        }
+                            GitHubLinkText {
+                                page: detailPage
+                                visible: assigneeBox.assignees.length > 0
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: detailPage.github && assigneeBox.first === detailPage.github.login ? "you" : assigneeBox.first
+                                url: Logic.profileUrl(assigneeBox.first)
+                                font.pixelSize: Theme.fontSizeSmall
+                                font.weight: Font.DemiBold
+                                color: Theme.surfaceText
+                            }
 
-                        GitHubLinkText {
-                            page: detailPage
-                            visible: assigneeBox.assignees.length === 0
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "Assign yourself"
-                            action: () => detailPage.setAssigned(detailPage.github.login, true)
-                            font.pixelSize: Theme.fontSizeSmall
-                            font.weight: Font.DemiBold
-                            color: Theme.primary
-                        }
+                            StyledText {
+                                visible: assigneeBox.assignees.length > 1
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "+" + (assigneeBox.assignees.length - 1)
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                            }
 
-                        GitHubLinkText {
-                            page: detailPage
-                            visible: assigneeBox.assignees.length > 0
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: detailPage.github && assigneeBox.first === detailPage.github.login ? "you" : assigneeBox.first
-                            url: Logic.profileUrl(assigneeBox.first)
-                            font.pixelSize: Theme.fontSizeSmall
-                            font.weight: Font.DemiBold
-                            color: Theme.surfaceText
-                        }
+                            DankSpinner {
+                                visible: detailPage.busyAction === "assign" || detailPage.busyAction === "unassign"
+                                anchors.verticalCenter: parent.verticalCenter
+                                size: 14
+                            }
 
-                        StyledText {
-                            visible: assigneeBox.assignees.length > 1
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "+" + (assigneeBox.assignees.length - 1)
-                            font.pixelSize: Theme.fontSizeSmall
-                            color: Theme.surfaceVariantText
-                        }
-
-                        DankSpinner {
-                            visible: detailPage.busyAction === "assign" || detailPage.busyAction === "unassign"
-                            anchors.verticalCenter: parent.verticalCenter
-                            size: 14
-                        }
-
-                        DankActionButton {
-                            id: assigneeEdit
-                            visible: assigneeBox.canAssign
-                            anchors.verticalCenter: parent.verticalCenter
-                            buttonSize: 22
-                            iconSize: 14
-                            iconName: "edit"
-                            iconColor: Theme.surfaceVariantText
-                            tooltipText: "Change assignees"
-                            onClicked: assigneeMenu.show(assigneeEdit)
+                            DankActionButton {
+                                id: assigneeEdit
+                                visible: assigneeBox.canAssign
+                                anchors.verticalCenter: parent.verticalCenter
+                                buttonSize: 22
+                                iconSize: 14
+                                iconName: "edit"
+                                iconColor: Theme.surfaceVariantText
+                                tooltipText: "Change assignees"
+                                onClicked: assigneeMenu.show(assigneeEdit)
+                            }
                         }
                     }
                 }
 
-                // Branches on the left and the size of the change on the
-                // right, as on github.com (pull requests); branch and commit
-                // on the left and how long it ran on the right (runs).
+                // A run's branch and commit on the left and how long it ran
+                // on the right (a pull request's branches are in the header).
                 Item {
-                    id: branchRow
-                    readonly property Item side: diffBox.visible ? diffBox : (runTime.visible ? runTime : null)
-                    visible: (detailPage.kind === "pr" && !!detailPage.detail) || detailPage.kind === "run"
+                    visible: detailPage.kind === "run"
                     width: parent.width
-                    height: Math.max(branchFlow.implicitHeight, side ? side.height : 0)
+                    height: Math.max(branchFlow.implicitHeight, runTime.visible ? runTime.height : 0)
 
                     Flow {
                         id: branchFlow
-                        width: parent.width - (branchRow.side ? branchRow.side.width + Theme.spacingM : 0)
+                        width: parent.width - (runTime.visible ? runTime.width + Theme.spacingM : 0)
                         spacing: Theme.spacingXS
 
-                        // In github.com's order: the base, then the head it
-                        // merges from (owner:branch when it lives in a fork),
-                        // and a copy of the head branch's name.
-                        BranchChip {
-                            visible: detailPage.kind === "pr"
-                            text: detailPage.detail && detailPage.kind === "pr" ? detailPage.detail.baseRefName : ""
-                            url: detailPage.kind === "pr" && detailPage.item ? Logic.branchUrl(detailPage.item.repo, text) : ""
+                        GitHubBranchChip {
+                            page: detailPage
+                            visible: text !== ""
+                            text: detailPage.headLabel
+                            url: detailPage.headUrl
                         }
 
-                        DankIcon {
-                            visible: detailPage.kind === "pr"
-                            height: 22
-                            name: "arrow_back"
-                            size: Theme.iconSizeSmall - 2
-                            color: Theme.surfaceVariantText
-                        }
-
-                        BranchChip {
-                            id: headChip
-                            readonly property string branch: detailPage.kind === "run" ? String(detailPage.current ? detailPage.current.headBranch || "" : "") : (detailPage.detail ? detailPage.detail.headRefName : "")
-                            readonly property string owner: detailPage.headRepo().split("/")[0]
-                            readonly property bool fork: detailPage.kind === "pr" && !!detailPage.item && owner !== "" && owner !== detailPage.item.repo.split("/")[0]
-                            visible: branch !== ""
-                            text: fork ? owner + ":" + branch : branch
-                            url: Logic.branchUrl(detailPage.kind === "run" ? detailPage.item.repo : detailPage.headRepo(), branch)
-                        }
-
-                        GitHubCopyButton {
-                            visible: detailPage.kind === "pr" && headChip.branch !== ""
-                            buttonSize: 22
-                            github: detailPage.github
-                            copyText: headChip.text
-                            toast: "Copied " + headChip.text
-                            tooltipText: "Copy the branch name"
-                        }
-
-                        BranchChip {
+                        GitHubBranchChip {
+                            page: detailPage
                             readonly property string sha: detailPage.kind === "run" && detailPage.detail ? String(detailPage.detail.headSha || "") : ""
                             visible: sha !== ""
                             icon: "commit"
@@ -879,72 +1028,6 @@ Item {
                             text: runTime.text
                             font.pixelSize: Theme.fontSizeSmall
                             color: Theme.surfaceVariantText
-                        }
-                    }
-
-                    // The size of the change opens its Files changed tab.
-                    Item {
-                        id: diffBox
-                        anchors.right: parent.right
-                        visible: detailPage.kind === "pr" && !!detailPage.detail
-                        width: diffStat.implicitWidth
-                        height: 22
-
-                        Row {
-                            id: diffStat
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: Theme.spacingXS
-
-                            StyledText {
-                                text: detailPage.detail && detailPage.kind === "pr" ? "+" + detailPage.detail.additions : ""
-                                font.pixelSize: Theme.fontSizeSmall
-                                font.weight: Font.DemiBold
-                                font.underline: diffArea.containsMouse
-                                color: Theme.success
-                            }
-
-                            StyledText {
-                                text: detailPage.detail && detailPage.kind === "pr" ? "−" + detailPage.detail.deletions : ""
-                                font.pixelSize: Theme.fontSizeSmall
-                                font.weight: Font.DemiBold
-                                font.underline: diffArea.containsMouse
-                                color: Theme.error
-                            }
-
-                            StyledText {
-                                text: detailPage.detail && detailPage.kind === "pr" ? "· " + detailPage.detail.changedFiles + (detailPage.detail.changedFiles === 1 ? " file" : " files") : ""
-                                font.pixelSize: Theme.fontSizeSmall
-                                font.underline: diffArea.containsMouse
-                                color: Theme.surfaceVariantText
-                            }
-                        }
-
-                        MouseArea {
-                            id: diffArea
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: detailPage.openLink(detailPage.itemUrl + "/files")
-                        }
-                    }
-                }
-
-                // Labels in their GitHub colors, each opening the issues or
-                // pull requests that carry it.
-                Flow {
-                    readonly property var labels: detailPage.detail && detailPage.kind !== "run" ? (detailPage.detail.labels || []) : []
-                    visible: labels.length > 0
-                    width: parent.width
-                    spacing: Theme.spacingXS
-
-                    Repeater {
-                        model: parent.labels
-
-                        GitHubLabelChip {
-                            required property var modelData
-                            name: modelData.name
-                            hex: modelData.color
-                            action: () => detailPage.openLink(Logic.labelUrl(detailPage.item.repo, modelData.name))
                         }
                     }
                 }
@@ -980,6 +1063,7 @@ Item {
                     stampUrl: detailPage.itemUrl
                     isAuthor: true
                     source: detailPage.detail ? String(detailPage.detail.body || "").trim() : ""
+                    reactions: detailPage.detail ? detailPage.detail.reactions : null
                     placeholder: "_No description provided._"
                 }
 
@@ -1099,19 +1183,21 @@ Item {
                 }
 
                 Repeater {
-                    model: detailPage.shownTimeline
+                    model: shownPosts
 
                     GitHubPost {
-                        required property var modelData
+                        required property string key
+                        readonly property var entry: detailPage.entriesByKey[key] || ({})
                         page: detailPage
-                        login: modelData.login
-                        verb: modelData.type === "review" ? Logic.reviewVerb(modelData.state) : ""
-                        verdict: modelData.state
-                        stamp: Logic.when(modelData.at)
-                        stampUrl: modelData.url
+                        login: entry.login || ""
+                        verb: entry.type === "review" ? Logic.reviewVerb(entry.state) : ""
+                        verdict: entry.state || ""
+                        stamp: Logic.when(entry.at)
+                        stampUrl: entry.url || ""
                         isAuthor: !!detailPage.detail && login === Logic.loginOf(detailPage.detail)
-                        source: modelData.body
-                        threads: modelData.threads
+                        source: entry.body || ""
+                        reactions: entry.reactions || null
+                        threads: entry.threads || []
                     }
                 }
             }
@@ -1199,6 +1285,32 @@ Item {
                     title: detailPage.mergeState ? detailPage.mergeState.text : ""
                 }
             }
+        }
+    }
+
+    // Until the page's first answer, it says what it is waiting for, as the
+    // lists do.
+    Column {
+        anchors.centerIn: flick
+        width: flick.width - Theme.spacingXL * 2
+        visible: detailPage.loading && !detailPage.detail && detailPage.loadError === ""
+        spacing: Theme.spacingS
+
+        DankIcon {
+            anchors.horizontalCenter: parent.horizontalCenter
+            name: detailPage.kind === "run" ? "play_circle" : (detailPage.kind === "pr" ? "merge" : "adjust")
+            size: 36
+            color: Theme.surfaceVariantText
+        }
+
+        StyledText {
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            textFormat: Text.PlainText
+            text: "Loading " + (detailPage.kind === "run" ? "the run" : (detailPage.kind === "pr" ? "pull request " : "issue ") + detailPage.headerTitle) + "…"
+            font.pixelSize: Theme.fontSizeMedium
+            color: Theme.surfaceVariantText
         }
     }
 
@@ -1377,6 +1489,158 @@ Item {
         }
     }
 
+    // Clear of the scroll bar, above the comment box.
+    GitHubScrollButtons {
+        anchors.right: flick.right
+        anchors.rightMargin: Theme.spacingL
+        anchors.bottom: flick.bottom
+        anchors.bottomMargin: Theme.spacingS
+        z: 10
+        target: flick
+    }
+
+    // The popout header shows the page's number, state, title, and branches
+    // (GitHubCompactHeader), as github.com's sticky header does.
+    readonly property string titleText: !current ? "" : String((kind === "run" ? current.displayTitle : (detail ? detail.title : current.title)) || "")
+    // The head branch: a run's, or a pull request's (owner:branch when it
+    // lives in a fork), and its page.
+    readonly property string headBranch: kind === "run" ? String(current ? current.headBranch || "" : "") : (kind === "pr" && detail ? String(detail.headRefName || "") : "")
+    readonly property string headOwner: headRepo().split("/")[0]
+    readonly property bool headInFork: kind === "pr" && !!item && headOwner !== "" && headOwner !== item.repo.split("/")[0]
+    readonly property string headLabel: headInFork && headBranch !== "" ? headOwner + ":" + headBranch : headBranch
+    readonly property string headUrl: item ? Logic.branchUrl(kind === "run" ? item.repo : headRepo(), headBranch) : ""
+
+    function scrollToTop() {
+        flick.contentY = flick.originY;
+    }
+
+    // Where the page was scrolled when the popout went away, and the way
+    // back there (the panel's cameBack).
+    property alias place: scrollPlace
+
+    GitHubScrollPlace {
+        id: scrollPlace
+        target: flick
+    }
+
+    // Brings an item of the page (what an in-page link names) to the top.
+    function scrollToItem(target) {
+        const y = target.mapToItem(flick.contentItem, 0, 0).y - Theme.spacingS;
+        flick.contentY = Logic.scrollClamp(y, flick.originY, flick.contentHeight, flick.height);
+    }
+
+    // Where the page is scrolled, and whether an item of it is in view
+    // there (an animated picture plays only then).
+    readonly property real viewY: flick.contentY
+
+    function inView(target, top) {
+        const y = target.mapToItem(flick.contentItem, 0, 0).y;
+        return y + target.height > top && y < top + flick.height;
+    }
+
+    // What the compact header says after an issue's author, or of a run; a
+    // pull request's says its branches instead.
+    function compactText() {
+        if (kind === "run")
+            return metaText();
+        return detail && kind === "issue" ? "opened this issue" : "";
+    }
+
+    // Who gave a reaction, above the chip under the pointer (below it when
+    // the page has no room above), as github.com's hover card lists them.
+    Rectangle {
+        id: reactorsCard
+        readonly property var shown: detailPage.reactorsShown
+        readonly property var chip: detailPage.reactorsChip
+        readonly property point spot: shown && Qt.isQtObject(chip) ? chip.mapToItem(detailPage, 0, 0) : Qt.point(0, 0)
+        readonly property int more: shown ? shown.total - shown.people.length : 0
+        visible: !!shown
+        z: 50
+        width: Math.min(detailPage.width - Theme.spacingS * 2, Math.max(180, reactorsColumn.implicitWidth + Theme.spacingM * 2))
+        height: reactorsColumn.implicitHeight + Theme.spacingS * 2
+        x: Math.max(Theme.spacingS, Math.min(detailPage.width - width - Theme.spacingS, spot.x))
+        y: spot.y - height - Theme.spacingXS >= 0 ? spot.y - height - Theme.spacingXS : spot.y + (shown && Qt.isQtObject(chip) ? chip.height : 0) + Theme.spacingXS
+        radius: Theme.cornerRadius
+        color: Theme.surfaceContainerHigh
+        border.width: 1
+        border.color: Theme.withAlpha(Theme.outlineVariant, 0.8)
+
+        Column {
+            id: reactorsColumn
+            x: Theme.spacingM
+            y: Theme.spacingS
+            spacing: Theme.spacingS
+
+            Repeater {
+                model: reactorsCard.shown ? reactorsCard.shown.people : []
+
+                Row {
+                    id: reactor
+                    required property var modelData
+                    spacing: Theme.spacingS
+
+                    GitHubAvatar {
+                        anchors.verticalCenter: parent.verticalCenter
+                        login: reactor.modelData.login
+                        size: 24
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        StyledText {
+                            text: reactor.modelData.login
+                            textFormat: Text.PlainText
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.weight: Font.DemiBold
+                            color: Theme.surfaceText
+                        }
+
+                        StyledText {
+                            visible: text !== ""
+                            text: reactor.modelData.name
+                            textFormat: Text.PlainText
+                            font.pixelSize: Theme.fontSizeSmall - 1
+                            color: Theme.surfaceVariantText
+                        }
+                    }
+                }
+            }
+
+            StyledText {
+                visible: reactorsCard.more > 0
+                text: "and " + reactorsCard.more + " more reacted with " + (reactorsCard.shown ? reactorsCard.shown.emoji : "")
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.surfaceVariantText
+            }
+        }
+    }
+
+    // A scroll moves the chip away from under the pointer.
+    Connections {
+        target: flick
+        function onContentYChanged() {
+            if (detailPage.reactorsChip)
+                detailPage.hideReactors(detailPage.reactorsChip);
+        }
+    }
+
+    // Over the whole page while a reaction picker is open: a press outside
+    // the picker's post closes it and goes on to whatever is under it.
+    MouseArea {
+        id: pickerCatcher
+        anchors.fill: parent
+        z: 100
+        enabled: !!detailPage.openPicker
+        acceptedButtons: Qt.AllButtons
+        onPressed: mouse => {
+            const picker = detailPage.openPicker;
+            if (picker && !picker.holds(pickerCatcher, mouse.x, mouse.y))
+                picker.picking = false;
+            mouse.accepted = false;
+        }
+    }
+
     // ---------------------------------------------------------- components
 
     // A pull request or issue this page links to, beside the state (one
@@ -1422,52 +1686,6 @@ Item {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: detailPage.openLink(issueChip.target.url)
-        }
-    }
-
-    component BranchChip: Rectangle {
-        id: branchChip
-        property string text: ""
-        property string url: ""
-        property string icon: ""
-        height: 22
-        width: Math.min(branchChipRow.implicitWidth + Theme.spacingS * 2, 220)
-        radius: 6
-        color: Theme.withAlpha(Theme.primary, branchArea.containsMouse && url !== "" ? 0.22 : 0.12)
-
-        Row {
-            id: branchChipRow
-            anchors.centerIn: parent
-            spacing: 3
-
-            DankIcon {
-                visible: branchChip.icon !== ""
-                anchors.verticalCenter: parent.verticalCenter
-                name: branchChip.icon
-                size: Theme.iconSizeSmall - 2
-                color: Theme.primary
-            }
-
-            StyledText {
-                anchors.verticalCenter: parent.verticalCenter
-                width: Math.min(implicitWidth, 220 - Theme.spacingS * 2 - (branchChip.icon !== "" ? Theme.iconSizeSmall : 0))
-                text: branchChip.text
-                textFormat: Text.PlainText
-                isMonospace: true
-                font.pixelSize: Theme.fontSizeSmall
-                color: Theme.primary
-                wrapMode: Text.NoWrap
-                elide: Text.ElideMiddle
-            }
-        }
-
-        MouseArea {
-            id: branchArea
-            anchors.fill: parent
-            enabled: branchChip.url !== ""
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: detailPage.openLink(branchChip.url)
         }
     }
 

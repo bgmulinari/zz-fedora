@@ -14,7 +14,11 @@ description = "Review pull requests, triage issues and notifications, and watch 
 # already installs; naming it keeps the dependency explicit and is an
 # idempotent no-op on every install path. libnotify's notify-send carries
 # the desktop notifications, which wait for the click that opens the thread
-# in the popout. The shell itself is base.
+# in the popout. kf6-syntax-highlighting's QML module colors code in bodies
+# with its GitHub themes, as github.com does (code stays one color without
+# it), qt6-qtmultimedia's plays video attachments in place (a link to
+# them without it), and curl copies animated images so they loop (still
+# without it). The shell itself is base.
 [[install]]
 backend = "dnf"
-packages = ["gh", "libnotify"]
+packages = ["gh", "libnotify", "kf6-syntax-highlighting", "qt6-qtmultimedia", "curl"]

@@ -27,6 +27,7 @@ PluginComponent {
 
     readonly property string barCount: String(pluginData.barCount || "reviews")
     readonly property bool unreadDot: pluginData.notificationDot !== false
+    readonly property int resumeSeconds: pluginData.resumeSeconds === undefined ? 300 : Number(pluginData.resumeSeconds)
 
     // The tab the next open starts at; "" keeps the one last shown.
     property string initialTab: ""
@@ -104,7 +105,7 @@ PluginComponent {
     // daemon calls this for a desktop notification's click).
     function openThread(thread) {
         if (popoutShowing) {
-            panelItem.showTab("inbox");
+            panelItem.showInbox();
             if (thread)
                 panelItem.activate(thread);
             return;
@@ -198,6 +199,7 @@ PluginComponent {
             implicitHeight: root.panelHeight
             github: root.github
             initialTab: root.initialTab
+            resumeSeconds: root.resumeSeconds
             startScope: root.hub.popoutScope
             recentRepos: root.hub.recentRepos
             onRepoOpened: repo => root.hub.rememberRepo(repo)

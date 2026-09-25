@@ -13,15 +13,31 @@ gh is signed out or GitHub cannot be reached.
 
 ## The popout
 
-- **Inbox**: unread notifications, all, mentioned, review requests,
-  assigned. Opening one reads it: a pull request or an issue opens its page
-  here, anything else (a release, a commit, a discussion) the browser. The
-  edge button or Delete marks a thread read without opening it, and the
-  header's Mark all as read (a second click confirms) reads the whole inbox,
-  as GitHub's own button does, or only the rows a filter or search shows.
-  Opening a pull request or an issue from anywhere also reads its
-  notification, as a visit to the page does. Notifications refresh every
-  minute, whatever the lists' refresh interval.
+- **Inbox**: github.com's notifications inbox, every thread not marked
+  done, read or unread; an unread one has a dot and a bold title, and the
+  All / Unread toggle above the list shows only those. The filters are
+  GitHub's default ones: All, Assigned, Participating,
+  Mentioned, Team mentioned, and Review requested, each counting what is
+  unread in it. A row shows its subject's state (open, draft, merged,
+  closed, as GitHub colors it), its repository and author, and on the
+  right why it came and when; under the pointer, Done, Mark as read, and
+  Unsubscribe take their place. Opening one reads it: a pull request or an
+  issue opens its page here, anything else (a release, a commit, a
+  discussion) the browser. Opening a pull request or an issue from
+  anywhere also reads its notification, as a visit to the page does.
+
+  Each row has a checkbox, and Select all checks the rows shown; with rows
+  checked, the bar above the list offers Done, Mark as read, and
+  Unsubscribe for all of them. With every row of the unfiltered inbox
+  checked, Mark as read becomes GitHub's Mark all as read, which reads the
+  threads past the loaded pages too and cannot be taken back, so it asks
+  for a second click (or Ctrl+I) first. Done removes a thread from the
+  inbox until something new happens in it; Unsubscribe also ignores it, a
+  watched repository's thread included, until you are mentioned or comment
+  again. GitHub's API has no Saved or Done lists and cannot mark a thread
+  unread, so those stay on github.com. The Inbox count and the unread
+  threads refresh every minute, whatever the lists' refresh interval, and
+  an inbox on screen follows at once when they change.
 
   New notifications can also appear as desktop notifications (Settings:
   assignments, review requests, and mentions by default; everything; or
@@ -38,14 +54,15 @@ gh is signed out or GitHub cannot be reached.
 
 The scope button in the header ("Involving you") switches the lists from
 what involves you to everything in one repository, whoever opened it: open,
-merged, and closed pull requests, open and closed issues, and the
-repository's latest 30 runs. The Inbox tab leaves meanwhile, since
-notifications are yours rather than the repository's; asking for it from
-the mark's menu or a desktop notification goes back to your scope. The
-picker offers the repositories you opened lately, your own (the Actions
-repositories from the settings and your most recently pushed ones), and,
-as you type, GitHub's repositories by that name (`owner/words` searches one
-owner's); a full `owner/name` opens as typed. A repository's lists refresh
+merged, and closed pull requests, open and closed issues, the
+repository's latest 30 runs, and your notifications from it (as
+github.com's Repositories filter shows them). Asking for the Inbox from the
+mark's menu or a desktop notification goes back to your scope, whose
+unread notifications those count. The picker offers the repositories you
+opened lately, your own (the Actions repositories from the settings and
+your most recently pushed ones), and, as you type, GitHub's repositories by
+that name (`owner/words` searches one owner's); a full `owner/name` opens
+as typed. A repository's lists refresh
 every two minutes while it shows. The popout remembers its scope, and a
 window keeps the one it was opened with.
 
@@ -53,9 +70,8 @@ The Inbox and the pull request and issue lists load a page at a time (50
 notifications, 30 results) and fetch the next as you scroll near the end,
 with "30 of 129" at the bottom saying how far they go. A list you scrolled
 stays scrolled through the background refresh, which fetches it again as
-far as it was loaded (100 at a time) so no item slips between pages; the
-Inbox does the same when new threads push others off its first page.
-Refresh starts every list over.
+far as it was loaded (100 at a time, 50 for the Inbox) so no item slips
+between pages. Refresh starts every list over.
 
 The search field searches GitHub on the pull request and issue lists: the
 words join the list's own search (Created, Assigned, ...) a moment after
@@ -64,10 +80,18 @@ typing stops, GitHub's search syntax included (`label:bug`,
 every state, open or closed; in a picked repository, whose filters are
 states, the filter chips dim and the search spans the whole tab. Loaded
 rows that match show at once, and those GitHub's text search cannot find
-(a number, a repository name) stay after its results. The notifications
-API has no text search, so searching the Inbox loads its remaining pages
-(up to 500 notifications) and filters those; the Actions tab filters the
-runs it has.
+(a number, a repository name) stay after its results. The Inbox filters as
+github.com's does, with its qualifiers: `is:unread`, `is:read`, `is:pr`
+(or `is:issue`, `is:issue-or-pull-request`, `is:release`,
+`is:discussion`, `is:commit`, `is:check-suite`, ...), `reason:assign`
+(`author`, `comment`, `mention`, `team-mention`, `review-requested`,
+`participating`, ...), `repo:owner/name`, `org:owner`, and `author:login`
+(an app by its name, its bot's login, or `app/name`); a qualifier given
+twice matches either value, and words match the rows' text, which
+github.com's inbox cannot search. The notifications API has no search of
+its own, so filtering the Inbox loads its remaining pages (up to 500
+notifications, a search typed while the Inbox still loads included) and
+filters those; the Actions tab filters the runs it has.
 
 ## Pages
 
@@ -121,22 +145,90 @@ comment"). What you type is kept for its page: going back, opening another
 page, moving the page into a window, or closing the popout keeps the draft
 until it is posted.
 
+Every post (the description, a comment, a review with a summary, and each
+comment of a review thread) shows its reactions under it as github.com
+does: a chip per reaction with its count, outlined where one is yours. A
+click on a chip adds or takes back yours, and the smiley opens GitHub's
+eight reactions (a click elsewhere or Escape closes them). Resting the
+pointer on a chip lists who gave it, the first ten with their names and
+how many more, as github.com's hover card does. The change shows at once
+and comes back off if GitHub refuses it (a locked conversation takes
+reactions only from collaborators, and the smiley is left out where you may
+not react).
+
+On a page, the popout's header is the page's, as github.com's sticky
+header: the number (a click opens the page on GitHub, as Enter does) with
+the state under it, and beside them the title (wrapped to three lines, the
+header growing with it; a click on a longer title shows it whole, and
+otherwise goes back up) and who opened a pull request with its branches
+(base ← head), who opened an issue, or how a run started. Under it, the
+page adds what the header leaves out: the repository, the comments, a pull
+request's commits and size, what it closes or belongs to, the assignees,
+and the labels. Once a page is scrolled more than half its height away
+from its top or its end, a button in its lower right corner jumps there.
+
 The text of a description or comment selects with the mouse, across its
 paragraphs, lists, and code blocks, as in a browser: a drag selects, a
 double click selects a word, Ctrl+A the whole post, and Ctrl+C copies it.
 So a page scrolls by wheel, touchpad, touch, or its scroll bar rather than
 by dragging with the mouse. The copy icon on each post and thread comment
-copies its whole body as the Markdown it was written in. The Markdown shown
-covers what GitHub bodies use: headings, paragraphs, emphasis, inline and
-fenced code (kept exactly as written), links and bare URLs, images, `#123`
-and `@user` references, bullet, numbered, nested, and task lists, quotes,
-tables, and rules; HTML comments and layout tags outside code are dropped
-for their text.
+copies its whole body as the Markdown it was written in.
+
+The Markdown shows as github.com shows it in issues, pull requests, and
+comments, sized and spaced after its stylesheet:
+
+- Blocks: headings (the two largest ruled underneath), paragraphs with
+  their line breaks, quotes, and the alerts (`> [!NOTE]`, `[!TIP]`,
+  `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`, in github.com's colors)
+  holding blocks of their own. Bullet, numbered, and task lists whose
+  items hold blocks too (bullets turning to circles and squares, numbers
+  to roman numerals and letters as lists nest). Tables with column
+  alignment, a bold header, striped rows, and pictures in cells. Rules,
+  lines of images at the width the body gives them (GIFs and other images
+  GitHub marks as animated playing on a loop while in view: see How it
+  talks to GitHub), video attachments in a box named after the file with
+  a player (muted at first, as there, loading nothing until play is
+  pressed, and pausing once its box closes or the page leaves the screen),
+  footnotes, and collapsible sections (`<details>`: closed behind their
+  summary unless marked open, a click opening or closing them, what they
+  hold built only once open).
+- Code: fenced and indented (in a quote or a list item too), kept exactly
+  as written and colored by its language with github.com's theme (through
+  `kf6-syntax-highlighting`'s QML module; without it code stays one
+  color). Diffs color their lines,
+  a review's `suggestion` says it is a suggested change, and Mermaid,
+  GeoJSON, TopoJSON, and STL blocks, which github.com draws, show as their
+  source. A copy button shows over a code block on hover.
+- Inline: emphasis (`**` `__` `*` `_` `~~` `~`), code spans (with a swatch
+  after a color), links (inline, reference, autolinks, bare URLs, `www.`
+  and mail addresses), math (`$...$`, `$$...$$`, and `math` blocks, set
+  as text: Greek letters, operators, fractions, roots, and scripts),
+  `:emoji:` shortcodes, backslash escapes, and HTML entities. `@user` and
+  `@org/team` mentions and `#123`, `GH-123`, `owner/repo#123`,
+  `owner/repo@sha`, and full commit SHAs link to GitHub, and links to
+  GitHub read as github.com shortens them (`#12 (comment)`, a commit's
+  short SHA).
+- HTML as GitHub lets it through: `<b>`, `<i>`, `<s>`, `<ins>`, `<sub>`,
+  `<sup>`, `<small>`, `<mark>`, `<kbd>` (a keycap), `<code>`, `<q>`, and
+  `<a href>` keep their meaning; `<img>` (its width kept, a `<picture>`
+  read as its image for the shell's dark or light scheme), `<br>`, `<pre>`, `<h1>`-`<h6>`, `<hr>`, `<table>`,
+  `<blockquote>`, and lists are the Markdown they stand for; `<p align>`,
+  `<div align>`, and `<center>` center or right-align what they hold.
+  Comments and other tags drop for their text, outside code.
+
+A body is written by anyone, so nothing it writes reaches the page as
+markup: its text is escaped wherever it shows (math and table cells
+included), and only what the plugin writes is rich text. TeX it cannot
+read shows as far as it reads, never keeping a post from showing.
+
+In-page links (`#section`, a footnote and its way back) scroll to what
+they name, opening the sections around it.
 
 What is clickable on github.com is clickable here: people (authors,
 assignees, reviewers, mentions), the repository, labels, branches, the
-commit of a run, a pull request's size (its Files changed tab, in the
-browser, like a pull request's other tabs), post times
+commit of a run, a pull request's size and commit count (its Files
+changed and Commits tabs, in the browser, like a pull request's other
+tabs), post times
 (the comment), the workflow of a run, and a job (its page on GitHub). List
 rows stay a single target (a click opens the page, the edge button opens it
 on GitHub) so a click never lands on a link by accident. A pull request,
@@ -150,9 +242,13 @@ another app does nothing but say so.
 
 Keys: arrows move, Enter opens the page (on a page: opens it on GitHub),
 Ctrl+Enter opens the row on GitHub, Tab switches tabs, Left and Right
-switch filters, Delete marks a notification read, Ctrl+R refreshes, `c`
-focuses the comment box, Ctrl+Enter posts, Escape goes back and then closes
-(the popout; a window stays).
+switch filters, Ctrl+R refreshes, `c` focuses the comment box, Ctrl+Enter
+posts, Escape goes back and then closes (the popout; a window stays). In
+the Inbox, Space checks the row (Ctrl+Space while the search has text),
+and Delete marks the checked threads done, or the row when none is checked
+(github.com's E; the search field keeps Delete while there is text after
+the cursor); Ctrl+I marks them read and Ctrl+M unsubscribes (github.com's
+Shift+I and Shift+M, which would type into the search here).
 
 Right click on the mark opens its menu: each tab with its count, Open in a
 window, Refresh, Open github.com, and Settings, which opens the DMS settings
@@ -202,30 +298,58 @@ many bars show the mark.
 | One repository's lists | `gh api graphql` with `queries/inbox.graphql` (operation `Repository`), one request |
 | Repositories by name, for the picker | `gh search repos` |
 | The next page of a list, or a search | `gh api graphql` with `queries/inbox.graphql` (operation `Page`) |
-| Unread notifications | `gh api notifications` (the newest 50), the next ones with `before=` the oldest loaded |
+| Unread notifications (the dot, the counts, desktop notifications) | `gh api notifications` (the newest 50) |
+| The Inbox | `gh api notifications?all=true` (or `repos/<owner>/<name>/notifications?all=true`), 50 at a time, the next ones with `before=` the oldest loaded |
+| What each Inbox subject is now (state, author) | `gh api graphql` with one `issueOrPullRequest` per subject, each repository once, per page |
 | Mark a notification read | `gh api -X PATCH notifications/threads/<id>` |
-| Mark all as read | `gh api -X PUT notifications -f last_read_at=<newest>` |
+| Mark all as read | `gh api -X PUT notifications -f last_read_at=<newest>` (or `repos/<owner>/<name>/notifications`) |
+| Mark as done | `gh api -X DELETE notifications/threads/<id>` |
+| Unsubscribe | `gh api -X PUT notifications/threads/<id>/subscription -F ignored=true`, then mark as done |
 | Desktop notifications | `notify-send` (no GitHub access) |
 | Runs | `gh run list -R <repo>` per watched repository, or for the repository picked |
-| A pull request's or an issue's page: the page, what you may change there, what it links to, relationships, subscription, reviews and inline threads, and the rendered HTML behind its images | `gh api graphql` with `queries/detail.graphql` (operation `PullRequest` or `Issue`), one request |
+| A pull request's or an issue's page: the page, what you may change there, what it links to, relationships, subscription, reviews and inline threads, and every post's reactions | `gh api graphql` with `queries/detail.graphql` (operation `PullRequest` or `Issue`), one request |
+| The signed URLs of a page's images and videos (and which images move) | `gh api graphql` with `queries/detail.graphql` (operation `Rendered`), only for the posts whose Markdown names an image or a video, kept three minutes |raphql` with `queries/detail.graphql` (operation `PullRequest` or `Issue`), one request |
 | A run's page | `gh run view`, and `queries/detail.graphql` (operation `Permission`, once per repository) for re-run and cancel |
 | A finished job's log | `gh api --allow-escape-sequences repos/<owner>/<name>/actions/jobs/<id>/logs` |
 | A linked `#N` (issue or pull request) | `gh api graphql` with `queries/inbox.graphql` (operation `Resolve`) |
 | People who can be assigned | `gh api graphql` with `queries/assignees.graphql` |
 | Assign or unassign | `gh issue edit` / `gh pr edit` with `--add-assignee` / `--remove-assignee` |
 | Subscribe or unsubscribe | `gh api graphql` with `updateSubscription` (needs the `notifications` scope) |
+| Who reacted (asked for when the pointer rests on a reaction, kept a minute) | `gh api graphql` with `queries/detail.graphql` (operation `Reactors`) |
+| Add or remove a reaction | `gh api graphql` with `addReaction` / `removeReaction` |
 | Reply to a thread | `gh api -X POST repos/<repo>/pulls/<n>/comments/<id>/replies` |
 | Resolve or unresolve a thread | `gh api graphql` with `resolveReviewThread` / `unresolveReviewThread` |
 | Changes | `gh pr review/merge/ready/close/reopen/comment`, `gh issue close/reopen/comment`, `gh run rerun/cancel` |
 
-Images are the one thing loaded outside gh, and none carries a credential.
-A body names an attachment by a github.com URL that only a signed-in
-browser can open, so the page's request also brings its rendered HTML,
-where GitHub hands out short-lived signed image URLs (external images come
-through GitHub's own image proxy), and the plugin loads exactly those; an
-image without such a URL stays a link. The profile pictures in post headers
-are GitHub's public avatars (`avatars.githubusercontent.com/<login>`), with
-the initial standing in when there is none.
+Images and videos are the one thing loaded outside gh, and none carries a
+credential. A body names an attachment by a github.com URL that only a
+signed-in browser can open, so the plugin asks for the rendered HTML of the
+posts that name images or videos (right after the page, which shows its
+text meanwhile; rendering every body would slow each page by about half a
+second), where GitHub hands out signed URLs that last five minutes
+(external images come through GitHub's own image proxy), and loads exactly
+those; one without such a URL stays a link. A page opened again within
+three minutes reuses them, so its pictures come from the cache, and a
+picture or a video whose URL expired before it loaded asks for new ones
+(one request for everything that asks meanwhile). A picture of pixels (a
+screenshot) decodes no wider than 1,600 pixels; a drawing (an SVG badge)
+keeps its own size.
+
+Qt plays an animated image (a GIF) from its download only once, so each
+one GitHub marks as animated is copied, from its signed URL, into the
+session's runtime directory (in memory), and plays on a loop from there.
+curl makes the copy, the one download without gh: it is handed the signed
+URL and nothing else (no header, no credential, HTTPS only) and writes
+straight to the file, so the shell never holds the download. The copies
+are bounded: none larger than 40 MB (a response that does not say its size
+included) or slower than a minute, two at a time, 160 MB in all (the least
+lately shown go first), cleared when the shell starts, and one that failed
+is not tried again for ten minutes. A picture plays only while it is in
+view.
+
+The profile pictures in post headers are GitHub's public avatars
+(`avatars.githubusercontent.com/<login>`), with the initial standing in
+when there is none.
 
 ## Staying within GitHub's limits
 
@@ -245,12 +369,16 @@ popout or window showing, the plugin uses:
 
 While the popout or a window shows, the lists refresh in full on the same
 interval (one request of 2 points) and when they come on screen more than
-20 seconds old, runs in progress poll every 15 seconds (only the
+20 seconds old, the Inbox on screen when it comes on screen, every two
+minutes, and when the unread notifications change (one REST request for
+its newest page, and one GraphQL request of about a point for the subjects
+that changed), runs in progress poll every 15 seconds (only the
 repositories with a running run), the Actions tab asks for new runs every
 minute, and a picked repository costs one request (a few points) when it
-opens and every two minutes while it shows, plus its runs. A comment, a reply, or a resolved
-thread refreshes only its page; a change that moves an item between lists
-(merge, close, reopen, approve, ready, assign) refreshes the lists too.
+opens and every two minutes while it shows, plus its runs. A comment, a
+reply, or a resolved thread refreshes only its page; a change that moves
+an item between lists (merge, close, reopen, approve, ready, assign)
+refreshes the lists too.
 
 Search results trail a change by a few seconds, so an item you merge,
 close, reopen, or approve leaves the lists it no longer belongs in right
@@ -261,14 +389,27 @@ requests only).
 
 Settings > Plugins > GitHub (or Settings in the mark's right-click menu):
 what the bar counts, the unread dot, desktop notifications, the background
-refresh interval (5 minutes by default), and the repositories the Actions
-tab watches (the five most recently pushed repositories you own or work in
-when the list is empty).
+refresh interval (5 minutes by default), how long the popout keeps your
+place, and the repositories the Actions tab watches (the five most recently
+pushed repositories you own or work in when the list is empty).
 
-Dependencies: `gh`, and `notify-send` (libnotify) for desktop notifications;
-without notify-send the widget works and says so when a notification would
-have gone out. If `gh auth switch` changes the account, the plugin notices
-on its next answer (at the latest on the next refresh interval), drops
+The popout keeps your place for a while (5 minutes by default): dismissed
+by a click elsewhere and opened again from the bar within that time, it
+shows what it showed, the issue, pull request, or run scrolled where it was
+(brought up to date if it has been away more than 20 seconds), the tab, the
+search, and any draft. Later, or opened for something in particular (a tab
+from the bar's menu or IPC, a desktop notification), it starts over at the
+list.
+
+Dependencies: `gh`, `notify-send` (libnotify) for desktop notifications,
+`kf6-syntax-highlighting` for colored code, `qt6-qtmultimedia` for video
+attachments, and `curl` for animated images; without notify-send the
+widget works and says so when a notification would have gone out, without
+syntax highlighting code shows in one color, without Qt Multimedia a video
+is a link to GitHub, and without curl an animated image shows still.
+
+If `gh auth switch` changes the account, the plugin notices on its next
+answer (at the latest on the next refresh interval), drops
 everything it kept for the old account, answers still on their way
 included, and starts over for the new one; a page on screen starts over
 too, and a close waiting behind its comment does not go out as the new
@@ -277,12 +418,18 @@ account.
 ## Code
 
 `GitHubLogic.js` holds the pure logic (what each list asks, how answers
-become rows and pages, links, Markdown, job logs, what a change hides or
-announces) and is tested directly under Node (`tests/github_plugin.bats`).
-`GitHubData.qml` asks gh and keeps the answers; the same tests run it in a
-headless Quickshell with gh scripted (`tests/support/github_data`), answers
-in any order. `GitHubDaemon.qml` owns it, the background polls, the desktop
+become rows and pages, links, job logs, what a change hides or announces)
+and `GitHubMarkdown.js` reads the bodies; both are tested directly under
+Node (`tests/github_plugin.bats`). `GitHubEmoji.js` maps GitHub's emoji
+shortcodes to their characters (`tests/support/github_emoji.js`
+regenerates it from `gh api emojis`). `GitHubData.qml` asks gh and keeps
+the answers; the same tests run it in a headless Quickshell with gh
+scripted (`tests/support/github_data`), answers in any order.
+`GitHubDaemon.qml` owns it, the background polls, the desktop
 notifications, and the windows; `GitHubWidget.qml` is a bar's mark, menu,
 and popout; `GitHubPanel.qml` the lists (which poll what they show while on
 screen); and `GitHubDetail.qml` a page, with `GitHubPost.qml` (the
-conversation) and `GitHubJobs.qml` (a run's jobs and logs).
+conversation, its bodies drawn by `GitHubMarkdown.qml`, their code colored
+by `GitHubHighlighter.qml` and a video played by `GitHubVideo.qml`) and
+`GitHubJobs.qml` (a run's jobs and logs). `GitHubScrollPlace.qml` keeps
+where the list and a page were scrolled while the popout is away.

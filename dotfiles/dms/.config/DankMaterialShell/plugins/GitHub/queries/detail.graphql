@@ -1,21 +1,28 @@
 # A detail page in one request, picked with operationName: the page as
 # gh's own view shows it, what the viewer may change there, what it links
-# to, and the rendered HTML of every body (read only for the image URLs
-# GitHub signs for its viewer). PullRequest also brings its checks (the
-# first 100, and GitHub's verdict over all of them), reviews, and inline
-# review threads; Issue its parent, sub-issues, and the issues it is blocked
-# by or blocking. The long conversations stop at their newest
-# 100 comments, reviews, and threads, and say how many there are in all.
-# Permission is what a run page needs: whether the viewer may re-run or
-# cancel.
+# to, and the reactions of every post (the description, comments, reviews,
+# and review thread comments), with whether the viewer may react.
+# PullRequest also brings its checks (the first 100, and GitHub's verdict
+# over all of them), reviews, and inline review threads; Issue its parent,
+# sub-issues, and the issues it is blocked by or blocking. The long
+# conversations stop at their newest 100 comments, reviews, and threads,
+# and say how many there are in all. Permission is what a run page needs:
+# whether the viewer may re-run or cancel. Rendered is the HTML GitHub
+# renders for the posts whose Markdown names images or videos, read only
+# for the media URLs GitHub signs for its viewer; asked for apart, since
+# rendering every body takes GitHub a good part of a page's time and most
+# name none. Reactors is who gave a post's reactions (the first 10 of
+# each), asked for only when the pointer rests on one, since asking with
+# the page would multiply its cost by every post's eight reactions.
 query PullRequest($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     nameWithOwner
     viewerPermission
     viewerDefaultMergeMethod
     pullRequest(number: $number) {
-      id number title url state isDraft body bodyHTML createdAt
+      id number title url state isDraft body createdAt
       author { login }
+      ...reactions
       baseRefName headRefName headRefOid
       headRepository { nameWithOwner }
       additions deletions changedFiles
@@ -38,6 +45,7 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
         }
       }
       commits(last: 1) {
+        totalCount
         nodes {
           commit {
             statusCheckRollup {
@@ -55,7 +63,7 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
         }
       }
       closingIssuesReferences(first: 10) { nodes { ...related } }
-      reviews(last: 100) { totalCount nodes { databaseId state body bodyHTML submittedAt url author { login } } }
+      reviews(last: 100) { totalCount nodes { databaseId state body submittedAt url author { login } ...reactions } }
       reviewThreads(last: 100) {
         totalCount
         nodes {
@@ -63,7 +71,7 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
           viewerCanReply viewerCanResolve viewerCanUnresolve
           comments(first: 50) {
             totalCount
-            nodes { databaseId body bodyHTML createdAt url diffHunk author { login } pullRequestReview { databaseId } }
+            nodes { databaseId body createdAt url diffHunk author { login } pullRequestReview { databaseId } ...reactions }
           }
         }
       }
@@ -76,8 +84,9 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
     nameWithOwner
     viewerPermission
     issue(number: $number) {
-      id number title url state stateReason body bodyHTML createdAt
+      id number title url state stateReason body createdAt
       author { login }
+      ...reactions
       viewerCanClose viewerCanReopen viewerCanUpdate viewerCanAssign locked
       viewerCanSubscribe viewerSubscription viewerThreadSubscriptionStatus viewerThreadSubscriptionFormAction
       labels(first: 20) { nodes { name color } }
@@ -93,6 +102,32 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
   }
 }
 
+query Rendered($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Comment { id bodyHTML }
+  }
+}
+
+query Reactors($id: ID!) {
+  node(id: $id) {
+    ... on Reactable {
+      reactionGroups {
+        content
+        reactors(first: 10) {
+          totalCount
+          nodes {
+            __typename
+            ... on User { login name }
+            ... on Organization { login name }
+            ... on Bot { login }
+            ... on Mannequin { login }
+          }
+        }
+      }
+    }
+  }
+}
+
 query Permission($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
     viewerPermission
@@ -101,10 +136,16 @@ query Permission($owner: String!, $name: String!) {
 
 fragment comment on IssueComment {
   body
-  bodyHTML
   createdAt
   url
   author { login }
+  ...reactions
+}
+
+fragment reactions on Reactable {
+  id
+  viewerCanReact
+  reactionGroups { content viewerHasReacted reactors { totalCount } }
 }
 
 fragment related on Issue {

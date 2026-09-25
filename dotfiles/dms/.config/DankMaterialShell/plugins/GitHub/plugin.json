@@ -19,11 +19,13 @@
   "requires_dms": ">=1.5.0",
   "dependencies": [
     "gh",
-    "notify-send"
+    "notify-send",
+    "curl"
   ],
   "permissions": [
     "settings_read",
     "settings_write",
-    "process"
+    "process",
+    "network"
   ]
 }

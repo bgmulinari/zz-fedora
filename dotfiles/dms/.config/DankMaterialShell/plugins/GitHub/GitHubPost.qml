@@ -1,12 +1,11 @@
 import QtQuick
-import Quickshell.Widgets
 import qs.Common
 import qs.Widgets
 import "GitHubLogic.js" as Logic
 
 // One post of a page's conversation, as github.com draws it: a header bar
 // (who, a review's verdict, when, and a copy of the Markdown), the body,
-// and, for a review, the inline threads it started. page is the
+// its reactions, and, for a review, the inline threads it started. page is the
 // GitHubDetail it sits on, which opens links and answers threads.
 Rectangle {
     id: post
@@ -21,6 +20,8 @@ Rectangle {
     property string source: ""
     property string placeholder: ""
     property var threads: []
+    // Logic.reactionsOf, or null.
+    property var reactions: null
 
     readonly property color verdictColor: verdict === "APPROVED" ? Theme.success : (verdict === "CHANGES_REQUESTED" ? Theme.error : Theme.surfaceVariantText)
 
@@ -71,7 +72,8 @@ Rectangle {
             width: parent.width - Theme.spacingM - (postCopy.visible ? postCopy.width + Theme.spacingS * 2 : Theme.spacingM)
             spacing: Theme.spacingS
 
-            Avatar {
+            GitHubAvatar {
+                page: post.page
                 login: post.login
                 size: 20
             }
@@ -139,7 +141,7 @@ Rectangle {
         id: body
         // From the post's own content: a child's visible is false while
         // this column is hidden, so it cannot decide this column's.
-        visible: post.source !== "" || post.placeholder !== "" || post.threads.length > 0
+        visible: post.source !== "" || post.placeholder !== "" || post.threads.length > 0 || !!post.reactions
         x: Theme.spacingM
         y: header.height + 1 + Theme.spacingM
         width: parent.width - Theme.spacingM * 2
@@ -150,6 +152,12 @@ Rectangle {
             width: parent.width
             page: post.page
             source: post.source !== "" ? post.source : post.placeholder
+        }
+
+        GitHubReactions {
+            width: parent.width
+            info: post.reactions
+            page: post.page
         }
 
         Repeater {
@@ -328,7 +336,8 @@ Rectangle {
                             id: commentHeader
                             spacing: Theme.spacingS
 
-                            Avatar {
+                            GitHubAvatar {
+                                page: post.page
                                 anchors.verticalCenter: parent.verticalCenter
                                 login: Logic.loginOf(threadComment.modelData)
                                 size: 16
@@ -369,6 +378,12 @@ Rectangle {
                         width: parent.width
                         page: post.page
                         source: String(threadComment.modelData.body || "")
+                    }
+
+                    GitHubReactions {
+                        width: parent.width
+                        info: Logic.reactionsOf(threadComment.modelData)
+                        page: post.page
                     }
                 }
             }
@@ -437,48 +452,6 @@ Rectangle {
             font.pixelSize: Theme.fontSizeSmall - 1
             font.weight: Font.Medium
             color: parent.tone
-        }
-    }
-
-    // A person's GitHub picture, round, from GitHub's public avatar host (no
-    // credential involved); the initial stands in while it loads or when
-    // there is none (an app or a bot). It opens the profile.
-    component Avatar: ClippingRectangle {
-        id: avatar
-        property string login: ""
-        property int size: 20
-        readonly property bool loaded: picture.status === Image.Ready
-
-        width: size
-        height: size
-        radius: size / 2
-        color: Theme.withAlpha(Theme.surfaceText, 0.12)
-
-        StyledText {
-            visible: !avatar.loaded
-            anchors.centerIn: parent
-            text: avatar.login.charAt(0).toUpperCase()
-            font.pixelSize: Math.round(avatar.size * 0.55)
-            font.weight: Font.DemiBold
-            color: Theme.surfaceVariantText
-        }
-
-        Image {
-            id: picture
-            anchors.fill: parent
-            source: avatar.login !== "" && avatar.login !== "ghost" ? "https://avatars.githubusercontent.com/" + encodeURIComponent(avatar.login) + "?s=" + (avatar.size * 3) : ""
-            sourceSize: Qt.size(avatar.size * 3, avatar.size * 3)
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: true
-            cache: true
-            smooth: true
-            mipmap: true
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: post.page.openLink(Logic.profileUrl(avatar.login))
         }
     }
 }

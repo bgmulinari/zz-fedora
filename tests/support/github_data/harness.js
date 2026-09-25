@@ -23,6 +23,14 @@ function fakeGh(data) {
         call.answered = true;
         call.done(code || 0, typeof out === "string" ? out : JSON.stringify(out), err || "");
     };
+    // The next request for an inbox's first page (not a page before a
+    // thread), in the scope's path.
+    gh.firstPage = path => {
+        const found = gh.waiting((path || "notifications") + "?all=true").filter(call => call.line.indexOf("before=") < 0);
+        if (found.length === 0)
+            throw new Error("no inbox first page waiting\nwaiting: " + gh.waiting().map(call => call.line).join("\n"));
+        return found[0];
+    };
     // The next call of a GraphQL operation, answered.
     gh.op = (name, out, code, err) => gh.answer(gh.next("operationName=" + name), out, code, err);
     return gh;
