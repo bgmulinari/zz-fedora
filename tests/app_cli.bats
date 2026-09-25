@@ -353,6 +353,31 @@ EOF2
   [ "$status" -eq 0 ]
 }
 
+@test "npm global packages install, register, and uninstall in the user's ~/.local prefix" {
+  local prefix="$TARGET_HOME/.local"
+  DRY_RUN=1
+
+  run install_npm_global_package "@openai/codex"
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "DRY-RUN: npm install -g --prefix $prefix @openai/codex"
+  refute_contains "$output" "sudo"
+
+  run remove_choice_action "npm-global:@openai/codex"
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "DRY-RUN: npm uninstall -g --prefix $prefix @openai/codex"
+  refute_contains "$output" "sudo"
+
+  run verify_npm_global_package "@openai/codex"
+  [ "$status" -ne 0 ]
+  mkdir -p "$prefix/lib/node_modules/@openai/codex" "$prefix/lib/node_modules/typescript"
+  touch "$prefix/lib/node_modules/@openai/codex/package.json" "$prefix/lib/node_modules/typescript/package.json"
+  run verify_npm_global_package "@openai/codex"
+  [ "$status" -eq 0 ]
+  run npm_global_packages
+  [ "$status" -eq 0 ]
+  assert_equal $'@openai/codex\ntypescript' "$(sort <<<"$output")"
+}
+
 @test "installed state requires a unit's product links, not only its packages" {
   choice_item_present() { return 0; }
 

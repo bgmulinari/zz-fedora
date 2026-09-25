@@ -24,6 +24,7 @@ shell-zoxide	~/.config/zz-fedora/shell.d/zoxide	product-link	backup-before-link	
 zsh	~/.zshrc	seed-if-missing	preserve	templates/shell/zshrc	zsh	Seeds a user-owned Zsh entrypoint that loads the live ZZ shell defaults.
 zsh	~/.zprofile	product-link	backup-before-link	dotfiles/zsh/.zprofile	zsh	Links the ZZ-managed Zsh login environment so Niri and user services inherit the managed desktop session variables.
 environment	/usr/lib/environment.d/10-zz-desktop.conf	system-file	regenerate	dotfiles/environment/.config/environment.d/10-zz-desktop.conf	-	Installs the ZZ-managed desktop session environment.
+npm	/etc/npmrc	system-file	regenerate	dotfiles/npm/npmrc	npm	Installs the ZZ-managed npm global configuration that keeps global packages in each user's ~/.local.
 portals	/etc/xdg/xdg-desktop-portal/niri-portals.conf	system-file	regenerate	dotfiles/portals/.config/xdg-desktop-portal/niri-portals.conf	-	Installs the ZZ-managed desktop portal preference map.
 niri	~/.config/niri/config.kdl	seed-if-missing	preserve	dotfiles/niri/.config/niri/config.kdl	niri	Seeds the user-owned Niri entrypoint over the live ZZ defaults.
 niri	~/.config/niri/dms/colors.kdl	seed-if-missing	preserve	templates/niri/dms-colors.kdl	niri	Seeds the generated DMS Niri theme include.

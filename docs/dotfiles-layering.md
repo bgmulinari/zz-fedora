@@ -55,6 +55,7 @@ live ZZ defaults first and a user override last:
 | Screenshot annotation | `~/.config/satty/config.toml` (seeded once, then user-owned; the shipped screenshot keybinds pipe every capture into this editor) | `templates/satty/config.toml` |
 | Bash | `~/.bashrc` and `~/.shellrc.d/` | `dotfiles/shell/.bashrc`; selected product integrations are linked under `~/.config/zz-fedora/shell.d/` |
 | Zsh | `~/.zshrc`, `~/.shellrc.d/`, and `~/.zshrc.d/` | `dotfiles/zsh/.zshrc` and the same selected product integration links |
+| npm | `~/.npmrc` (user overrides such as a different `prefix`) | `dotfiles/npm/npmrc`, installed as `/etc/npmrc`: global packages go to each user's `~/.local` (`~/.local/lib/node_modules`, commands in `~/.local/bin`), so `npm install -g` needs no root and CLI self-updaters work; ZZ's own npm actions, `zz app remove`, and `zz update npm` run as the user against that prefix |
 | Claude Code | `~/.claude/settings.json` (seeded once with commit and pull request attribution off, then owned by the user and Claude Code's own menus) | `templates/claude/settings.json` |
 | Assistant skills | none; the links are product-owned | `dotfiles/agent-skills/.agents/skills/zz/`, linked as `~/.agents/skills/zz`, `~/.claude/skills/zz`, `~/.codex/skills/zz`, and `~/.pi/agent/skills/zz` |
 

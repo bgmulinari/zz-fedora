@@ -1,0 +1,7 @@
+# ZZ-managed npm global configuration, installed as /etc/npmrc.
+#
+# Global packages install per user under ~/.local (modules in
+# ~/.local/lib/node_modules, commands in ~/.local/bin, already on PATH), so
+# `npm install -g` needs no root and CLI self-updaters can replace themselves.
+# Override any of this in ~/.npmrc.
+prefix=${HOME}/.local

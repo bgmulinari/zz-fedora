@@ -41,6 +41,11 @@ Session environment (PATH order, Wayland and toolkit variables) comes from
 session-wide by the product login profile (nvim when installed, else vi) so DMS and the
 ZZ menu open the same editor as the terminal; override them in `environment.d` too.
 
+Global npm packages are per user: the ZZ system file `/etc/npmrc` sets the prefix to
+`~/.local`, so `npm install -g` and `npm update -g` run without `sudo` and install commands
+into `~/.local/bin`. Never use `sudo npm`; it installs into root's home instead. A
+different prefix goes in `~/.npmrc`.
+
 ## Starship
 
 `~/.config/starship.toml` is user-owned. DMS rewrites only the `[palettes.zz]` block

@@ -209,7 +209,7 @@ run_root_cmd() {
 
 root_required_for_target() {
   case "$1" in
-    all|dnf|flatpak|npm|cleanup) return 0 ;;
+    all|dnf|flatpak|cleanup) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -365,7 +365,8 @@ update_npm() {
     command_missing_summary npm npm
     return 0
   }
-  if run_root_cmd "$npm_bin" update -g; then
+  # Global packages live in the user's ~/.local prefix (see /etc/npmrc).
+  if run_user_cmd "$npm_bin" update -g --prefix "$RUN_HOME/.local"; then
     set_update_summary npm ok "global packages updated"
     return 0
   fi

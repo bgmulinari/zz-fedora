@@ -49,7 +49,7 @@ make_fake_sudo_passthrough() {
   assert_contains "$output" "DRY-RUN: sudo $FAKE_BIN/flatpak update -y"
   assert_contains "$output" "DRY-RUN: $FAKE_BIN/brew update"
   assert_contains "$output" "DRY-RUN: $FAKE_BIN/brew upgrade -y"
-  assert_contains "$output" "DRY-RUN: sudo $FAKE_BIN/npm update -g"
+  assert_contains "$output" "DRY-RUN: $FAKE_BIN/npm update -g --prefix $HOME/.local"
   assert_contains "$output" "DRY-RUN: install supported .NET SDK channels"
   assert_contains "$output" "DRY-RUN: update installed .NET global tools"
   assert_contains "$output" "DRY-RUN: $FAKE_BIN/claude update"

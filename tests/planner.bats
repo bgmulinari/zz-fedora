@@ -142,6 +142,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/DankMaterialShell/themes/catppuccin/theme.json"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/niri/dms/colors.kdl"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/share/nautilus-python/extensions/zz-copy-path.py"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "/etc/npmrc"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:avengemedia/danklinux\tbase-login-manager'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tdms-greeter\tbase-login-manager\tdesktop-service\tgraphical login'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tdms\tbase-dms\tdms\tDMS shell'

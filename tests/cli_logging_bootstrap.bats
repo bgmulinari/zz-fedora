@@ -28,7 +28,8 @@ setup() {
   assert_contains "$output" "==> [5/10] Optional Packages"
   assert_contains "$output" "==> [6/10] Custom Actions"
   assert_contains "$output" "==> [10/10] Doctor"
-  assert_contains "$output" "sudo npm install -g @openai/codex"
+  # The installer resolves the target user's home from passwd, not $HOME.
+  assert_contains "$output" "DRY-RUN: npm install -g --prefix $(getent passwd "$(id -un)" | cut -d: -f6)/.local @openai/codex"
   assert_contains "$output" "DRY-RUN: user login shell: brew list 'opencode' >/dev/null 2>&1 || brew install 'opencode'"
   assert_contains "$output" "DRY-RUN: install supported .NET SDK channels"
   assert_contains "$output" "jetbrains-mono-nerd-font"

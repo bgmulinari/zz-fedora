@@ -115,11 +115,9 @@ prime_choice_state() {
       [[ -n "$name" ]] && INSTALLED_BREW_FORMULAE["$name"]=1
     done < <("$BREW_PREFIX/bin/brew" list --formula -1 2>/dev/null || true)
   fi
-  if have_cmd npm; then
-    while IFS= read -r name; do
-      [[ -n "$name" ]] && INSTALLED_NPM_GLOBALS["$name"]=1
-    done < <(npm ls -g --depth=0 --parseable --long 2>/dev/null | awk -F: 'NR > 1 && NF > 1 { sub(/@[^@]*$/, "", $2); print $2 }' || true)
-  fi
+  while IFS= read -r name; do
+    [[ -n "$name" ]] && INSTALLED_NPM_GLOBALS["$name"]=1
+  done < <(npm_global_packages)
   while IFS= read -r name; do
     [[ -n "$name" ]] && INSTALLED_DOTNET_TOOLS["$name"]=1
   done < <(dotnet_installed_tools)
@@ -407,9 +405,7 @@ remove_choice_action() {
       run_user_login_shell "brew list '$package' >/dev/null 2>&1 && brew uninstall '$package' || true"
       ;;
     npm-global)
-      package="$ACTION_DISPATCH_ARG"
-      log_progress "Removing npm global package: $package"
-      run_cmd_as_root npm uninstall -g "$package"
+      remove_npm_global_package "$ACTION_DISPATCH_ARG"
       ;;
     dotnet-tool)
       remove_dotnet_tool "$ACTION_DISPATCH_ARG"

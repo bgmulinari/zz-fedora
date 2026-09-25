@@ -214,7 +214,8 @@ branch is the update source.
 
 Package/tool update targets are `dnf`, `flatpak`, `brew`, `npm`, `dotnet`,
 `dotnet-sdk`, `dotnet-tools`, `claude`, and `cleanup`. Run `zz update --help`
-for details.
+for details. `npm` updates the global packages in the user's `~/.local` prefix
+without root.
 
 ## Installing and removing applications
 

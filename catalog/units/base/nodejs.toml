@@ -1,5 +1,6 @@
 id = "base-nodejs"
-description = "Node.js and npm runtime for JavaScript-based CLI tools"
+description = "Node.js and npm runtime for JavaScript-based CLI tools, with global packages in ~/.local"
+config = ["npm"]
 
 [base]
 order = 210
