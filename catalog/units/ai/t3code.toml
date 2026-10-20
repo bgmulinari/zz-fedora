@@ -1,0 +1,15 @@
+id = "ai-t3code"
+description = "T3 Code desktop app from Terra"
+
+[choice]
+category = "ai"
+id = "t3code"
+label = "T3 Code"
+default = true
+order = 17
+description = "Desktop interface for coding agents such as Codex and Claude Code"
+
+[[install]]
+backend = "dnf"
+sources = ["terra"]
+packages = ["t3code"]
