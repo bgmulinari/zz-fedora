@@ -29,7 +29,10 @@ The implementation follows Fedora/Lorax's Kickstart ISO approach:
   instead.
   It also installs an Anaconda configuration snippet that hides the built-in
   `SoftwareSelectionSpoke`; all optional setup choices are made in the
-  `ZZ Fedora` spoke under Anaconda's existing Software section.
+  `ZZ Fedora` spoke under Anaconda's existing Software section. The snippet also
+  hides the built-in `UserSpoke`, replaced in both UIs by `ZZUserSpoke`. This
+  subclass reuses Anaconda's account screen and completion checks while keeping
+  it mandatory even when root is configured, so root-only installs cannot begin.
 - The product image installs D-Bus policy and service activation files for
   `org.fedoraproject.Anaconda.Addons.ZZFedora`. Anaconda starts that module
   with its other add-ons, collects its `install_with_tasks()` task, and displays

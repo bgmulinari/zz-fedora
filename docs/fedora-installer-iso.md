@@ -122,7 +122,9 @@ can resolve different repository revisions.
 
 1. Write the generated ISO to USB.
 2. Boot the Fedora install entry.
-3. Complete the Anaconda screens, including creating a regular user.
+3. Complete the Anaconda screens, including creating a regular user. User
+   Creation is required in both the graphical and text installers, even when
+   the root account is configured; installation cannot begin with only root.
 4. Configure networking or the installation-source proxy if necessary. The
    `ZZ Fedora` spoke waits for source setup, then fetches and validates the
    current `main` runtime. If the installer cannot reach GitHub, the spoke

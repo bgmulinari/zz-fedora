@@ -7,6 +7,53 @@ setup() {
   setup_test_env
 }
 
+@test "Anaconda GUI and TUI require user creation even when root is configured" {
+  # shellcheck source=../lib/common.sh
+  source "$ROOT_DIR/lib/common.sh"
+  run env ZZ_REPO_ROOT="$ROOT_DIR" "$SYSTEM_PYTHON" - <<'PY'
+import configparser
+import importlib.util
+import os
+import sys
+import types
+from pathlib import Path
+
+repo = Path(os.environ["ZZ_REPO_ROOT"])
+config = configparser.ConfigParser()
+config.read(repo / "iso/anaconda-addon-data/conf.d/100-zz-fedora.conf")
+hidden = config["User Interface"]["hidden_spokes"].split()
+assert "UserSpoke" in hidden
+assert "ZZUserSpoke" not in hidden
+assert "PasswordSpoke" not in hidden
+
+for mode in ("gui", "tui"):
+    # Anaconda considers user creation optional when root is configured.
+    upstream = types.ModuleType(f"pyanaconda.ui.{mode}.spokes.user")
+    class UserSpoke:
+        mandatory = False
+        completed = False
+    upstream.UserSpoke = UserSpoke
+    sys.modules[upstream.__name__] = upstream
+
+    path = repo / f"iso/anaconda-addon/org_zz_fedora/{mode}/spokes/user.py"
+    spec = importlib.util.spec_from_file_location(f"zz_{mode}_user", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.__all__ == ["ZZUserSpoke"]
+    assert issubclass(module.ZZUserSpoke, UserSpoke)
+    spoke = module.ZZUserSpoke()
+    assert spoke.mandatory and not spoke.completed
+    # Keep Anaconda's completion state: a created user satisfies the gate,
+    # and removing that user blocks installation again.
+    UserSpoke.completed = True
+    assert spoke.mandatory and spoke.completed
+    UserSpoke.completed = False
+    assert spoke.mandatory and not spoke.completed
+PY
+
+  [ "$status" -eq 0 ]
+}
+
 @test "Anaconda GUI and TUI profile controls update and persist selections" {
   run python3 "$ROOT_DIR/tests/support/anaconda_profile_controls.py"
 
