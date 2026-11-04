@@ -1,5 +1,6 @@
 id = "ai-t3code"
-description = "T3 Code desktop app from Terra"
+description = "T3 Code desktop app from Terra, following the DMS theme"
+config = ["t3code-theme"]
 
 [choice]
 category = "ai"
@@ -13,3 +14,7 @@ description = "Desktop interface for coding agents such as Codex and Claude Code
 backend = "dnf"
 sources = ["terra"]
 packages = ["t3code"]
+
+[[install]]
+backend = "action"
+actions = ["t3code-theme"]

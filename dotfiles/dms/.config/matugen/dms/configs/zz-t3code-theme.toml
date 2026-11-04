@@ -1,0 +1,7 @@
+# ZZ-managed matugen drop-in. T3 Code publishes whatever sits in its themes
+# directory and rereads it on change, so the palette renders to a cache file
+# and the post-hook moves a copy into place in one step.
+[templates.zzt3code]
+input_path = '~/.zz/dotfiles/dms/.config/matugen/templates/t3code-theme.json'
+output_path = '~/.cache/DankMaterialShell/t3code-theme.json'
+post_hook = 'sh -c "command -v zz-sync-t3code-theme >/dev/null 2>&1 && zz-sync-t3code-theme || true"'

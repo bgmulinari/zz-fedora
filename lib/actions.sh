@@ -50,6 +50,8 @@ source "$ROOT_DIR/lib/actions/vscode.sh"
 source "$ROOT_DIR/lib/actions/firefox-theme.sh"
 # shellcheck source=./actions/browser-theme.sh
 source "$ROOT_DIR/lib/actions/browser-theme.sh"
+# shellcheck source=./actions/t3code-theme.sh
+source "$ROOT_DIR/lib/actions/t3code-theme.sh"
 # shellcheck source=./actions/claude-code.sh
 source "$ROOT_DIR/lib/actions/claude-code.sh"
 # shellcheck source=./actions/jetbrains.sh

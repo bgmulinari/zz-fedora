@@ -24,6 +24,7 @@ for Qt/KDE apps, Adwaita Sans for normal text, and JetBrainsMono Nerd Font for m
 | Starship | `[palettes.zz]` block in `~/.config/starship.toml` | delete the marker comments to opt out |
 | Icon theme (GTK, shell) | Yaru variant nearest the accent, applied to gsettings and DMS | set another icon theme in Settings > Theme |
 | Icon theme (Qt/KDE) | Breeze Dark in `~/.config/qt6ct/qt6ct.conf` and `kdeglobals`; not synced | change it in qt6ct |
+| T3 Code | theme `DMS`, published to `~/.t3/userdata/themes/dms.json` and selected once at install | choose another theme in T3 Code |
 | VS Code | theme `Dynamic Base16 DankShell` (extension `danklinux.dms-theme`) | choose another theme in VS Code |
 | Zed | `DankShell Dark` / `DankShell Light` | choose another theme in Zed |
 | Firefox | Pywalfox, installed with the browser and initialized automatically on first launch | disable the extension |
@@ -54,7 +55,8 @@ it before debugging DMS.
 ## Adding your own matugen template
 
 DMS appends every `*.toml` under `~/.config/matugen/dms/configs/` to its matugen run.
-The ZZ drop-ins there (`zz-icon-theme.toml`, `zz-starship.toml`, `zz-btop.toml`) are
+The ZZ drop-ins there (`zz-icon-theme.toml`, `zz-starship.toml`, `zz-btop.toml`, and
+others tied to a selected app, such as `zz-t3code-theme.toml`) are
 product links; add a personal file beside them to render another template on every
 theme change:
 

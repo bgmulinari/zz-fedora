@@ -1,0 +1,22 @@
+{
+  "name": "DMS",
+  "appearance": "dark",
+  "canvas": "#1e1e2e",
+  "accent": "#89b4fa",
+  "colors": {
+    "accentForeground": "#1e1e2e",
+    "text": "#cdd6f4",
+    "textMuted": "#a6adc8",
+    "toolbarForeground": "#cdd6f4",
+    "error": "#f38ba8",
+    "sidebar": "#181825",
+    "sidebarForeground": "#cdd6f4",
+    "sidebarRowSelected": "#313244",
+    "codeBackground": "#181825",
+    "codeForeground": "#cdd6f4",
+    "terminalBackground": "#1e1e2e",
+    "terminalForeground": "#cdd6f4",
+    "terminalCursor": "#89b4fa",
+    "terminalSelection": "#243f75"
+  }
+}

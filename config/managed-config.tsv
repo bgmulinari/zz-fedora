@@ -64,4 +64,6 @@ browser-theme	~/.config/matugen/dms/configs/zz-browser-theme.toml	product-link	b
 browser-theme	~/.local/bin/zz-sync-browser-theme	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-browser-theme	-	Reloads Chromium-family theme policies after a DMS palette render.
 browser-theme	/usr/lib/zz/browser-theme-policy	system-file	regenerate	dotfiles/browser-theme/browser-theme-policy	-	Installs the root-owned helper that writes only enrolled browser theme policies.
 browser-theme	/etc/sudoers.d/zz-browser-theme	system-file	regenerate	dotfiles/browser-theme/sudoers	-	Allows noninteractive writes of a single browser theme color.
+t3code-theme	~/.config/matugen/dms/configs/zz-t3code-theme.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-t3code-theme.toml	-	Renders the DMS palette as a T3 Code theme on theme changes.
+t3code-theme	~/.local/bin/zz-sync-t3code-theme	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-t3code-theme	-	Publishes the rendered palette into T3 Code's themes directory.
 firefox-theme	~/.local/bin/zz-firefox-theme-host	product-link	backup-before-link	dotfiles/browser-theme/firefox-theme-host	-	Initializes the DMS palette on the first Firefox extension connection.

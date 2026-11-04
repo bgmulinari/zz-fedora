@@ -241,6 +241,15 @@ with the blue accent (latte + blue in light mode).
   recolors those SVGs under a theme that declares `FollowsColorScheme`,
   and Yaru's own symbolic icons carry a fixed grey fill that only GTK
   recolors, so Yaru leaves Qt toolbars with dark glyphs on dark windows.
+- T3 Code follows the theme through its published-theme API, wired by the
+  `ai-t3code` unit. The `t3code-theme` component renders `~/.cache/DankMaterialShell/t3code-theme.json`
+  and its post-hook renames a copy to `~/.t3/userdata/themes/dms.json`, which
+  T3 Code watches. The file carries the mode as its single `appearance`, so the
+  app changes between light and dark with DMS rather than with the portal
+  color scheme. The `t3code-theme` action publishes a first copy, from the
+  current palette or the `templates/t3code/dms.json` Catppuccin fallback, and
+  runs `t3 theme set dms` only while no environment theme is set: clients
+  reapply every `theme set`, so repeating it would undo a later choice in the app.
 - GTK/libadwaita apps follow the theme through the upstream one-time
   opt-in: the `dms-gtk-theme` first-run checkpoint runs the shell's own
   `scripts/gtk.sh apply` (what the Settings "Apply GTK Colors" button

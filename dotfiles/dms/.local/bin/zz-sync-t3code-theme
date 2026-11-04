@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# Publish the rendered DMS palette as T3 Code's "dms" theme. The id stays
+# stable while the colors change, and T3 Code retints every client when the
+# file changes, so an unchanged render is not republished. T3 Code refuses a
+# symlink here and reads a partial file as invalid: the copy lands by rename,
+# from a name its watcher ignores.
+
+rendered="${XDG_CACHE_HOME:-$HOME/.cache}/DankMaterialShell/t3code-theme.json"
+published="$HOME/.t3/userdata/themes/dms.json"
+
+[[ -s "$rendered" ]] || exit 0
+cmp -s "$rendered" "$published" && exit 0
+
+mkdir -p "$(dirname "$published")"
+temporary="$(mktemp "$published.XXXXXX")"
+trap 'rm -f "$temporary"' EXIT
+cp "$rendered" "$temporary"
+chmod 0644 "$temporary"
+mv "$temporary" "$published"
