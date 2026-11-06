@@ -1,6 +1,6 @@
 # ZZ Fedora
 
-A Fedora x86_64 post-install bootstrapper for a [Niri](https://github.com/niri-wm/niri) and [DMS](https://github.com/AvengeMedia/DankMaterialShell) desktop.
+A Fedora x86_64 post-install bootstrapper for a [Niri](https://github.com/niri-wm/niri) and [DMS](https://github.com/duxlabs-dev/dux-shell) desktop.
 
 ## Install
 

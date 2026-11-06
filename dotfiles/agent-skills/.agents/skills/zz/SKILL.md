@@ -2,7 +2,7 @@
 name: zz
 description: >
   REQUIRED for end-user customization of a ZZ Fedora desktop (Niri compositor +
-  DankMaterialShell). Use when editing ~/.config/niri/, ~/.config/DankMaterialShell/,
+  Dux Shell). Use when editing ~/.config/niri/, ~/.config/dms/,
   ~/.config/ghostty/, ~/.config/starship.toml, ~/.config/btop/, ~/.config/fastfetch/,
   ~/.shellrc.d/, ~/.zshrc.d/, or ~/.config/zz-fedora/. Triggers: Niri, window rules,
   layout, gaps, borders, animations, keybindings, monitors, outputs, DMS, DankBar, the
@@ -16,13 +16,13 @@ description: >
 # ZZ Skill
 
 Manage a ZZ Fedora desktop: Fedora Workstation hardware support, the Niri scrolling
-compositor, and DankMaterialShell (DMS) as bar, launcher, notifications, lock screen,
+compositor, and Dux Shell (DMS) as bar, launcher, notifications, lock screen,
 OSD, settings UI, and theming engine, with Ghostty as the terminal.
 
 ## Scope
 
 This skill covers the user-facing surface of an installed ZZ desktop: the files under
-`~/.config/niri/`, `~/.config/DankMaterialShell/`, `~/.config/ghostty/`,
+`~/.config/niri/`, `~/.config/dms/`, `~/.config/ghostty/`,
 `~/.config/starship.toml`, `~/.config/btop/`, and `~/.config/fastfetch/`; the shell
 fragments in `~/.shellrc.d/`, `~/.zshrc.d/`, and the linked
 `~/.config/zz-fedora/shell.d/`; the look of the desktop (themes, wallpaper, accent,
@@ -69,10 +69,10 @@ Reading it answers most questions before an edit:
 Personal changes go in the user-owned locations:
 - `~/.config/niri/local.kdl` - personal Niri overrides (loaded last, wins)
 - `~/.config/niri/dms/binds.kdl` - keybinds (also editable in DMS Settings > Keyboard Shortcuts)
-- `~/.config/DankMaterialShell/settings.json` - DMS settings, owned by the Settings UI
+- `~/.config/dms/settings.json` - DMS settings, owned by the Settings UI
 - `~/.config/ghostty/local` - personal Ghostty settings
 - `~/.shellrc.d/`, `~/.zshrc.d/` - personal shell fragments
-- `~/.config/DankMaterialShell/plugins/`, `~/.config/DankMaterialShell/themes/` - user plugins and themes
+- `~/.config/dms/plugins/`, `~/.config/dms/themes/` - user plugins and themes
 
 A path that resolves into `~/.zz` (`readlink -f <path>`) is a product link, not a
 personal file; each topic guide names the personal override for it.
@@ -116,9 +116,9 @@ Then run it. Rules:
 |-----------|---------|-----------------|
 | **Fedora** | Base OS | `/etc/`, `~/.config/` |
 | **Niri** | Wayland scrolling compositor | `~/.config/niri/` |
-| **DMS** (DankMaterialShell) | Bar, launcher, notifications, lock, OSD, settings UI, theming | `~/.config/DankMaterialShell/`, `~/.config/niri/dms/` |
+| **DMS** (Dux Shell) | Bar, launcher, notifications, lock, OSD, settings UI, theming | `~/.config/dms/`, `~/.config/niri/dms/` |
 | **Ghostty** | Terminal | `~/.config/ghostty/` |
-| **matugen** (via DMS) | Generates theme files for Ghostty, btop, Qt, GTK, Starship, editors | `~/.config/matugen/dms/` (drop-ins), outputs under `~/.cache/DankMaterialShell/` |
+| **matugen** (via DMS) | Generates theme files for Ghostty, btop, Qt, GTK, Starship, editors | `~/.config/matugen/dms/` (drop-ins), outputs under `~/.cache/dms/` |
 | **dms-greeter** (greetd) | Login screen, follows the DMS theme | system-managed |
 | **Starship, btop, fastfetch** | Prompt, monitor, system info | `~/.config/starship.toml`, `~/.config/btop/`, `~/.config/fastfetch/` |
 
@@ -172,7 +172,7 @@ niri msg windows          # open windows with app-id and title (for window rules
 ## Configuration Locations
 
 Niri config lives in `~/.config/niri/` (see [`niri.md`](niri.md)); the shell is
-configured through DMS Settings and `~/.config/DankMaterialShell/` (see
+configured through DMS Settings and `~/.config/dms/` (see
 [`dms.md`](dms.md)); terminal, prompt, and shell fragments are covered in
 [`shells.md`](shells.md).
 

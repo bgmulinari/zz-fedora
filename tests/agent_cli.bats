@@ -228,7 +228,7 @@ EOS
 }
 
 @test "the menu shows the agent and crash groups only once an agent is installed" {
-  local menu="$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/ZzMenu/menu.json"
+  local menu="$ROOT_DIR/dotfiles/dms/.config/dms/plugins/ZzMenu/menu.json"
   local guard="command -v claude || command -v codex || command -v opencode"
   assert_equal "$guard" "$(jq -r '."setup.agent".when' "$menu")"
   assert_equal "agent" "$(jq -r '."setup.agent".provider' "$menu")"

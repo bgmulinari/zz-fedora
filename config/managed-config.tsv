@@ -35,16 +35,16 @@ ghostty	~/.config/ghostty/config	seed-if-missing	preserve	templates/ghostty/conf
 ghostty	~/.config/ghostty/zz-defaults	product-link	backup-before-link	dotfiles/ghostty/.config/ghostty/config	ghostty	Links Ghostty to the live ZZ defaults.
 ghostty	~/.config/ghostty/shaders/cursor_tail.glsl	product-link	backup-before-link	dotfiles/ghostty/.config/ghostty/shaders/cursor_tail.glsl	ghostty	Links the managed Ghostty shader.
 ghostty	~/.config/ghostty/themes/dankcolors	seed-if-missing	preserve	templates/ghostty/dankcolors	ghostty	Seeds a fallback theme until DMS regenerates it.
-dms	~/.config/DankMaterialShell/settings.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS settings with the managed Catppuccin registry theme.
-dms	~/.local/state/DankMaterialShell/session.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS session state with the managed default wallpaper.
-dms	~/.config/DankMaterialShell/plugin_settings.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS plugin enablement for the shipped plugins in the plan.
-dms	~/.config/DankMaterialShell/themes/catppuccin/theme.json	first-run	regenerate	-	dms	Downloads Catppuccin through the DMS theme registry at first login.
+dms	~/.config/dms/settings.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS settings with the managed Catppuccin registry theme.
+dms	~/.local/state/dms/session.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS session state with the managed default wallpaper.
+dms	~/.config/dms/plugin_settings.json	seed-if-missing	preserve	-	dms	Seeds the app-writable DMS plugin enablement for the shipped plugins in the plan.
+dms	~/.config/dms/themes/catppuccin/theme.json	first-run	regenerate	-	dms	Downloads Catppuccin through the DMS theme registry at first login.
 dms	~/.config/matugen/dms/configs/zz-icon-theme.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-icon-theme.toml	dms	Links the managed icon-accent matugen drop-in.
 dms	~/.local/bin/zz-sync-icon-theme	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-icon-theme	dms	Links the icon-theme synchronization helper.
-dms	~/.config/DankMaterialShell/plugins/ZzMenu	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/ZzMenu	dms	Links the managed ZZ menu plugin: every zz command in the launcher and a bar button.
-dms	~/.config/DankMaterialShell/plugins/ZzKeybindings	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/ZzKeybindings	dms	Links the managed keyboard shortcut list plugin: every Niri bind, searchable and runnable.
-dms-plugin-agent-usage	~/.config/DankMaterialShell/plugins/AgentUsage	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/AgentUsage	dms	Links the managed coding-agent usage bar widget plugin.
-dms-plugin-github	~/.config/DankMaterialShell/plugins/GitHub	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/GitHub	dms	Links the managed GitHub bar widget plugin.
+dms	~/.config/dms/plugins/ZzMenu	product-link	backup-before-link	dotfiles/dms/.config/dms/plugins/ZzMenu	dms	Links the managed ZZ menu plugin: every zz command in the launcher and a bar button.
+dms	~/.config/dms/plugins/ZzKeybindings	product-link	backup-before-link	dotfiles/dms/.config/dms/plugins/ZzKeybindings	dms	Links the managed keyboard shortcut list plugin: every Niri bind, searchable and runnable.
+dms-plugin-agent-usage	~/.config/dms/plugins/AgentUsage	product-link	backup-before-link	dotfiles/dms/.config/dms/plugins/AgentUsage	dms	Links the managed coding-agent usage bar widget plugin.
+dms-plugin-github	~/.config/dms/plugins/GitHub	product-link	backup-before-link	dotfiles/dms/.config/dms/plugins/GitHub	dms	Links the managed GitHub bar widget plugin.
 crash-watch	~/.config/systemd/user/zz-crash-watch.service	product-link	backup-before-link	dotfiles/crash-watch/.config/systemd/user/zz-crash-watch.service	-	Links the crash watcher user unit that announces core dumps and offers an AI diagnosis.
 screenshot-tools	~/.config/satty/config.toml	seed-if-missing	preserve	templates/satty/config.toml	satty	Seeds the user-owned screenshot annotation editor defaults: save path, clipboard command, and the Enter and Escape actions.
 starship	~/.config/starship.toml	seed-if-missing	preserve	templates/starship.toml	starship	Seeds a user-owned Starship configuration.
@@ -58,8 +58,8 @@ nvim	~/.local/share/applications/nvim.desktop	product-link	backup-before-link	do
 vscode	~/.config/Code/User/settings.json	seed-if-missing	preserve	dotfiles/vscode/.config/Code/User/settings.json	code	Seeds user-owned Visual Studio Code settings.
 zed	~/.config/zed/settings.json	seed-if-missing	preserve	dotfiles/zed/.config/zed/settings.json	zed	Seeds user-owned Zed settings.
 claude-code	~/.claude/settings.json	seed-if-missing	preserve	templates/claude/settings.json	-	Seeds user-owned Claude Code settings with commit and pull request attribution off.
-dms-plugin-proton-manager	~/.config/DankMaterialShell/plugins/ProtonManager	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager	dms	Links the managed Proton build manager and game selector.
-dms-plugin-proton-manager	~/.local/share/applications/proton-manager.desktop	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager/proton-manager.desktop	dms	Registers Proton Manager as a desktop application.
+dms-plugin-proton-manager	~/.config/dms/plugins/ProtonManager	product-link	backup-before-link	dotfiles/dms/.config/dms/plugins/ProtonManager	dms	Links the managed Proton build manager and game selector.
+dms-plugin-proton-manager	~/.local/share/applications/proton-manager.desktop	product-link	backup-before-link	dotfiles/dms/.config/dms/plugins/ProtonManager/proton-manager.desktop	dms	Registers Proton Manager as a desktop application.
 browser-theme	~/.config/matugen/dms/configs/zz-browser-theme.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-browser-theme.toml	-	Renders the DMS browser theme seed and applies browser policies on theme changes.
 browser-theme	~/.local/bin/zz-sync-browser-theme	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-browser-theme	-	Reloads Chromium-family theme policies after a DMS palette render.
 browser-theme	/usr/lib/zz/browser-theme-policy	system-file	regenerate	dotfiles/browser-theme/browser-theme-policy	-	Installs the root-owned helper that writes only enrolled browser theme policies.

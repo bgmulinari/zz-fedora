@@ -1246,5 +1246,5 @@ all_default_eligible_choice_ids() {
     fi
   done
 
-  awk -F'\t' -v p='~/.config/DankMaterialShell/settings.json' '$2==p && $3=="seed-if-missing" {found=1} END {exit !found}' "$policy"
+  awk -F'\t' -v p='~/.config/dms/settings.json' '$2==p && $3=="seed-if-missing" {found=1} END {exit !found}' "$policy"
 }

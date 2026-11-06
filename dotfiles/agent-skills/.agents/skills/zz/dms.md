@@ -1,21 +1,21 @@
 # DMS: Settings, Bar, Launcher, Plugins, Lock, Idle, Notifications
 
 Read this before changing the bar, launcher, notifications, lock screen, idle behavior,
-control center, or anything under `~/.config/DankMaterialShell/`.
+control center, or anything under `~/.config/dms/`.
 
-DankMaterialShell runs as one long-lived Quickshell process (`dms.service`, bound to
-the Niri session). It owns the bar (DankBar), launcher (spotlight), notification
+Dux Shell runs as one long-lived Quickshell process (`dms.service`, bound to
+the Niri session). It owns the bar (DBar), launcher (spotlight), notification
 daemon, lock screen, OSD, control center, clipboard history, and the Settings UI, and
 it regenerates the `~/.config/niri/dms/*.kdl` fragments and theme outputs.
 
 ```
-~/.config/DankMaterialShell/
+~/.config/dms/
 ├── settings.json           # Owned by the Settings UI (Mod+Comma). Prefer the UI or
 │                           # `dms ipc call settings set <key> <value>` for scalars
 ├── plugin_settings.json    # Plugin enablement and per-plugin settings
 ├── plugins/<Name>/         # User-installed plugins (registry or manual)
 └── themes/<id>/theme.json  # User-owned registry themes (DMS downloads Catppuccin at first login)
-~/.local/state/DankMaterialShell/session.json   # Wallpaper, dark mode, pinned apps
+~/.local/state/dms/session.json   # Wallpaper, dark mode, pinned apps
 ```
 
 **Commands:** `dms restart`, `dms doctor`, `dms ipc --help`,
@@ -33,7 +33,7 @@ it regenerates the `~/.config/niri/dms/*.kdl` fragments and theme outputs.
 - Keys absent from the file inherit the DMS default, so a missing key is not a bug
 - To return to the ZZ defaults, confirm with the user, then
   `zz refresh dms` (settings, plugin enablement, and session state), or
-  `zz refresh DankMaterialShell/settings.json` for the settings alone. It backs each
+  `zz refresh dms/settings.json` for the settings alone. It backs each
   file up, downloads the Catppuccin theme again if it was removed, and restarts DMS
   itself
 
@@ -105,7 +105,7 @@ its own idle daemon, so do not add swayidle or another locker.
 Browse and install from the registry with `dms plugins browse` /
 `dms plugins install <id>` or Settings > Plugins > Browse, then enable the plugin and
 add it to a bar section from the same page. Manual plugins go in
-`~/.config/DankMaterialShell/plugins/<Name>/` (a directory with `plugin.json`).
+`~/.config/dms/plugins/<Name>/` (a directory with `plugin.json`).
 
 ```bash
 dms plugins list
@@ -126,7 +126,7 @@ menu lacks it until the user adds the bind or runs `zz refresh niri/dms/binds.kd
 (`zz doctor` warns). Add or override rows
 and groups in `~/.config/zz-fedora/menu.json`
 (entries keyed by dotted id; `action`, `terminal`, `when`, `label`, `icon`); the
-format is documented in `~/.zz/dotfiles/dms/.config/DankMaterialShell/plugins/ZzMenu/README.md`.
+format is documented in `~/.zz/dotfiles/dms/.config/dms/plugins/ZzMenu/README.md`.
 
 The keyboard shortcut list is another: Super+/ or Super+K (`dms ipc call plugins toggle zzKeybindings`)
 shows every Niri bind as keycaps and a name, searchable, and Enter runs the picked bind.
@@ -139,7 +139,7 @@ them until the user adds them or runs `zz refresh niri/dms/binds.kdl` (`zz docto
 The GitHub widget (optional `dev` choice `github`) is the GitHub mark in the bar: its
 popout lists notifications, pull requests, issues, and Actions runs (a dot on the mark
 means unread notifications) and acts on them; its README
-(`~/.config/DankMaterialShell/plugins/GitHub/README.md`) describes everything it does.
+(`~/.config/dms/plugins/GitHub/README.md`) describes everything it does.
 It works only through the GitHub CLI, so a dimmed mark or a "not signed in" popout means
 `gh auth status` fails, and the fix is `gh auth login`, never a token in the plugin. The
 inbox needs the `notifications` or `repo` scope (`gh auth login` grants `repo`); following
@@ -148,7 +148,7 @@ GitHub picks what the bar counts, desktop notifications, the refresh interval, a
 repositories the Actions tab watches; `dms ipc call widget openWith github
 <inbox|issues|prs|actions>` opens it at a tab, which a Niri bind can call. Its sizes,
 scope, and recent repositories live in
-`~/.local/state/DankMaterialShell/plugins/github_state.json`; deleting that file resets
+`~/.local/state/dms/plugins/github_state.json`; deleting that file resets
 them.
 
 Plugins ZZ ships arrive as symlinks into `~/.zz`; treat them as read-only like any

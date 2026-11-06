@@ -7,7 +7,7 @@ set -Eeuo pipefail
 # symlink here and reads a partial file as invalid: the copy lands by rename,
 # from a name its watcher ignores.
 
-rendered="${XDG_CACHE_HOME:-$HOME/.cache}/DankMaterialShell/t3code-theme.json"
+rendered="${XDG_CACHE_HOME:-$HOME/.cache}/dms/t3code-theme.json"
 published="$HOME/.t3/userdata/themes/dms.json"
 
 [[ -s "$rendered" ]] || exit 0

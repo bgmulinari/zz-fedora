@@ -4,5 +4,5 @@
 # the post-hook selects the matching icon-theme variant.
 [templates.zzicontheme]
 input_path = '~/.zz/dotfiles/dms/.config/matugen/templates/icon-theme-accent'
-output_path = '~/.cache/DankMaterialShell/icon-theme-accent'
+output_path = '~/.cache/dms/icon-theme-accent'
 post_hook = 'sh -c "command -v zz-sync-icon-theme >/dev/null 2>&1 && zz-sync-icon-theme || true"'

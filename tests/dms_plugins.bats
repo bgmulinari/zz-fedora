@@ -3,18 +3,18 @@
 
 load "helpers/common"
 
-PLUGIN_ROOT_REL="dotfiles/dms/.config/DankMaterialShell/plugins"
+PLUGIN_ROOT_REL="dotfiles/dms/.config/dms/plugins"
 AGENT_USAGE_REL="$PLUGIN_ROOT_REL/AgentUsage"
 AGENT_USAGE_COMPONENT="dms-plugin-agent-usage"
 ZZ_MENU_REL="$PLUGIN_ROOT_REL/ZzMenu"
-ZZ_MENU_PATH="~/.config/DankMaterialShell/plugins/ZzMenu"
+ZZ_MENU_PATH="~/.config/dms/plugins/ZzMenu"
 KEYBINDINGS_REL="$PLUGIN_ROOT_REL/ZzKeybindings"
-KEYBINDINGS_PATH="~/.config/DankMaterialShell/plugins/ZzKeybindings"
-AGENT_USAGE_PATH="~/.config/DankMaterialShell/plugins/AgentUsage"
+KEYBINDINGS_PATH="~/.config/dms/plugins/ZzKeybindings"
+AGENT_USAGE_PATH="~/.config/dms/plugins/AgentUsage"
 GITHUB_REL="$PLUGIN_ROOT_REL/GitHub"
-GITHUB_PATH="~/.config/DankMaterialShell/plugins/GitHub"
+GITHUB_PATH="~/.config/dms/plugins/GitHub"
 GITHUB_COMPONENT="dms-plugin-github"
-PLUGIN_SETTINGS_PATH="~/.config/DankMaterialShell/plugin_settings.json"
+PLUGIN_SETTINGS_PATH="~/.config/dms/plugin_settings.json"
 
 setup() {
   setup_test_env
@@ -218,7 +218,7 @@ apply_component() {
   # The keybind seed opens the centered modal through the widget IPC; a
   # click on the pill opens the anchored popout instead.
   assert_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" "dms ipc call widget toggleWith zzMenu root"
-  assert_file_contains "$dir/ZzMenuWidget.qml" "DankModal {"
+  assert_file_contains "$dir/ZzMenuWidget.qml" "DModal {"
   assert_file_contains "$dir/ZzMenuWidget.qml" "import qs.Modals.Common"
 }
 
@@ -242,7 +242,7 @@ apply_component() {
   # The plugin IPC's toggle reaches the daemon's toggle(), which owns the
   # centered modal; the panel is a sibling type resolved by name.
   assert_file_contains "$dir/ZzKeybindings.qml" "function toggle()"
-  assert_file_contains "$dir/ZzKeybindings.qml" "DankModal {"
+  assert_file_contains "$dir/ZzKeybindings.qml" "DModal {"
   assert_file_contains "$dir/ZzKeybindings.qml" "ZzKeybindingsPanel {"
   assert_file_contains "$dir/ZzKeybindings.qml" '"/scripts/zz-keybindings"'
   assert_file_contains "$dir/ZzKeybindingsPanel.qml" "function handleKey"
@@ -709,7 +709,7 @@ EOF
   assert_equal "null" "$(jq -r '.agentUsage' <<<"$output")"
   assert_equal "null" "$(jq -r '.github' <<<"$output")"
   # The doctor reads each planned plugin's manifest through its link.
-  local plugins="$TARGET_HOME/.config/DankMaterialShell/plugins"
+  local plugins="$TARGET_HOME/.config/dms/plugins"
   run dms_planned_plugin_dirs
   [ "$status" -eq 0 ]
   assert_equal "$plugins/ZzKeybindings
@@ -743,7 +743,7 @@ record_dms_ipc() {
 
 @test "the first plugin enablement seed loads the plugins into a running shell and preserves user edits" {
   build_test_plan "ai=agent-usage"
-  local config="$TARGET_HOME/.config/DankMaterialShell"
+  local config="$TARGET_HOME/.config/dms"
   local settings="$config/plugin_settings.json"
   local ipc_log="$TEST_ROOT/ipc.log"
   DRY_RUN=0
@@ -779,7 +779,7 @@ record_dms_ipc() {
 
 @test "a widget is recorded as placed only once the bar carries it" {
   build_test_plan
-  local config="$TARGET_HOME/.config/DankMaterialShell"
+  local config="$TARGET_HOME/.config/dms"
   local settings="$config/settings.json"
   DRY_RUN=0
   SKIP_USER_CONFIG=0
@@ -808,7 +808,7 @@ EOF
 
 @test "forgetting a plugin unloads it, drops its enablement and widget, and lets a re-add place it again" {
   build_test_plan "ai=agent-usage"
-  local config="$TARGET_HOME/.config/DankMaterialShell"
+  local config="$TARGET_HOME/.config/dms"
   local settings="$config/settings.json"
   local plugins="$config/plugin_settings.json"
   local ipc_log="$TEST_ROOT/ipc.log"
@@ -848,7 +848,7 @@ EOF
 
 @test "a plugin shipped after install is enabled, placed in the bar once, and user removal is respected" {
   build_test_plan "ai=agent-usage"
-  local config="$TARGET_HOME/.config/DankMaterialShell"
+  local config="$TARGET_HOME/.config/dms"
   local settings="$config/settings.json"
   local plugins="$config/plugin_settings.json"
   local ipc_log="$TEST_ROOT/ipc.log"
@@ -906,9 +906,9 @@ EOF
 }
 
 @test "plugin components link the repository plugin directories" {
-  local menu_link="$TARGET_HOME/.config/DankMaterialShell/plugins/ZzMenu"
-  local keybindings_link="$TARGET_HOME/.config/DankMaterialShell/plugins/ZzKeybindings"
-  local usage_link="$TARGET_HOME/.config/DankMaterialShell/plugins/AgentUsage"
+  local menu_link="$TARGET_HOME/.config/dms/plugins/ZzMenu"
+  local keybindings_link="$TARGET_HOME/.config/dms/plugins/ZzKeybindings"
+  local usage_link="$TARGET_HOME/.config/dms/plugins/AgentUsage"
 
   apply_component "dms"
   [[ -L "$menu_link" ]]
@@ -926,7 +926,7 @@ EOF
   [[ -x "$usage_link/scripts/update-usage" ]]
   assert_equal "$(readlink -f "$ROOT_DIR/$AGENT_USAGE_REL")" "$(readlink -f "$usage_link")"
 
-  local github_link="$TARGET_HOME/.config/DankMaterialShell/plugins/GitHub"
+  local github_link="$TARGET_HOME/.config/dms/plugins/GitHub"
   [[ ! -e "$github_link" ]]
   apply_component "$GITHUB_COMPONENT"
   [[ -L "$github_link" ]]

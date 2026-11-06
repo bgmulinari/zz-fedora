@@ -1,0 +1,11 @@
+id = "copr:duxlabs/dux-repo"
+kind = "copr"
+label = "COPR: duxlabs/dux-repo"
+project = "duxlabs/dux-repo"
+required = true
+description = "Dux Labs ecosystem Fedora COPR (quickshell, matugen, dux-search, dux-greeter, qt6ct-kde)"
+gpg_policy = "copr-plugin"
+reason = "Provides quickshell, matugen, dux-search, Dux Greeter, and qt6ct-kde for the required base desktop"
+# The dux-repo COPR also builds Ghostty; Terra owns Ghostty here, so keep
+# the COPR from ever shadowing it.
+excludepkgs = ["ghostty", "ghostty-shell-integration", "ghostty-nautilus"]

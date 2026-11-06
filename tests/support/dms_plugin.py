@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Validate DankMaterialShell plugin directories without third-party modules.
+"""Validate Dux Shell plugin directories without third-party modules.
 
 Usage: validate_plugin.py <plugin-dir> [<plugin-dir> ...] [--schema <plugin-schema.json>]
 
 Checks each directory's plugin.json against the rules of the upstream JSON
-schema (DMS v1.6.0, bundled next to this script under assets/) and then the
+schema (DMS v2.1.0, bundled next to this script under assets/) and then the
 layout mistakes the schema cannot express: referenced QML files that do not
 exist, a settings component whose pluginId differs from the manifest id, a
 widget or daemon component without the injected popoutService property, a
@@ -31,8 +31,8 @@ REQUIRES_DMS_RE = re.compile(r"^(>=?|<=?|=|>|<)\d+\.\d+\.\d+$")
 # A user's home; the Homebrew prefix under /home/linuxbrew is a fixed system
 # location, not a user.
 HOME_PATH_RE = re.compile(r"/home/(?!linuxbrew/)[A-Za-z0-9._-]+/")
-TYPES = ("widget", "daemon", "launcher", "desktop", "composite")
-SURFACES = ("widget", "desktop", "daemon", "launcher")
+TYPES = ("widget", "daemon", "launcher", "desktop", "dash", "dashCard", "composite")
+SURFACES = ("widget", "desktop", "daemon", "launcher", "dash", "dashCard")
 PERMISSIONS = ("settings_read", "settings_write", "process", "network")
 REQUIRED = ("id", "name", "description", "version", "author", "type", "capabilities")
 

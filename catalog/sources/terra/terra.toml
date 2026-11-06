@@ -11,7 +11,7 @@ bootstrap_exception = true
 # RPM-GPG-KEY-terra<release> key (terra-release sets gpgcheck=1 and
 # repo_gpgcheck=1, and Terra signs repomd.xml with that key).
 reason = "Bootstraps Terra release packages unsigned before installing required Ghostty packages; packages and repository metadata are GPG-verified against the shipped Terra key afterwards"
-# Terra also packages the DMS stack; the DankLinux COPRs own it here, so
+# Terra also packages the DMS stack; the Dux Labs COPRs own it here, so
 # keep Terra from ever shadowing those builds. noctalia-qs declares
 # "Provides: quickshell", so without its exclusion the solver can pick it
 # from Terra to satisfy the dms RPM's "(quickshell or quickshell-git)"
@@ -22,8 +22,11 @@ excludepkgs = [
   "noctalia-qs",
   "matugen",
   "dgop",
+  "dux-gop",
   "danksearch",
+  "dux-search",
   "dms",
   "dms-cli",
   "dms-greeter",
+  "dux-greeter",
 ]

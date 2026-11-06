@@ -9,7 +9,7 @@ setup() {
 
 @test "Starship palette sync replaces only the marker-delimited block" {
   local home="$TEST_ROOT/starship-sync-home"
-  mkdir -p "$home/.config" "$home/.cache/DankMaterialShell"
+  mkdir -p "$home/.config" "$home/.cache/dms"
   cat >"$home/.config/starship.toml" <<'EOF'
 palette = "zz"
 user_top = "kept"
@@ -19,7 +19,7 @@ blue = "#old000"
 # <<< ZZ STARSHIP PALETTE <<<
 user_bottom = "kept"
 EOF
-  cat >"$home/.cache/DankMaterialShell/starship-palette.toml" <<'EOF'
+  cat >"$home/.cache/dms/starship-palette.toml" <<'EOF'
 # >>> ZZ STARSHIP PALETTE >>>
 [palettes.zz]
 blue = "#89b4fa"
@@ -42,9 +42,9 @@ EOF
 
 @test "Starship palette sync leaves configurations without the markers alone" {
   local home="$TEST_ROOT/starship-optout-home"
-  mkdir -p "$home/.config" "$home/.cache/DankMaterialShell"
+  mkdir -p "$home/.config" "$home/.cache/dms"
   printf 'palette = "custom"\n' >"$home/.config/starship.toml"
-  cat >"$home/.cache/DankMaterialShell/starship-palette.toml" <<'EOF'
+  cat >"$home/.cache/dms/starship-palette.toml" <<'EOF'
 # >>> ZZ STARSHIP PALETTE >>>
 [palettes.zz]
 blue = "#89b4fa"
@@ -61,7 +61,7 @@ EOF
 @test "Starship palette sync preserves a user-managed configuration symlink" {
   local home="$TEST_ROOT/starship-symlink-home"
   local managed="$TEST_ROOT/dotfiles/starship.toml"
-  mkdir -p "$home/.config" "$home/.cache/DankMaterialShell" "$(dirname "$managed")"
+  mkdir -p "$home/.config" "$home/.cache/dms" "$(dirname "$managed")"
   cat >"$managed" <<'EOF'
 palette = "zz"
 # >>> ZZ STARSHIP PALETTE >>>
@@ -71,7 +71,7 @@ blue = "#old000"
 EOF
   chmod 0600 "$managed"
   ln -s "$managed" "$home/.config/starship.toml"
-  cat >"$home/.cache/DankMaterialShell/starship-palette.toml" <<'EOF'
+  cat >"$home/.cache/dms/starship-palette.toml" <<'EOF'
 # >>> ZZ STARSHIP PALETTE >>>
 [palettes.zz]
 blue = "#89b4fa"
@@ -104,7 +104,7 @@ EOF
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" \
     $'~/.local/bin/zz-sync-starship-palette\tproduct-link'
   assert_file_contains "$ROOT_DIR/dotfiles/dms/.config/matugen/dms/configs/zz-starship.toml" \
-    "output_path = '~/.cache/DankMaterialShell/starship-palette.toml'"
+    "output_path = '~/.cache/dms/starship-palette.toml'"
   [[ -x "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-starship-palette" ]]
 }
 
@@ -139,9 +139,9 @@ EOF
 }
 
 @test "Starship sync corrects dark time text from the generated DMS palette" {
-  mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME/DankMaterialShell"
+  mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME/dms"
   cp "$ROOT_DIR/templates/starship.toml" "$XDG_CONFIG_HOME/starship.toml"
-  cat >"$XDG_CACHE_HOME/DankMaterialShell/starship-palette.toml" <<'EOF'
+  cat >"$XDG_CACHE_HOME/dms/starship-palette.toml" <<'EOF'
 # >>> ZZ STARSHIP PALETTE >>>
 [palettes.zz]
 mauve = "#003e71"

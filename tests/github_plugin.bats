@@ -3,8 +3,8 @@
 
 load "helpers/common"
 
-GITHUB_REL="dotfiles/dms/.config/DankMaterialShell/plugins/GitHub"
-GITHUB_PATH="~/.config/DankMaterialShell/plugins/GitHub"
+GITHUB_REL="dotfiles/dms/.config/dms/plugins/GitHub"
+GITHUB_PATH="~/.config/dms/plugins/GitHub"
 
 setup() {
   setup_test_env
@@ -964,8 +964,8 @@ EOF
 
   # Every pop-out is a DMS window of its own, which the seeded rules open
   # floating; sizes and scope are plugin state, not settings.
-  assert_file_contains "$dir/GitHubDaemon.qml" 'DankFloatingWindow {'
-  assert_file_contains "$ROOT_DIR/templates/niri/dms-windowrules.kdl" 'match app-id="^com.danklinux.dms$"'
+  assert_file_contains "$dir/GitHubDaemon.qml" 'DFloatingWindow {'
+  assert_file_contains "$ROOT_DIR/templates/niri/dms-windowrules.kdl" 'match app-id="^dev\\.duxlabs\\.shell$"'
   assert_file_contains "$dir/GitHubDaemon.qml" 'pluginService.savePluginState(pluginId, key, value)'
   # What loads a picture or plays a video is only ever given a signed URL
   # from the page's answer (a GIF's local copy is made from one), or a

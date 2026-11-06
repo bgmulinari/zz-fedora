@@ -2,12 +2,12 @@
 
 Paths are relative to the checkouts synced by `scripts/sync_refs.sh`:
 
-- `DMS=/files/dev/ref-repos/AvengeMedia/DankMaterialShell` (tag matching `dms version`)
-- `COMMON=/files/dev/ref-repos/AvengeMedia/dank-qml-common` (the `dank-qml-common`
+- `DMS=/files/dev/ref-repos/duxlabs-dev/dux-shell` (tag matching `dms version`)
+- `COMMON=/files/dev/ref-repos/duxlabs-dev/dux-qml-common` (the `dux-qml-common`
   submodule, synced at the commit the DMS tree pins; the shallow DMS clone leaves
-  `$DMS/dank-qml-common/` empty)
+  `$DMS/dux-qml-common/` empty)
 - `QS=/files/dev/ref-repos/quickshell-mirror/quickshell` (commit from `qs --version`)
-- `REG=/files/dev/ref-repos/AvengeMedia/dms-plugin-registry` (master)
+- `REG=/files/dev/ref-repos/duxlabs-dev/dux-plugin-registry` (master)
 
 Treat every path as read-only. Use `rg`, `sed -n`, `git -C ... log`; never build,
 edit, or write inside them. Versions are recorded in the sync output; cite them in the
@@ -30,37 +30,39 @@ design doc when a decision depends on upstream behavior.
 | Variants, JS utilities, qmldir, IPC, multi-file plugins | `.../references/advanced-patterns.md` |
 | Scaffold templates per type | `$DMS/.agents/skills/dms-plugin-dev/assets/templates/{widget,daemon,launcher,desktop}/` |
 
-The guides describe intent; the QML decides. Two known places where the v1.6.0 guide
+The guides describe intent; the QML decides. Places where the guide
 and the source disagree, so read the source before relying on a guide example:
 
 - Launcher context menus: the guide shows `getContextMenuActions` returning
   `action: "type:data"` strings routed through `executeItem`, but
-  `$DMS/quickshell/Modals/DankLauncherV2/LauncherContextMenu.qml`
+  `$DMS/quickshell/Modals/DLauncherV2/LauncherContextMenu.qml`
   (`executePluginAction`) only runs an `action` that is a function. Return
   `{ label, icon, action: () => ..., closeLauncher }` objects.
 - `popoutService` is not declared by `PluginComponent`; a plugin that reads it must
   declare `property var popoutService: null` or it stays null (the validator errors).
 - Launcher refresh: the guide says to emit the plugin's `itemsChanged()` when async
   results arrive, but nothing in the shell connects to it. The launcher controller
-  (`$DMS/quickshell/Modals/DankLauncherV2/Controller.qml`) listens to
+  (`$DMS/quickshell/Modals/DLauncherV2/Controller.qml`) listens to
   `PluginService.requestLauncherUpdate(pluginId)`, so a launcher that loads items
   asynchronously must call `pluginService.requestLauncherUpdate(pluginId)` after
   updating its cache, or the list stays stale until the next keystroke.
 
-## Shared components in dank-qml-common
+## Shared components in dux-qml-common
 
 | Question | File |
 | --- | --- |
-| `Proc.runCommand(id, command, callback, debounceMs, timeoutMs, owner)`, `Proc.release(id)` | `$COMMON/DankCommon/Common/Proc.qml` |
+| `Proc.runCommand(id, command, callback, debounceMs, timeoutMs, owner)`, `Proc.release(id)` | `$COMMON/DCommon/Common/Proc.qml` |
 | Shared `Theme` (colors, spacing, fonts, radii) | `$COMMON/Common/Theme.qml` |
-| `Paths`, `I18n`, `CacheData`, `Anims` | `$COMMON/Common/*.qml` (thin re-exports) and `$COMMON/DankCommon/Common/*.qml` (implementations, plus `Log`, `Style`, `Fonts`, `Host`) |
-| `qs.Widgets` components (StyledText, StyledRect, DankIcon, DankButton, DankTextField, ...) | `$COMMON/DankCommon/Widgets/` |
-| Shared modals and session helpers | `$COMMON/DankCommon/Modals/`, `$COMMON/DankCommon/Session/` |
+| `Paths`, `I18n`, `CacheData`, `Anims` | `$COMMON/Common/*.qml` (thin re-exports) and `$COMMON/DCommon/Common/*.qml` (implementations, plus `Log`, `Style`, `Fonts`, `Host`) |
+| `qs.DCommon.Widgets` components (StyledText, StyledRect, DIcon, DButton, DTextField, ...) | `$COMMON/DCommon/Widgets/` |
+| Shared modals and session helpers | `$DMS/quickshell/Modals/Common/`, `$COMMON/DCommon/Session/` |
 | Bar-specific theme helpers (`widgetIconColor`, `widgetInactiveIconColor`, `barTextSize()`, `tempWarning`, `tempDanger`) | `$DMS/quickshell/Common/Theme.qml` only; they are not in the shared Theme |
 | What a bar pill already gets for free (background, padding, hover) | `$DMS/quickshell/Modules/Plugins/BasePill.qml` and `PluginComponent.qml` |
 
-DMS re-exports these under `qs.Common`, `qs.Widgets`, and `qs.Services`; plugins keep
-importing the `qs.*` names regardless of where a component is implemented. When a
+DMS exposes these under `qs.DCommon.*`, and `qs.Common` and `qs.Services` re-export the
+rest. Shell-specific types such as `DFloatingWindow` stay in `qs.Widgets` and `DModal` in
+`qs.Modals.Common`. The `Dank*` names in `qs.Widgets` are deprecated wrappers
+(`$DMS/quickshell/Widgets/`) that log the replacement to use. When a
 property is missing from the shared Theme, check the DMS Theme before concluding it
 does not exist.
 
@@ -71,11 +73,11 @@ does not exist.
 | Discovery, load gating, startup checks, state files, IPC target | `$DMS/quickshell/Services/PluginService.qml` |
 | Where `enabled` and plugin settings persist (`plugin_settings.json`) | `$DMS/quickshell/Common/SettingsData.qml` (`pluginSettingsPath`, `setPluginSetting`) |
 | Base components injected into plugins | `$DMS/quickshell/Modules/Plugins/PluginComponent.qml`, `DesktopPluginComponent.qml`, `PluginPopout.qml`, `PluginSettings.qml` |
-| How the bar resolves a widget id to a plugin component | `$DMS/quickshell/Modules/DankBar/WidgetHost.qml` |
-| Settings UI for plugins (scan, enable, settings accordion) | `$DMS/quickshell/Modules/Settings/PluginsTab.qml` |
+| How the bar resolves a widget id to a plugin component | `$DMS/quickshell/Modules/SurfaceWidgets/SurfaceWidgetFactory.qml` |
+| Settings UI for plugins (scan, enable, settings accordion) | `$DMS/quickshell/Modules/Settings/PluginsManageTab.qml` |
 | Built-in plugins as worked examples | `$DMS/quickshell/Modules/BuiltinDesktopPlugins/`, `$DMS/quickshell/Modules/ControlCenter/BuiltinPlugins/` |
 | Example plugins (composite, startup check, launcher tiles, variants, daemon, notes) | `$DMS/quickshell/PLUGINS/*/` |
-| Shell IPC surface (`dms ipc ...`) | `$DMS/docs/IPC.md` |
+| Shell IPC surface (`dms ipc ...`) | `$DMS/quickshell/DMSShellIPC.qml`, plus each `IpcHandler` in the services |
 | Go side of plugin install/registry commands | `$DMS/core/internal/plugins/`, `$DMS/core/internal/server/plugins/` |
 
 ## Quickshell runtime types

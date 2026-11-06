@@ -12,7 +12,7 @@ set -Eeuo pipefail
 #   scripts/dms-seed-diff.sh                    # list the differences
 #   scripts/dms-seed-diff.sh --apply            # live  -> seed  (promote)
 #   scripts/dms-seed-diff.sh --reset            # seed  -> live  (discard)
-#   scripts/dms-seed-diff.sh --apply cornerRadius showDock
+#   scripts/dms-seed-diff.sh --apply fixedRadius popupTransparency
 #   scripts/dms-seed-diff.sh --json             # machine-readable report
 #
 # --reset rewrites the user's live DMS files, so it backs each one up first and

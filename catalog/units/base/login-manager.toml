@@ -10,5 +10,5 @@ packages = ["policycoreutils-python-utils", "acl", "greetd"]
 
 [[install]]
 backend = "action"
-sources = ["copr:avengemedia/danklinux"]
+sources = ["copr:duxlabs/dux-repo"]
 actions = ["dms-greeter"]

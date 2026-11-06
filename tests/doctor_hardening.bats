@@ -107,18 +107,18 @@ step_table_failure_policy() {
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tddcutil\tdms\texternal display brightness\tShips the i2c udev rules that grant the /dev/i2c-* access DMS\'s native DDC/CI brightness control needs, plus the debugging CLI.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tpavucontrol\tdefault-app\taudio mixer\tProvides a GUI mixer fallback for standalone Niri sessions.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tsatty\tdefault-app\tscreenshot annotation\tOpens every capture from the shipped screenshot keybinds in an annotation editor (arrows, shapes, text, blur, crop) before it is copied and saved.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tcopr:avengemedia/danklinux\tdesktop-service\tDMS ecosystem and Qt theme\tProvides quickshell, matugen, danksearch, DMS Greeter, and qt6ct-kde for the required base desktop.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tcopr:duxlabs/dux-repo\tdesktop-service\tDMS ecosystem and Qt theme\tProvides quickshell, matugen, dux-search, Dux Greeter, and qt6ct-kde for the required base desktop.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tdms-greeter\tdesktop-service\tgraphical login\tInstalls DMS Greeter from COPR, ensures the greetd session config, grants the greeter user read access to the target user\'s DMS theme state, routes greetd login auth through password-auth so the login password unlocks the keyring, and enables the fallback graphical login.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'action\tdesktop-cursor-theme\ttheme-font\tNiri and graphical applications\tInstalls the pinned cursor theme selected by the managed Niri and desktop environment defaults.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tpolicycoreutils-python-utils\tdesktop-service\tgraphical login\tProvides the SELinux policy tooling the DMS Greeter package scriptlets use for its binary and state-directory contexts.'
-  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tdms\tdms\tDMS shell\tInstalls the DMS (DankMaterialShell) desktop shell started by the dms.service user unit under the Niri session.'
+  assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tdms\tdms\tDMS shell\tInstalls the DMS (Dux Shell) desktop shell started by the dms.service user unit under the Niri session.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'source\tterra\tdefault-app\tGhostty\tBootstraps Terra release packages for required Ghostty packages.'
   assert_tsv_row "$ROOT_DIR/config/base-responsibility.tsv" $'dnf\tghostty-shell-integration\tdefault-app\tterminal shell integration\tProvides Ghostty shell integration scripts for working-directory reporting, prompt marking, and shell-aware terminal behavior.'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/ghostty/themes/dankcolors\tseed-if-missing\tpreserve'
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/niri/dms/colors.kdl\tseed-if-missing\tpreserve\ttemplates/niri/dms-colors.kdl'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/DankMaterialShell/settings.json\tseed-if-missing\tpreserve\t-\tdms'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/state/DankMaterialShell/session.json\tseed-if-missing\tpreserve\t-\tdms'
-  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/DankMaterialShell/themes/catppuccin/theme.json\tfirst-run\tregenerate\t'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/dms/settings.json\tseed-if-missing\tpreserve\t-\tdms'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.local/state/dms/session.json\tseed-if-missing\tpreserve\t-\tdms'
+  assert_file_contains "$ROOT_DIR/config/managed-config.tsv" $'~/.config/dms/themes/catppuccin/theme.json\tfirst-run\tregenerate\t'
 }
 
 @test "managed config conflicts and base rationale are generated in plan" {
@@ -131,13 +131,13 @@ step_table_failure_policy() {
 
   assert_file_contains "$PLAN_DIR/files/config-conflicts.tsv" "~/.config/ghostty/zz-defaults"
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'flatpak\torg.gtk.Gtk3theme.adw-gtk3\tbase-source-flathub\ttheme-font'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:avengemedia/danklinux\tbase-login-manager\tdesktop-service'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:duxlabs/dux-repo\tbase-login-manager\tdesktop-service'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tdms-greeter\tbase-login-manager\tdesktop-service'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tdms\tbase-dms\tdms'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.bashrc\tseed-if-missing\tpreserve\tshell'
   assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/ghostty/themes/dankcolors\tseed-if-missing\tpreserve\tghostty'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/DankMaterialShell/settings.json\tseed-if-missing\tpreserve\tdms'
-  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/DankMaterialShell/themes/catppuccin/theme.json\tfirst-run\tregenerate\tdms'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/dms/settings.json\tseed-if-missing\tpreserve\tdms'
+  assert_file_contains "$PLAN_DIR/files/managed-config-policy.tsv" $'~/.config/dms/themes/catppuccin/theme.json\tfirst-run\tregenerate\tdms'
 }
 
 @test "readiness treats handled backup-before-link conflicts as informational" {

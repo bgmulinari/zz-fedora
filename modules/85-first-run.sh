@@ -155,7 +155,7 @@ apply_dms_gtk_baseline() {
   run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface gtk-theme "$gtk_theme" || true
 }
 
-# DMS 1.6 ships the greeter from its standalone upstream with profile sync.
+# DMS ships the greeter from its standalone upstream with profile sync.
 # Keep probing the installed CLI so an incomplete or independently packaged
 # greeter cannot strand the first-run checkpoint at every login.
 dms_greeter_supports_profile_sync() {

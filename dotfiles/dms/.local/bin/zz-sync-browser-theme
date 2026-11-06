@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 sync_browser_theme() {
-  local palette="${XDG_CACHE_HOME:-$HOME/.cache}/DankMaterialShell/browser-theme.color" color
+  local palette="${XDG_CACHE_HOME:-$HOME/.cache}/dms/browser-theme.color" color
   [[ -s "$palette" ]] || return 0
   color="$(<"$palette")"
   [[ "$color" =~ ^#[0-9a-fA-F]{6}$ ]] || {

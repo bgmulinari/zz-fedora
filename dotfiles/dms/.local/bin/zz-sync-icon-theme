@@ -10,7 +10,7 @@ set -Eeuo pipefail
 # a fixed grey fill that only GTK recolors and KDE's Breeze fallback icons
 # are only recolored under a theme that follows the color scheme.
 
-accent_file="${XDG_CACHE_HOME:-$HOME/.cache}/DankMaterialShell/icon-theme-accent"
+accent_file="${XDG_CACHE_HOME:-$HOME/.cache}/dms/icon-theme-accent"
 accent=""
 if [[ -f "$accent_file" ]]; then
   accent="$(tr -d '[:space:]' <"$accent_file")"

@@ -386,13 +386,13 @@ EOF2
   run choice_installed gaming proton-manager
   [ "$status" -ne 0 ]
 
-  mkdir -p "$TARGET_HOME/.config/DankMaterialShell/plugins" "$TARGET_HOME/.local/share/applications"
-  ln -s "$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager" \
-    "$TARGET_HOME/.config/DankMaterialShell/plugins/ProtonManager"
+  mkdir -p "$TARGET_HOME/.config/dms/plugins" "$TARGET_HOME/.local/share/applications"
+  ln -s "$ROOT_DIR/dotfiles/dms/.config/dms/plugins/ProtonManager" \
+    "$TARGET_HOME/.config/dms/plugins/ProtonManager"
   run choice_installed gaming proton-manager
   [ "$status" -ne 0 ]
 
-  ln -s "$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager/proton-manager.desktop" \
+  ln -s "$ROOT_DIR/dotfiles/dms/.config/dms/plugins/ProtonManager/proton-manager.desktop" \
     "$TARGET_HOME/.local/share/applications/proton-manager.desktop"
   run choice_installed gaming proton-manager
   [ "$status" -eq 0 ]

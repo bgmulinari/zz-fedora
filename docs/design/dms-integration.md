@@ -1,4 +1,4 @@
-# DMS (DankMaterialShell) integration
+# DMS (Dux Shell) integration
 
 This document records the design decisions behind the DMS desktop shell
 integration: package ownership, theme seeding, greeter wiring, and the
@@ -9,18 +9,25 @@ there are no compatibility or migration paths.
 
 | Component | Package | Repository |
 | --- | --- | --- |
-| Shell + CLI | `dms` (pulls `dms-cli`, `dgop`) | COPR `avengemedia/dms` (stable channel) |
-| Quickshell runtime | `quickshell` | COPR `avengemedia/danklinux` |
-| Theming engine | `matugen` | COPR `avengemedia/danklinux` |
-| Launcher file search | `danksearch` | COPR `avengemedia/danklinux` |
-| Audio visualizer | `cava` | Fedora / COPR `avengemedia/danklinux` |
-| Greeter | `dms-greeter` | COPR `avengemedia/danklinux` |
-| Qt6 theming | `qt6ct-kde` | COPR `avengemedia/danklinux` |
+| Shell + CLI | `dms` (pulls `dms-cli`) | COPR `duxlabs/dms` (stable channel) |
+| Quickshell runtime | `quickshell` | COPR `duxlabs/dux-repo` |
+| Theming engine | `matugen` | COPR `duxlabs/dux-repo` |
+| Launcher file search | `dux-search` | COPR `duxlabs/dux-repo` |
+| Audio visualizer | `cava` | Fedora / COPR `duxlabs/dux-repo` |
+| Greeter | `dux-greeter` | COPR `duxlabs/dux-repo` |
+| Qt6 theming | `qt6ct-kde` | COPR `duxlabs/dux-repo` |
 | Terminal | `ghostty` | Terra |
 
-DMS 1.6 embeds the Quickshell UI in the `dms` binary; the old
+DMS started as DankMaterialShell; 2.0 renamed it Dux Shell and moved the project
+to Dux Labs. The command and the units keep their names (`dms`, `dsearch`,
+`dgop`, `dms-greeter`, `dms.service`, `dsearch.service`). Config, state, cache,
+and data live in `dms` directories, which is what ZZ seeds and links directly.
+System metrics come from the library built into the daemon, so `dux-gop` (the
+`dgop` TUI) is optional and not installed.
+
+DMS embeds the Quickshell UI in the `dms` binary; the old
 `/usr/share/quickshell/dms` payload is not a packaging contract. At runtime
-the CLI materializes the UI under `$XDG_RUNTIME_DIR/danklinux-shell/`.
+the CLI materializes the UI under `$XDG_RUNTIME_DIR/dms-shell/`.
 `dms_shell_dir` resolves the active revision from the structured
 `dms doctor --json` result, which supplies both the `scripts/` appliers used
 at first login and the `Common/settings` specs used by the seed-diff tool.
@@ -32,14 +39,14 @@ an `excludepkgs` list on the source's own catalog TOML, compiled into
 migration updates the ownership rule together with the source definition:
 
 - `catalog/sources/terra/terra.toml` excludes
-  `quickshell,quickshell-git,noctalia-qs,matugen,dgop,danksearch,dms,dms-cli,dms-greeter`
-  so the DMS stack always resolves from the DankLinux COPRs (Terra also
+  `quickshell,quickshell-git,noctalia-qs,matugen,dgop,dux-gop,danksearch,dux-search,dms,dms-cli,dms-greeter,dux-greeter`
+  so the DMS stack always resolves from the Dux Labs COPRs (Terra also
   packages quickshell, and its `noctalia-qs` declares
   `Provides: quickshell`, which the solver would otherwise accept for the
   dms RPM's `(quickshell or quickshell-git)` dependency). `base-dms` also
   names `quickshell` explicitly so the real package is installed rather
   than trusting provider resolution of that boolean dependency.
-- `catalog/sources/copr/avengemedia-danklinux.toml` excludes
+- `catalog/sources/copr/duxlabs-dux-repo.toml` excludes
   `ghostty,ghostty-shell-integration,ghostty-nautilus` so Terra always
   owns Ghostty (the COPR also builds it).
 
@@ -70,7 +77,7 @@ user-service machinery applies upstream's recommended scoping:
 (starting the unit immediately when the Niri session is already live),
 with a `--global add-wants` fallback for the root/installer-chroot path.
 There is deliberately no `spawn-at-startup` fallback: two launch
-mechanisms mean double shells. `dsearch.service` (the danksearch indexer
+mechanisms mean double shells. `dsearch.service` (the dux-search indexer
 feeding the spotlight launcher's file search; `WantedBy=default.target`,
 harmless in any session) stays a plain enable, matching upstream
 dankinstall. Readiness grades the binding by the wants symlink the two
@@ -81,7 +88,8 @@ login the binding legitimately does not exist yet.
 
 The niri entrypoint includes every fragment DMS regenerates under
 `~/.config/niri/dms/` — `dms/colors.kdl` (matugen), plus optional
-`dms/layout.kdl`, `dms/alttab.kdl`, `dms/binds.kdl`, `dms/cursor.kdl`,
+`dms/layout.kdl`, `dms/alttab.kdl`, `dms/binds-next.kdl`, `dms/binds.kdl`,
+`dms/cursor.kdl`,
 `dms/input.kdl`, `dms/outputs.kdl`, `dms/windowrules.kdl`, and
 `dms/wpblur.kdl` — because
 each Settings page gates itself on `dms config resolve-include` and goes
@@ -91,14 +99,21 @@ literal pattern `include.*"dms/binds.kdl"`, and the `./` form fails that
 match, which makes DMS offer to "repair" the user-owned entrypoint by
 backing it up and appending its own include line.
 
-DMS 1.6 generates `dms/input.kdl` from its mouse, touchpad, and keyboard
-settings. Those device directives live only in the generated fragment: DMS
-represents disabled boolean options by omitting their KDL nodes, so an earlier
-product-owned `tap`, `natural-scroll`, or `numlock` would prevent the Settings
-toggle from turning it off. `cfg/input.kdl` retains only the behavior DMS does
-not model (`focus-follows-mouse` and `workspace-auto-back-and-forth`). The
-portable seed pins `keyboardNumlock = true` so moving ownership does not change
-ZZ's default.
+DMS generates `dms/input.kdl` from its mouse, touchpad, keyboard, and focus
+settings. Those directives live only in the generated fragment: DMS represents
+disabled boolean options by omitting their KDL nodes, so an earlier
+product-owned `tap`, `natural-scroll`, `numlock`, or `focus-follows-mouse` would
+prevent the Settings toggle from turning it off. `cfg/input.kdl` retains only
+the behavior DMS does not model (`workspace-auto-back-and-forth`). The portable
+seed pins `keyboardNumlock = true` and `focusFollowsMouse = 1`, so moving
+ownership keeps ZZ's defaults; DMS writes the latter with
+`max-scroll-amount="0%"`, so hover focus does not scroll the view.
+
+`dms/binds-next.kdl` holds the binds that depend on the niri version, which DMS
+rewrites to suit the installed niri: its Keyboard Shortcuts cheat sheet on
+`Mod+Shift+/` and, on niri after 26.04, a tap of `Mod` for the overview. The
+entrypoint includes it above `dms/binds.kdl`, where `dms doctor` expects it, so
+a bind in `dms/binds.kdl` still wins.
 
 `dms/binds.kdl` is the *only* niri file the Settings → Keyboard Shortcuts page
 reads. `dms keybinds show niri` parses that fragment alone, so binds kept
@@ -136,7 +151,7 @@ rewrites the whole fragment, discarding the seed's comments and section
 grouping while keeping every bind — so the seed's layout is a
 seed-time convenience, not a format DMS maintains.
 
-The screenshot defaults use the DMS 1.6 native CLI (`dms screenshot`) rather
+The screenshot defaults use the DMS native CLI (`dms screenshot`) rather
 than the legacy niri IPC shim. Print captures the focused output, Ctrl+Print
 and Mod+Shift+S select a region, and Alt+Print captures the focused window.
 This keeps the shipped binds on the path that supports 10-bit buffers,
@@ -161,6 +176,9 @@ Rules only lists rules it reaches by following `include` lines literally
 from `config.kdl`, and the `~/.zz/...` include of the product defaults is
 never tilde-expanded, so a `window-rule` in `cfg/rules.kdl` was applied by
 niri but invisible to the UI. `cfg/rules.kdl` now carries layer rules only.
+At first start DMS writes its own `dms-floating-windows` and `dms-window-opaque`
+rules through the same path, which rewrites the fragment in its own layout: every
+seeded rule survives, the seed's comments do not.
 The generic corner-radius rule that used to live there was dead config as
 well: DMS always emits its own `geometry-corner-radius` rule into
 `dms/layout.kdl`, which loads later and wins.
@@ -201,7 +219,7 @@ with the blue accent (latte + blue in light mode).
 - Catppuccin is downloaded at first login through DMS's `themes.install`
   backend request, the same operation used by Settings → Browse Themes.
   ZZ does not bundle or product-link theme files. DMS owns the downloaded
-  `~/.config/DankMaterialShell/themes/catppuccin/` directory, including previews.
+  `~/.config/dms/themes/catppuccin/` directory, including previews.
   Registry updates and removal remain available in DMS Settings. The
   backend refuses to install over an existing theme directory, so a
   leftover one without a `theme.json` (only preview images or a broken
@@ -209,7 +227,7 @@ with the blue accent (latte + blue in light mode).
   its path instead of being deleted. `zz refresh` of the DMS settings runs
   the same request when the theme is missing, since the first-run
   checkpoint does not repeat once it has succeeded.
-- `~/.config/DankMaterialShell/settings.json` is seeded once
+- `~/.config/dms/settings.json` is seeded once
   (seed-if-missing) with the theme selection keys
   (`currentThemeCategory: "registry"`, `currentThemeName: "custom"`,
   `customThemeFile`, `registryThemeVariants.catppuccin`), the managed mono
@@ -218,7 +236,14 @@ with the blue accent (latte + blue in light mode).
   and path/theme-fact helpers live in `lib/dms.sh`; the seeds, greeter
   staging, planner, first-run waits, and doctor checks all derive the DMS
   paths from it.
-- `~/.local/state/DankMaterialShell/session.json` is seeded with the
+- The settings seed carries no `configVersion`, which DMS reads as a file written
+  for the current format, so it migrates nothing: a key from an older schema is
+  silently ignored rather than converted. Keep the seed in the current format.
+  Bar widget options sit on the widget's entry in `barConfigs` (the launcher logo,
+  the workspace index), dock options on `dockConfigs`, and the square corners are
+  `radiusMode: "fixed"` with `fixedRadius: 0`. `scripts/dms-seed-diff.sh` names a
+  seeded key the specs no longer know.
+- `~/.local/state/dms/session.json` is seeded with the
   managed default wallpaper; dark mode and an empty pinned-app list inherit
   their upstream defaults and are not redundantly serialized.
 - `dms_seed_state_files_if_missing` (`lib/dms.sh`) is the single writer
@@ -242,7 +267,7 @@ with the blue accent (latte + blue in light mode).
   and Yaru's own symbolic icons carry a fixed grey fill that only GTK
   recolors, so Yaru leaves Qt toolbars with dark glyphs on dark windows.
 - T3 Code follows the theme through its published-theme API, wired by the
-  `ai-t3code` unit. The `t3code-theme` component renders `~/.cache/DankMaterialShell/t3code-theme.json`
+  `ai-t3code` unit. The `t3code-theme` component renders `~/.cache/dms/t3code-theme.json`
   and its post-hook renames a copy to `~/.t3/userdata/themes/dms.json`, which
   T3 Code watches. The file carries the mode as its single `appearance`, so the
   app changes between light and dark with DMS rather than with the portal
@@ -278,7 +303,7 @@ with the blue accent (latte + blue in light mode).
   (`~/.config/matugen/dms/configs/zz-icon-theme.toml` — DMS appends every
   `*.toml` in that directory, under its `configDir` of `~/.config`, to
   its merged matugen config) renders the primary color to
-  `~/.cache/DankMaterialShell/icon-theme-accent`, and its post-hook runs
+  `~/.cache/dms/icon-theme-accent`, and its post-hook runs
   `zz-sync-icon-theme`, which picks the hue-nearest Yaru variant and
   applies it to gsettings and the shell's own icon settings through the
   settings IPC; qt6ct and kdeglobals keep Breeze and are not touched. DMS itself covers the companion
@@ -288,7 +313,7 @@ with the blue accent (latte + blue in light mode).
   `DankShell Dark` / `DankShell Light`.
 - Starship follows the theme through the same drop-in mechanism
   (`zz-starship.toml`): starship cannot include external files, so the
-  palette renders to `~/.cache/DankMaterialShell/starship-palette.toml`
+  palette renders to `~/.cache/dms/starship-palette.toml`
   and the post-hook `zz-sync-starship-palette` splices it into the
   marker-delimited `[palettes.zz]` block of the user-owned
   `starship.toml` (everything outside the markers is preserved; removing
@@ -325,15 +350,15 @@ with the blue accent (latte + blue in light mode).
   Zen's native profile registry is read from `~/.config/zen/profiles.ini`
   or `~/.zen/profiles.ini`; before its first launch the action registers a
   default profile. Each registered profile enables user stylesheets and
-  imports `~/.config/DankMaterialShell/zen.css` before personal CSS rules.
-  This is the [upstream DMS Zen integration](https://github.com/AvengeMedia/DankLinux-Docs/blob/master/docs/dankmaterialshell/application-themes.mdx),
+  imports `~/.config/dms/zen.css` before personal CSS rules.
+  This is the [upstream DMS Zen integration](https://github.com/duxlabs-dev/dux-docs/blob/master/docs/dms/application-themes.mdx),
   not Pywalfox. Fresh installs load the CSS on their first launch. An already
   running Zen needs a restart after setup or later palette changes; live
   palette updates are not supported by this integration.
 - Chrome, Chromium, Brave, and Helium use Chromium's native
   `BrowserThemeColor` machine policy. The `browser-theme` configuration component
   installs a matugen drop-in that renders `colors.background.default.hex` to
-  `~/.cache/DankMaterialShell/browser-theme.color`. Its post-hook writes the color
+  `~/.cache/dms/browser-theme.color`. Its post-hook writes the color
   policy and asks running browsers to reload it with
   `--refresh-platform-policy --no-startup-window`, without restarting them.
   Chromium derives its browser colors from this seed; it does not receive an
@@ -366,9 +391,9 @@ with the blue accent (latte + blue in light mode).
 
 ZZ ships DMS plugins from the checkout rather than through the plugin
 registry: each plugin lives under
-`dotfiles/dms/.config/DankMaterialShell/plugins/<Name>/` and is
+`dotfiles/dms/.config/dms/plugins/<Name>/` and is
 product-linked as a whole directory into
-`~/.config/DankMaterialShell/plugins/<Name>`. DMS lists a symlinked plugin
+`~/.config/dms/plugins/<Name>`. DMS lists a symlinked plugin
 directory like a real one, and linking the directory (not each file) means
 files added later reach existing installs on the next `zz update zz` without
 new managed-config rows. The system tier under
@@ -376,8 +401,8 @@ new managed-config rows. The system tier under
 copies single files, so updates would stop flowing, and the user tier would
 shadow it anyway.
 
-Enablement is data DMS 1.6 keeps in
-`~/.config/DankMaterialShell/plugin_settings.json`, keyed by plugin id. The
+Enablement is data DMS keeps in
+`~/.config/dms/plugin_settings.json`, keyed by plugin id. The
 base `dms` component carries a `seed-if-missing` row for that file with no
 source: it is rendered, like `settings.json`, by the DMS state seeding in
 `lib/dms.sh` from `templates/dms/plugin-settings-seed.json`, which enables
@@ -417,7 +442,7 @@ Shipped plugins:
   (arrows, Enter, Backspace or Left to go up, Escape), and typing narrows
   the current group first and everything below it after that. Like the
   launcher it has two homes: the bar button drops it under the pill, and
-  the Super+Z bind opens the same panel in a centered `DankModal` over a
+  the Super+Z bind opens the same panel in a centered `DModal` over a
   dimmed background through the shell's widget IPC
   (`dms ipc call widget toggleWith zzMenu root`; `openWith zzMenu <group>`
   opens a group, a dotted id for a nested one). The root is organized by
@@ -457,7 +482,7 @@ Shipped plugins:
   in one searchable list that runs the bind picked. A daemon
   plugin with no bar surface: the seeded Super+/ and Super+K binds call the shell's
   plugin IPC (`dms ipc call plugins toggle zzKeybindings`), which reaches
-  the daemon's `toggle()`, and the daemon opens a centered `DankModal`.
+  the daemon's `toggle()`, and the daemon opens a centered `DModal`.
   `scripts/zz-keybindings` (`/usr/bin/python3`, stdlib) builds the rows on
   every open from `dms keybinds show niri`, the parser behind Settings >
   Keyboard Shortcuts, which reads the whole Niri config and not only the DMS
@@ -545,9 +570,9 @@ Shipped plugins:
     account.
   - Sizes, the popout's scope, the recent repositories, and the announce
     record are plugin state
-    (`~/.local/state/DankMaterialShell/plugins/github_state.json`), not
+    (`~/.local/state/dms/plugins/github_state.json`), not
     settings, so they stay per machine. Windows are DMS windows (app id
-    `com.danklinux.dms`, which the seeded window rules open floating).
+    `dev.duxlabs.shell`, which the seeded window rules open floating).
   - The seeds enable it and place it before the agent usage pill.
     `tests/github_plugin.bats` tests its logic library (`GitHubLogic.js`)
     directly under Node, and its data layer (`GitHubData.qml`) in a
@@ -558,14 +583,14 @@ Shipped plugins:
   `gaming-proton-manager`, component `dms-plugin-proton-manager`)
   replaces the optional external Proton manager in the gaming catalog. Selected
   installs enable its daemon through the plan-filtered plugin seed and link
-  `dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager/proton-manager.desktop`
+  `dotfiles/dms/.config/dms/plugins/ProtonManager/proton-manager.desktop`
   into the user application directory. **Proton Manager** appears under **Apps**
   in the DMS launcher; its desktop entry calls the daemon through plugin IPC to
-  open a normal `DankFloatingWindow`, like System Monitor, with move/resize
+  open a normal `DFloatingWindow`, like System Monitor, with move/resize
   controls and normal focus switching. Closing unloads the UI once idle; read-only
   requests are cancelled, while explicit mutations finish before unloading. It has no bar widget or launcher-plugin results. Its product-linked
   directory is
-  `dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager/`.
+  `dotfiles/dms/.config/dms/plugins/ProtonManager/`.
   The themed manager discovers native and Flatpak Steam, Heroic, Lutris, Bottles
   and WineZGUI destinations. Source pickers offer multiple Proton forks, Wine
   variants and launcher-supported DXVK/VKD3D components, with CPU filtering,
@@ -592,15 +617,15 @@ Shipped plugins:
 
 ## Greeter
 
-`dms-greeter` (greetd), maintained in the standalone
-`AvengeMedia/dank-greeter` repository since DMS 1.6, replaces the previous
+`dms-greeter` (greetd), packaged as `dux-greeter` and maintained in the standalone
+`duxlabs-dev/dux-greeter` repository, replaces the previous
 shell-specific greeter. The
 RPM scriptlets own the system heavy lifting (greeter user, SELinux
 contexts, `/etc/pam.d/greetd`, greetd config creation/repair,
 graphical.target). The `dms-greeter` action (`lib/actions/dms-greeter.sh`)
 adds only what the package cannot know:
 
-- installs the package pinned to the DankLinux COPR and re-asserts the
+- installs the package pinned to the `duxlabs/dux-repo` COPR and re-asserts the
   greetd session config when a foreign config survived the scriptlet;
 - replicates the root-side plumbing of upstream `dms-greeter enable`/`sync`
   for the target user (the upstream commands act on the *invoking* user, so

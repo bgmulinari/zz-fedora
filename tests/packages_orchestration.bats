@@ -103,7 +103,7 @@ setup() {
   run install_dms_greeter
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" "install DMS Greeter package dms-greeter"
+  assert_contains "$output" "install DMS Greeter package dux-greeter"
   assert_contains "$output" "/etc/greetd/config.toml"
   assert_contains "$output" "route $DMS_GREETD_PAM auth through password-auth"
   assert_contains "$output" "usermod -aG greeter $TARGET_USER"
@@ -265,21 +265,21 @@ EOF
   # Traversal grants are batched into one setfacl over the home path chain.
   assert_file_contains "$TEST_ROOT/root.log" "root:setfacl -m g:greeter:rX $TARGET_HOME $TARGET_HOME/.config $TARGET_HOME/.local $TARGET_HOME/.local/state $TARGET_HOME/.local/share $TARGET_HOME/.cache"
   # The DMS state dirs get one recursive grant and one default-ACL grant.
-  assert_file_contains "$TEST_ROOT/root.log" "root:setfacl -R -m g:greeter:rX $TARGET_HOME/.config/DankMaterialShell $TARGET_HOME/.local/state/DankMaterialShell $TARGET_HOME/.cache/DankMaterialShell $TARGET_HOME/.local/share/backgrounds"
-  assert_file_contains "$TEST_ROOT/root.log" "root:setfacl -d -m g:greeter:rX $TARGET_HOME/.config/DankMaterialShell $TARGET_HOME/.local/state/DankMaterialShell $TARGET_HOME/.cache/DankMaterialShell $TARGET_HOME/.local/share/backgrounds"
+  assert_file_contains "$TEST_ROOT/root.log" "root:setfacl -R -m g:greeter:rX $TARGET_HOME/.config/dms $TARGET_HOME/.local/state/dms $TARGET_HOME/.cache/dms $TARGET_HOME/.local/share/backgrounds"
+  assert_file_contains "$TEST_ROOT/root.log" "root:setfacl -d -m g:greeter:rX $TARGET_HOME/.config/dms $TARGET_HOME/.local/state/dms $TARGET_HOME/.cache/dms $TARGET_HOME/.local/share/backgrounds"
   assert_file_contains "$TEST_ROOT/root.log" "root:chown greeter:greeter /var/cache/dms-greeter"
   assert_file_contains "$TEST_ROOT/root.log" "root:chmod 2770 /var/cache/dms-greeter/users"
-  assert_file_contains "$TEST_ROOT/root.log" "root:ln -sfn $TARGET_HOME/.config/DankMaterialShell/settings.json /var/cache/dms-greeter/settings.json"
-  assert_file_contains "$TEST_ROOT/root.log" "root:ln -sfn $TARGET_HOME/.local/state/DankMaterialShell/session.json /var/cache/dms-greeter/session.json"
-  assert_file_contains "$TEST_ROOT/root.log" "root:ln -sfn $TARGET_HOME/.cache/DankMaterialShell/dms-colors.json /var/cache/dms-greeter/colors.json"
+  assert_file_contains "$TEST_ROOT/root.log" "root:ln -sfn $TARGET_HOME/.config/dms/settings.json /var/cache/dms-greeter/settings.json"
+  assert_file_contains "$TEST_ROOT/root.log" "root:ln -sfn $TARGET_HOME/.local/state/dms/session.json /var/cache/dms-greeter/session.json"
+  assert_file_contains "$TEST_ROOT/root.log" "root:ln -sfn $TARGET_HOME/.cache/dms/dms-colors.json /var/cache/dms-greeter/colors.json"
   # The staging seeds the real managed state, never bare placeholders: the
   # greeter action runs before the post-actions seeding, and its files must
   # not block the theme seeds (the seeder only writes missing files).
-  assert_equal "registry" "$(jq -r '.currentThemeCategory' "$TARGET_HOME/.config/DankMaterialShell/settings.json")"
+  assert_equal "registry" "$(jq -r '.currentThemeCategory' "$TARGET_HOME/.config/dms/settings.json")"
   assert_equal "$TARGET_HOME/.local/share/backgrounds/Alpenglow.jpg" \
-    "$(jq -r '.wallpaperPath' "$TARGET_HOME/.local/state/DankMaterialShell/session.json")"
+    "$(jq -r '.wallpaperPath' "$TARGET_HOME/.local/state/dms/session.json")"
   # The colors placeholder keeps the greeter cache symlink from dangling.
-  assert_equal "{}" "$(jq -c '.' "$TARGET_HOME/.cache/DankMaterialShell/dms-colors.json")"
+  assert_equal "{}" "$(jq -c '.' "$TARGET_HOME/.cache/dms/dms-colors.json")"
 }
 
 @test "an action that drains stdin does not starve the remaining actions" {
@@ -327,7 +327,7 @@ EOF
   run_without_bats_debug_trap prepare_dms_greeter_access
 
   refute_file_contains "$TEST_ROOT/acl-root.log" "setfacl -R"
-  assert_file_contains "$TEST_ROOT/acl-root.log" "root:setfacl -d -m g:greeter:rX $TARGET_HOME/.config/DankMaterialShell"
+  assert_file_contains "$TEST_ROOT/acl-root.log" "root:setfacl -d -m g:greeter:rX $TARGET_HOME/.config/dms"
 }
 @test "DMS Greeter verification requires the user sync unless it was skipped" {
   build_test_plan
@@ -435,7 +435,7 @@ EOF
     printf 'gdm.service\n'
   }
   install_dms_greeter_package() {
-    printf 'install:dms-greeter\n'
+    printf 'install:dux-greeter\n'
   }
   run_cmd_as_root() {
     printf 'cmd:%s\n' "$*"
@@ -461,7 +461,7 @@ EOF
     printf 'greetd.service\n'
   }
   install_dms_greeter_package() {
-    printf 'install:dms-greeter\n'
+    printf 'install:dux-greeter\n'
   }
   fedora_service_exists() { return 0; }
   command() {
@@ -478,7 +478,7 @@ EOF
   run install_dms_greeter
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" "install:dms-greeter"
+  assert_contains "$output" "install:dux-greeter"
   assert_contains "$output" "access:prepared"
   assert_contains "$output" "cache:prepared"
   assert_contains "$output" "sync:staged"

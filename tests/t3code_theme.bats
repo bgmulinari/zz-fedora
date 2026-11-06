@@ -34,14 +34,14 @@ stub_user_commands() {
 
 write_dms_palette() {
   local mode="$1" role
-  mkdir -p "$TARGET_HOME/.cache/DankMaterialShell"
+  mkdir -p "$TARGET_HOME/.cache/dms"
   {
     printf '{"mode":"%s","colors":{"%s":{' "$mode" "$mode"
     for role in $(grep -o 'colors\.[a-z_]*\.default' "$TEMPLATE" | cut -d. -f2 | sort -u); do
       printf '"%s":"#112233",' "$role"
     done
     printf '"unused":"#000000"}}}\n'
-  } >"$TARGET_HOME/.cache/DankMaterialShell/dms-colors.json"
+  } >"$TARGET_HOME/.cache/dms/dms-colors.json"
 }
 
 @test "T3 Code plans its theme action and managed links" {
@@ -58,7 +58,7 @@ write_dms_palette() {
   assert_file_contains "$ROOT_DIR/config/managed-config.tsv" \
     $'~/.local/bin/zz-sync-t3code-theme\tproduct-link'
   assert_file_contains "$ROOT_DIR/dotfiles/dms/.config/matugen/dms/configs/zz-t3code-theme.toml" \
-    "output_path = '~/.cache/DankMaterialShell/t3code-theme.json'"
+    "output_path = '~/.cache/dms/t3code-theme.json'"
   [[ -x "$SYNC_HELPER" ]]
 }
 
@@ -69,8 +69,8 @@ write_dms_palette() {
 }
 
 @test "sync helper publishes the render and leaves only the theme behind" {
-  mkdir -p "$TEST_ROOT/cache/DankMaterialShell"
-  printf '{"name":"DMS"}\n' >"$TEST_ROOT/cache/DankMaterialShell/t3code-theme.json"
+  mkdir -p "$TEST_ROOT/cache/dms"
+  printf '{"name":"DMS"}\n' >"$TEST_ROOT/cache/dms/t3code-theme.json"
 
   HOME="$TARGET_HOME" XDG_CACHE_HOME="$TEST_ROOT/cache" "$SYNC_HELPER"
 
@@ -83,8 +83,8 @@ write_dms_palette() {
   [ "$status" -eq 0 ]
   [ ! -e "$PUBLISHED" ]
 
-  mkdir -p "$TEST_ROOT/cache/DankMaterialShell"
-  printf '{"name":"DMS"}\n' >"$TEST_ROOT/cache/DankMaterialShell/t3code-theme.json"
+  mkdir -p "$TEST_ROOT/cache/dms"
+  printf '{"name":"DMS"}\n' >"$TEST_ROOT/cache/dms/t3code-theme.json"
   HOME="$TARGET_HOME" XDG_CACHE_HOME="$TEST_ROOT/cache" "$SYNC_HELPER"
   touch -d '2000-01-01' "$PUBLISHED"
   HOME="$TARGET_HOME" XDG_CACHE_HOME="$TEST_ROOT/cache" "$SYNC_HELPER"
@@ -93,8 +93,8 @@ write_dms_palette() {
 
 @test "action publishes the fallback before DMS has rendered and selects the theme" {
   stub_user_commands
-  mkdir -p "$TARGET_HOME/.cache/DankMaterialShell"
-  printf '{}\n' >"$TARGET_HOME/.cache/DankMaterialShell/dms-colors.json"
+  mkdir -p "$TARGET_HOME/.cache/dms"
+  printf '{}\n' >"$TARGET_HOME/.cache/dms/dms-colors.json"
 
   install_t3code_theme
 

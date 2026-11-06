@@ -18,6 +18,7 @@ Keys that cannot be portable defaults are never reported. See EXCLUDED.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import pathlib
 import shutil
@@ -26,7 +27,7 @@ import time
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-from dms_spec import defaults, parse_spec  # noqa: E402
+from dms_spec import SpecError, computed_keys, defaults, load_spec  # noqa: E402
 
 # Rendered from a host fact at seed time, so they must not be frozen into the
 # seed files as absolute paths. lib/dms.sh overlays them. They are still
@@ -65,6 +66,7 @@ EXCLUDED = {
         "spotlightSectionViewModes", "appDrawerSectionViewModes",
         "launcherPluginVisibility", "launcherPluginOrder",
         "builtInPluginSettings", "configVersion",
+        "dmsWindowsFloatingSeeded", "blurBorderSeeded",
         # Serialized as a QColor object rather than the spec's hex string, so
         # they always differ without anyone having changed a colour.
         "desktopClockCustomColor", "systemMonitorCustomColor",
@@ -103,6 +105,12 @@ EXCLUDED = {
         "configVersion",
     },
 }
+
+# File selectors that are options on a bar widget's entry. A list holding such
+# an entry is compared as one value, so they cannot be matched by key as
+# EXCLUDED does; mask_widget_options removes them from the comparison instead.
+EXCLUDED_WIDGET_OPTIONS = ("launcherLogoCustomPath", "islandFreeIconPath")
+WIDGET_SECTIONS = ("leftWidgets", "centerWidgets", "rightWidgets")
 
 SPEC_FILES = {
     "settings": "SettingsSpec.js",
@@ -266,10 +274,44 @@ def delete_path(target: dict, path: tuple) -> None:
             del parent[part]
 
 
+def mask_widget_options(seed: dict, live: dict) -> dict:
+    """Return `live` with host-specific bar widget options as the seed has them.
+
+    A custom logo therefore reports no difference, and promoting a change to
+    the same widget list cannot copy a live home-directory path into the seed.
+    """
+    masked = copy.deepcopy(live)
+    seed_bars = seed.get("barConfigs") or []
+    for index, bar in enumerate(masked.get("barConfigs") or []):
+        seed_bar = seed_bars[index] if index < len(seed_bars) else {}
+        pinned = {entry["id"]: entry
+                  for section in WIDGET_SECTIONS
+                  for entry in seed_bar.get(section) or []
+                  if isinstance(entry, dict) and "id" in entry}
+        for section in WIDGET_SECTIONS:
+            for entry in bar.get(section) or []:
+                if not isinstance(entry, dict):
+                    continue
+                source = pinned.get(entry.get("id"), {})
+                for option in EXCLUDED_WIDGET_OPTIONS:
+                    if option in source:
+                        entry[option] = source[option]
+                    else:
+                        entry.pop(option, None)
+    return masked
+
+
 def compare(scope: str, seed: dict, live: dict, upstream: dict,
-            derived: dict | None = None) -> list[dict]:
-    """Return the reportable differences for one scope, sorted by path."""
+            derived: dict | None = None,
+            computed: set[str] | None = None) -> list[dict]:
+    """Return the reportable differences for one scope, sorted by path.
+
+    A key in `computed` has no literal default to compare with, so only the
+    fields the seed pins are compared.
+    """
     skip = EXCLUDED[scope]
+    computed = computed or set()
+    live = mask_widget_options(seed, live)
     helpers = DERIVED_HELPER[scope]
     derived = derived or {}
     seed_flat = flatten(seed)
@@ -294,6 +336,8 @@ def compare(scope: str, seed: dict, live: dict, upstream: dict,
                              "live": live_value, "seed": seed_flat[path],
                              "reset_path": path, "reset_value": seed_flat[path]})
             continue
+        if path[0] in computed:
+            continue
         # A field the seed does not pin. Only interesting once it leaves the
         # DMS default, and only when the spec describes it at all.
         if path in upstream_flat:
@@ -316,13 +360,13 @@ def compare(scope: str, seed: dict, live: dict, upstream: dict,
 
     # Missing live keys inherit the DMS specification default. Only call a
     # seeded path stale when the current specification no longer knows it;
-    # DMS 1.6 deliberately omits default-valued keys from its state files.
+    # DMS deliberately omits default-valued keys from its state files.
     for path, seed_value in seed_flat.items():
         if path[0] in skip or path[0] in helpers or path in live_flat:
             continue
         upstream_value = value_at_path(upstream, path)
         if upstream_value is MISSING:
-            if path[0] in upstream:
+            if path[0] in upstream or path[0] in computed:
                 # The top-level setting exists but its default container has
                 # no such leaf. The effective live value is absent.
                 rows.append({"path": path, "kind": "changed", "live": None,
@@ -403,8 +447,8 @@ def main() -> int:
         )
 
     live_paths = {
-        "settings": args.home / ".config/DankMaterialShell/settings.json",
-        "session": args.home / ".local/state/DankMaterialShell/session.json",
+        "settings": args.home / ".config/dms/settings.json",
+        "session": args.home / ".local/state/dms/session.json",
     }
     seed_paths = {
         "settings": args.root / "templates/dms/settings-seed.json",
@@ -432,12 +476,20 @@ def main() -> int:
             raise SystemExit(
                 f"missing DMS spec: {spec_file}\n"
                 "The comparison needs the installed shell to know each key's "
-                "upstream default. Install DankMaterialShell or pass --spec-dir."
+                "upstream default. Install Dux Shell or pass --spec-dir."
             )
-        upstream = defaults(parse_spec(spec_file.read_text()))
-        report[scope] = compare(scope, load_json(seed_paths[scope]),
-                                load_json(live_paths[scope]), upstream,
-                                derived.get(scope, {}))
+        try:
+            spec = load_spec(spec_file)
+        except SpecError as exc:
+            raise SystemExit(f"cannot read DMS spec {spec_file}: {exc}")
+        seed, live = load_json(seed_paths[scope]), load_json(live_paths[scope])
+        computed = computed_keys(spec)
+        report[scope] = compare(scope, seed, live, defaults(spec),
+                                derived.get(scope, {}), computed)
+        uncompared = sorted(computed & (set(seed) | set(live)))
+        if uncompared:
+            print("only seeded fields compared, DMS computes the defaults of: "
+                  f"{', '.join(uncompared)}", file=sys.stderr)
 
     if args.keys:
         wanted = set(args.keys)

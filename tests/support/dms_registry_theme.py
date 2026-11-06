@@ -19,7 +19,7 @@ class RegistryThemeTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.home = Path(self.temp.name)
-        self.config = self.home / '.config/DankMaterialShell'
+        self.config = self.home / '.config/dms'
         self.config.mkdir(parents=True)
         self.theme = self.config / 'themes/catppuccin/theme.json'
         self.settings = self.config / 'settings.json'

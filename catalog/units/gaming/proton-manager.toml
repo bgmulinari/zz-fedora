@@ -16,5 +16,5 @@ packages = ["python3"]
 
 [[install]]
 backend = "dnf"
-sources = ["copr:avengemedia/dms"]
+sources = ["copr:duxlabs/dms"]
 packages = ["dms"]

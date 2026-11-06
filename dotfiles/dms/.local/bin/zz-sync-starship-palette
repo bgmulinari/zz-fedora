@@ -41,7 +41,7 @@ def main():
     config_home = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
     cache_home = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
     config_file = config_home / "starship.toml"
-    generated_file = cache_home / "DankMaterialShell/starship-palette.toml"
+    generated_file = cache_home / "dms/starship-palette.toml"
     if not config_file.is_file():
         return
     original = config_file.read_text()

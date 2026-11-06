@@ -76,7 +76,7 @@ def zen(home: Path, check: bool) -> bool:
             pattern = rf'^\s*user_pref\("{re.escape(STYLE_PREF)}",\s*(true|false)\s*\);[^\n]*$'
             values = re.findall(pattern, prefs, re.MULTILINE)
             css = profile / "chrome/userChrome.css"
-            target = home / ".config/DankMaterialShell/zen.css"
+            target = home / ".config/dms/zen.css"
             declaration = f"@import url({json.dumps(target.as_uri())});"
             linked = css.is_symlink() and css.resolve() == target.resolve()
             content = css.read_text() if css.exists() else ""

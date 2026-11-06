@@ -7,14 +7,14 @@
 #                      [--description "..."] [--author "..."] [--dir PascalName]
 #                      [--root <repository>] [--dest <directory>] [--trigger "#"]
 #
-# The plugin lands in <root>/dotfiles/dms/.config/DankMaterialShell/plugins/<dir>/
+# The plugin lands in <root>/dotfiles/dms/.config/dms/plugins/<dir>/
 # unless --dest names another directory (for a standalone dev copy, pass
-# --dest ~/.config/DankMaterialShell/plugins/<dir>). Existing directories are
+# --dest ~/.config/dms/plugins/<dir>). Existing directories are
 # never overwritten.
 set -Eeuo pipefail
 
 REF_ROOT="${ZZ_REF_ROOT:-/files/dev/ref-repos}"
-DMS_DIR="$REF_ROOT/AvengeMedia/DankMaterialShell"
+DMS_DIR="$REF_ROOT/duxlabs-dev/dux-shell"
 TEMPLATES="$DMS_DIR/.agents/skills/dms-plugin-dev/assets/templates"
 
 type=""
@@ -65,7 +65,7 @@ fi
 kebab="$(printf '%s' "$id" | sed -E 's/([a-z0-9])([A-Z])/\1-\2/g' | tr '[:upper:]' '[:lower:]')"
 
 if [[ -z "$dest" ]]; then
-  dest="$root/dotfiles/dms/.config/DankMaterialShell/plugins/$dir"
+  dest="$root/dotfiles/dms/.config/dms/plugins/$dir"
 fi
 
 # Next free [choice] order in the desktop category: rows sort by order, and
@@ -120,7 +120,7 @@ $(find "$dest" -type f | sed 's/^/  /')
 Next, wire it into ZZ (see references/zz-wiring.md):
 
 1. config/managed-config.tsv (tab-separated):
-dms-plugin-$kebab	~/.config/DankMaterialShell/plugins/$dir	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/$dir	dms	Links the managed $name plugin.
+dms-plugin-$kebab	~/.config/dms/plugins/$dir	product-link	backup-before-link	dotfiles/dms/.config/dms/plugins/$dir	dms	Links the managed $name plugin.
 
 2. catalog/units/desktop/$kebab.toml:
 id = "desktop-$kebab"
@@ -138,7 +138,7 @@ description = "$description"
 # List the plugin's real system dependencies; "dms" is the payload when it has none.
 [[install]]
 backend = "dnf"
-sources = ["copr:avengemedia/dms"]
+sources = ["copr:duxlabs/dms"]
 packages = ["dms"]
 
 3. Adding a desktop choice also touches tests that enumerate choices:

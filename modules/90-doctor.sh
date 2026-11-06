@@ -260,7 +260,7 @@ module_90_doctor() {
     doctor_warn_command qs
     doctor_warn_user_enabled dms.service
   fi
-  if doctor_plan_has_entry "$native_plan" "danksearch"; then
+  if doctor_plan_has_entry "$native_plan" "dux-search"; then
     doctor_warn_command dsearch
     doctor_warn_user_enabled dsearch.service
   fi

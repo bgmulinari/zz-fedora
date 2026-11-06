@@ -19,7 +19,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
     with connection, connection.makefile("rw") as stream:
         request = json.loads(stream.readline())
         name = request["params"]["name"]
-        theme_dir = home / ".config/DankMaterialShell/themes" / name
+        theme_dir = home / ".config/dms/themes" / name
         theme_dir.mkdir(parents=True)
         (theme_dir / "theme.json").write_text(json.dumps({"id": name}))
         stream.write(json.dumps({"id": request["id"], "result": {}}) + "\n")

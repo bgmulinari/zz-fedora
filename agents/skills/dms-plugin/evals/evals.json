@@ -4,13 +4,13 @@
     {
       "id": 1,
       "prompt": "I want ZZ to ship a small bar widget that shows the free space on / (like '42G free'), refreshing every minute, with a setting for the mount point. Make it an optional wizard choice that's on by default, and wire everything up properly in the repo (catalog, managed config, tests, docs). Don't run a real install.",
-      "expected_output": "A plugin directory under dotfiles/dms/.config/DankMaterialShell/plugins/ with a valid plugin.json (widget type, settings_write permission), Widget.qml with both bar pills using Theme.*, Settings.qml with matching pluginId, a product-link row in config/managed-config.tsv, a catalog unit under catalog/units/desktop/ with [choice] and an [[install]] payload, a Bats test, docs bullet, and passing catalog validation plus print-plan dry run.",
+      "expected_output": "A plugin directory under dotfiles/dms/.config/dms/plugins/ with a valid plugin.json (widget type, settings_write permission), Widget.qml with both bar pills using Theme.*, Settings.qml with matching pluginId, a product-link row in config/managed-config.tsv, a catalog unit under catalog/units/desktop/ with [choice] and an [[install]] payload, a Bats test, docs bullet, and passing catalog validation plus print-plan dry run.",
       "files": [],
       "assertions": [
-        "Plugin directory exists under dotfiles/dms/.config/DankMaterialShell/plugins/ with plugin.json, a widget QML, and a settings QML",
+        "Plugin directory exists under dotfiles/dms/.config/dms/plugins/ with plugin.json, a widget QML, and a settings QML",
         "plugin.json passes validate_plugin.py with no errors (widget type, settings_write permission, camelCase id)",
         "Widget QML defines both horizontalBarPill and verticalBarPill and uses Theme.* rather than hardcoded colors",
-        "config/managed-config.tsv gains a product-link row linking the plugin directory to ~/.config/DankMaterialShell/plugins/<Name> with required command dms",
+        "config/managed-config.tsv gains a product-link row linking the plugin directory to ~/.config/dms/plugins/<Name> with required command dms",
         "A catalog unit under catalog/units/desktop/ declares [choice] with default = true, config naming the new component, and an [[install]] step with a payload",
         "lib/catalog.py validate passes and ./install.sh print-plan --select desktop=<id> --dry-run lists the plugin link",
         "A Bats test covers manifest validity and the planned link, and the relevant suites pass",
@@ -24,7 +24,7 @@
       "expected_output": "A launcher-type plugin with trigger ';', getItems/executeItem implemented via Proc.runCommand or Process against zoxide, a StartupCheck for zoxide, dependencies listed in the manifest and zoxide in the unit's packages, product-link row, catalog unit, validation and tests.",
       "files": [],
       "assertions": [
-        "A launcher-type plugin directory exists under dotfiles/dms/.config/DankMaterialShell/plugins/ with plugin.json declaring trigger ';'",
+        "A launcher-type plugin directory exists under dotfiles/dms/.config/dms/plugins/ with plugin.json declaring trigger ';'",
         "The launcher QML is a plain Item with getItems and executeItem, and runs zoxide through Proc.runCommand or a Quickshell Process",
         "A StartupCheck.qml gates activation on zoxide being installed and the manifest lists zoxide in dependencies",
         "The catalog unit's [[install]] step lists zoxide in packages",

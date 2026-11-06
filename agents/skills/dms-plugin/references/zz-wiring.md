@@ -3,7 +3,7 @@
 This reference describes the repository side: where the plugin lives, how the
 installer delivers it, how the catalog selects it, how to enable it by default, and
 how to test and document it. Facts below were read from the ZZ checkout and the DMS
-v1.6.0 source (`quickshell/Services/PluginService.qml`, `quickshell/Common/SettingsData.qml`).
+v2.1.0 source (`quickshell/Services/PluginService.qml`, `quickshell/Common/SettingsData.qml`).
 
 ## Contents
 
@@ -19,7 +19,7 @@ v1.6.0 source (`quickshell/Services/PluginService.qml`, `quickshell/Common/Setti
 
 ## How DMS discovers plugins
 
-- User plugins: `~/.config/DankMaterialShell/plugins/<Dir>/plugin.json`. DMS watches
+- User plugins: `~/.config/dms/plugins/<Dir>/plugin.json`. DMS watches
   the directory with a `FolderListModel` (`showDirs: true`), so a symlinked directory
   is listed like a real one, and the manifest path is derived from the entry, which
   keeps `pluginDirectory` under the user path even for a symlink.
@@ -30,9 +30,9 @@ v1.6.0 source (`quickshell/Services/PluginService.qml`, `quickshell/Common/Setti
 - Loading: after registration, DMS loads the plugin when
   `SettingsData.getPluginSetting(id, "enabled", false)` is true, or unconditionally
   for a plugin whose only surface is `desktop`. `enabled` lives in
-  `~/.config/DankMaterialShell/plugin_settings.json` (DMS 1.6), keyed by plugin id.
+  `~/.config/dms/plugin_settings.json`, keyed by plugin id.
   Per-plugin user settings (`savePluginData`) live in the same file; runtime state
-  (`savePluginState`) goes to `~/.local/state/DankMaterialShell/plugins/<id>_state.json`.
+  (`savePluginState`) goes to `~/.local/state/dms/plugins/<id>_state.json`.
 - Bar placement: a widget appears only when its plugin id is present in a bar
   section (`leftWidgets`, `centerWidgets`, `rightWidgets` of an entry in
   `barConfigs` in `settings.json`). The widget id is the plugin id, optionally
@@ -44,7 +44,7 @@ v1.6.0 source (`quickshell/Services/PluginService.qml`, `quickshell/Common/Setti
 
 ```
 <repository root>/
-  dotfiles/dms/.config/DankMaterialShell/plugins/<PascalName>/   plugin source (product-linked)
+  dotfiles/dms/.config/dms/plugins/<PascalName>/   plugin source (product-linked)
     plugin.json
     <Component>.qml
     Settings.qml, StartupCheck.qml, *.js, translations/        optional
@@ -73,7 +73,7 @@ Rules enforced by `lib/files.sh` (`load_managed_config_policy_cache`):
 Row for a plugin (tabs, not spaces):
 
 ```
-dms-plugin-disk-free	~/.config/DankMaterialShell/plugins/DiskFree	product-link	backup-before-link	dotfiles/dms/.config/DankMaterialShell/plugins/DiskFree	dms	Links the managed disk-free bar widget plugin.
+dms-plugin-disk-free	~/.config/dms/plugins/DiskFree	product-link	backup-before-link	dotfiles/dms/.config/dms/plugins/DiskFree	dms	Links the managed disk-free bar widget plugin.
 ```
 
 Why a directory link: `replace_user_path_with_product_link` accepts any existing
@@ -110,7 +110,7 @@ description = "Show free space of the root filesystem in the bar"
 
 [[install]]
 backend = "dnf"
-sources = ["copr:avengemedia/dms"]
+sources = ["copr:duxlabs/dms"]
 packages = ["dms"]
 ```
 
@@ -139,7 +139,7 @@ Notes:
   ["btop", "jq"]`). A package from the official Fedora repositories needs no
   `sources` line at all; name a source only for COPR, Terra, RPM Fusion, or vendor
   packages. When the plugin has no dependency beyond the shell, `packages = ["dms"]`
-  from the `copr:avengemedia/dms` source is the honest payload: the shell is
+  from the `copr:duxlabs/dms` source is the honest payload: the shell is
   genuinely required and dnf treats an installed package as a no-op.
 - Group directories are organizational; `desktop/` is where user-facing desktop
   features live. Do not create a vendor-named group.
@@ -207,7 +207,7 @@ setup() {
 
 @test "shipped DMS plugin manifests are valid and complete" {
   local plugin
-  for plugin in "$ROOT_DIR"/dotfiles/dms/.config/DankMaterialShell/plugins/*/; do
+  for plugin in "$ROOT_DIR"/dotfiles/dms/.config/dms/plugins/*/; do
     "$SYSTEM_PYTHON" "$ROOT_DIR/tests/support/dms_plugin.py" "$plugin"
   done
 }
@@ -217,15 +217,15 @@ setup() {
 
   assert_plan_has "$PLAN_DIR/bundles.list" "desktop-disk-free"
   assert_plan_has "$PLAN_DIR/config/components.list" "dms-plugin-disk-free"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/DankMaterialShell/plugins/DiskFree"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/dms/plugins/DiskFree"
 }
 
 @test "product link targets the repository plugin directory" {
   DRY_RUN=0
   SKIP_USER_CONFIG=0
   run_cmd_as_user() { shift; "$@"; }
-  local source="$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/DiskFree"
-  local destination="$TARGET_HOME/.config/DankMaterialShell/plugins/DiskFree"
+  local source="$ROOT_DIR/dotfiles/dms/.config/dms/plugins/DiskFree"
+  local destination="$TARGET_HOME/.config/dms/plugins/DiskFree"
 
   run replace_user_path_with_product_link "$source" "$destination"
 
@@ -272,14 +272,14 @@ manifest id in the same suite; that mismatch is silent at runtime.
   then one bullet per shipped plugin (what it does, which unit, which tools).
 - `docs/dotfiles-layering.md`: the DMS row of the "Native application layers" table
   mentions the theme link; append "and any plugin directories under
-  `dotfiles/dms/.config/DankMaterialShell/plugins/`" the first time a plugin lands.
+  `dotfiles/dms/.config/dms/plugins/`" the first time a plugin lands.
 - Keep the plugin's own `README.md` inside its directory short: purpose, settings,
   dependencies. It is linked into the user's config with the rest of the directory.
 
 ## Verification commands
 
 ```bash
-/usr/bin/python3 agents/skills/dms-plugin/scripts/validate_plugin.py dotfiles/dms/.config/DankMaterialShell/plugins/<PascalName>
+/usr/bin/python3 agents/skills/dms-plugin/scripts/validate_plugin.py dotfiles/dms/.config/dms/plugins/<PascalName>
 /usr/bin/python3 lib/catalog.py --root . validate
 ./install.sh print-plan --select desktop=<choice-id> --dry-run
 ./install.sh install --yes --dry-run            # base plugins: confirm the link is in the base plan
@@ -295,8 +295,8 @@ The development machine runs the same DMS release the installer targets, so the
 plugin can be exercised without an install:
 
 ```bash
-mkdir -p ~/.config/DankMaterialShell/plugins
-ln -s "$PWD"/dotfiles/dms/.config/DankMaterialShell/plugins/<PascalName> ~/.config/DankMaterialShell/plugins/<PascalName>
+mkdir -p ~/.config/dms/plugins
+ln -s "$PWD"/dotfiles/dms/.config/dms/plugins/<PascalName> ~/.config/dms/plugins/<PascalName>
 dms ipc plugin-scan scan
 dms ipc plugin-scan list                 # TSV: id, loaded, type, name
 dms ipc plugin-scan status <id>          # TSV: loaded, type, error

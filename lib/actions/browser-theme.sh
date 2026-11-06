@@ -12,7 +12,7 @@ browser_theme_policy_dir() {
 }
 
 browser_theme_current_color() {
-  local palette="$TARGET_HOME/.cache/DankMaterialShell/browser-theme.color"
+  local palette="$TARGET_HOME/.cache/dms/browser-theme.color"
   local wal_palette="$TARGET_HOME/.cache/wal/dank-pywalfox.json" color=""
   # Removing the last Chromium browser removes its matugen drop-in. DMS's
   # built-in palette may then be newer than the browser-specific cache.
@@ -38,8 +38,8 @@ install_browser_theme() {
   fi
   directory="$(browser_theme_policy_dir "$browser")" || return 1
   color="$(browser_theme_current_color)" || return 1
-  run_cmd_as_user "$TARGET_USER" mkdir -p "$TARGET_HOME/.cache/DankMaterialShell" || return 1
-  write_user_file 0644 "$TARGET_HOME/.cache/DankMaterialShell/browser-theme.color" <<EOF || return 1
+  run_cmd_as_user "$TARGET_USER" mkdir -p "$TARGET_HOME/.cache/dms" || return 1
+  write_user_file 0644 "$TARGET_HOME/.cache/dms/browser-theme.color" <<EOF || return 1
 $color
 EOF
   run_cmd_as_root visudo -cf "$ROOT_DIR/dotfiles/browser-theme/sudoers" || return 1

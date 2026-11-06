@@ -13,8 +13,8 @@ setup() {
 seed_diff_fixture() {
   FIX="$TEST_ROOT/seed-diff"
   mkdir -p "$FIX/root/templates/dms" \
-    "$FIX/home/.config/DankMaterialShell" \
-    "$FIX/home/.local/state/DankMaterialShell"
+    "$FIX/home/.config/dms" \
+    "$FIX/home/.local/state/dms"
   cp "$ROOT_DIR/templates/dms/settings-seed.json" \
     "$ROOT_DIR/templates/dms/session-seed.json" "$FIX/root/templates/dms/"
   SPEC_DIR="$FIX/spec"
@@ -23,7 +23,8 @@ seed_diff_fixture() {
 .pragma library
 function percentToUnit(v) { return v; }
 var SPEC = {
-    cornerRadius: { def: 16, onChange: "updateCompositorLayout" },
+    fixedRadius: { def: 16, onChange: "updateCompositorLayout" },
+    dockConfigs: { def: [DockConfig.create("dock", "Dock")] },
     popupTransparency: { def: 1.0, coerce: percentToUnit },
     greeterAutoLogin: { def: false },
     availableIconThemes: { def: ["System Default"], persist: false },
@@ -66,15 +67,15 @@ seed_diff() {
 }
 
 # Most tests start from the explicit seed and layer overrides on it. Tests for
-# DMS 1.6's sparse persistence remove keys to exercise specification fallback.
+# DMS's sparse persistence remove keys to exercise specification fallback.
 write_live() {
   local settings_override="$1" session_override="${2:-{\}}"
   jq -s '.[0] * .[1]' "$FIX/root/templates/dms/settings-seed.json" \
     <(printf '%s' "$settings_override") \
-    >"$FIX/home/.config/DankMaterialShell/settings.json"
+    >"$FIX/home/.config/dms/settings.json"
   jq -s '.[0] * .[1]' "$FIX/root/templates/dms/session-seed.json" \
     <(printf '%s' "$session_override") \
-    >"$FIX/home/.local/state/DankMaterialShell/session.json"
+    >"$FIX/home/.local/state/dms/session.json"
 }
 
 @test "default-valued seeded keys may be absent from sparse DMS state" {
@@ -84,8 +85,8 @@ write_live() {
   mv "$FIX/settings-seed.tmp" "$FIX/root/templates/dms/settings-seed.json"
   write_live '{}'
   jq 'del(.greeterAutoLogin)' \
-    "$FIX/home/.config/DankMaterialShell/settings.json" >"$FIX/settings-live.tmp"
-  mv "$FIX/settings-live.tmp" "$FIX/home/.config/DankMaterialShell/settings.json"
+    "$FIX/home/.config/dms/settings.json" >"$FIX/settings-live.tmp"
+  mv "$FIX/settings-live.tmp" "$FIX/home/.config/dms/settings.json"
 
   run seed_diff
   [ "$status" -eq 0 ]
@@ -99,8 +100,8 @@ write_live() {
   mv "$FIX/settings-seed.tmp" "$FIX/root/templates/dms/settings-seed.json"
   write_live '{}'
   jq 'del(.greeterAutoLogin)' \
-    "$FIX/home/.config/DankMaterialShell/settings.json" >"$FIX/settings-live.tmp"
-  mv "$FIX/settings-live.tmp" "$FIX/home/.config/DankMaterialShell/settings.json"
+    "$FIX/home/.config/dms/settings.json" >"$FIX/settings-live.tmp"
+  mv "$FIX/settings-live.tmp" "$FIX/home/.config/dms/settings.json"
 
   run seed_diff
   [ "$status" -ne 0 ]
@@ -110,7 +111,7 @@ write_live() {
   run seed_diff --reset greeterAutoLogin
   [ "$status" -eq 0 ]
   assert_equal "true" \
-    "$(jq -r '.greeterAutoLogin' "$FIX/home/.config/DankMaterialShell/settings.json")"
+    "$(jq -r '.greeterAutoLogin' "$FIX/home/.config/dms/settings.json")"
 }
 
 @test "promoting an absent seeded scalar removes its override" {
@@ -120,8 +121,8 @@ write_live() {
   mv "$FIX/settings-seed.tmp" "$seed"
   write_live '{}'
   jq 'del(.greeterAutoLogin)' \
-    "$FIX/home/.config/DankMaterialShell/settings.json" >"$FIX/settings-live.tmp"
-  mv "$FIX/settings-live.tmp" "$FIX/home/.config/DankMaterialShell/settings.json"
+    "$FIX/home/.config/dms/settings.json" >"$FIX/settings-live.tmp"
+  mv "$FIX/settings-live.tmp" "$FIX/home/.config/dms/settings.json"
 
   run seed_diff --apply greeterAutoLogin
   [ "$status" -eq 0 ]
@@ -139,8 +140,8 @@ write_live() {
   mv "$FIX/settings-seed.tmp" "$FIX/root/templates/dms/settings-seed.json"
   write_live '{}'
   jq 'del(.removedSetting)' \
-    "$FIX/home/.config/DankMaterialShell/settings.json" >"$FIX/settings-live.tmp"
-  mv "$FIX/settings-live.tmp" "$FIX/home/.config/DankMaterialShell/settings.json"
+    "$FIX/home/.config/dms/settings.json" >"$FIX/settings-live.tmp"
+  mv "$FIX/settings-live.tmp" "$FIX/home/.config/dms/settings.json"
 
   run seed_diff
   [ "$status" -ne 0 ]
@@ -167,6 +168,79 @@ assert got == {"a": 1, "b": "x", "c": {"nested": [1, 2, {"deep": True}]}, "d": [
 PY
 }
 
+@test "the spec loader follows a merged shared spec and flags computed defaults" {
+  local dir="$BATS_TEST_TMPDIR/shell"
+  mkdir -p "$dir/Common/settings" "$dir/DCommon/Common/settings"
+  cat >"$dir/DCommon/Common/settings/SharedSettingsSpec.js" <<'SPEC'
+.pragma library
+.import "./SpecUtil.js" as Util
+var SPEC = {
+    shared: { def: 1, coerce: Util.percentToUnit },
+    overridden: { def: "shared" },
+    widgets: { def: lockWidgetDefaults() }
+};
+SPEC
+  cat >"$dir/Common/settings/SettingsSpec.js" <<'SPEC'
+.pragma library
+.import "../../DCommon/Common/settings/SharedSettingsSpec.js" as Shared
+.import "../../DCommon/Common/settings/SpecUtil.js" as Util
+var LOCAL_SPEC = {
+    overridden: { def: "local" },
+    docks: { def: [DockConfig.create("dock", "Dock")] },
+    filtered: { def: 0, coerce: function (v) { return Math.max(0, v); } }
+};
+var SPEC = Util.mergeSpec(Shared.SPEC, LOCAL_SPEC);
+SPEC
+  "$SYSTEM_PYTHON" - "$ROOT_DIR" "$dir/Common/settings/SettingsSpec.js" <<'PY'
+import pathlib, sys
+sys.path.insert(0, sys.argv[1] + "/lib")
+from dms_spec import computed_keys, defaults, load_spec
+spec = load_spec(pathlib.Path(sys.argv[2]))
+assert defaults(spec) == {"shared": 1, "overridden": "local", "filtered": 0}, defaults(spec)
+assert computed_keys(spec) == {"widgets", "docks"}, computed_keys(spec)
+PY
+}
+
+@test "a key with a computed default compares only the fields the seed pins" {
+  seed_diff_fixture
+  write_live '{"dockConfigs":[{"id":"dock","name":"Dock","smartAutoHide":false,"iconSize":50}]}'
+
+  run seed_diff --json
+
+  [ "$status" -eq 1 ]
+  assert_contains "$output" "only seeded fields compared, DMS computes the defaults of: dockConfigs"
+  assert_contains "$output" "dockConfigs[0].smartAutoHide"
+  refute_contains "$output" "iconSize"
+
+  run seed_diff --apply 'dockConfigs[0].smartAutoHide'
+  [ "$status" -eq 0 ]
+  assert_equal "false" \
+    "$(jq -r '.dockConfigs[0].smartAutoHide' "$FIX/root/templates/dms/settings-seed.json")"
+}
+
+@test "a custom launcher logo is not reported or promoted with its widget list" {
+  seed_diff_fixture
+  local seed="$FIX/root/templates/dms/settings-seed.json"
+  local live="$FIX/home/.config/dms/settings.json" shipped
+  shipped="$(jq -r '.barConfigs[0].leftWidgets[] | objects | select(.id == "launcherButton").launcherLogoCustomPath' "$seed")"
+  write_live '{}'
+  jq '(.barConfigs[0].leftWidgets[] | objects | select(.id == "launcherButton").launcherLogoCustomPath) = "/home/me/logo.svg"' \
+    "$live" >"$live.tmp"
+  mv "$live.tmp" "$live"
+
+  run seed_diff
+  [ "$status" -eq 0 ]
+
+  jq '.barConfigs[0].leftWidgets += ["spacer"]' "$live" >"$live.tmp"
+  mv "$live.tmp" "$live"
+  run seed_diff --apply
+  [ "$status" -eq 0 ]
+
+  assert_equal "spacer" "$(jq -r '.barConfigs[0].leftWidgets[-1]' "$seed")"
+  assert_equal "$shipped" \
+    "$(jq -r '.barConfigs[0].leftWidgets[] | objects | select(.id == "launcherButton").launcherLogoCustomPath' "$seed")"
+}
+
 @test "a live state matching the seed reports no differences" {
   seed_diff_fixture
   # Every seeded key at its seeded value, plus derived and excluded keys.
@@ -180,13 +254,13 @@ live.update({
     "iconThemeDark": "Yaru-blue",
     "configVersion": 13,
 })
-(fix / "home/.config/DankMaterialShell/settings.json").write_text(json.dumps(live))
+(fix / "home/.config/dms/settings.json").write_text(json.dumps(live))
 session_seed = json.loads((fix / "root/templates/dms/session-seed.json").read_text())
 session = dict(session_seed)
 session["weatherCoordinates"] = "-25.58,-49.40"
 session["wallpaperPath"] = "/home/someone/wall.jpg"
 session["niriOutputSettings"] = {"eDP-1": {"mode": "1920x1200"}}
-(fix / "home/.local/state/DankMaterialShell/session.json").write_text(json.dumps(session))
+(fix / "home/.local/state/dms/session.json").write_text(json.dumps(session))
 PY
   run seed_diff
   [ "$status" -eq 0 ]
@@ -215,14 +289,14 @@ PY
 
 @test "a changed seeded key is reported and promoted by name" {
   seed_diff_fixture
-  write_live '{"cornerRadius": 8}'
+  write_live '{"fixedRadius": 8}'
   run seed_diff
   [ "$status" -ne 0 ]
-  assert_contains "$output" "cornerRadius"
+  assert_contains "$output" "fixedRadius"
 
-  run seed_diff --apply cornerRadius
+  run seed_diff --apply fixedRadius
   [ "$status" -eq 0 ]
-  assert_equal "8" "$(jq -r '.cornerRadius' "$FIX/root/templates/dms/settings-seed.json")"
+  assert_equal "8" "$(jq -r '.fixedRadius' "$FIX/root/templates/dms/settings-seed.json")"
 
   run seed_diff
   [ "$status" -eq 0 ]
@@ -284,8 +358,8 @@ PY
   mv "$FIX/settings-seed.tmp" "$seed"
   write_live '{}'
   jq 'del(.workspaceNameIcons, .widgetOverrides)' \
-    "$FIX/home/.config/DankMaterialShell/settings.json" >"$FIX/settings-live.tmp"
-  mv "$FIX/settings-live.tmp" "$FIX/home/.config/DankMaterialShell/settings.json"
+    "$FIX/home/.config/dms/settings.json" >"$FIX/settings-live.tmp"
+  mv "$FIX/settings-live.tmp" "$FIX/home/.config/dms/settings.json"
 
   run seed_diff --apply
   [ "$status" -eq 0 ]
@@ -323,7 +397,7 @@ PY
 
 @test "--json --apply keeps stdout a single parseable document" {
   seed_diff_fixture
-  write_live '{"cornerRadius": 8}'
+  write_live '{"fixedRadius": 8}'
   # Apply progress belongs on stderr; anything on stdout would break jq.
   seed_diff --json --apply 2>/dev/null >"$FIX/report.json"
   run jq -e '.settings | length' "$FIX/report.json"
@@ -338,13 +412,13 @@ PY
   # Left at its seeded value, whatever that is, so it is never a difference.
   local seeded_popup
   seeded_popup="$(jq -r '.popupTransparency' "$FIX/root/templates/dms/settings-seed.json")"
-  write_live '{"cornerRadius":12,"greeterAutoLogin":true,"iconThemeDark":"Papirus-Dark","workspaceNameIcons":{"1":"term"}}'
-  local live="$FIX/home/.config/DankMaterialShell/settings.json"
+  write_live '{"fixedRadius":12,"greeterAutoLogin":true,"iconThemeDark":"Papirus-Dark","workspaceNameIcons":{"1":"term"}}'
+  local live="$FIX/home/.config/dms/settings.json"
 
   run seed_diff --reset
   [ "$status" -eq 0 ]
 
-  assert_equal "0" "$(jq -r '.cornerRadius' "$live")"
+  assert_equal "0" "$(jq -r '.fixedRadius' "$live")"
   assert_equal "false" "$(jq -r '.greeterAutoLogin' "$live")"
   assert_equal "Yaru-blue" "$(jq -r '.iconThemeDark' "$live")"
   # No leaf to restore, so the whole key goes back to the empty default.
@@ -353,9 +427,9 @@ PY
 
   # The previous contents are recoverable.
   local backup
-  backup="$(find "$FIX/home/.config/DankMaterialShell" -name 'settings.json.bak.*' | head -1)"
+  backup="$(find "$FIX/home/.config/dms" -name 'settings.json.bak.*' | head -1)"
   [ -n "$backup" ]
-  assert_equal "12" "$(jq -r '.cornerRadius' "$backup")"
+  assert_equal "12" "$(jq -r '.fixedRadius' "$backup")"
 
   run seed_diff
   [ "$status" -eq 0 ]
@@ -363,13 +437,13 @@ PY
 
 @test "reset leaves live keys the report does not mention alone" {
   seed_diff_fixture
-  write_live '{"cornerRadius":12,"showSeconds":true,"barConfigs":[{"id":"default","fontScale":1.2,"autoHideDelay":400,"spacing":0,"innerPadding":0,"transparency":0.8,"squareCorners":true,"noBackground":true,"name":"Main Bar","enabled":true,"leftWidgets":["launcherButton","workspaceSwitcher","focusedWindow"],"centerWidgets":["music","clock","weather"],"rightWidgets":["systemTray","clipboard","cpuUsage","memUsage","notificationButton","battery","controlCenterButton"]}]}'
-  local live="$FIX/home/.config/DankMaterialShell/settings.json"
+  write_live '{"fixedRadius":12,"showSeconds":true,"barConfigs":[{"id":"default","fontScale":1.2,"autoHideDelay":400,"spacing":0,"innerPadding":0,"transparency":0.8,"squareCorners":true,"noBackground":true,"name":"Main Bar","enabled":true,"leftWidgets":["launcherButton","workspaceSwitcher","focusedWindow"],"centerWidgets":["music","clock","weather"],"rightWidgets":["systemTray","clipboard","cpuUsage","memUsage","notificationButton","battery","controlCenterButton"]}]}'
+  local live="$FIX/home/.config/dms/settings.json"
 
-  run seed_diff --reset cornerRadius
+  run seed_diff --reset fixedRadius
   [ "$status" -eq 0 ]
 
-  assert_equal "0" "$(jq -r '.cornerRadius' "$live")"
+  assert_equal "0" "$(jq -r '.fixedRadius' "$live")"
   # Not named on the command line, and not described by the fixture spec.
   assert_equal "true" "$(jq -r '.showSeconds' "$live")"
   # A bar field the seed deliberately omits must survive a reset.
@@ -378,7 +452,7 @@ PY
 
 @test "reset never writes to the seed files" {
   seed_diff_fixture
-  write_live '{"cornerRadius":12}'
+  write_live '{"fixedRadius":12}'
   local seed="$FIX/root/templates/dms/settings-seed.json"
   local before
   before="$(cat "$seed")"
@@ -390,7 +464,7 @@ PY
 
 @test "apply and reset cannot be combined" {
   seed_diff_fixture
-  write_live '{"cornerRadius":12}'
+  write_live '{"fixedRadius":12}'
   run seed_diff --apply --reset
   [ "$status" -ne 0 ]
   assert_contains "$output" "opposites"

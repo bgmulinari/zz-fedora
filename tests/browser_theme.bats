@@ -56,7 +56,7 @@ setup() {
   [ "$status" -eq 0 ]
   assert_file_contains "$TARGET_HOME/.config/zen/profiles.ini" "Default=1"
   assert_file_contains "$TARGET_HOME/.config/zen/zz.default/compatibility.ini" "LastPlatformDir=/opt/zen"
-  assert_file_contains "$TARGET_HOME/.config/zen/zz.default/chrome/userChrome.css" "DankMaterialShell/zen.css"
+  assert_file_contains "$TARGET_HOME/.config/zen/zz.default/chrome/userChrome.css" "dms/zen.css"
   assert_file_contains "$TARGET_HOME/.config/zen/zz.default/user.js" 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
 }
 
@@ -77,7 +77,7 @@ EOF
   verify_custom_action browser-theme:zen
   assert_file_contains "$profile/chrome/userChrome.css" 'body { color: red; }'
   assert_file_contains "$profile/user.js" 'user_pref("test.pref", 17);'
-  assert_file_contains "$TARGET_HOME/external/chrome/userChrome.css" 'DankMaterialShell/zen.css'
+  assert_file_contains "$TARGET_HOME/external/chrome/userChrome.css" 'dms/zen.css'
   local before after
   before="$(find "$TARGET_HOME" -type f -exec sha256sum {} + | sort)"
   install_browser_theme zen
@@ -122,7 +122,7 @@ EOF
 }
 
 @test "browser installation uses the most recently generated DMS palette" {
-  local palette="$TARGET_HOME/.cache/DankMaterialShell/browser-theme.color"
+  local palette="$TARGET_HOME/.cache/dms/browser-theme.color"
   local wal_palette="$TARGET_HOME/.cache/wal/dank-pywalfox.json"
   mkdir -p "$(dirname "$palette")" "$(dirname "$wal_palette")"
   printf '#112233\n' > "$palette"
@@ -139,8 +139,8 @@ EOF
 
 @test "DMS post-hook writes policy before refreshing only running browsers" {
   source "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-browser-theme"
-  mkdir -p "$XDG_CACHE_HOME/DankMaterialShell"
-  printf '#AABBCC\n' > "$XDG_CACHE_HOME/DankMaterialShell/browser-theme.color"
+  mkdir -p "$XDG_CACHE_HOME/dms"
+  printf '#AABBCC\n' > "$XDG_CACHE_HOME/dms/browser-theme.color"
   mkdir -p "$XDG_CONFIG_HOME/net.imput.helium"
   ln -s "host-$$" "$XDG_CONFIG_HOME/net.imput.helium/SingletonLock"
   sudo() { printf 'policy %s\n' "$*" >> "$TEST_ROOT/refresh.log"; }

@@ -14,7 +14,7 @@ live under `dotfiles/agent-skills/` instead and must not be mixed with these.
 
 ## Scope and invariants
 
-- This repository is a Fedora post-install bootstrapper for the Niri and DMS (DankMaterialShell) desktop.
+- This repository is a Fedora post-install bootstrapper for the Niri and DMS (Dux Shell) desktop.
 - `install.sh` owns setup. `bootstrap.sh` only installs prerequisites, clones or updates the repository, and hands off to `install.sh`.
 - The installed `zz` launcher is for post-install operations. Do not add install, wizard, plan, check, or repair wrappers under `bin/zz.d/`; per-choice changes on an installed system go through `zz app`, which drives the installer's `add-choice` and `remove-choice` commands. Discover its supported commands with `./bin/zz commands --json`.
 - The installer is under active development. Do not add migrations, compatibility shims, existing-install preservation, or regression guards for previous behavior unless the user explicitly requests them.
@@ -70,7 +70,7 @@ and compiles it to flat TSVs that the Bash planner consumes through
 - Give every externally-settable environment override the `ZZ_` prefix (for example `ZZ_DRY_RUN`, `ZZ_ASSUME_YES`, `ZZ_NO_TUI`); unprefixed uppercase names are internal runtime globals only and must not be read from the caller's environment as installer knobs.
 - Keep required base actions idempotent and give them explicit verification checks.
 - Keep GUI defaults that require a logged-in user session in the first-run path rather than the system install path.
-- For DMS changes, keep portable product defaults in the managed seeds and do not commit generated, monitor-specific, or hardware-specific state from `~/.local/state/DankMaterialShell/` or `~/.cache/DankMaterialShell/`.
+- For DMS changes, keep portable product defaults in the managed seeds and do not commit generated, monitor-specific, or hardware-specific state from `~/.local/state/dms/` or `~/.cache/dms/`.
 
 ## Fedora installer ISO
 

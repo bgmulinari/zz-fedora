@@ -38,13 +38,13 @@ it before debugging DMS.
 
 - Registry themes: Settings > Theme lists installed ones; install more from the DMS
   registry there. A registry theme is one `theme.json` under
-  `~/.config/DankMaterialShell/themes/<id>/`. ZZ downloads Catppuccin through DMS at first login; its files are
+  `~/.config/dms/themes/<id>/`. ZZ downloads Catppuccin through DMS at first login; its files are
   user-owned, like any other registry theme
 - Wallpaper-derived: pick "Dynamic"/auto in Settings > Theme and the palette follows
   the wallpaper (`dms ipc call wallpaper set <path>` also drives the accent then)
 - Mode: `dms ipc call theme toggle`; scheduled light/dark is in Settings > Theme
 - Accent, corner radius, transparency, blur, bar elevation, animation speed: Settings >
-  Appearance. ZZ ships `cornerRadius 0`, popup transparency 0.9, blur on
+  Appearance. ZZ ships a fixed corner radius of 0, popup transparency 0.9, blur on
 
 ## Fonts
 

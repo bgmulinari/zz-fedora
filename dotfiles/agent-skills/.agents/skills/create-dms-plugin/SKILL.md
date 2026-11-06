@@ -1,11 +1,11 @@
 ---
 name: create-dms-plugin
 description: >
-  Write, modify, or debug a DankMaterialShell (DMS) plugin of the user's own on a ZZ
+  Write, modify, or debug a Dux Shell (DMS) plugin of the user's own on a ZZ
   Fedora desktop: a bar widget or pill, a launcher search, a background daemon, a
   desktop widget, or a Control Center tile, in QML against the installed DMS and
   Quickshell. Use when the user wants to build or change a plugin under
-  ~/.config/DankMaterialShell/plugins/, asks about the DMS plugin API, plugin.json,
+  ~/.config/dms/plugins/, asks about the DMS plugin API, plugin.json,
   PluginService, popouts, or why a plugin fails to load. Installing plugins from the
   registry belongs to the zz skill; shipping a plugin with ZZ itself is repository
   work under ~/.zz and is not covered here.
@@ -21,7 +21,7 @@ ZZ desktop, and how to load and test the result.
 
 ## Where it lives
 
-User plugins go in `~/.config/DankMaterialShell/plugins/<PascalName>/`, one directory
+User plugins go in `~/.config/dms/plugins/<PascalName>/`, one directory
 per plugin with `plugin.json` at its root. The directory is PascalCase, the manifest
 `id` is camelCase, component paths in the manifest start with `./`.
 
@@ -45,16 +45,16 @@ the version the plugin will load into:
 | Theme properties, popout service | `PLUGINS/THEME_REFERENCE.md`, `PLUGINS/POPOUT_SERVICE.md` |
 | What the host injects into a plugin (`PluginComponent`, `BasePill`, the setting components) | `Modules/Plugins/` |
 | Discovery, load gating, IPC target | `Services/PluginService.qml` |
-| `Theme.*`, `Proc.runCommand` and the shared widgets | `Common/Theme.qml`, `DankCommon/Common/Proc.qml`, `DankCommon/Widgets/` |
+| `Theme.*`, `Proc.runCommand` and the shared widgets | `Common/Theme.qml`, `DCommon/Common/Proc.qml`, `DCommon/Widgets/` |
 
 The upstream repository also carries an agent skill with per-type guides
 (`.agents/skills/dms-plugin-dev/`) that the package does not install. When the README
 and the examples leave a question open, clone the matching tag and read it:
 
 ```bash
-tag="$(dms version | awk 'NR==1 {print $NF}')"   # "dms v1.6.1" -> v1.6.1
-git clone --depth 1 --branch "$tag" https://github.com/AvengeMedia/DankMaterialShell.git \
-  "${XDG_CACHE_HOME:-$HOME/.cache}/zz-fedora/DankMaterialShell"
+tag="$(dms version | awk 'NR==1 {print $NF}')"   # "dms v2.1.0" -> v1.6.1
+git clone --depth 1 --branch "$tag" https://github.com/duxlabs-dev/dux-shell.git \
+  "${XDG_CACHE_HOME:-$HOME/.cache}/zz-fedora/dux-shell"
 ```
 
 Runtime types (`Process`, `FileView`, `Socket`) come from Quickshell; `qs --version`
@@ -66,13 +66,13 @@ one to trust when the online documentation describes a newer release.
 - **Colors and sizes come from `Theme.*`.** ZZ keeps a registry theme and matugen
   drop-ins in sync across the shell and every application it wires up; a hardcoded
   color or size is the one thing that breaks on the next theme change. Use the
-  `qs.Widgets` components (`StyledText`, `DankIcon`, ...) rather than raw `Text`.
+  `qs.DCommon.Widgets` components (`StyledText`, `DIcon`, ...) rather than raw `Text`.
 - **A bar pill is content, not a box.** `BasePill` already draws the background,
   padding, hover, and blur, and honors the bar's `noBackground` setting, which the
   ZZ bar seed turns on. The upstream widget template wraps the pill in a
   `StyledRect`, which double-boxes under that bar; return a bare `Row` of icon and
   `StyledText`, sized with `Theme.barTextSize(...)` and colored with
-  `Theme.widgetIconColor`, the way the built-in widgets in `Modules/DankBar/Widgets/`
+  `Theme.widgetIconColor`, the way the built-in widgets in `Modules/DBar/Widgets/`
   do.
 - **Provide both bar orientations.** A widget declares `horizontalBarPill` and
   `verticalBarPill`; the shipped bar is horizontal, but the user can move it.
@@ -114,8 +114,8 @@ the journal with file and line. A popout can be opened and captured without a po
 (`dms ipc call widget toggle <id>`, then `dms screenshot full --stdout > out.png`);
 keyboard input cannot be scripted into it, so test keys by hand.
 
-Plugin enablement and settings persist in `~/.config/DankMaterialShell/plugin_settings.json`
-and runtime state in `~/.local/state/DankMaterialShell/plugins/<id>_state.json`. Both
+Plugin enablement and settings persist in `~/.config/dms/plugin_settings.json`
+and runtime state in `~/.local/state/dms/plugins/<id>_state.json`. Both
 are written by the shell; change them through the plugin's own settings page or
 `dms ipc call plugins`, not by hand while the shell runs.
 
@@ -124,5 +124,5 @@ are written by the shell; change them through the plugin's own settings page or
 A plugin only needs to exist in the plugins directory to run. To publish it to the DMS
 plugin registry so others can `dms plugins install` it, the plugin needs its own
 repository and a registry entry; the registry's `CONTRIBUTING.md`
-(github.com/AvengeMedia/dms-plugin-registry) has the format. Shipping it as a ZZ
+(github.com/duxlabs-dev/dux-plugin-registry) has the format. Shipping it as a ZZ
 default is repository work under `~/.zz` with its own guide, not this skill.

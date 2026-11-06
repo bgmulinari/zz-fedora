@@ -93,8 +93,8 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/bundles.list" "base-source-rpmfusion-nonfree"
   assert_plan_has "$PLAN_DIR/bundles.list" "base-source-flathub"
   assert_plan_has "$PLAN_DIR/bundles.list" "base-source-cisco-openh264"
-  assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:avengemedia/dms"
-  assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:avengemedia/danklinux"
+  assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:duxlabs/dms"
+  assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:duxlabs/dux-repo"
   assert_plan_has "$PLAN_DIR/sources/terra.list" "terra"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:oh-my-zsh"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:zsh-autosuggestions"
@@ -115,7 +115,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nodejs24-npm"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "dms"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "matugen"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "danksearch"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "dux-search"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "starship"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "yazi"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
@@ -137,13 +137,13 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/bin/zz"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/autostart/zz-first-run.desktop"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/ghostty/themes/dankcolors"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/DankMaterialShell/settings.json"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/state/DankMaterialShell/session.json"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/DankMaterialShell/themes/catppuccin/theme.json"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/dms/settings.json"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/state/dms/session.json"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/dms/themes/catppuccin/theme.json"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/niri/dms/colors.kdl"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/share/nautilus-python/extensions/zz-copy-path.py"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "/etc/npmrc"
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:avengemedia/danklinux\tbase-login-manager'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:duxlabs/dux-repo\tbase-login-manager'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tdms-greeter\tbase-login-manager\tdesktop-service\tgraphical login'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tdms\tbase-dms\tdms\tDMS shell'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-ghostty'
@@ -352,7 +352,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "desktop-cursor-theme"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "dms"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "matugen"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "danksearch"
+  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "dux-search"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-keyring"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-keyring-pam"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty"

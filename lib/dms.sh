@@ -2,20 +2,20 @@
 set -Eeuo pipefail
 
 # Shared path helpers and seed emitters for the managed DMS
-# (DankMaterialShell) configuration. The state seeds, greeter staging, and
+# (Dux Shell) configuration. The state seeds, greeter staging, and
 # doctor checks derive paths and theme facts from this single source so
 # they cannot drift from each other.
 
 dms_config_dir() {
-  printf '%s/.config/DankMaterialShell\n' "$TARGET_HOME"
+  printf '%s/.config/dms\n' "$TARGET_HOME"
 }
 
 dms_state_dir() {
-  printf '%s/.local/state/DankMaterialShell\n' "$TARGET_HOME"
+  printf '%s/.local/state/dms\n' "$TARGET_HOME"
 }
 
 dms_cache_dir() {
-  printf '%s/.cache/DankMaterialShell\n' "$TARGET_HOME"
+  printf '%s/.cache/dms\n' "$TARGET_HOME"
 }
 
 dms_settings_file() {
@@ -26,7 +26,7 @@ dms_session_file() {
   printf '%s/session.json\n' "$(dms_state_dir)"
 }
 
-# DMS 1.6 keeps plugin enablement and per-plugin settings apart from
+# DMS keeps plugin enablement and per-plugin settings apart from
 # settings.json, keyed by plugin id. The base dms component seeds it once,
 # rendered from the plugin seed template with the ids of every shipped
 # plugin whose component is in the plan.
@@ -70,9 +70,9 @@ dms_qt_icon_theme() {
   printf 'breeze-dark\n'
 }
 
-# DMS 1.6 embeds the shell payload in the dms binary and materializes it under
+# DMS embeds the shell payload in the dms binary and materializes it under
 # XDG_RUNTIME_DIR. Ask the CLI for the path it actually resolved rather than
-# relying on the pre-1.6 /usr/share/quickshell/dms package layout. The payload's
+# relying on a package layout such as /usr/share/quickshell/dms. The payload's
 # scripts/ directory carries the upstream gtk.sh/qt.sh appliers the Settings UI
 # buttons invoke, and Common/settings carries the specs used by the seed diff.
 dms_shell_dir() {
@@ -133,7 +133,7 @@ dms_unplanned_plugin_ids() {
   while IFS=$'\t' read -r component path mode _conflict source _required _description; do
     # Managed-config paths are written with a literal ~/ prefix.
     # shellcheck disable=SC2088
-    [[ "$mode" == "product-link" && "$path" == "~/.config/DankMaterialShell/plugins/"* ]] || continue
+    [[ "$mode" == "product-link" && "$path" == "~/.config/dms/plugins/"* ]] || continue
     [[ -f "$ROOT_DIR/$source/plugin.json" ]] || continue
     grep -Fxq -- "$component" "$components_file" && continue
     jq -r '.id // empty' "$ROOT_DIR/$source/plugin.json"
@@ -194,7 +194,7 @@ dms_component_plugin_ids() {
   while IFS=$'\t' read -r component path mode _conflict source _required _description; do
     [[ "$component" == "$wanted" ]] || continue
     # shellcheck disable=SC2088
-    [[ "$mode" == "product-link" && "$path" == "~/.config/DankMaterialShell/plugins/"* ]] || continue
+    [[ "$mode" == "product-link" && "$path" == "~/.config/dms/plugins/"* ]] || continue
     [[ -f "$ROOT_DIR/$source/plugin.json" ]] || continue
     jq -r '.id // empty' "$ROOT_DIR/$source/plugin.json"
   done <"$(managed_config_policy_file)"
@@ -205,7 +205,7 @@ dms_component_plugin_ids() {
 dms_planned_plugin_dirs() {
   # Managed-config paths are written with a literal ~/ prefix.
   # shellcheck disable=SC2088
-  local plugins='~/.config/DankMaterialShell/plugins/' path
+  local plugins='~/.config/dms/plugins/' path
   [[ -n "${PLAN_DIR:-}" ]] || return 0
   while IFS= read -r path; do
     [[ "$path" == "$plugins"?* && "${path#"$plugins"}" != */* ]] || continue

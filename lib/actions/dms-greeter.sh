@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 # DMS Greeter (greetd) custom action.
 #
-# The dms-greeter RPM owns the heavy lifting: its scriptlets create the
+# The dux-greeter RPM owns the heavy lifting: its scriptlets create the
 # greeter user, set SELinux contexts, ensure /etc/pam.d/greetd, write or
 # repair /etc/greetd/config.toml, and set graphical.target. This action
 # installs the package from the pinned COPR, re-asserts the greetd session
@@ -13,8 +13,8 @@ set -Eeuo pipefail
 # fingerprint auth out of the greetd login stack, and enables greetd as the
 # fallback graphical login.
 
-DMS_GREETER_COPR_PROJECT="avengemedia/danklinux"
-DMS_GREETER_PACKAGE="dms-greeter"
+DMS_GREETER_COPR_PROJECT="duxlabs/dux-repo"
+DMS_GREETER_PACKAGE="dux-greeter"
 DMS_GREETER_USER="greeter"
 DMS_GREETER_CACHE_DIR="/var/cache/dms-greeter"
 DMS_GREETD_CONFIG="/etc/greetd/config.toml"

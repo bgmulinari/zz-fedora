@@ -34,9 +34,9 @@ includes (`layout.kdl`, `rules.kdl`, `input.kdl`, `animation.kdl`, `misc.kdl`,
   DMS Settings instead
 - Gaps are the exception: the product baseline lives in `cfg/layout.kdl` and DMS is set
   to defer to it (`niriLayoutGapsOverride = -2`), so gaps go in `local.kdl`
-- Input devices (`tap`, `natural-scroll`, numlock, layouts) are DMS-owned through
-  `dms/input.kdl` (Settings > Input); only `focus-follows-mouse` and
-  `workspace-auto-back-and-forth` are product config
+- Input devices (`tap`, `natural-scroll`, numlock, layouts) and focus follows mouse are
+  DMS-owned through `dms/input.kdl` (Settings > Input); only
+  `workspace-auto-back-and-forth` is product config
 - Reset the entrypoint with `zz refresh niri/config.kdl` (backs up first)
 
 ## Keybinds

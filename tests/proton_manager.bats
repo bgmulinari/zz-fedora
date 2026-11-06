@@ -17,7 +17,7 @@ setup() {
   build_test_plan "gaming=proton-manager"
   assert_plan_has "$PLAN_DIR/bundles.list" "gaming-proton-manager"
   assert_plan_has "$PLAN_DIR/config/components.list" "dms-plugin-proton-manager"
-  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/DankMaterialShell/plugins/ProtonManager"
+  assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.config/dms/plugins/ProtonManager"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.local/share/applications/proton-manager.desktop"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "python3"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "dms"
@@ -43,17 +43,17 @@ setup() {
 }
 
 @test "Proton manager manifest and Python dependency agree with its surface" {
-  local dir="$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager"
+  local dir="$ROOT_DIR/dotfiles/dms/.config/dms/plugins/ProtonManager"
   "$SYSTEM_PYTHON" "$ROOT_DIR/tests/support/dms_plugin.py" "$dir"
   assert_equal python3 "$(jq -r '.dependencies[]' "$dir/plugin.json")"
   assert_file_contains "$dir/Manager.qml" '"/usr/bin/python3"'
   assert_file_contains "$dir/StartupCheck.qml" '"/usr/bin/python3"'
   assert_equal daemon "$(jq -r '.type' "$dir/plugin.json")"
   assert_file_contains "$dir/Manager.qml" 'function toggle()'
-  assert_file_contains "$dir/Manager.qml" 'DankFloatingWindow {'
+  assert_file_contains "$dir/Manager.qml" 'DFloatingWindow {'
   assert_file_contains "$dir/Manager.qml" 'FloatingWindowControls {'
   assert_file_contains "$dir/Manager.qml" 'toplevel.activate()'
-  local entry="$ROOT_DIR/dotfiles/dms/.config/DankMaterialShell/plugins/ProtonManager/proton-manager.desktop"
+  local entry="$ROOT_DIR/dotfiles/dms/.config/dms/plugins/ProtonManager/proton-manager.desktop"
   assert_file_contains "$entry" 'Type=Application'
   assert_file_contains "$entry" 'Exec=dms ipc call plugins toggle protonManager'
   assert_file_contains "$entry" 'Categories=Game;'

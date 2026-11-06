@@ -13,17 +13,17 @@ setup() {
 
   assert_plan_has \
     "$PLAN_DIR/files/managed-files.list" \
-    "~/.config/DankMaterialShell/themes/catppuccin/theme.json"
+    "~/.config/dms/themes/catppuccin/theme.json"
 }
 
 @test "icon-theme sync selects the hue-nearest Yaru variant for GTK and the shell only" {
   local home="$TEST_ROOT/icon-sync-home"
-  mkdir -p "$home/.cache/DankMaterialShell" \
+  mkdir -p "$home/.cache/dms" \
     "$home/.local/share/icons/Yaru" \
     "$home/.local/share/icons/Yaru-blue" \
     "$home/.local/share/icons/Yaru-red" \
     "$home/.local/share/icons/Yaru-yellow"
-  printf '#e01b24\n' >"$home/.cache/DankMaterialShell/icon-theme-accent"
+  printf '#e01b24\n' >"$home/.cache/dms/icon-theme-accent"
   setup_fake_bin
   make_fake_command gsettings
   make_fake_command dms
@@ -45,11 +45,11 @@ setup() {
 
 @test "icon-theme sync falls back to a neutral variant for low-chroma accents" {
   local home="$TEST_ROOT/icon-sync-gray-home"
-  mkdir -p "$home/.cache/DankMaterialShell" \
+  mkdir -p "$home/.cache/dms" \
     "$home/.local/share/icons/Yaru" \
     "$home/.local/share/icons/Yaru-dark" \
     "$home/.local/share/icons/Yaru-blue"
-  printf '#808080\n' >"$home/.cache/DankMaterialShell/icon-theme-accent"
+  printf '#808080\n' >"$home/.cache/dms/icon-theme-accent"
   setup_fake_bin
   make_fake_command gsettings
   make_fake_command dms
@@ -101,7 +101,7 @@ setup() {
 
   assert_equal "registry" "$(jq -r '.currentThemeCategory' <<<"$seed")"
   assert_equal "custom" "$(jq -r '.currentThemeName' <<<"$seed")"
-  assert_equal "$TARGET_HOME/.config/DankMaterialShell/themes/catppuccin/theme.json" \
+  assert_equal "$TARGET_HOME/.config/dms/themes/catppuccin/theme.json" \
     "$(jq -r '.customThemeFile' <<<"$seed")"
   assert_equal "mocha" "$(jq -r '.registryThemeVariants.catppuccin.dark.flavor' <<<"$seed")"
   assert_equal "blue" "$(jq -r '.registryThemeVariants.catppuccin.dark.accent' <<<"$seed")"

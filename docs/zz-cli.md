@@ -282,5 +282,5 @@ setting back to the ZZ defaults:
 
 ```bash
 zz refresh dms
-zz refresh DankMaterialShell/settings.json   # settings only
+zz refresh dms/settings.json   # settings only
 ```

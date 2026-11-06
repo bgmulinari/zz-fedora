@@ -10,7 +10,7 @@ def backend_socket():
     if os.environ.get("DMS_SOCKET"):
         return Path(os.environ["DMS_SOCKET"])
     runtime = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
-    candidates = list(runtime.glob("danklinux-*.sock"))
+    candidates = list(runtime.glob("dms-*.sock"))
     display = os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY")
     if display:
         candidates = [path for path in candidates
@@ -62,7 +62,7 @@ def clear_leftover_theme_dir(theme_dir):
 
 
 def install_default(home):
-    config = home / ".config/DankMaterialShell"
+    config = home / ".config/dms"
     settings_file = config / "settings.json"
     if not settings_file.is_file():
         return

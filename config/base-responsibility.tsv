@@ -3,8 +3,8 @@ source	rpmfusion-free	desktop-service	Fedora package manager	Required source met
 source	rpmfusion-nonfree	desktop-service	Fedora package manager	Required source metadata for RPM Fusion Nonfree packages and appstream data.
 source	flathub	theme-font	Flatpak theme runtimes	Required remote for base GTK Flatpak theme runtimes and optional Flatpak apps.
 source	cisco-openh264	desktop-service	Fedora package manager	Enables Fedora OpenH264 metadata for desktop media compatibility.
-source	copr:avengemedia/dms	desktop-service	DMS shell	Provides the DMS (DankMaterialShell) stable package for the required base desktop.
-source	copr:avengemedia/danklinux	desktop-service	DMS ecosystem and Qt theme	Provides quickshell, matugen, danksearch, DMS Greeter, and qt6ct-kde for the required base desktop.
+source	copr:duxlabs/dms	desktop-service	DMS shell	Provides the DMS (Dux Shell) stable package for the required base desktop.
+source	copr:duxlabs/dux-repo	desktop-service	DMS ecosystem and Qt theme	Provides quickshell, matugen, dux-search, Dux Greeter, and qt6ct-kde for the required base desktop.
 source	terra	default-app	Ghostty	Bootstraps Terra release packages for required Ghostty packages.
 source	copr:atim/starship	theme-font	Starship prompt	Provides the Starship package used by the base shell prompt.
 source	copr:lihaohong/yazi	default-app	Yazi shell file manager	Provides the Yazi package used by the base shell tooling.
@@ -50,11 +50,12 @@ action	boot-splash	desktop-service	graphical boot and disk unlock	Ensures the rh
 dnf	plymouth	desktop-service	graphical boot and disk unlock	Provides the Plymouth splash daemon shown during boot, shutdown, and LUKS passphrase entry.
 dnf	plymouth-system-theme	desktop-service	graphical boot and disk unlock	Provides Fedora's default bgrt and spinner splash themes and their render plugins.
 dnf	grubby	desktop-service	graphical boot and disk unlock	Adds the rhgb and quiet kernel arguments that enable the graphical boot splash.
-dnf	dms	dms	DMS shell	Installs the DMS (DankMaterialShell) desktop shell started by the dms.service user unit under the Niri session.
-dnf	quickshell	dms	DMS shell	Provides the Quickshell runtime DMS runs on, named explicitly so the DankLinux COPR build is installed instead of whatever package happens to satisfy the dms RPM's "(quickshell or quickshell-git)" dependency.
+dnf	dms	dms	DMS shell	Installs the DMS (Dux Shell) desktop shell started by the dms.service user unit under the Niri session.
+dnf	quickshell	dms	DMS shell	Provides the Quickshell runtime DMS runs on, named explicitly so the dux-repo COPR build is installed instead of whatever package happens to satisfy the dms RPM's "(quickshell or quickshell-git)" dependency.
 dnf	matugen	dms	DMS app theming	Generates the per-application color themes (Ghostty, Niri, GTK, Qt, editors) from the active DMS theme.
-dnf	danksearch	dms	DMS launcher file search	Provides the file-search backend used by the DMS spotlight launcher.
+dnf	dux-search	dms	DMS launcher file search	Provides the file-search backend used by the DMS spotlight launcher.
 dnf	cava	dms	DMS audio visualizer	Provides the audio visualizer backend used by DMS media widgets.
+dnf	qt6-qtmultimedia	dms	DMS media playback	Plays DMS video wallpapers, video lock screens, and event sounds; a weak dependency of the dms RPM, which the installer does not pull in.
 dnf	qt6-qtimageformats	dms	DMS image previews	Adds WebP/TIFF/GIF image format support used by DMS wallpapers and previews.
 dnf	kf6-kimageformats	dms	DMS image previews	Adds AVIF/HEIF/JXL image format support used by DMS wallpapers and previews.
 dnf	ghostty	default-app	default terminal	Provides the default terminal used by keybindings and xdg-terminal-exec.
@@ -104,7 +105,7 @@ dnf	satty	default-app	screenshot annotation	Opens every capture from the shipped
 dnf	wl-clipboard	default-app	screenshot clipboard	Provides wl-copy, the clipboard command the screenshot annotation editor publishes the finished capture with.
 dnf	fontconfig	theme-font	font baseline	Provides font discovery and configuration.
 dnf	adw-gtk3-theme	theme-font	GTK theme	Provides Adwaita-compatible GTK3 theme assets.
-dnf	adwaita-sans-fonts	theme-font	DMS font	Provides Adwaita Sans, the default normal font in DMS.
+dnf	adwaita-sans-fonts	theme-font	DMS font	Provides Adwaita Sans, the normal font the DMS settings seed selects.
 dnf	fedora-logos	theme-font	launcher logo	Provides the Fedora SVG used by the DMS launcher button.
 dnf	google-noto-sans-fonts	theme-font	font baseline	Provides default sans-serif coverage.
 dnf	google-noto-sans-cjk-fonts	theme-font	font baseline	Provides CJK glyph coverage.

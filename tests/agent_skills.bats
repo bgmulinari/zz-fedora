@@ -111,7 +111,7 @@ shipped_skill_names() {
   assert_file_contains "$skill" "/usr/share/quickshell/dms/"
   assert_file_contains "$skill" "PLUGINS/README.md"
   assert_file_contains "$skill" "dms ipc call plugin-scan"
-  assert_file_contains "$skill" "~/.config/DankMaterialShell/plugins/"
+  assert_file_contains "$skill" "~/.config/dms/plugins/"
   # Shipping a plugin with ZZ is the repository task guide's job.
   refute_file_contains "$skill" "managed-config"
   refute_file_contains "$skill" "catalog/"

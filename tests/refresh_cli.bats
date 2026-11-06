@@ -9,7 +9,7 @@ setup() {
   # A short private runtime dir keeps the unix socket path under the length
   # limit and the theme helper away from a real DMS backend on the host.
   RUNTIME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/zz-rt.XXXXXX")"
-  THEME_FILE="$TARGET_HOME/.config/DankMaterialShell/themes/catppuccin/theme.json"
+  THEME_FILE="$TARGET_HOME/.config/dms/themes/catppuccin/theme.json"
   mkdir -p "$(dirname "$THEME_FILE")"
   printf '{"id":"catppuccin"}\n' >"$THEME_FILE"
 }
@@ -20,7 +20,7 @@ teardown() {
 
 # Serve one themes.install request on the DMS backend socket.
 start_fake_dms_backend() {
-  local socket="$RUNTIME_DIR/danklinux-1.sock"
+  local socket="$RUNTIME_DIR/dms-1.sock"
   /usr/bin/python3 "$ROOT_DIR/tests/support/fake_dms_backend.py" "$socket" "$TARGET_HOME" &
   local attempt
   for ((attempt = 0; attempt < 50; attempt++)); do
@@ -52,9 +52,9 @@ run_refresh() {
   assert_contains "$output" "niri/config.kdl"
   assert_contains "$output" "ghostty/config"
   assert_contains "$output" ".bashrc"
-  assert_contains "$output" "DankMaterialShell/settings.json"
-  assert_contains "$output" "DankMaterialShell/plugin_settings.json"
-  assert_contains "$output" ".local/state/DankMaterialShell/session.json"
+  assert_contains "$output" "dms/settings.json"
+  assert_contains "$output" "dms/plugin_settings.json"
+  assert_contains "$output" ".local/state/dms/session.json"
   assert_contains "$output" "dms "
   refute_contains "$output" "ghostty/zz-defaults"
 }
@@ -115,30 +115,30 @@ run_refresh() {
 
 @test "zz refresh renders the DMS settings seed and restarts a running shell" {
   fake_dms_unit 0
-  local settings="$TARGET_HOME/.config/DankMaterialShell/settings.json"
+  local settings="$TARGET_HOME/.config/dms/settings.json"
   mkdir -p "$(dirname "$settings")"
-  printf '{"cornerRadius": 3}\n' >"$settings"
+  printf '{"fixedRadius": 3}\n' >"$settings"
 
-  run_refresh DankMaterialShell/settings.json
+  run_refresh dms/settings.json
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "Saved backup as"
-  assert_equal "$TARGET_HOME/.config/DankMaterialShell/themes/catppuccin/theme.json" \
+  assert_equal "$TARGET_HOME/.config/dms/themes/catppuccin/theme.json" \
     "$(jq -r '.customThemeFile' "$settings")"
-  assert_equal "$(jq -r '.cornerRadius' "$ROOT_DIR/templates/dms/settings-seed.json")" \
-    "$(jq -r '.cornerRadius' "$settings")"
+  assert_equal "$(jq -r '.fixedRadius' "$ROOT_DIR/templates/dms/settings-seed.json")" \
+    "$(jq -r '.fixedRadius' "$settings")"
   assert_file_contains "$COMMAND_LOG" "systemctl --user restart dms.service"
 }
 
 @test "zz refresh renders the DMS session seed with the default wallpaper" {
   fake_dms_unit 3
 
-  run_refresh .local/state/DankMaterialShell/session.json
+  run_refresh .local/state/dms/session.json
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "Installed the current ZZ default"
   assert_equal "$TARGET_HOME/.local/share/backgrounds/Alpenglow.jpg" \
-    "$(jq -r '.wallpaperPath' "$TARGET_HOME/.local/state/DankMaterialShell/session.json")"
+    "$(jq -r '.wallpaperPath' "$TARGET_HOME/.local/state/dms/session.json")"
   refute_file_contains "$COMMAND_LOG" "restart"
 }
 
@@ -147,21 +147,21 @@ run_refresh() {
   mkdir -p "$XDG_STATE_HOME/zz-fedora/plan/config"
   printf 'dms\n' >"$XDG_STATE_HOME/zz-fedora/plan/config/components.list"
 
-  run_refresh DankMaterialShell/plugin_settings.json
+  run_refresh dms/plugin_settings.json
 
   [ "$status" -eq 0 ]
-  local plugins="$TARGET_HOME/.config/DankMaterialShell/plugin_settings.json"
+  local plugins="$TARGET_HOME/.config/dms/plugin_settings.json"
   assert_equal true "$(jq -r '.zzMenu.enabled' "$plugins")"
   assert_equal null "$(jq -r '.protonManager' "$plugins")"
 }
 
 @test "zz refresh leaves the DMS shell alone when the settings already match" {
   fake_dms_unit 0
-  run_refresh DankMaterialShell/settings.json
+  run_refresh dms/settings.json
   [ "$status" -eq 0 ]
   : >"$COMMAND_LOG"
 
-  run_refresh DankMaterialShell/settings.json
+  run_refresh dms/settings.json
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "already matches"
@@ -174,16 +174,16 @@ run_refresh() {
   run_refresh dms
 
   [ "$status" -eq 0 ]
-  [[ -f "$TARGET_HOME/.config/DankMaterialShell/settings.json" ]]
-  [[ -f "$TARGET_HOME/.config/DankMaterialShell/plugin_settings.json" ]]
-  [[ -f "$TARGET_HOME/.local/state/DankMaterialShell/session.json" ]]
+  [[ -f "$TARGET_HOME/.config/dms/settings.json" ]]
+  [[ -f "$TARGET_HOME/.config/dms/plugin_settings.json" ]]
+  [[ -f "$TARGET_HOME/.local/state/dms/session.json" ]]
   assert_equal 1 "$(grep -c 'restart dms.service' "$COMMAND_LOG")"
 }
 
 @test "zz refresh still restarts the DMS shell when a later path is rejected" {
   fake_dms_unit 0
 
-  run_refresh DankMaterialShell/settings.json ghostty/zz-defaults
+  run_refresh dms/settings.json ghostty/zz-defaults
 
   [ "$status" -ne 0 ]
   assert_contains "$output" "Not a refreshable ZZ config"
@@ -192,7 +192,7 @@ run_refresh() {
 
 @test "zz refresh reinstalls a removed DMS theme before restarting the shell" {
   fake_dms_unit 0
-  run_refresh DankMaterialShell/settings.json
+  run_refresh dms/settings.json
   [ "$status" -eq 0 ]
   rm -rf "$(dirname "$THEME_FILE")"
   : >"$COMMAND_LOG"
@@ -210,9 +210,9 @@ run_refresh() {
   fake_dms_unit 3
   rm -rf "$(dirname "$THEME_FILE")"
 
-  run_refresh DankMaterialShell/settings.json
+  run_refresh dms/settings.json
 
   [ "$status" -ne 0 ]
   assert_contains "$output" "Could not install the Catppuccin theme"
-  [[ -f "$TARGET_HOME/.config/DankMaterialShell/settings.json" ]]
+  [[ -f "$TARGET_HOME/.config/dms/settings.json" ]]
 }

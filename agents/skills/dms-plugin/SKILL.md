@@ -1,7 +1,7 @@
 ---
 name: dms-plugin
 description: >
-  Create, wire, validate, and live-test DankMaterialShell (DMS) plugins that ship with
+  Create, wire, validate, and live-test Dux Shell (DMS) plugins that ship with
   the ZZ Fedora bootstrapper repository: scaffold the plugin under dotfiles/dms
   from the version-matched upstream templates, write the QML against the installed DMS
   and Quickshell API, add the managed-config product-link row, the catalog unit (or base
@@ -15,7 +15,7 @@ description: >
 compatibility: Claude Code on the ZZ development machine (dms and qs installed, reference checkouts under /files/dev/ref-repos)
 metadata:
   domain: zz-fedora-bootstrapper
-  upstream: AvengeMedia/DankMaterialShell, quickshell-mirror/quickshell
+  upstream: duxlabs-dev/dux-shell, quickshell-mirror/quickshell
 ---
 
 # ZZ DMS plugin creator
@@ -49,8 +49,8 @@ bash agents/skills/dms-plugin/scripts/sync_refs.sh
 ```
 
 It reads `dms version` and `qs --version`, syncs the matching DMS tag, the
-`dank-qml-common` submodule at the commit DMS pins (that is where `Proc.runCommand`,
-`Theme`, and the `qs.Widgets` components are implemented), the Quickshell commit, and
+`dux-qml-common` submodule at the commit DMS pins (that is where `Proc.runCommand`,
+`Theme`, and the `qs.DCommon.Widgets` components are implemented), the Quickshell commit, and
 the plugin registry through the `reference-github-repos` skill, and prints the
 checkout paths. Then load the upstream plugin skill from that checkout; it is the
 authoritative API guide and this skill deliberately does not duplicate it:
@@ -67,7 +67,7 @@ read-only reference material.
 ## Step 1: Decide type and ship mode
 
 First check whether DMS already has it: the built-in bar widgets are listed in the
-`componentMap` of `quickshell/Modules/DankBar/WidgetHost.qml` (clock, weather,
+`componentMap` of `quickshell/Modules/SurfaceWidgets/SurfaceWidgetFactory.qml` (clock, weather,
 cpuUsage, memUsage, diskUsage, battery, network, ...), and the registry
 (`dms plugins browse`) may carry a community plugin. Say so before building a
 duplicate; the user may still want ZZ's own, but it should be a decision.
@@ -80,7 +80,7 @@ which repository files change:
 | --- | --- | --- |
 | **Optional choice** (default) | Most plugins. The wizard offers it, `default = true` selects it on a default install. | New unit with a `[choice]` table and its own config component |
 | **Base** | Only when the desktop is incomplete without it and it needs no wizard visibility | Component added to the `dms` component rows and `base-dms`'s `config` array |
-| **Standalone dev copy** | Prototyping before deciding | Nothing in the repo; work in `~/.config/DankMaterialShell/plugins/<Name>/` and move it under `dotfiles/` when it settles |
+| **Standalone dev copy** | Prototyping before deciding | Nothing in the repo; work in `~/.config/dms/plugins/<Name>/` and move it under `dotfiles/` when it settles |
 
 Decide visibility explicitly. A selected widget that is not enabled and not placed in
 a bar section is invisible, so "on by default" for a widget usually means the choice
@@ -100,7 +100,7 @@ bash agents/skills/dms-plugin/scripts/scaffold_plugin.sh \
 ```
 
 The script copies the upstream templates for the type from the synced checkout into
-`dotfiles/dms/.config/DankMaterialShell/plugins/<PascalName>/`, renames the
+`dotfiles/dms/.config/dms/plugins/<PascalName>/`, renames the
 template id and name, and prints the managed-config row and unit snippet to add next.
 It refuses to overwrite an existing directory. Composite plugins have no upstream
 template: scaffold the surfaces one type at a time into one directory, then merge the
@@ -116,7 +116,8 @@ Follow the upstream skill for the QML. The ZZ-specific rules on top of it:
 
 - **Theme everything.** ZZ ships a Catppuccin registry theme and matugen drop-ins;
   hardcoded colors or sizes break the light/dark and accent sync. Use `Theme.*`
-  from `qs.Common` and the `qs.Widgets` components.
+  from `qs.Common` and the `qs.DCommon.Widgets` components. The `Dank*` widget names
+  are deprecated wrappers that log a warning; use the `D*` types.
 - **No host paths.** Nothing under `dotfiles/` may carry `/home/<user>` or a monitor,
   GPU, or device identity. Derive paths at runtime (`pluginService.getPluginPath(id)`,
   `Quickshell.env("HOME")`, `Paths.*`).
@@ -132,7 +133,7 @@ Follow the upstream skill for the QML. The ZZ-specific rules on top of it:
   draws the pill background, padding, hover, and blur, and it honors the bar's
   `noBackground` setting, which ZZ's seed turns on. The upstream template wraps the
   pill in a `StyledRect`, which double-boxes under that bar. Return a bare `Row` (icon
-  plus `StyledText`) like the built-in widgets in `Modules/DankBar/Widgets/`, sized
+  plus `StyledText`) like the built-in widgets in `Modules/DBar/Widgets/`, sized
   with `Theme.barTextSize(...)` and colored with `Theme.widgetIconColor`.
 - **One `Proc.runCommand` id per instance.** `Proc` keeps one debouncer and one
   callback per id, and a bar widget is instantiated once per monitor and section, so
@@ -143,7 +144,7 @@ Follow the upstream skill for the QML. The ZZ-specific rules on top of it:
   `src/io/process.hpp` and `src/io/fileview.hpp` rather than guessing property names.
 - **Guides describe intent; the QML decides.** When a guide example matters (launcher
   context menus, popout injection, item fields), confirm it against the shell source
-  the map points to. The map lists the known v1.6.0 divergences.
+  the map points to. The map lists the divergences found so far.
 
 ## Step 4: Wire it into ZZ
 
@@ -151,17 +152,17 @@ Read [references/zz-wiring.md](references/zz-wiring.md) and apply, in this order
 
 1. **Managed-config row** in `config/managed-config.tsv`: one `product-link` row that
    links the whole plugin directory to
-   `~/.config/DankMaterialShell/plugins/<PascalName>`, component
+   `~/.config/dms/plugins/<PascalName>`, component
    `dms-plugin-<kebab>`, required command `dms`.
 2. **Catalog unit** in `catalog/units/desktop/<kebab>.toml` (optional choice) or the
    `dms` component plus `base-dms` `config` (base). Every unit needs an `[[install]]`
    step with a payload; when the plugin needs no extra package, declare
-   `packages = ["dms"]` with the `copr:avengemedia/dms` source, which is honest (the
+   `packages = ["dms"]` with the `copr:duxlabs/dms` source, which is honest (the
    plugin requires the shell) and idempotent. `default = true` is required for a
    non-browser choice (a test enforces it), and a new desktop choice must also be
    appended to the ordered list in `tests/anaconda_addon.bats`.
 3. **Enable-by-default seeds** only when the plugin must be active on first login.
-   DMS 1.6 keeps the `enabled` flag in `plugin_settings.json`; the reference explains
+   DMS keeps the `enabled` flag in `plugin_settings.json`; the reference explains
    the shared, plan-filtered seed template the plugin id goes into and why bar
    widgets also need their id in a `barConfigs` section of
    `templates/dms/settings-seed.json`. Pure desktop plugins auto-enable and need
@@ -177,7 +178,7 @@ Run from the repository root with root-relative paths (a `cd &&` chain can trip 
 harness's permission prompt):
 
 ```bash
-/usr/bin/python3 agents/skills/dms-plugin/scripts/validate_plugin.py dotfiles/dms/.config/DankMaterialShell/plugins/<PascalName>
+/usr/bin/python3 agents/skills/dms-plugin/scripts/validate_plugin.py dotfiles/dms/.config/dms/plugins/<PascalName>
 /usr/bin/python3 lib/catalog.py --root . validate
 ./install.sh print-plan --select desktop=<choice-id> --dry-run
 ```
@@ -225,8 +226,8 @@ the repository directory exactly as the installer would, ask DMS to rescan, and 
 its status:
 
 ```bash
-mkdir -p ~/.config/DankMaterialShell/plugins
-ln -s "$PWD"/dotfiles/dms/.config/DankMaterialShell/plugins/<PascalName> ~/.config/DankMaterialShell/plugins/<PascalName>
+mkdir -p ~/.config/dms/plugins
+ln -s "$PWD"/dotfiles/dms/.config/dms/plugins/<PascalName> ~/.config/dms/plugins/<PascalName>
 dms ipc plugin-scan scan
 dms ipc plugin-scan status <id>
 journalctl --user -u dms.service -n 50 --no-pager
@@ -256,8 +257,8 @@ installer will recreate it from the managed-config row.
   afterwards, but post-actions tops up shipped plugins on every apply: a new id is
   enabled and its widget placed once, and user removals stick. A plugin in the seed
   template and the bar seed is therefore on by default on existing installs too.
-- **Do not commit state.** Nothing from `~/.local/state/DankMaterialShell/` or
-  `~/.cache/DankMaterialShell/` belongs in the repo, including `plugin_settings.json`
+- **Do not commit state.** Nothing from `~/.local/state/dms/` or
+  `~/.cache/dms/` belongs in the repo, including `plugin_settings.json`
   captured from a live session.
 - **Name things what users call them.** The unit, choice, component, and plugin
   directory carry the plugin's own name (`gaming-proton-manager`,
@@ -280,7 +281,7 @@ installer will recreate it from the managed-config row.
   `Component.onCompleted` alone. `dms ipc call widget toggle <pluginId>` reaches it
   from a keybind; implement `openWithMode(mode)` / `toggleWithMode(mode)` on the
   widget for `openWith` / `toggleWith`. For a keybind surface that should look like
-  the launcher (centered, dimmed background) put the same content in a `DankModal`
+  the launcher (centered, dimmed background) put the same content in a `DModal`
   (`import qs.Modals.Common`; `targetScreen: parentScreen`) beside the popout, as
   the ZZ menu does, and route `toggleWith` to it.
 - **Bash reads one manifest fact: the id.** `dms_unplanned_plugin_ids` and
@@ -293,6 +294,6 @@ installer will recreate it from the managed-config row.
 - `scripts/sync_refs.sh`: sync DMS, Quickshell, and registry checkouts to the installed versions.
 - `scripts/scaffold_plugin.sh`: create a plugin directory from the upstream templates and print the wiring snippets.
 - `scripts/validate_plugin.py`: stdlib manifest and layout validator.
-- `assets/plugin-schema.json`: upstream `plugin.json` schema snapshot (DMS v1.6.0).
+- `assets/plugin-schema.json`: upstream `plugin.json` schema snapshot (DMS v2.1.0).
 - `references/zz-wiring.md`: repository wiring, seeds, tests, docs, and verification commands.
 - `references/upstream-map.md`: where each upstream answer lives in the reference checkouts.

@@ -40,9 +40,9 @@ rendered_default_emitter() {
   # Managed-config paths are written with a literal ~/ prefix.
   # shellcheck disable=SC2088
   case "$1" in
-    "~/.config/DankMaterialShell/settings.json") printf 'dms_settings_seed_json\n' ;;
-    "~/.config/DankMaterialShell/plugin_settings.json") printf 'dms_plugin_settings_seed_json\n' ;;
-    "~/.local/state/DankMaterialShell/session.json") printf 'dms_session_seed_json\n' ;;
+    "~/.config/dms/settings.json") printf 'dms_settings_seed_json\n' ;;
+    "~/.config/dms/plugin_settings.json") printf 'dms_plugin_settings_seed_json\n' ;;
+    "~/.local/state/dms/session.json") printf 'dms_session_seed_json\n' ;;
     *) return 1 ;;
   esac
 }
@@ -182,7 +182,7 @@ refresh_config() {
     DMS_CHANGED=1
   fi
   # shellcheck disable=SC2088
-  [[ "$matched_path" != "~/.config/DankMaterialShell/settings.json" ]] || THEME_CHECK=1
+  [[ "$matched_path" != "~/.config/dms/settings.json" ]] || THEME_CHECK=1
 }
 
 # Callers test this with ||, which suspends errexit, so every write is

@@ -348,7 +348,7 @@ setup() {
   # DMS's own floating toggle adds and removes this exact id; seeding it
   # keeps Settings -> Floating Windows in sync from the first login.
   assert_file_contains "$rules" '// @id=dms-floating-windows @name=DMS Floating Windows'
-  assert_file_contains "$rules" 'match app-id="^com.danklinux.dms$"'
+  assert_file_contains "$rules" 'match app-id="^dev\\.duxlabs\\.shell$"'
   assert_file_contains "$rules" '// @id=zz-screenshot-editor-floating @name='
   assert_file_contains "$rules" 'match app-id="^(com\\.gabm\\.satty|satty)$"'
   assert_file_contains "$rules" 'match app-id="^(com\\.mitchellh\\.ghostty|ghostty)$"'
@@ -424,16 +424,18 @@ setup() {
   assert_file_contains "$config" 'include optional=true "dms/binds.kdl"'
   refute_file_contains "$config" '"./dms/'
   local fragment
-  for fragment in layout alttab binds cursor input outputs windowrules wpblur; do
+  for fragment in layout alttab binds-next binds cursor input outputs windowrules wpblur; do
     assert_file_contains "$config" "include optional=true \"dms/${fragment}.kdl\""
   done
   assert_file_contains "$config" 'include "dms/colors.kdl"'
+  # A bind in dms/binds.kdl has to beat the version-dependent DMS defaults.
+  [ "$(grep -n '"dms/binds-next.kdl"' "$config" | cut -d: -f1)" -lt \
+    "$(grep -n '"dms/binds.kdl"' "$config" | cut -d: -f1)" ]
 
-  # DMS 1.6 owns device input settings. Product-only behavior stays in the
+  # DMS owns device input settings. Product-only behavior stays in the
   # earlier cfg/input.kdl layer, where it cannot prevent a DMS toggle from
   # disabling tap, natural scrolling, or Num Lock by omitting the directive.
   local product_input="$ROOT_DIR/dotfiles/niri/.config/niri/cfg/input.kdl"
-  assert_file_contains "$product_input" 'focus-follows-mouse'
   assert_file_contains "$product_input" 'workspace-auto-back-and-forth'
   refute_file_contains "$product_input" 'touchpad {'
   refute_file_contains "$product_input" 'numlock'
@@ -481,11 +483,11 @@ EOF
   # Repeated runs must not disturb the seeded state.
   install_dms_state_seeds_if_missing
 
-  local settings="$TARGET_HOME/.config/DankMaterialShell/settings.json"
-  local session="$TARGET_HOME/.local/state/DankMaterialShell/session.json"
+  local settings="$TARGET_HOME/.config/dms/settings.json"
+  local session="$TARGET_HOME/.local/state/dms/session.json"
   assert_equal "registry" "$(jq -r '.currentThemeCategory' "$settings")"
   assert_equal "custom" "$(jq -r '.currentThemeName' "$settings")"
-  assert_equal "$TARGET_HOME/.config/DankMaterialShell/themes/catppuccin/theme.json" \
+  assert_equal "$TARGET_HOME/.config/dms/themes/catppuccin/theme.json" \
     "$(jq -r '.customThemeFile' "$settings")"
   assert_equal "mocha" "$(jq -r '.registryThemeVariants.catppuccin.dark.flavor' "$settings")"
   assert_equal "blue" "$(jq -r '.registryThemeVariants.catppuccin.dark.accent' "$settings")"
@@ -494,10 +496,14 @@ EOF
   assert_equal "Adwaita Sans" "$(jq -r '.fontFamily' "$settings")"
   assert_equal "Yaru-blue" "$(jq -r '.iconThemeDark' "$settings")"
   # Appearance defaults the managed desktop pins on top of the DMS defaults.
-  assert_equal "0" "$(jq -r '.cornerRadius' "$settings")"
+  assert_equal "fixed" "$(jq -r '.radiusMode' "$settings")"
+  assert_equal "0" "$(jq -r '.fixedRadius' "$settings")"
   assert_equal "sth" "$(jq -r '.widgetBackgroundColor' "$settings")"
   assert_equal "false" "$(jq -r 'has("showDock")' "$settings")"
-  assert_equal "true" "$(jq -r '.showWorkspaceIndex' "$settings")"
+  assert_equal "true" "$(jq -r '.dockConfigs[0].smartAutoHide' "$settings")"
+  # Bar widget options live on the widget's entry in the bar.
+  assert_equal "true" "$(jq -r '.barConfigs[0].leftWidgets[] | objects | select(.id == "workspaceSwitcher").showWorkspaceIndex' "$settings")"
+  assert_equal "custom" "$(jq -r '.barConfigs[0].leftWidgets[] | objects | select(.id == "launcherButton").launcherLogoMode' "$settings")"
   assert_equal "false" "$(jq -r '.barElevationEnabled' "$settings")"
   assert_equal "true" "$(jq -r '.barConfigs[0].squareCorners' "$settings")"
   assert_equal "1.2" "$(jq -r '.barConfigs[0].fontScale' "$settings")"
@@ -508,21 +514,22 @@ EOF
   assert_equal "false" "$(jq -r 'has("niriLayoutBorderSize")' "$settings")"
   # Preserve ZZ's Num Lock default through the DMS-owned input fragment.
   assert_equal "true" "$(jq -r '.keyboardNumlock' "$settings")"
+  assert_equal "1" "$(jq -r '.focusFollowsMouse' "$settings")"
   assert_equal "$TARGET_HOME/.local/share/backgrounds/Alpenglow.jpg" \
     "$(jq -r '.wallpaperPath' "$session")"
   assert_equal "false" "$(jq -r 'has("isLightMode")' "$session")"
   assert_equal "false" "$(jq -r 'has("pinnedApps")' "$session")"
   # The colors placeholder keeps the greeter cache symlink from dangling.
-  assert_equal "{}" "$(jq -c '.' "$TARGET_HOME/.cache/DankMaterialShell/dms-colors.json")"
+  assert_equal "{}" "$(jq -c '.' "$TARGET_HOME/.cache/dms/dms-colors.json")"
 }
 
 @test "DMS state seeds preserve existing user state" {
   build_test_plan
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/dms-seed-existing-home"
-  mkdir -p "$TARGET_HOME/.config/DankMaterialShell" "$TARGET_HOME/.local/state/DankMaterialShell"
-  printf '{"currentThemeName":"user-picked"}\n' >"$TARGET_HOME/.config/DankMaterialShell/settings.json"
-  printf '{"wallpaperPath":"/tmp/user-picked.jpg"}\n' >"$TARGET_HOME/.local/state/DankMaterialShell/session.json"
+  mkdir -p "$TARGET_HOME/.config/dms" "$TARGET_HOME/.local/state/dms"
+  printf '{"currentThemeName":"user-picked"}\n' >"$TARGET_HOME/.config/dms/settings.json"
+  printf '{"wallpaperPath":"/tmp/user-picked.jpg"}\n' >"$TARGET_HOME/.local/state/dms/session.json"
   DRY_RUN=0
   run_cmd_as_user() {
     local user="$1"
@@ -532,8 +539,8 @@ EOF
 
   install_dms_state_seeds_if_missing
 
-  assert_equal "user-picked" "$(jq -r '.currentThemeName' "$TARGET_HOME/.config/DankMaterialShell/settings.json")"
-  assert_equal "/tmp/user-picked.jpg" "$(jq -r '.wallpaperPath' "$TARGET_HOME/.local/state/DankMaterialShell/session.json")"
+  assert_equal "user-picked" "$(jq -r '.currentThemeName' "$TARGET_HOME/.config/dms/settings.json")"
+  assert_equal "/tmp/user-picked.jpg" "$(jq -r '.wallpaperPath' "$TARGET_HOME/.local/state/dms/session.json")"
 }
 
 @test "DMS state seeds are skipped with --skip-user-config" {
@@ -551,8 +558,8 @@ EOF
 
   install_dms_state_seeds_if_missing
 
-  [ ! -e "$TARGET_HOME/.config/DankMaterialShell/settings.json" ]
-  [ ! -e "$TARGET_HOME/.local/state/DankMaterialShell/session.json" ]
+  [ ! -e "$TARGET_HOME/.config/dms/settings.json" ]
+  [ ! -e "$TARGET_HOME/.local/state/dms/session.json" ]
 }
 
 @test "qt6ct config uses the DMS KColorScheme" {

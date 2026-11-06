@@ -49,7 +49,7 @@ live ZZ defaults first and a user override last:
 | Niri | `~/.config/niri/config.kdl`, plus optional `~/.config/niri/local.kdl` | `dotfiles/niri/.config/niri/defaults.kdl` and its `cfg/` includes |
 | Niri keybinds | `~/.config/niri/dms/binds.kdl` (seeded once, then owned by DMS Settings → Keyboard Shortcuts) | `templates/niri/dms-binds.kdl` |
 | Niri window rules | `~/.config/niri/dms/windowrules.kdl` (seeded once, then owned by DMS Settings → Window Rules) | `templates/niri/dms-windowrules.kdl` |
-| DMS | `~/.config/DankMaterialShell/settings.json` and `~/.config/DankMaterialShell/plugin_settings.json` (seeded once, then owned by the Settings UI; a newly shipped plugin is still enabled and placed in the bar once, as it arrives) | Catppuccin is downloaded by DMS at first login and is user-owned; the plugin directories under `dotfiles/dms/.config/DankMaterialShell/plugins/`, each linked whole into `~/.config/DankMaterialShell/plugins/`; session state stays under `~/.local/state/DankMaterialShell/` |
+| DMS | `~/.config/dms/settings.json` and `~/.config/dms/plugin_settings.json` (seeded once, then owned by the Settings UI; a newly shipped plugin is still enabled and placed in the bar once, as it arrives) | Catppuccin is downloaded by DMS at first login and is user-owned; the plugin directories under `dotfiles/dms/.config/dms/plugins/`, each linked whole into `~/.config/dms/plugins/`; session state stays under `~/.local/state/dms/` |
 | Ghostty | `~/.config/ghostty/config` and optional `~/.config/ghostty/local` | `dotfiles/ghostty/.config/ghostty/config`, linked as `~/.config/ghostty/zz-defaults` |
 | Nautilus | none; the extension link is product-owned (user extensions go beside it in `~/.local/share/nautilus-python/extensions/`) | `dotfiles/nautilus/.local/share/nautilus-python/extensions/zz-copy-path.py`, a nautilus-python extension that adds Copy Full Path to the file, folder, and background context menus |
 | Screenshot annotation | `~/.config/satty/config.toml` (seeded once, then user-owned; the shipped screenshot keybinds pipe every capture into this editor) | `templates/satty/config.toml` |
@@ -188,7 +188,7 @@ Change something in the DMS Settings UI, then:
 scripts/dms-seed-diff.sh                 # list what moved
 scripts/dms-seed-diff.sh --apply         # live -> seed, keep it as a default
 scripts/dms-seed-diff.sh --reset         # seed -> live, throw the change away
-scripts/dms-seed-diff.sh --apply cornerRadius showDock
+scripts/dms-seed-diff.sh --apply fixedRadius popupTransparency
 ```
 
 `--apply` and `--reset` are the two directions of the same report and cannot
@@ -210,8 +210,9 @@ Changing the icon theme or the wallpaper is reported too, but as a key
 `lib/dms.sh` renders rather than one a seed file holds: the report names the
 helper to edit (`dms_icon_theme`, `dms_default_wallpaper`, `dms_theme_file`)
 and `--apply` never writes an absolute host path into a seed.
-Other DMS file selectors, such as custom logo, keymap, lock-screen, per-mode
-wallpaper, and wallpaper-cycling paths, are excluded from automatic promotion.
+Other DMS file selectors, such as custom logo (including the launcher widget's
+option in the bar), keymap, lock-screen, per-mode wallpaper, and wallpaper-cycling
+paths, are excluded from automatic promotion.
 Add an intentional product asset under the managed defaults and wire it into
 the seed or helper explicitly instead of capturing a live home-directory path.
 
@@ -224,15 +225,18 @@ grouping, and ordering — promoting one rebind must not reflow the file into
 DMS's sorted, comment-free layout. `--reset` needs no shell restart for
 keybinds, as niri watches its own config.
 
-DMS 1.6 persists sparse state: a key absent from `settings.json` or
+DMS persists sparse state: a key absent from `settings.json` or
 `session.json` inherits its specification default. The script resolves the
 runtime-extracted shell through `dms doctor --json`, reads that revision's own
-`Common/settings/*Spec.js`, and compares the effective live value rather than
+`Common/settings/*Spec.js` with the shared `DCommon` specs they merge, and compares the effective live value rather than
 calling an omitted default-valued key stale. It also compares structured
 settings field by field so promoting one bar property does not freeze the
 whole backfilled bar schema into the seed. Machine-specific and runtime keys —
 monitor layouts, GPU and device identity, location data, transient idle state,
 launcher history, and sidebar state — are excluded and can never be promoted;
-see `EXCLUDED` in `lib/dms_seed_diff.py`.
+see `EXCLUDED` in `lib/dms_seed_diff.py`. Keys whose default DMS computes in
+JavaScript (`dockConfigs` and the lock screen and greeter widget lists) have no
+literal to compare with, so the report covers only the fields the seed pins and
+says so; add another field of those keys to the seed by hand.
 
 It exits non-zero while differences remain, so it can gate a check.
