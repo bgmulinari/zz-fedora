@@ -7,4 +7,4 @@ order = 150
 
 [[install]]
 backend = "dnf"
-packages = ["ghostty-nautilus", "nautilus", "nautilus-python"]
+packages = ["nautilus", "nautilus-python"]

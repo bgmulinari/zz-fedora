@@ -5,7 +5,7 @@ source	flathub	theme-font	Flatpak theme runtimes	Required remote for base GTK Fl
 source	cisco-openh264	desktop-service	Fedora package manager	Enables Fedora OpenH264 metadata for desktop media compatibility.
 source	copr:duxlabs/dms	desktop-service	DMS shell	Provides the DMS (Dux Shell) stable package for the required base desktop.
 source	copr:duxlabs/dux-repo	desktop-service	DMS ecosystem and Qt theme	Provides quickshell, matugen, dux-search, Dux Greeter, and qt6ct-kde for the required base desktop.
-source	terra	default-app	Ghostty	Bootstraps Terra release packages for required Ghostty packages.
+source	copr:scottames/ghostty	default-app	Ghostty	Provides the Ghostty package used as the default terminal.
 source	copr:atim/starship	theme-font	Starship prompt	Provides the Starship package used by the base shell prompt.
 source	copr:lihaohong/yazi	default-app	Yazi shell file manager	Provides the Yazi package used by the base shell tooling.
 dnf	@standard	platform-support	Fedora base system	Matches the standard package group included by Fedora Workstation, including CPU microcode, storage tools, and hardware diagnostics.
@@ -59,7 +59,6 @@ dnf	qt6-qtmultimedia	dms	DMS media playback	Plays DMS video wallpapers, video lo
 dnf	qt6-qtimageformats	dms	DMS image previews	Adds WebP/TIFF/GIF image format support used by DMS wallpapers and previews.
 dnf	kf6-kimageformats	dms	DMS image previews	Adds AVIF/HEIF/JXL image format support used by DMS wallpapers and previews.
 dnf	ghostty	default-app	default terminal	Provides the default terminal used by keybindings and xdg-terminal-exec.
-dnf	ghostty-shell-integration	default-app	terminal shell integration	Provides Ghostty shell integration scripts for working-directory reporting, prompt marking, and shell-aware terminal behavior.
 action	jetbrains-mono-nerd-font	theme-font	terminal and prompt rendering	Installs the pinned Nerd Font used by Ghostty and Starship glyphs.
 action	desktop-cursor-theme	theme-font	Niri and graphical applications	Installs the pinned cursor theme selected by the managed Niri and desktop environment defaults.
 flatpak	org.gtk.Gtk3theme.adw-gtk3	theme-font	Flatpak GTK apps	Matches Flatpak GTK3 apps to the base GTK theme.
@@ -90,7 +89,6 @@ dnf	avahi	desktop-service	network discovery	Provides mDNS discovery for printers
 dnf	nss-mdns	desktop-service	network discovery	Resolves mDNS hostnames.
 dnf	nautilus	default-app	file manager	Provides the default graphical file manager.
 dnf	nautilus-python	default-app	file manager context menu	Loads the Python Nautilus extensions, including the managed Copy Full Path action and the Ghostty terminal action.
-dnf	ghostty-nautilus	default-app	file manager terminal action	Provides Ghostty integration in the Nautilus context menu.
 dnf	gvfs-mtp	file-integration	file manager	Enables MTP device access in Nautilus/GVFS.
 dnf	gvfs-nfs	file-integration	file manager	Enables NFS access in Nautilus/GVFS.
 dnf	gvfs-smb	file-integration	file manager	Enables SMB access in Nautilus/GVFS.

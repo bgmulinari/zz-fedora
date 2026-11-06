@@ -16,7 +16,7 @@ there are no compatibility or migration paths.
 | Audio visualizer | `cava` | Fedora / COPR `duxlabs/dux-repo` |
 | Greeter | `dux-greeter` | COPR `duxlabs/dux-repo` |
 | Qt6 theming | `qt6ct-kde` | COPR `duxlabs/dux-repo` |
-| Terminal | `ghostty` | Terra |
+| Terminal | `ghostty` | COPR `scottames/ghostty` |
 
 DMS started as DankMaterialShell; 2.0 renamed it Dux Shell and moved the project
 to Dux Labs. The command and the units keep their names (`dms`, `dsearch`,
@@ -46,9 +46,11 @@ migration updates the ownership rule together with the source definition:
   dms RPM's `(quickshell or quickshell-git)` dependency). `base-dms` also
   names `quickshell` explicitly so the real package is installed rather
   than trusting provider resolution of that boolean dependency.
-- `catalog/sources/copr/duxlabs-dux-repo.toml` excludes
-  `ghostty,ghostty-shell-integration,ghostty-nautilus` so Terra always
-  owns Ghostty (the COPR also builds it).
+- `catalog/sources/copr/duxlabs-dux-repo.toml` and
+  `catalog/sources/terra/terra.toml` both exclude
+  `ghostty*,libghostty-vt*`, so the `scottames/ghostty` COPR always owns
+  Ghostty (both also build it). Ownership uses `excludepkgs` rather than a dnf
+  repository `priority`, which would also apply to the COPR's other packages.
 
 DMS bundles its UI fonts (Inter Variable, FiraCode Nerd Font, Material
 Symbols Rounded) through Qt FontLoader, so no font packages are required

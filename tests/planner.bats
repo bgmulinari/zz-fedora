@@ -95,7 +95,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/bundles.list" "base-source-cisco-openh264"
   assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:duxlabs/dms"
   assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:duxlabs/dux-repo"
-  assert_plan_has "$PLAN_DIR/sources/terra.list" "terra"
+  assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:scottames/ghostty"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:oh-my-zsh"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:zsh-autosuggestions"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:zsh-syntax-highlighting"
@@ -118,9 +118,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "dux-search"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "starship"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "yazi"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-nautilus"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus-python"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "plymouth"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "plymouth-system-theme"
@@ -146,8 +144,8 @@ assert_all_bundles_reachable() {
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:duxlabs/dux-repo\tbase-login-manager'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'action\tdms-greeter\tbase-login-manager\tdesktop-service\tgraphical login'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tdms\tbase-dms\tdms\tDMS shell'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tterra\tbase-ghostty'
-  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tghostty-shell-integration\tbase-ghostty\tdefault-app\tterminal shell integration'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'source\tcopr:scottames/ghostty\tbase-ghostty'
+  assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tghostty\tbase-ghostty\tdefault-app\tdefault terminal'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbash-completion\tbase-bootstrap\tshell-tool\tinteractive Bash'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tbats\tbase-bootstrap\tdevelopment-tool\trepository regression suite'
   assert_file_contains "$PLAN_DIR/base-rationale.tsv" $'dnf\tdnf5-plugins\tbase-bootstrap\tinstaller-bootstrap\tFedora source setup and installer reruns'
@@ -288,7 +286,6 @@ assert_all_bundles_reachable() {
     assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "$package"
   done
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-nautilus"
 }
 
 @test "DE-like hardware support remains in the protected base" {
@@ -356,7 +353,6 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-keyring"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-keyring-pam"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-shell-integration"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-terminal-exec"
 
   assert_plan_has "$PLAN_DIR/bundles.list" "base-desktop-apps"
@@ -371,7 +367,6 @@ assert_all_bundles_reachable() {
   refute_plan_has "$PLAN_DIR/sources/rpmfusion.list" "rpmfusion-free"
   refute_plan_has "$PLAN_DIR/sources/flatpak-remotes.list" "flathub"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "ghostty-nautilus"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-software"

@@ -8,7 +8,7 @@ setup() {
   source_modules
 }
 
-@test "Terra source cannot replace the DMS stack from the Dux Labs COPRs" {
+@test "Terra source cannot replace the DMS stack or the COPR Ghostty" {
   DRY_RUN=0
   fedora_repo_enabled() {
     return 0
@@ -26,10 +26,10 @@ setup() {
   # Enabling Terra must leave the repository's shipped package and metadata
   # signature verification untouched.
   [[ "$output" != *"repo_gpgcheck="* ]]
-  assert_contains "$output" "root:dnf config-manager setopt terra.excludepkgs=quickshell,quickshell-git,noctalia-qs,matugen,dgop,dux-gop,danksearch,dux-search,dms,dms-cli,dms-greeter,dux-greeter"
+  assert_contains "$output" "root:dnf config-manager setopt terra.excludepkgs=quickshell,quickshell-git,noctalia-qs,matugen,dgop,dux-gop,danksearch,dux-search,dms,dms-cli,dms-greeter,dux-greeter,ghostty*,libghostty-vt*"
 }
 
-@test "dux-repo COPR and dependency aliases cannot replace Terra Ghostty" {
+@test "dux-repo COPR and dependency aliases cannot replace the COPR Ghostty" {
   DRY_RUN=0
   fedora_repo_enabled() {
     return 1
@@ -53,8 +53,8 @@ setup() {
 
   [ "$status" -eq 0 ]
   assert_contains "$output" "root:dnf copr enable -y duxlabs/dux-repo"
-  assert_contains "$output" "root:dnf config-manager setopt copr:copr.fedorainfracloud.org:duxlabs:dux-repo.excludepkgs=ghostty,ghostty-shell-integration,ghostty-nautilus"
-  assert_contains "$output" "root:dnf config-manager setopt coprdep:copr.fedorainfracloud.org:duxlabs:dux-repo.excludepkgs=ghostty,ghostty-shell-integration,ghostty-nautilus"
+  assert_contains "$output" "root:dnf config-manager setopt copr:copr.fedorainfracloud.org:duxlabs:dux-repo.excludepkgs=ghostty*,libghostty-vt*"
+  assert_contains "$output" "root:dnf config-manager setopt coprdep:copr.fedorainfracloud.org:duxlabs:dux-repo.excludepkgs=ghostty*,libghostty-vt*"
   refute_contains "$output" "someone:else.excludepkgs"
 }
 

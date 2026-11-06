@@ -8,5 +8,5 @@ order = 90
 
 [[install]]
 backend = "dnf"
-sources = ["terra"]
-packages = ["ghostty", "ghostty-shell-integration"]
+sources = ["copr:scottames/ghostty"]
+packages = ["ghostty"]

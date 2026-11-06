@@ -16,8 +16,8 @@ or the seeded editor settings.
 
 Put every personal setting in `local`; it loads last and wins. Ghostty reloads config
 with Ctrl+Shift+Comma or in the next window. Keep `theme = dankcolors` unless the user
-wants a fixed theme. Shell integration comes from the `ghostty-shell-integration`
-package, not from rc files.
+wants a fixed theme. Shell integration comes from the `ghostty` package, not from rc
+files.
 
 ## Bash and Zsh
 
