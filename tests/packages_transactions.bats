@@ -8,6 +8,25 @@ setup() {
   source_modules
 }
 
+# Resolves $TARGET_USER to $TARGET_HOME and $TARGET_UID (default 1234), read at
+# call time so a test can change them between runs.
+fake_target_account() {
+  id() {
+    if [[ "${1:-}" == "-u" && "${2:-}" == "$TARGET_USER" ]]; then
+      printf '%s\n' "${TARGET_UID:-1234}"
+      return 0
+    fi
+    command id "$@"
+  }
+  getent() {
+    if [[ "${1:-}" == "passwd" && "${2:-}" == "$TARGET_USER" ]]; then
+      printf '%s:x:%s:%s::%s:/bin/bash\n' "$TARGET_USER" "${TARGET_UID:-1234}" "${TARGET_UID:-1234}" "$TARGET_HOME"
+      return 0
+    fi
+    command getent "$@"
+  }
+}
+
 @test "optional package transaction retries individually and continues" {
   plan_file="$TEST_ROOT/optional.pkgs"
   printf 'bad-package\ngood-package\n' >"$plan_file"
@@ -135,20 +154,7 @@ EOF
   export LANG=C.UTF-8
   export LC_ALL=C
 
-  id() {
-    if [[ "${1:-}" == "-u" && "${2:-}" == "locale-user" ]]; then
-      printf '1234\n'
-      return 0
-    fi
-    command id "$@"
-  }
-  getent() {
-    if [[ "${1:-}" == "passwd" && "${2:-}" == "locale-user" ]]; then
-      printf 'locale-user:x:1234:1234::%s:/bin/bash\n' "$TARGET_HOME"
-      return 0
-    fi
-    command getent "$@"
-  }
+  fake_target_account
   run_cmd() {
     printf '%s\n' "$*"
   }
@@ -159,25 +165,33 @@ EOF
   assert_contains "$output" "LANG=C.UTF-8"
   assert_contains "$output" "LC_ALL=C.UTF-8"
 }
+@test "run_cmd_as_user exports XDG_RUNTIME_DIR only when the directory exists" {
+  TARGET_USER="runtime-user"
+  TARGET_HOME="$TEST_ROOT/runtime-home"
+  mkdir -p "$TARGET_HOME"
+  TARGET_UID=4242424
+  fake_target_account
+  run_cmd() {
+    printf '%s\n' "$*"
+  }
+
+  [[ ! -e "/run/user/$TARGET_UID" ]]
+  run run_cmd_as_user runtime-user true
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"XDG_RUNTIME_DIR="* ]]
+
+  TARGET_UID="$(command id -u)"
+  [[ -d "/run/user/$TARGET_UID" ]] || skip "no /run/user directory for this test user"
+  run run_cmd_as_user runtime-user true
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "XDG_RUNTIME_DIR=/run/user/$TARGET_UID"
+}
 @test "run_cmd_as_user switches to the user's home after the identity change" {
   TARGET_USER="cwd-user"
   TARGET_HOME="$TEST_ROOT/cwd-home"
   mkdir -p "$TARGET_HOME"
 
-  id() {
-    if [[ "${1:-}" == "-u" && "${2:-}" == "cwd-user" ]]; then
-      printf '1234\n'
-      return 0
-    fi
-    command id "$@"
-  }
-  getent() {
-    if [[ "${1:-}" == "passwd" && "${2:-}" == "cwd-user" ]]; then
-      printf 'cwd-user:x:1234:1234::%s:/bin/bash\n' "$TARGET_HOME"
-      return 0
-    fi
-    command getent "$@"
-  }
+  fake_target_account
   run_cmd() {
     printf '%s\n' "$*"
   }
@@ -199,20 +213,7 @@ EOF
   mkdir -p "$TARGET_HOME" "$TEST_ROOT/unreadable-caller-cwd"
   DRY_RUN=0
 
-  id() {
-    if [[ "${1:-}" == "-u" && "${2:-}" == "cwd-user" ]]; then
-      printf '1234\n'
-      return 0
-    fi
-    command id "$@"
-  }
-  getent() {
-    if [[ "${1:-}" == "passwd" && "${2:-}" == "cwd-user" ]]; then
-      printf 'cwd-user:x:1234:1234::%s:/bin/bash\n' "$TARGET_HOME"
-      return 0
-    fi
-    command getent "$@"
-  }
+  fake_target_account
   # Stand in for sudo: drop "-u <user>" and run the rest as this test user,
   # which keeps the real env --chdir behaviour in play.
   sudo() {

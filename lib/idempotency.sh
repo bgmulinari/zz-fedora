@@ -153,8 +153,11 @@ run_cmd_as_user() {
       "HOME=$user_home"
       "USER=$user"
       "LOGNAME=$user"
-      "XDG_RUNTIME_DIR=$runtime_dir"
     )
+    # The XDG Base Directory spec requires this directory to exist when the
+    # variable is set; without it (no user session, as in the installer chroot)
+    # programs use their documented fallback. The .NET CLI aborts otherwise.
+    [[ -d "$runtime_dir" ]] && user_env+=("XDG_RUNTIME_DIR=$runtime_dir")
     local locale_lang="${LANG:-C.UTF-8}"
     local locale_all="${LC_ALL:-$locale_lang}"
     case "$locale_lang" in
