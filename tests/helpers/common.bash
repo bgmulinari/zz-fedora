@@ -116,6 +116,21 @@ write_fake_command() {
   chmod +x "$FAKE_BIN/$name"
 }
 
+# make_fake_gsettings installs a gsettings that stores values and logs its
+# calls. Creating $FAKE_BIN/.gsettings-write-fails makes `set` exit 0 without
+# storing, which is how the real tool behaves when dconf cannot commit a write.
+make_fake_gsettings() {
+  write_fake_command gsettings <<EOF
+#!/usr/bin/env bash
+printf 'gsettings %s\\n' "\$*" >>$(printf '%q' "$COMMAND_LOG")
+state=$(printf '%q' "$FAKE_BIN")/.gsettings-\$3
+case "\$1" in
+  set) [[ -e $(printf '%q' "$FAKE_BIN")/.gsettings-write-fails ]] || printf '%s\\n' "\$4" >"\$state" ;;
+  get) [[ ! -f "\$state" ]] || printf "'%s'\\n" "\$(<"\$state")" ;;
+esac
+EOF
+}
+
 # Materialize the theme artifacts DMS would generate after the shell comes
 # up, so the dms-theme first-run checkpoint can complete in tests.
 stub_dms_theme_artifacts() {
@@ -145,6 +160,8 @@ stub_dms_shell_payload() {
 stub_run_cmd_as_user() {
   STUB_RUN_CMD_AS_USER_LOG="${1:-}"
   stub_dms_shell_payload
+  [[ -n "${FAKE_BIN:-}" ]] || setup_fake_bin
+  make_fake_gsettings
   run_cmd_as_user() {
     local user="$1"
     shift
@@ -161,6 +178,9 @@ stub_run_cmd_as_user() {
     case "$1" in
       mkdir|rm|sh|install|cp)
         "$@"
+        ;;
+      gsettings)
+        "$FAKE_BIN/gsettings" "${@:2}"
         ;;
       *)
         return 0

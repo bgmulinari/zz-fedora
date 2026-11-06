@@ -201,19 +201,31 @@ first_run_update_user_directories() {
   run_cmd_as_user "$TARGET_USER" xdg-user-dirs-update || true
 }
 
+# gsettings exits 0 when dconf cannot commit a write, which dconf reports only
+# as a warning, so reading the key back is what proves it was saved.
+first_run_gsettings_set() {
+  local key="$1" value="$2" saved
+  run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface "$key" "$value" || return 1
+  [[ "$DRY_RUN" -eq 1 ]] && return 0
+  saved="$(run_cmd_as_user "$TARGET_USER" gsettings get org.gnome.desktop.interface "$key")" || return 1
+  [[ "${saved//\'/}" == "$value" ]]
+}
+
 first_run_apply_desktop_interface() {
-  local cursor_theme
+  local cursor_theme failed=0
   cursor_theme="$(desktop_cursor_theme_name)"
 
   if [[ "$(resolved_desktop_app_profile)" == "full" ]]; then
-    run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark || true
+    first_run_gsettings_set gtk-theme adw-gtk3-dark || failed=1
     # The same selection the matugen post-hook makes, so a repeat of this action
     # cannot undo an accent change.
-    run_cmd_as_user "$TARGET_USER" "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-icon-theme" || true
-    run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface color-scheme prefer-dark || true
-    run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface cursor-theme "$cursor_theme" || true
-    run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface cursor-size "$DESKTOP_CURSOR_THEME_SIZE" || true
+    run_cmd_as_user "$TARGET_USER" "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-icon-theme" || failed=1
+    first_run_gsettings_set color-scheme prefer-dark || failed=1
+    first_run_gsettings_set cursor-theme "$cursor_theme" || failed=1
+    first_run_gsettings_set cursor-size "$DESKTOP_CURSOR_THEME_SIZE" || failed=1
   fi
+  [[ "$failed" -eq 0 ]] || log_warn "Could not save the desktop interface settings; retrying at next login"
+  return "$failed"
 }
 
 first_run_session_services_fingerprint() {

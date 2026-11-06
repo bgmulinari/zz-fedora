@@ -25,7 +25,7 @@ setup() {
     "$home/.local/share/icons/Yaru-yellow"
   printf '#e01b24\n' >"$home/.cache/dms/icon-theme-accent"
   setup_fake_bin
-  make_fake_command gsettings
+  make_fake_gsettings
   make_fake_command dms
   make_fake_command kwriteconfig6
 
@@ -41,6 +41,21 @@ setup() {
   ! grep -q "kwriteconfig6" "$COMMAND_LOG"
 }
 
+@test "icon-theme sync fails when the write is not saved" {
+  local home="$TEST_ROOT/icon-sync-unsaved-home"
+  mkdir -p "$home/.cache/dms" "$home/.local/share/icons/Yaru-red"
+  printf '#e01b24\n' >"$home/.cache/dms/icon-theme-accent"
+  setup_fake_bin
+  make_fake_gsettings
+  : >"$FAKE_BIN/.gsettings-write-fails"
+
+  run env PATH="$FAKE_BIN:$PATH" HOME="$home" XDG_CACHE_HOME="$home/.cache" \
+    XDG_DATA_DIRS="$home/.local/share" \
+    "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-icon-theme"
+
+  [ "$status" -ne 0 ]
+}
+
 @test "icon-theme sync keeps an existing settings.ini value in step" {
   local home="$TEST_ROOT/icon-sync-ini-home"
   mkdir -p "$home/.cache/dms" "$home/.local/share/icons/Yaru-red" \
@@ -50,7 +65,7 @@ setup() {
     >"$home/.config/gtk-3.0/settings.ini"
   printf '[Settings]\ngtk-theme-name=adw-gtk3\n' >"$home/.config/gtk-4.0/settings.ini"
   setup_fake_bin
-  make_fake_command gsettings
+  make_fake_gsettings
 
   run env PATH="$FAKE_BIN:$PATH" HOME="$home" XDG_CACHE_HOME="$home/.cache" \
     XDG_CONFIG_HOME="$home/.config" XDG_DATA_DIRS="$home/.local/share" \
@@ -70,7 +85,7 @@ setup() {
     "$home/.local/share/icons/Yaru-blue"
   printf '#808080\n' >"$home/.cache/dms/icon-theme-accent"
   setup_fake_bin
-  make_fake_command gsettings
+  make_fake_gsettings
   make_fake_command dms
   make_fake_command kwriteconfig6
 

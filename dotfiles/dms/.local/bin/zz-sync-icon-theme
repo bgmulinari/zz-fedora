@@ -131,4 +131,7 @@ for settings_file in "${XDG_CONFIG_HOME:-$HOME/.config}"/gtk-{3,4}.0/settings.in
   fi
 done
 
-gsettings set org.gnome.desktop.interface icon-theme "$best_theme" || true
+# gsettings exits 0 when dconf cannot commit a write, which dconf reports only
+# as a warning, so reading the key back is what proves it was saved.
+gsettings set org.gnome.desktop.interface icon-theme "$best_theme"
+[[ "$(gsettings get org.gnome.desktop.interface icon-theme)" == "'$best_theme'" ]]

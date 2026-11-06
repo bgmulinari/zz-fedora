@@ -604,6 +604,41 @@ EOF
   [[ "$(find "$TARGET_HOME/.local/share/backgrounds" -maxdepth 1 -type f -name '*.jpg' | wc -l)" -eq 16 ]]
 }
 
+@test "first-run retries the desktop interface at next login when a setting is not saved" {
+  TARGET_USER="test-user"
+  TARGET_HOME="$TEST_ROOT/interface-home"
+  mkdir -p "$TARGET_HOME"
+  DRY_RUN=0
+  setup_fake_bin
+  make_fake_gsettings
+  PATH="$FAKE_BIN:$PATH"
+  resolved_desktop_app_profile() { printf 'full\n'; }
+  run_cmd_as_user() {
+    shift
+    case "$1" in
+      gsettings) "$@" ;;
+    esac
+  }
+  : >"$FAKE_BIN/.gsettings-write-fails"
+
+  run run_first_run_action_once_for_input desktop-interface input first_run_apply_desktop_interface
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "retrying at next login"
+  [[ ! -e "$(first_run_action_marker desktop-interface)" ]]
+
+  rm "$FAKE_BIN/.gsettings-write-fails"
+  run_without_bats_debug_trap run_first_run_action_once_for_input \
+    desktop-interface input first_run_apply_desktop_interface
+  [[ -f "$(first_run_action_marker desktop-interface)" ]]
+  assert_equal "'prefer-dark'" "$(gsettings get org.gnome.desktop.interface color-scheme)"
+
+  : >"$COMMAND_LOG"
+  run_without_bats_debug_trap run_first_run_action_once_for_input \
+    desktop-interface input first_run_apply_desktop_interface
+  [ ! -s "$COMMAND_LOG" ]
+}
+
 @test "first-run creates marker, removes autostart hook, and stays idempotent" {
   build_test_plan
   TARGET_USER="test-user"
@@ -612,6 +647,7 @@ EOF
   DRY_RUN=0
   stub_dms_shell_payload
   setup_fake_bin
+  make_fake_gsettings
   write_fake_command dms-greeter <<'EOF'
 #!/usr/bin/env bash
 [[ "${1:-}" == "--help" ]] && printf 'Commands:\n  sync    Sync greeter profile data\n'
@@ -630,7 +666,7 @@ EOF
       return 0
     fi
     case "$1" in
-      mkdir|rm|sh|install|cp)
+      mkdir|rm|sh|install|cp|gsettings)
         "$@"
         ;;
       *)
