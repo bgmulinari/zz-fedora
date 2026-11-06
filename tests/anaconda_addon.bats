@@ -516,6 +516,10 @@ PY
   refute_file_contains "$addon/gui/spokes/zz_fedora.py" "ZZFedoraCategory"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_build_category_rows"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_render_choices"
+  # Anaconda calls show_all() on every spoke, which would reveal the row the
+  # spoke keeps hidden until more than one browser is selected.
+  grep -A2 'id="preferredBrowserBox"' "$addon/gui/spokes/zz_fedora.glade" |
+    grep -q '<property name="no-show-all">True</property>'
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_update_preferred_browser_combo"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "_on_profile_changed"
   assert_file_contains "$addon/gui/spokes/zz_fedora.py" "write_state("
