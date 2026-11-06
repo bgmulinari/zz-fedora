@@ -251,7 +251,6 @@ seed = json.loads((fix / "root/templates/dms/settings-seed.json").read_text())
 live = dict(seed)
 live.update({
     "customThemeFile": "/home/someone/theme.json",
-    "iconThemeDark": "Yaru-blue",
     "configVersion": 13,
 })
 (fix / "home/.config/dms/settings.json").write_text(json.dumps(live))
@@ -373,24 +372,35 @@ PY
 
 @test "a host-derived key is reported against its helper and never written to a seed" {
   seed_diff_fixture
-  DERIVED_FACTS='{"settings":{"iconThemeDark":"Yaru-blue"},"session":{}}'
-  write_live '{"iconThemeDark":"Papirus-Dark"}'
+  DERIVED_FACTS='{"settings":{"customThemeFile":"/managed/theme.json"},"session":{}}'
+  write_live '{"customThemeFile":"/other/theme.json"}'
   run seed_diff
   [ "$status" -ne 0 ]
-  assert_contains "$output" "iconThemeDark"
-  assert_contains "$output" "dms_icon_theme() in lib/dms.sh"
+  assert_contains "$output" "customThemeFile"
+  assert_contains "$output" "dms_theme_file() in lib/dms.sh"
 
   # --apply must not freeze a host fact into the seed file.
   run seed_diff --apply
   [ "$status" -eq 0 ]
   assert_equal "null" \
+    "$(jq -r '.customThemeFile' "$FIX/root/templates/dms/settings-seed.json")"
+}
+
+@test "a named icon theme is never offered as a seed default" {
+  seed_diff_fixture
+  write_live '{"iconThemeDark":"Papirus-Dark","iconThemeLight":"Papirus"}'
+  run seed_diff --apply
+  [ "$status" -eq 0 ]
+  assert_equal "null" \
     "$(jq -r '.iconThemeDark' "$FIX/root/templates/dms/settings-seed.json")"
+  assert_equal "null" \
+    "$(jq -r '.iconThemeLight' "$FIX/root/templates/dms/settings-seed.json")"
 }
 
 @test "a derived key matching its helper value is not reported" {
   seed_diff_fixture
-  DERIVED_FACTS='{"settings":{"iconThemeDark":"Yaru-blue"},"session":{}}'
-  write_live '{"iconThemeDark":"Yaru-blue"}'
+  DERIVED_FACTS='{"settings":{"customThemeFile":"/managed/theme.json"},"session":{}}'
+  write_live '{"customThemeFile":"/managed/theme.json"}'
   run seed_diff
   [ "$status" -eq 0 ]
 }
@@ -406,13 +416,13 @@ PY
 
 @test "reset restores the defaults onto the live state and backs it up" {
   seed_diff_fixture
-  DERIVED_FACTS='{"settings":{"iconThemeDark":"Yaru-blue"},"session":{}}'
+  DERIVED_FACTS='{"settings":{"customThemeFile":"/managed/theme.json"},"session":{}}'
   # One pinned scalar, one unseeded key that drifted, one derived key, one key
   # whose DMS default is an empty container, and one key nobody reports.
   # Left at its seeded value, whatever that is, so it is never a difference.
   local seeded_popup
   seeded_popup="$(jq -r '.popupTransparency' "$FIX/root/templates/dms/settings-seed.json")"
-  write_live '{"fixedRadius":12,"greeterAutoLogin":true,"iconThemeDark":"Papirus-Dark","workspaceNameIcons":{"1":"term"}}'
+  write_live '{"fixedRadius":12,"greeterAutoLogin":true,"customThemeFile":"/other/theme.json","workspaceNameIcons":{"1":"term"}}'
   local live="$FIX/home/.config/dms/settings.json"
 
   run seed_diff --reset
@@ -420,7 +430,7 @@ PY
 
   assert_equal "0" "$(jq -r '.fixedRadius' "$live")"
   assert_equal "false" "$(jq -r '.greeterAutoLogin' "$live")"
-  assert_equal "Yaru-blue" "$(jq -r '.iconThemeDark' "$live")"
+  assert_equal "/managed/theme.json" "$(jq -r '.customThemeFile' "$live")"
   # No leaf to restore, so the whole key goes back to the empty default.
   assert_equal "{}" "$(jq -c '.workspaceNameIcons' "$live")"
   assert_equal "$seeded_popup" "$(jq -r '.popupTransparency' "$live")"

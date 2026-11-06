@@ -2,7 +2,8 @@
 set -Eeuo pipefail
 
 # Select the Yaru icon-theme variant nearest to the current DMS accent
-# color and apply it to GTK (gsettings) and the shell's own icon settings.
+# color and apply it to GTK (gsettings), which the shell also reads while its
+# icon setting stays at "System Default".
 # Runs as the post-hook of the ZZ matugen drop-in whenever DMS regenerates
 # its theme templates; the accent file is that template's output. Qt and
 # KDE apps are deliberately left alone: they keep the Breeze icon theme
@@ -122,11 +123,12 @@ EOF
 
 [[ -n "$best_theme" ]] || exit 0
 
-gsettings set org.gnome.desktop.interface icon-theme "$best_theme" || true
+# The shell reads settings.ini ahead of gsettings. DMS adds the key there once a
+# theme is picked in its settings, so keep any existing value in step.
+for settings_file in "${XDG_CONFIG_HOME:-$HOME/.config}"/gtk-{3,4}.0/settings.ini; do
+  if [[ -w "$settings_file" ]]; then
+    sed -i "s/^gtk-icon-theme-name *=.*/gtk-icon-theme-name=$best_theme/" "$settings_file"
+  fi
+done
 
-# The shell resolves app icons through its own icon-theme settings; write
-# them through the settings IPC so DMS owns the file update.
-if command -v dms >/dev/null 2>&1; then
-  dms ipc call settings set iconThemeDark "$best_theme" >/dev/null 2>&1 || true
-  dms ipc call settings set iconThemeLight "$best_theme" >/dev/null 2>&1 || true
-fi
+gsettings set org.gnome.desktop.interface icon-theme "$best_theme" || true

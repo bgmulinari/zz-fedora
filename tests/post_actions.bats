@@ -494,7 +494,9 @@ EOF
   assert_equal "latte" "$(jq -r '.registryThemeVariants.catppuccin.light.flavor' "$settings")"
   assert_equal "JetBrainsMono Nerd Font" "$(jq -r '.monoFontFamily' "$settings")"
   assert_equal "Adwaita Sans" "$(jq -r '.fontFamily' "$settings")"
-  assert_equal "Yaru-blue" "$(jq -r '.iconThemeDark' "$settings")"
+  # Left unset: DMS defaults to "System Default" and keeps out of the Qt config.
+  assert_equal "null" "$(jq -r '.iconThemeDark' "$settings")"
+  assert_equal "null" "$(jq -r '.iconThemeLight' "$settings")"
   # Appearance defaults the managed desktop pins on top of the DMS defaults.
   assert_equal "fixed" "$(jq -r '.radiusMode' "$settings")"
   assert_equal "0" "$(jq -r '.fixedRadius' "$settings")"
@@ -659,6 +661,8 @@ EOF
   refute_file_contains "$TEST_ROOT/first-run-commands.log" "systemctl --user enable --now dms.service"
   assert_file_contains "$TEST_ROOT/first-run-commands.log" \
     "gsettings set org.gnome.desktop.interface cursor-theme $(desktop_cursor_theme_name)"
+  assert_file_contains "$TEST_ROOT/first-run-commands.log" \
+    "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-icon-theme"
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "gsettings set org.gnome.desktop.interface cursor-size 24"
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "dms ipc call wallpaper get"
   assert_file_contains "$TEST_ROOT/first-run-commands.log" "dms-greeter sync --profile"

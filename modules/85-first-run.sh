@@ -207,6 +207,9 @@ first_run_apply_desktop_interface() {
 
   if [[ "$(resolved_desktop_app_profile)" == "full" ]]; then
     run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark || true
+    # The same selection the matugen post-hook makes, so a repeat of this action
+    # cannot undo an accent change.
+    run_cmd_as_user "$TARGET_USER" "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-icon-theme" || true
     run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface color-scheme prefer-dark || true
     run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface cursor-theme "$cursor_theme" || true
     run_cmd_as_user "$TARGET_USER" gsettings set org.gnome.desktop.interface cursor-size "$DESKTOP_CURSOR_THEME_SIZE" || true
@@ -286,6 +289,8 @@ module_85_first_run() {
   run_first_run_action_once_for_input \
     session-services "$session_services_fingerprint" first_run_enable_session_services || failed=1
   run_first_run_action_once user-directories first_run_update_user_directories || failed=1
+  # Ahead of the registry theme, whose shell restart is what makes this session
+  # read the GTK icon theme: the shell reads it once, when it starts.
   run_first_run_action_once_for_input \
     desktop-interface "$desktop_interface_fingerprint" first_run_apply_desktop_interface || failed=1
   run_first_run_action_once_for_input \

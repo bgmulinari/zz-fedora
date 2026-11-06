@@ -48,18 +48,15 @@ for arg in "$@"; do
 done
 
 # The keys lib/dms.sh renders from a host fact rather than from a seed file.
-# Passing them in lets the comparison report an icon-theme or wallpaper change
+# Passing them in lets the comparison report a theme-file or wallpaper change
 # and name the helper to edit, instead of silently ignoring it.
 TARGET_HOME="${ZZ_DMS_SEED_HOME:-$HOME}"
 derived_facts="$(jq -n \
   --arg themeFile "$(dms_theme_file)" \
-  --arg iconTheme "$(dms_icon_theme)" \
   --arg wallpaper "$(dms_default_wallpaper)" \
   '{
     settings: {
-      customThemeFile: $themeFile,
-      iconThemeDark: $iconTheme,
-      iconThemeLight: $iconTheme
+      customThemeFile: $themeFile
     },
     session: {wallpaperPath: $wallpaper}
   }')"

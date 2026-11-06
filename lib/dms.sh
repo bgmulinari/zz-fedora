@@ -56,10 +56,6 @@ dms_qt_color_scheme_file() {
   printf '%s/.local/share/color-schemes/DankMatugen.colors\n' "$TARGET_HOME"
 }
 
-dms_icon_theme() {
-  printf 'Yaru-blue\n'
-}
-
 # Qt and KDE apps get Breeze instead of Yaru. KDE's icon loader falls back
 # to Breeze for the KDE icon names Yaru lacks (go-previous, view-list-icons)
 # and only recolors those SVGs when the configured theme declares that it
@@ -140,18 +136,18 @@ dms_unplanned_plugin_ids() {
   done <"$(managed_config_policy_file)"
 }
 
+# The DMS icon setting stays unset, which is "System Default", its mode for a
+# theme managed elsewhere: any named theme makes DMS rewrite qt5ct.conf and
+# qt6ct.conf on every shell start, replacing the Breeze icons Qt apps keep.
 dms_settings_seed_json() {
   local dropped
   dropped="$(dms_unplanned_plugin_ids | jq -R . | jq -sc .)"
   jq \
     --arg themeFile "$(dms_theme_file)" \
-    --arg iconTheme "$(dms_icon_theme)" \
     --argjson dropped "$dropped" \
     'def keep: map(select(((if type == "object" then .id else . end) as $w | $dropped | index($w)) == null));
     . + {
-      customThemeFile: $themeFile,
-      iconThemeDark: $iconTheme,
-      iconThemeLight: $iconTheme
+      customThemeFile: $themeFile
     }
     | if ($dropped | length) > 0 then
         .barConfigs = ((.barConfigs // []) | map(

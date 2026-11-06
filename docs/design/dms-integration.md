@@ -232,8 +232,8 @@ with the blue accent (latte + blue in light mode).
 - `~/.config/dms/settings.json` is seeded once
   (seed-if-missing) with the theme selection keys
   (`currentThemeCategory: "registry"`, `currentThemeName: "custom"`,
-  `customThemeFile`, `registryThemeVariants.catppuccin`), the managed mono
-  font, and the Yaru-blue icon theme. Every other key falls back to the DMS
+  `customThemeFile`, `registryThemeVariants.catppuccin`) and the managed mono
+  font. Every other key falls back to the DMS
   defaults, and the Settings UI owns the file afterwards. The seed emitters
   and path/theme-fact helpers live in `lib/dms.sh`; the seeds, greeter
   staging, planner, first-run waits, and doctor checks all derive the DMS
@@ -268,6 +268,9 @@ with the blue accent (latte + blue in light mode).
   recolors those SVGs under a theme that declares `FollowsColorScheme`,
   and Yaru's own symbolic icons carry a fixed grey fill that only GTK
   recolors, so Yaru leaves Qt toolbars with dark glyphs on dark windows.
+  This depends on the DMS icon setting staying at "System Default": DMS
+  rewrites `qt5ct.conf` and `qt6ct.conf` on every shell start under any named
+  theme, and has no option to leave Qt alone.
 - T3 Code follows the theme through its published-theme API, wired by the
   `ai-t3code` unit. The `t3code-theme` component renders `~/.cache/dms/t3code-theme.json`
   and its post-hook renames a copy to `~/.t3/userdata/themes/dms.json`, which
@@ -307,8 +310,10 @@ with the blue accent (latte + blue in light mode).
   its merged matugen config) renders the primary color to
   `~/.cache/dms/icon-theme-accent`, and its post-hook runs
   `zz-sync-icon-theme`, which picks the hue-nearest Yaru variant and
-  applies it to gsettings and the shell's own icon settings through the
-  settings IPC; qt6ct and kdeglobals keep Breeze and are not touched. DMS itself covers the companion
+  applies it to gsettings (and to an existing GTK `settings.ini` value,
+  which the shell reads first); qt6ct and kdeglobals keep Breeze and are not
+  touched. The shell reads the GTK icon theme when it starts, so it picks up an
+  accent change at the next login. DMS itself covers the companion
   GNOME accent-color sync once its GTK theming is active.
 - Editors select the matugen-generated themes by name: VS Code
   `Dynamic Base16 DankShell` (extension `danklinux.dms-theme`), Zed

@@ -31,15 +31,13 @@ from dms_spec import SpecError, computed_keys, defaults, load_spec  # noqa: E402
 
 # Rendered from a host fact at seed time, so they must not be frozen into the
 # seed files as absolute paths. lib/dms.sh overlays them. They are still
-# compared, because changing the icon theme or wallpaper in the DMS UI is a
+# compared, because changing the theme file or wallpaper in the DMS UI is a
 # real change worth promoting; it just lands in lib/dms.sh rather than in a
 # seed file, so the report names the helper to edit instead of offering
 # --apply.
 DERIVED_HELPER = {
     "settings": {
         "customThemeFile": "dms_theme_file",
-        "iconThemeDark": "dms_icon_theme",
-        "iconThemeLight": "dms_icon_theme",
     },
     "session": {"wallpaperPath": "dms_default_wallpaper"},
 }
@@ -70,6 +68,9 @@ EXCLUDED = {
         # Serialized as a QColor object rather than the spec's hex string, so
         # they always differ without anyone having changed a colour.
         "desktopClockCustomColor", "systemMonitorCustomColor",
+        # A named icon theme makes DMS rewrite the Qt config on every shell
+        # start. See dms_settings_seed_json() in lib/dms.sh.
+        "iconThemeDark", "iconThemeLight",
         # Credentials and auth wiring.
         "lockPamPath", "lockU2fPamPath", "lockPamExternallyManaged",
         "greeterPamExternallyManaged",

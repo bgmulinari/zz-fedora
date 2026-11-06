@@ -178,9 +178,8 @@ during seed work, use `scripts/dms-seed-diff.sh --reset` below.
 
 The portable seed values live in `templates/dms/settings-seed.json` and
 `templates/dms/session-seed.json`. `lib/dms.sh` overlays the keys that render
-to absolute paths (`customThemeFile`, `iconThemeDark`, `iconThemeLight`, and
-`wallpaperPath`) from `dms_theme_file`, `dms_icon_theme`, and
-`dms_default_wallpaper`, which remain the single source for those facts.
+to absolute paths (`customThemeFile` and `wallpaperPath`) from `dms_theme_file`
+and `dms_default_wallpaper`, which remain the single source for those facts.
 
 Change something in the DMS Settings UI, then:
 
@@ -206,9 +205,9 @@ A key the report lists as `not in the seed, changed from the DMS default`
 resets to the DMS default, not to a ZZ value. Keys the report does not mention
 are never touched in either direction.
 
-Changing the icon theme or the wallpaper is reported too, but as a key
+Changing the theme file or the wallpaper is reported too, but as a key
 `lib/dms.sh` renders rather than one a seed file holds: the report names the
-helper to edit (`dms_icon_theme`, `dms_default_wallpaper`, `dms_theme_file`)
+helper to edit (`dms_default_wallpaper`, `dms_theme_file`)
 and `--apply` never writes an absolute host path into a seed.
 Other DMS file selectors, such as custom logo (including the launcher widget's
 option in the bar), keymap, lock-screen, per-mode wallpaper, and wallpaper-cycling

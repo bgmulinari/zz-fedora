@@ -22,7 +22,7 @@ for Qt/KDE apps, Adwaita Sans for normal text, and JetBrainsMono Nerd Font for m
 | Qt apps | `~/.local/share/color-schemes/DankMatugen.colors` via qt6ct/kdeglobals | change the scheme in qt6ct |
 | GTK/libadwaita | `dank-colors.css` imported from `~/.config/gtk-3.0/gtk.css`, `gtk-4.0/gtk.css` | remove the import line |
 | Starship | `[palettes.zz]` block in `~/.config/starship.toml` | delete the marker comments to opt out |
-| Icon theme (GTK, shell) | Yaru variant nearest the accent, applied to gsettings and DMS | set another icon theme in Settings > Theme |
+| Icon theme (GTK, shell) | Yaru variant nearest the accent, applied to gsettings; the shell follows at its next start | none; a theme picked in Settings > Theme also replaces Breeze for Qt, and DMS drops it after the next accent change |
 | Icon theme (Qt/KDE) | Breeze Dark in `~/.config/qt6ct/qt6ct.conf` and `kdeglobals`; not synced | change it in qt6ct |
 | T3 Code | theme `DMS`, published to `~/.t3/userdata/themes/dms.json` and selected once at install | choose another theme in T3 Code |
 | VS Code | theme `Dynamic Base16 DankShell` (extension `danklinux.dms-theme`) | choose another theme in VS Code |

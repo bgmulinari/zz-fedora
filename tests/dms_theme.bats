@@ -16,7 +16,7 @@ setup() {
     "~/.config/dms/themes/catppuccin/theme.json"
 }
 
-@test "icon-theme sync selects the hue-nearest Yaru variant for GTK and the shell only" {
+@test "icon-theme sync selects the hue-nearest Yaru variant for GTK only" {
   local home="$TEST_ROOT/icon-sync-home"
   mkdir -p "$home/.cache/dms" \
     "$home/.local/share/icons/Yaru" \
@@ -39,8 +39,27 @@ setup() {
   [[ ! -e "$home/.config/qt6ct/qt6ct.conf" ]]
   [[ ! -e "$home/.config/kdeglobals" ]]
   ! grep -q "kwriteconfig6" "$COMMAND_LOG"
-  assert_file_contains "$COMMAND_LOG" "dms ipc call settings set iconThemeDark Yaru-red"
-  assert_file_contains "$COMMAND_LOG" "dms ipc call settings set iconThemeLight Yaru-red"
+}
+
+@test "icon-theme sync keeps an existing settings.ini value in step" {
+  local home="$TEST_ROOT/icon-sync-ini-home"
+  mkdir -p "$home/.cache/dms" "$home/.local/share/icons/Yaru-red" \
+    "$home/.config/gtk-3.0" "$home/.config/gtk-4.0"
+  printf '#e01b24\n' >"$home/.cache/dms/icon-theme-accent"
+  printf '[Settings]\ngtk-icon-theme-name=Papirus\ngtk-theme-name=adw-gtk3\n' \
+    >"$home/.config/gtk-3.0/settings.ini"
+  printf '[Settings]\ngtk-theme-name=adw-gtk3\n' >"$home/.config/gtk-4.0/settings.ini"
+  setup_fake_bin
+  make_fake_command gsettings
+
+  run env PATH="$FAKE_BIN:$PATH" HOME="$home" XDG_CACHE_HOME="$home/.cache" \
+    XDG_CONFIG_HOME="$home/.config" XDG_DATA_DIRS="$home/.local/share" \
+    "$ROOT_DIR/dotfiles/dms/.local/bin/zz-sync-icon-theme"
+
+  [ "$status" -eq 0 ]
+  assert_file_contains "$home/.config/gtk-3.0/settings.ini" "gtk-icon-theme-name=Yaru-red"
+  assert_file_contains "$home/.config/gtk-3.0/settings.ini" "gtk-theme-name=adw-gtk3"
+  refute_file_contains "$home/.config/gtk-4.0/settings.ini" "gtk-icon-theme-name"
 }
 
 @test "icon-theme sync falls back to a neutral variant for low-chroma accents" {
