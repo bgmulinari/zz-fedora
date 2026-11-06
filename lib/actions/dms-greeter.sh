@@ -4,8 +4,8 @@ set -Eeuo pipefail
 # DMS Greeter (greetd) custom action.
 #
 # The dux-greeter RPM owns the heavy lifting: its scriptlets create the
-# greeter user, set SELinux contexts, ensure /etc/pam.d/greetd, write or
-# repair /etc/greetd/config.toml, and set graphical.target. This action
+# greeter user, set SELinux contexts, write or repair
+# /etc/greetd/config.toml, and set graphical.target. This action
 # installs the package from the pinned COPR, re-asserts the greetd session
 # config, grants the greeter user read access to the target user's DMS
 # theme state (upstream `dms-greeter enable`/`sync` run as the invoking
@@ -19,6 +19,7 @@ DMS_GREETER_USER="greeter"
 DMS_GREETER_CACHE_DIR="/var/cache/dms-greeter"
 DMS_GREETD_CONFIG="/etc/greetd/config.toml"
 DMS_GREETD_PAM="/etc/pam.d/greetd"
+DMS_GREETD_VENDOR_PAM="/usr/lib/pam.d/greetd"
 DMS_PASSWORD_AUTH_PAM="/etc/pam.d/password-auth"
 
 dms_greeter_action_skipped() {
@@ -119,18 +120,29 @@ ensure_dms_greetd_config() {
 # it off. Route greetd auth through password-auth, the authselect stack
 # without pam_fprintd; sudo and polkit keep fingerprint auth, and the
 # greeter toggle again decides whether login offers a fingerprint.
+#
+# The greetd package ships its stack in /usr/lib/pam.d; PAM prefers a file of
+# the same name in /etc/pam.d, which is where the routed copy goes.
+dms_greetd_pam_source() {
+  if [[ -f "$DMS_GREETD_PAM" ]]; then
+    printf '%s\n' "$DMS_GREETD_PAM"
+  else
+    printf '%s\n' "$DMS_GREETD_VENDOR_PAM"
+  fi
+}
+
 dms_greetd_pam_auth_uses_system_auth() {
-  local pam_file="${1:-$DMS_GREETD_PAM}"
+  local pam_file="${1:-$(dms_greetd_pam_source)}"
   grep -Eq '^[[:space:]]*-?auth[[:space:]]+(include|substack)[[:space:]]+system-auth([[:space:]]|$)' "$pam_file"
 }
 
 dms_greetd_pam_password_auth_content() {
-  sed -E 's/^([[:space:]]*-?auth[[:space:]]+(include|substack)[[:space:]]+)system-auth([[:space:]]|$)/\1password-auth\3/' "$DMS_GREETD_PAM"
+  sed -E 's/^([[:space:]]*-?auth[[:space:]]+(include|substack)[[:space:]]+)system-auth([[:space:]]|$)/\1password-auth\3/' "$(dms_greetd_pam_source)"
 }
 
 ensure_dms_greetd_pam_password_auth() {
-  if [[ ! -f "$DMS_GREETD_PAM" ]]; then
-    [[ "$DRY_RUN" -eq 1 ]] || die "DMS Greeter requires $DMS_GREETD_PAM, but the greetd package did not install it."
+  if [[ ! -f "$(dms_greetd_pam_source)" ]]; then
+    [[ "$DRY_RUN" -eq 1 ]] || die "DMS Greeter requires $DMS_GREETD_VENDOR_PAM, but the greetd package did not install it."
     printf 'DRY-RUN: route %s auth through password-auth\n' "$DMS_GREETD_PAM"
     return 0
   fi
@@ -178,12 +190,20 @@ prepare_dms_greeter_access() {
   run_cmd_as_root setfacl -d -m "$entry" "${state_dirs[@]}"
 }
 
-# The RPM tmpfiles entry guarantees only the cache root; the per-user
-# slots directory needs setgid group write so `dms-greeter sync --profile`
-# works without privileges at first login.
+# The RPM tmpfiles entry guarantees only the cache root. Create the same
+# runtime directories as upstream's `dms-greeter sync` (EnsureGreeterCacheDir),
+# with setgid group write so `dms-greeter sync --profile` works without
+# privileges at first login and `dms-greeter status` finds what it requires.
 prepare_dms_greeter_cache() {
   local dir
-  for dir in "$DMS_GREETER_CACHE_DIR" "$DMS_GREETER_CACHE_DIR/users"; do
+  for dir in \
+    "$DMS_GREETER_CACHE_DIR" \
+    "$DMS_GREETER_CACHE_DIR/users" \
+    "$DMS_GREETER_CACHE_DIR/.local" \
+    "$DMS_GREETER_CACHE_DIR/.local/state" \
+    "$DMS_GREETER_CACHE_DIR/.local/share" \
+    "$DMS_GREETER_CACHE_DIR/.cache" \
+    "$DMS_GREETER_CACHE_DIR/.cache/dms-greeter-shell"; do
     run_cmd_as_root mkdir -p "$dir"
     run_cmd_as_root chown "$DMS_GREETER_USER:$DMS_GREETER_USER" "$dir"
     run_cmd_as_root chmod 2770 "$dir"
@@ -191,9 +211,10 @@ prepare_dms_greeter_cache() {
 }
 
 # Root-side equivalent of `dms-greeter sync` file plumbing: point the
-# greeter cache at the target user's live DMS settings, session, and
-# generated colors so the greeter matches the session theme from the
-# first boot. The shared seeder creates any missing state file with its
+# greeter cache at the target user's live DMS settings, session, generated
+# colors, and video wallpaper frames so the greeter matches the session theme
+# from the first boot. DMS creates the frames directory when it first needs
+# one. The shared seeder creates any missing state file with its
 # real seed content (this action runs before the post-actions seeding, so
 # a bare placeholder here would block the theme seeds forever).
 stage_dms_greeter_theme_sync() {
@@ -203,6 +224,7 @@ stage_dms_greeter_theme_sync() {
   run_cmd_as_root ln -sfn "$(dms_settings_file)" "$DMS_GREETER_CACHE_DIR/settings.json"
   run_cmd_as_root ln -sfn "$(dms_session_file)" "$DMS_GREETER_CACHE_DIR/session.json"
   run_cmd_as_root ln -sfn "$(dms_colors_cache_file)" "$DMS_GREETER_CACHE_DIR/colors.json"
+  run_cmd_as_root ln -sfn "$(dms_cache_dir)/video-wallpaper" "$DMS_GREETER_CACHE_DIR/video-wallpaper"
 }
 
 dms_greeter_has_managed_greetd_state() {
@@ -268,14 +290,15 @@ verify_dms_greeter() {
     command -v dms-greeter >/dev/null 2>&1 &&
     systemctl is-enabled greetd >/dev/null 2>&1 &&
     dms_greetd_config_has_expected_session &&
-    [[ -f "$DMS_GREETD_PAM" ]] &&
+    [[ -f "$(dms_greetd_pam_source)" ]] &&
     ! dms_greetd_pam_auth_uses_system_auth &&
     {
       dms_greeter_user_sync_skipped || {
         id -nG "$TARGET_USER" 2>/dev/null | tr ' ' '\n' | grep -qx "$DMS_GREETER_USER" &&
           [[ -L "$DMS_GREETER_CACHE_DIR/settings.json" ]] &&
           [[ -L "$DMS_GREETER_CACHE_DIR/session.json" ]] &&
-          [[ -L "$DMS_GREETER_CACHE_DIR/colors.json" ]]
+          [[ -L "$DMS_GREETER_CACHE_DIR/colors.json" ]] &&
+          [[ -L "$DMS_GREETER_CACHE_DIR/video-wallpaper" ]]
       }
     }
 }

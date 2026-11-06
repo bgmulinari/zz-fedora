@@ -99,6 +99,7 @@ setup() {
 
   DRY_RUN=1
   DMS_GREETD_PAM="$TEST_ROOT/missing-greetd-pam"
+  DMS_GREETD_VENDOR_PAM="$TEST_ROOT/missing-vendor-greetd-pam"
   detect_enabled_display_manager() { return 1; }
   run install_dms_greeter
 
@@ -164,6 +165,14 @@ session    include     system-auth
 session    include     postlogin
 EOF
 }
+fake_write_root_file() {
+  write_root_file() {
+    local mode="$1" destination="$2"
+    cat >"$TEST_ROOT/staged"
+    mv "$TEST_ROOT/staged" "$destination"
+    printf 'wrote:%s:%s\n' "$mode" "$destination" >>"$TEST_ROOT/root.log"
+  }
+}
 @test "DMS Greeter routes greetd login auth through password-auth once" {
   DRY_RUN=0
   DMS_GREETD_PAM="$TEST_ROOT/pam.d/greetd"
@@ -171,12 +180,7 @@ EOF
   mkdir -p "$TEST_ROOT/pam.d"
   : >"$DMS_PASSWORD_AUTH_PAM"
   write_fedora_greetd_pam
-  write_root_file() {
-    local mode="$1" destination="$2"
-    cat >"$TEST_ROOT/staged"
-    mv "$TEST_ROOT/staged" "$destination"
-    printf 'wrote:%s:%s\n' "$mode" "$destination" >>"$TEST_ROOT/root.log"
-  }
+  fake_write_root_file
 
   run_without_bats_debug_trap ensure_dms_greetd_pam_password_auth
 
@@ -194,6 +198,36 @@ EOF
   : >"$TEST_ROOT/root.log"
   run_without_bats_debug_trap ensure_dms_greetd_pam_password_auth
   [ ! -s "$TEST_ROOT/root.log" ]
+}
+@test "DMS Greeter overrides the vendor greetd PAM stack in /etc/pam.d" {
+  DRY_RUN=0
+  DMS_GREETD_PAM="$TEST_ROOT/etc-pam.d/greetd"
+  DMS_GREETD_VENDOR_PAM="$TEST_ROOT/usr-lib-pam.d/greetd"
+  DMS_PASSWORD_AUTH_PAM="$TEST_ROOT/password-auth"
+  mkdir -p "$TEST_ROOT/etc-pam.d" "$TEST_ROOT/usr-lib-pam.d"
+  : >"$DMS_PASSWORD_AUTH_PAM"
+  printf 'auth       substack    system-auth\naccount    include     system-auth\n' >"$DMS_GREETD_VENDOR_PAM"
+  cp "$DMS_GREETD_VENDOR_PAM" "$TEST_ROOT/vendor.orig"
+  fake_write_root_file
+
+  run_without_bats_debug_trap ensure_dms_greetd_pam_password_auth
+
+  assert_file_contains "$TEST_ROOT/root.log" "wrote:0644:$DMS_GREETD_PAM"
+  assert_file_contains "$DMS_GREETD_PAM" "auth       substack    password-auth"
+  assert_file_contains "$DMS_GREETD_PAM" "account    include     system-auth"
+  cmp -s "$DMS_GREETD_VENDOR_PAM" "$TEST_ROOT/vendor.orig"
+  run dms_greetd_pam_auth_uses_system_auth
+  [ "$status" -ne 0 ]
+}
+@test "DMS Greeter fails when no greetd PAM stack exists" {
+  DRY_RUN=0
+  DMS_GREETD_PAM="$TEST_ROOT/missing-greetd-pam"
+  DMS_GREETD_VENDOR_PAM="$TEST_ROOT/missing-vendor-greetd-pam"
+
+  run ensure_dms_greetd_pam_password_auth
+
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "did not install it"
 }
 @test "DMS Greeter keeps greetd PAM when password-auth is missing" {
   DRY_RUN=0
@@ -268,10 +302,15 @@ EOF
   assert_file_contains "$TEST_ROOT/root.log" "root:setfacl -R -m g:greeter:rX $TARGET_HOME/.config/dms $TARGET_HOME/.local/state/dms $TARGET_HOME/.cache/dms $TARGET_HOME/.local/share/backgrounds"
   assert_file_contains "$TEST_ROOT/root.log" "root:setfacl -d -m g:greeter:rX $TARGET_HOME/.config/dms $TARGET_HOME/.local/state/dms $TARGET_HOME/.cache/dms $TARGET_HOME/.local/share/backgrounds"
   assert_file_contains "$TEST_ROOT/root.log" "root:chown greeter:greeter /var/cache/dms-greeter"
-  assert_file_contains "$TEST_ROOT/root.log" "root:chmod 2770 /var/cache/dms-greeter/users"
+  local runtime_dir
+  for runtime_dir in users .local .local/state .local/share .cache .cache/dms-greeter-shell; do
+    assert_file_contains "$TEST_ROOT/root.log" "root:mkdir -p /var/cache/dms-greeter/$runtime_dir"
+    assert_file_contains "$TEST_ROOT/root.log" "root:chmod 2770 /var/cache/dms-greeter/$runtime_dir"
+  done
   assert_file_contains "$TEST_ROOT/root.log" "root:ln -sfn $TARGET_HOME/.config/dms/settings.json /var/cache/dms-greeter/settings.json"
   assert_file_contains "$TEST_ROOT/root.log" "root:ln -sfn $TARGET_HOME/.local/state/dms/session.json /var/cache/dms-greeter/session.json"
   assert_file_contains "$TEST_ROOT/root.log" "root:ln -sfn $TARGET_HOME/.cache/dms/dms-colors.json /var/cache/dms-greeter/colors.json"
+  assert_file_contains "$TEST_ROOT/root.log" "root:ln -sfn $TARGET_HOME/.cache/dms/video-wallpaper /var/cache/dms-greeter/video-wallpaper"
   # The staging seeds the real managed state, never bare placeholders: the
   # greeter action runs before the post-actions seeding, and its files must
   # not block the theme seeds (the seeder only writes missing files).
@@ -359,6 +398,7 @@ EOF
   ln -sfn "$TEST_ROOT/settings.json" "$DMS_GREETER_CACHE_DIR/settings.json"
   ln -sfn "$TEST_ROOT/session.json" "$DMS_GREETER_CACHE_DIR/session.json"
   ln -sfn "$TEST_ROOT/colors.json" "$DMS_GREETER_CACHE_DIR/colors.json"
+  ln -sfn "$TEST_ROOT/video-wallpaper" "$DMS_GREETER_CACHE_DIR/video-wallpaper"
   run verify_dms_greeter
   [ "$status" -eq 0 ]
 

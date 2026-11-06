@@ -209,7 +209,8 @@ doctor_check_dms_greetd_config() {
 # A fingerprint login leaves the login keyring locked; warn-level only,
 # since the greeter still logs in.
 doctor_warn_dms_greetd_pam() {
-  local pam_file="${DMS_GREETD_PAM:-/etc/pam.d/greetd}"
+  local pam_file
+  pam_file="$(dms_greetd_pam_source)"
   [[ -f "$pam_file" ]] || return 0
   if dms_greetd_pam_auth_uses_system_auth "$pam_file"; then
     printf '[warn] %s authenticates through system-auth, so a fingerprint login leaves the login keyring locked\n' "$pam_file"
