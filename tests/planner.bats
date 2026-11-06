@@ -474,6 +474,14 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/flatpak/apps.flatpaks" "com.usebruno.Bruno"
 }
 
+@test "RustConn selection plans the Flathub flatpak" {
+  build_test_plan "utilities=rustconn"
+
+  assert_plan_has "$PLAN_DIR/bundles.list" "utilities-rustconn"
+  assert_plan_has "$PLAN_DIR/sources/flatpak-remotes.list" "flathub"
+  assert_plan_has "$PLAN_DIR/flatpak/apps.flatpaks" "io.github.totoshko88.RustConn"
+}
+
 @test "Docker selection installs the engine and its service without the docker group" {
   build_test_plan "dev=docker"
 

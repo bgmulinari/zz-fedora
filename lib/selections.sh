@@ -161,16 +161,21 @@ normalize_saved_selections_for_update() {
 # Selects the defaults the catalog gained since the selections were saved.
 # A category's offered list records what the catalog had at the time, so a
 # default outside it was never declined; it joins the selection and
-# modules/40-new-defaults.sh installs it. A saved category without an
-# offered list says nothing about what was declined, so nothing is added to
-# it; a category the file does not know at all takes its defaults through
-# effective_choice_ids already. A nested default stays out while its
-# parent is unselected: the parent was offered and not taken.
+# modules/40-new-defaults.sh installs it. A category the file does not know
+# at all was never offered, so it starts empty and its defaults arrive the
+# same way. A saved category without an offered list says nothing about what
+# was declined, so nothing is added to it. A nested default stays out while
+# its parent is unselected: the parent was offered and not taken.
 select_new_default_choices() {
   local category choice_id parent
   local -a offered=() selected=()
   NEW_DEFAULT_CHOICES=()
   for category in $(category_names); do
+    if [[ -z "${CATEGORY_OVERRIDE_PRESENT[$category]:-}" && -z "${CATEGORY_OFFERED_PRESENT[$category]:-}" ]]; then
+      set_category_override "$category" ""
+      CATEGORY_OFFERED["$category"]=""
+      CATEGORY_OFFERED_PRESENT["$category"]=1
+    fi
     [[ -n "${CATEGORY_OVERRIDE_PRESENT[$category]:-}" ]] || continue
     [[ -n "${CATEGORY_OFFERED_PRESENT[$category]:-}" ]] || continue
     category_default_choices_enabled "$category" || continue

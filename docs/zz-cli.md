@@ -202,8 +202,9 @@ offered when they were saved (the `offered.<category>` lines). A choice the
 current catalog adds with `default = true` that the saved catalog never
 offered was never declined, so update mode selects it, reports it, and
 installs its units in a focused step the way `zz app install` does, then
-saves the enlarged selection. A default the saved catalog did offer stays
-as the user left it. A nested default is added only while its parent is
+saves the enlarged selection. A category the saved selections do not mention
+is new, so its defaults are handled the same way. A default the saved catalog
+did offer stays as the user left it. A nested default is added only while its parent is
 selected, the minimal desktop profile takes no new desktop defaults, and a
 saved category without an offered list gets nothing added. If the focused
 install fails, the new defaults are left out of the saved selections and

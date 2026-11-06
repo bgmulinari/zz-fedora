@@ -72,6 +72,12 @@ select.browsers=firefox
 select.dev=vscode
 offered.dev=$offered_dev
 EOF
+  # The other categories were offered and declined, so Zed is the only new default.
+  local category
+  for category in $(category_names); do
+    case "$category" in browsers | dev) continue ;; esac
+    printf 'select.%s=\noffered.%s=%s\n' "$category" "$category" "$(all_choice_ids "$category" | paste -sd ,)"
+  done >>"$XDG_CONFIG_HOME/zz-fedora/selections.conf"
 
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
     bash "$ROOT_DIR/install.sh" install --dry-run --no-tui --yes --use-saved --update

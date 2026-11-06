@@ -29,4 +29,5 @@ CATEGORY_ORDER = (
     "office",
     "gaming",
     "media",
+    "utilities",
 )

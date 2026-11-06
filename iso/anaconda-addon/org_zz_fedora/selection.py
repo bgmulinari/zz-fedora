@@ -30,6 +30,7 @@ CATEGORY_LABELS = {
     "office": "Office",
     "gaming": "Gaming",
     "media": "Multimedia",
+    "utilities": "Utilities",
 }
 
 

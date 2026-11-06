@@ -556,7 +556,7 @@ tui_run_wizard() {
   fi
 
   local category header
-  for category in desktop ai dev dotnet office gaming media; do
+  for category in desktop ai dev dotnet office gaming media utilities; do
     if [[ "$category" == "desktop" ]]; then
       header="Select desktop apps. Space toggles, Enter continues."
     else

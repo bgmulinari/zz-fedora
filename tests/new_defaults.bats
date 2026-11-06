@@ -19,15 +19,28 @@ setup() {
 }
 
 # A selections file the way an earlier catalog saved it: each offered list
-# names the choices that catalog had in the category.
+# names the choices that catalog had in the category. A category the
+# arguments leave out is saved with every choice offered and selected.
 write_saved_selections() {
   mkdir -p "$(dirname "$SAVED_SELECTIONS")"
+  local category ids
   {
     printf 'target_user=%s\n' "$TARGET_USER"
     printf 'desktop_app_profile=%s\n' "${DESKTOP_APP_PROFILE:-full}"
     printf 'preferred_browser=firefox\n'
     printf '%s\n' "$@"
+    for category in $(category_names); do
+      [[ " $* " == *" select.$category="* || " $* " == *" offered.$category="* ]] && continue
+      ids="$(all_choice_ids "$category" | paste -sd ,)"
+      printf 'select.%s=%s\noffered.%s=%s\n' "$category" "$ids" "$category" "$ids"
+    done
   } >"$SAVED_SELECTIONS"
+}
+
+# A selections file from before the catalog had the utilities category.
+write_saved_selections_without_utilities() {
+  write_saved_selections
+  sed -i '/^[a-z]*\.utilities=/d' "$SAVED_SELECTIONS"
 }
 
 # Every choice of a category except the given ones: the offered list of a
@@ -184,4 +197,48 @@ run_in_shell() {
   run_in_shell normalize_saved_selections_for_update
   [ "$status" -eq 0 ]
   assert_contains "$output" "New default choice 'zed' in category 'dev' was added to the saved selections."
+}
+
+@test "the new-defaults step installs the defaults of a category the selections do not know" {
+  write_saved_selections_without_utilities
+  load_saved_selections
+  run_in_shell normalize_saved_selections_for_update
+  [ "$status" -eq 0 ]
+  assert_contains "$(printf '%s\n' "${NEW_DEFAULT_CHOICES[@]}")" $'utilities\trustconn'
+  run_in_shell build_plan_from_selections
+
+  assert_plan_has "$PLAN_DIR/bundles.list" "utilities-rustconn"
+  refute_saved_choice utilities rustconn
+
+  apply_units_focused() { printf 'APPLY: %s\n' "$*"; }
+  run run_without_bats_debug_trap module_40_new_defaults
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Utilities / RustConn"
+  assert_contains "$output" "utilities-rustconn"
+  assert_file_contains "$SAVED_SELECTIONS" "select.utilities=$(default_choice_ids utilities | paste -sd ,)"
+  assert_file_contains "$SAVED_SELECTIONS" "offered.utilities=$(offered_without utilities)"
+}
+
+@test "a failed install of a category the selections do not know is retried by the next update" {
+  write_saved_selections_without_utilities
+  load_saved_selections
+  run_in_shell normalize_saved_selections_for_update
+  run_in_shell build_plan_from_selections
+
+  apply_units_focused() { return 1; }
+  run_in_shell module_40_new_defaults
+  [ "$status" -ne 0 ]
+  assert_equal "" "$(selected_ids utilities)"
+  assert_file_contains "$SAVED_SELECTIONS" "select.utilities="
+  refute_saved_choice utilities rustconn
+  run grep -E '^offered\.utilities=.*rustconn' "$SAVED_SELECTIONS"
+  [ "$status" -ne 0 ]
+
+  DEFERRED_DEFAULT_CHOICES=()
+  CATEGORY_OFFERED=()
+  CATEGORY_OFFERED_PRESENT=()
+  load_saved_selections
+  run_in_shell normalize_saved_selections_for_update
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "New default choice 'rustconn' in category 'utilities' was added to the saved selections."
 }

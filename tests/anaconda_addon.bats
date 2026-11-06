@@ -83,6 +83,7 @@ constants.CATEGORY_ORDER = (
     "office",
     "gaming",
     "media",
+    "utilities",
 )
 constants.DEFAULT_DESKTOP_APP_PROFILE = "full"
 constants.DESKTOP_APP_PROFILES = ("full", "minimal")
@@ -570,6 +571,7 @@ constants.CATEGORY_ORDER = (
     "office",
     "gaming",
     "media",
+    "utilities",
 )
 constants.DEFAULT_DESKTOP_APP_PROFILE = "full"
 constants.DESKTOP_APP_PROFILES = ("full", "minimal")

@@ -21,6 +21,7 @@ category_label() {
     gaming) printf 'Gaming\n' ;;
     media) printf 'Media\n' ;;
     office) printf 'Office\n' ;;
+    utilities) printf 'Utilities\n' ;;
     *) printf '%s\n' "$1" ;;
   esac
 }

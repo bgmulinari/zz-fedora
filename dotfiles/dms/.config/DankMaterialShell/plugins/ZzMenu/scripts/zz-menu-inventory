@@ -276,6 +276,7 @@ CATEGORY_ICONS = {
     "gaming": "sports_esports",
     "media": "play_circle",
     "office": "work",
+    "utilities": "build",
 }
 
 def app_rows(group: dict) -> list[dict]:

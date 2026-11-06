@@ -1,0 +1,15 @@
+id = "utilities-rustconn"
+description = "RustConn connection manager Flatpak for Fedora"
+
+[choice]
+category = "utilities"
+id = "rustconn"
+label = "RustConn"
+default = true
+order = 10
+description = "Connection manager for SSH, RDP, VNC, SPICE, and other remote sessions"
+
+[[install]]
+backend = "flatpak"
+sources = ["flathub"]
+flatpaks = ["io.github.totoshko88.RustConn"]
