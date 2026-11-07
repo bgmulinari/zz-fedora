@@ -1,0 +1,15 @@
+id = "office-artcraft-launcher"
+description = "ArtCraft Launcher RPM from the latest GitHub release"
+
+[choice]
+category = "office"
+id = "artcraft-launcher"
+label = "ArtCraft Launcher"
+default = true
+order = 40
+description = "Install, update, and launch the apps in the Craft App Suite"
+
+[[install]]
+backend = "action"
+sources = ["artifact:artcraft-launcher"]
+actions = ["artcraft-launcher"]

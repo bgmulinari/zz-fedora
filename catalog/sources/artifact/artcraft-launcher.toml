@@ -1,0 +1,7 @@
+id = "artifact:artcraft-launcher"
+kind = "artifact"
+label = "ArtCraft Launcher latest GitHub release"
+project = "https://github.com/storytold/craft-launcher/releases/latest"
+description = "Optional ArtCraft Launcher RPM from the latest upstream release"
+gpg_policy = "sha256"
+reason = "The latest release RPM is verified with the SHA256SUMS.txt published in the same GitHub release; the installer also validates its package name and architecture before local DNF installation"

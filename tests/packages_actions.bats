@@ -701,6 +701,86 @@ EOF
   [ "$status" -eq 1 ]
   assert_contains "$output" "expected discord.x86_64 RPM"
 }
+# Stubs the ArtCraft Launcher release: tag v1.2.3, an RPM with the given
+# identity, and a SHA256SUMS.txt holding the given checksum for it.
+stub_artcraft_launcher_release() {
+  ARTCRAFT_RPM_IDENTITY="$1"
+  ARTCRAFT_RPM_CHECKSUM="$2"
+  command_log="$TEST_ROOT/artcraft-commands.log"
+  DRY_RUN=0
+  ROOT_STAGING_DIR="$TEST_ROOT/artcraft-staging"
+  ensure_root_staging_dir() { mkdir -p "$ROOT_STAGING_DIR"; }
+  curl() {
+    printf '%s\n' "$ARTCRAFT_LAUNCHER_RELEASES_URL/tag/v1.2.3"
+  }
+  rpm() {
+    if [[ "${1:-}" == "-qp" ]]; then
+      printf '%s\n' "$ARTCRAFT_RPM_IDENTITY"
+      return 0
+    fi
+    return 1
+  }
+  run_cmd() {
+    printf 'download:%s\n' "$*" >>"$command_log"
+    case "${@: -1}" in
+      *SHA256SUMS.txt)
+        printf '%s  artcraft-launcher-1.2.3-linux-x86_64.rpm\n%s  other.rpm\n' \
+          "$ARTCRAFT_RPM_CHECKSUM" "$(printf 'other' | sha256sum | cut -d' ' -f1)" >"${@: -1}"
+        ;;
+      *) printf 'rpm-bytes' >"${@: -1}" ;;
+    esac
+  }
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*" >>"$command_log"
+  }
+}
+
+@test "ArtCraft Launcher action installs the verified RPM of the latest release" {
+  stub_artcraft_launcher_release $'artcraft-launcher\tx86_64' "$(printf 'rpm-bytes' | sha256sum | cut -d' ' -f1)"
+
+  run install_artcraft_launcher
+
+  [ "$status" -eq 0 ]
+  local download="$ARTCRAFT_LAUNCHER_RELEASES_URL/download/v1.2.3"
+  assert_file_contains "$command_log" "download:curl -fsSL $download/artcraft-launcher-1.2.3-linux-x86_64.rpm -o $ROOT_STAGING_DIR/artcraft-launcher."
+  assert_file_contains "$command_log" "download:curl -fsSL $download/SHA256SUMS.txt -o $ROOT_STAGING_DIR/artcraft-launcher."
+  assert_file_contains "$command_log" "root:dnf install -y $ROOT_STAGING_DIR/artcraft-launcher."
+  assert_equal "" "$(find "$ROOT_STAGING_DIR" -mindepth 1)"
+}
+
+@test "ArtCraft Launcher action rejects a download that fails its release checksum" {
+  stub_artcraft_launcher_release $'artcraft-launcher\tx86_64' "$(printf 'different' | sha256sum | cut -d' ' -f1)"
+
+  run install_artcraft_launcher
+
+  [ "$status" -eq 1 ]
+  assert_contains "$output" "failed SHA-256 verification"
+  refute_file_contains "$command_log" "root:dnf install"
+  assert_equal "" "$(find "$ROOT_STAGING_DIR" -mindepth 1)"
+}
+
+@test "ArtCraft Launcher action rejects a download with unexpected RPM metadata" {
+  stub_artcraft_launcher_release $'unexpected\tx86_64' "$(printf 'rpm-bytes' | sha256sum | cut -d' ' -f1)"
+
+  run install_artcraft_launcher
+
+  [ "$status" -eq 1 ]
+  assert_contains "$output" "expected artcraft-launcher.x86_64 RPM"
+  refute_file_contains "$command_log" "root:dnf install"
+}
+
+@test "ArtCraft Launcher action fails without downloading when the latest release cannot be resolved" {
+  stub_artcraft_launcher_release $'artcraft-launcher\tx86_64' "unused"
+  : >"$command_log"
+  curl() { printf '%s\n' "$ARTCRAFT_LAUNCHER_RELEASES_URL"; }
+
+  run install_artcraft_launcher
+
+  [ "$status" -eq 1 ]
+  assert_contains "$output" "Could not determine the latest ArtCraft Launcher release"
+  assert_equal "" "$(<"$command_log")"
+}
+
 @test "JetBrains Toolbox install removes the vendor login autostart entry" {
   DRY_RUN=0
   command_log="$TEST_ROOT/toolbox-install-command.log"

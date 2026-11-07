@@ -60,6 +60,8 @@ source "$ROOT_DIR/lib/actions/jetbrains.sh"
 source "$ROOT_DIR/lib/actions/devtunnel.sh"
 # shellcheck source=./actions/discord.sh
 source "$ROOT_DIR/lib/actions/discord.sh"
+# shellcheck source=./actions/artcraft-launcher.sh
+source "$ROOT_DIR/lib/actions/artcraft-launcher.sh"
 # shellcheck source=./actions/docker.sh
 source "$ROOT_DIR/lib/actions/docker.sh"
 # shellcheck source=./actions/dotnet.sh

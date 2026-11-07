@@ -429,6 +429,14 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/actions/actions.list" "discord"
 }
 
+@test "ArtCraft Launcher selection plans the latest-release RPM action" {
+  build_test_plan "office=artcraft-launcher"
+
+  assert_plan_has "$PLAN_DIR/bundles.list" "office-artcraft-launcher"
+  assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:artcraft-launcher"
+  assert_plan_has "$PLAN_DIR/actions/actions.list" "artcraft-launcher"
+}
+
 @test "MangoHud and Gamescope selections plan the Fedora packages" {
   build_test_plan "gaming=mangohud,gamescope"
 
