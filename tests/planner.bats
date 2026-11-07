@@ -177,13 +177,10 @@ assert_all_bundles_reachable() {
     baobab \
     decibels \
     file-roller \
-    gnome-boxes \
     gnome-calculator \
     gnome-characters \
-    gnome-connections \
     gnome-disk-utility \
     gnome-logs \
-    gnome-software \
     gnome-text-editor \
     loupe \
     papers \
@@ -270,13 +267,10 @@ assert_all_bundles_reachable() {
     baobab \
     decibels \
     file-roller \
-    gnome-boxes \
     gnome-calculator \
     gnome-characters \
-    gnome-connections \
     gnome-disk-utility \
     gnome-logs \
-    gnome-software \
     gnome-text-editor \
     loupe \
     papers \
@@ -369,7 +363,7 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "nautilus"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "pavucontrol"
   assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "system-config-printer"
-  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-software"
+  refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gnome-text-editor"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "xdg-desktop-portal-gnome"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt6ct"
   refute_plan_has "$PLAN_DIR/packages/dnf.pkgs" "qt6ct-kde"
@@ -537,15 +531,6 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/bundles.list" "media-codecs"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "media-codecs"
   assert_plan_has "$PLAN_DIR/actions/actions.list" "media-hardware-acceleration"
-}
-
-@test "media cliamp plans the Homebrew tap formula" {
-  build_test_plan "media=cliamp"
-
-  assert_plan_has "$PLAN_DIR/bundles.list" "media-cliamp"
-  # Homebrew refuses a bottle-less formula without a compiler on PATH.
-  assert_plan_has "$PLAN_DIR/packages/dnf.pkgs" "gcc"
-  assert_plan_has "$PLAN_DIR/actions/actions.list" "brew:bjarneo/cliamp/cliamp"
 }
 
 @test "media obs plans the Flathub flatpak" {

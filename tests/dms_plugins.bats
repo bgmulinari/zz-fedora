@@ -581,7 +581,7 @@ EOF
 #!/usr/bin/env bash
 case "$1 $2" in
   "app list")
-    printf '%s\n' '[{"category":"dev","category_label":"Development","id":"zed","label":"Zed","description":"Editor","default":true,"selected":true,"installed":false,"units":["dev-zed"]},{"category":"office","category_label":"Office","id":"pinta","label":"Pinta","description":"Painter","default":true,"selected":true,"installed":true,"units":["office-pinta"]}]'
+    printf '%s\n' '[{"category":"dev","category_label":"Development","id":"zed","label":"Zed","description":"Editor","default":true,"selected":true,"installed":false,"units":["dev-zed"]},{"category":"office","category_label":"Office","id":"zoom","label":"Zoom","description":"Meetings","default":true,"selected":true,"installed":true,"units":["office-zoom"]}]'
     ;;
   "refresh --list")
     printf 'niri/config.kdl  Seeds the Niri entrypoint\n'
@@ -605,14 +605,14 @@ EOF
   assert_equal "Editor" "$(jq -r '.rows[] | select(.id == "apps.install.dev.zed") | .description' <<<"$inventory")"
   assert_equal "download" "$(jq -r '.rows[] | select(.id == "apps.install.dev.zed") | .icon' <<<"$inventory")"
   assert_equal "true" "$(jq -r '.rows[] | select(.id == "apps.install.dev.zed") | .terminal' <<<"$inventory")"
-  assert_equal "zz app remove office/pinta" "$(jq -r '.rows[] | select(.id == "apps.remove.office.pinta") | .action' <<<"$inventory")"
-  assert_equal "delete" "$(jq -r '.rows[] | select(.id == "apps.remove.office.pinta") | .icon' <<<"$inventory")"
-  assert_equal "Add or remove apps Remove Office" "$(jq -r '.rows[] | select(.id == "apps.remove.office.pinta") | .path | join(" ")' <<<"$inventory")"
-  run jq -e '.rows[] | select(.id == "apps.remove.office.pinta") | .keywords | index("uninstall") != null' <<<"$inventory"
+  assert_equal "zz app remove office/zoom" "$(jq -r '.rows[] | select(.id == "apps.remove.office.zoom") | .action' <<<"$inventory")"
+  assert_equal "delete" "$(jq -r '.rows[] | select(.id == "apps.remove.office.zoom") | .icon' <<<"$inventory")"
+  assert_equal "Add or remove apps Remove Office" "$(jq -r '.rows[] | select(.id == "apps.remove.office.zoom") | .path | join(" ")' <<<"$inventory")"
+  run jq -e '.rows[] | select(.id == "apps.remove.office.zoom") | .keywords | index("uninstall") != null' <<<"$inventory"
   [ "$status" -eq 0 ]
   # A choice appears under one action only, and an action with nothing to
   # offer shows no empty category.
-  run jq -e '[.rows[].id] | (index("apps.remove.dev.zed") == null) and (index("apps.install.office.pinta") == null)' <<<"$inventory"
+  run jq -e '[.rows[].id] | (index("apps.remove.dev.zed") == null) and (index("apps.install.office.zoom") == null)' <<<"$inventory"
   [ "$status" -eq 0 ]
   run jq -e 'any(.groups[]; .id == "apps.remove.dev" or .id == "apps.install.office") | not' <<<"$inventory"
   [ "$status" -eq 0 ]

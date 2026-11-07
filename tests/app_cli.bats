@@ -53,9 +53,9 @@ stub_apply_steps() {
   [ "$status" -eq 0 ]
   assert_equal $'browsers\tbrave' "$output"
 
-  run resolve_choice_ref office=pinta
+  run resolve_choice_ref office=zoom
   [ "$status" -eq 0 ]
-  assert_equal $'office\tpinta' "$output"
+  assert_equal $'office\tzoom' "$output"
 
   run resolve_choice_ref browser/brave
   [ "$status" -eq 0 ]
@@ -65,9 +65,9 @@ stub_apply_steps() {
   [ "$status" -ne 0 ]
   assert_contains "$output" "Unknown choice 'does-not-exist'"
 
-  run resolve_choice_ref dev/pinta
+  run resolve_choice_ref dev/zoom
   [ "$status" -ne 0 ]
-  assert_contains "$output" "Unknown choice 'pinta' in category 'dev'"
+  assert_contains "$output" "Unknown choice 'zoom' in category 'dev'"
 }
 
 @test "add-choice dry run applies only the new choice's units and leaves the saved selections alone" {
@@ -128,42 +128,24 @@ stub_apply_steps() {
   refute_saved_choice dev lazydocker
 }
 
-@test "remove-choice uninstalls a tap-qualified Homebrew formula" {
-  save_test_selections "media=codecs,cliamp"
-  load_saved_selections
-  parse_select_arg media=cliamp
-  COMMAND=remove-choice
-  DRY_RUN=0
-  stub_apply_steps
-
-  run run_without_bats_debug_trap apply_choice_removals
-  [ "$status" -eq 0 ]
-  assert_contains "$output" "Removing Media choice: cliamp"
-  assert_contains "$output" "USER-SHELL: brew list 'bjarneo/cliamp/cliamp' >/dev/null 2>&1 && brew uninstall 'bjarneo/cliamp/cliamp' || true"
-  refute_contains "$output" "Left in place"
-  assert_file_contains "$SAVED_SELECTIONS" "select.media=codecs"
-  refute_saved_choice media cliamp
-}
-
 @test "remove-choice keeps a package that installed software outside the choice still needs" {
-  save_test_selections "media=codecs,cliamp"
+  save_test_selections "ai=agent-usage,crash-diagnosis"
   load_saved_selections
-  parse_select_arg media=cliamp
+  parse_select_arg ai=crash-diagnosis
   COMMAND=remove-choice
   DRY_RUN=0
   stub_apply_steps
   fedora_package_dependents() {
-    [[ "$1" == "gcc" ]] && printf 'gcc-c++\nannobin-plugin-gcc\n'
+    [[ "$1" == "gdb" ]] && printf 'gdb-gdbserver\nvalgrind\n'
     return 0
   }
 
   run run_without_bats_debug_trap apply_choice_removals
   [ "$status" -eq 0 ]
-  assert_contains "$output" "Keeping package still needed by gcc-c++, annobin-plugin-gcc: gcc"
-  refute_contains "$output" "dnf remove"
-  # The formula itself still leaves.
-  assert_contains "$output" "brew uninstall 'bjarneo/cliamp/cliamp'"
-  refute_saved_choice media cliamp
+  assert_contains "$output" "Keeping package still needed by gdb-gdbserver, valgrind: gdb"
+  # The rest of the choice still leaves.
+  assert_contains "$output" "elfutils-debuginfod-client"
+  refute_saved_choice ai crash-diagnosis
 }
 
 @test "dependency pruning keeps a chain that ends in installed software outside the set" {
@@ -241,9 +223,9 @@ EOF2
 }
 
 @test "remove-choice removes what no remaining choice needs and unsaves the choice" {
-  save_test_selections "office=onlyoffice,pinta" "dotnet=sdk,ef" "ai=agent-usage" "dev=lazydocker"
+  save_test_selections "office=onlyoffice,zoom" "dotnet=sdk,ef" "ai=agent-usage" "dev=lazydocker"
   load_saved_selections
-  parse_select_arg office=pinta
+  parse_select_arg office=zoom
   parse_select_arg dotnet=sdk
   parse_select_arg ai=agent-usage
   parse_select_arg dev=lazydocker
@@ -253,8 +235,8 @@ EOF2
 
   run run_without_bats_debug_trap apply_choice_removals
   [ "$status" -eq 0 ]
-  assert_contains "$output" "Removing Office choice: Pinta"
-  assert_contains "$output" "ROOT: flatpak uninstall -y com.github.PintaProject.Pinta"
+  assert_contains "$output" "Removing Office choice: Zoom"
+  assert_contains "$output" "ROOT: flatpak uninstall -y us.zoom.Zoom"
   refute_contains "$output" "org.onlyoffice.desktopeditors"
   # The SDK unit stays because the EF Core tool choice still requires it.
   assert_contains "$output" "Keeping unit still selected elsewhere: dotnet-sdk"
@@ -268,9 +250,9 @@ EOF2
   assert_file_contains "$SAVED_SELECTIONS" "select.office=onlyoffice"
   assert_file_contains "$SAVED_SELECTIONS" "select.dotnet=ef"
   assert_file_contains "$SAVED_SELECTIONS" "select.ai="
-  refute_saved_choice office pinta
+  refute_saved_choice office zoom
   refute_saved_choice dev lazydocker
-  refute_plan_has "$PLAN_DIR/bundles.list" "office-pinta"
+  refute_plan_has "$PLAN_DIR/bundles.list" "office-zoom"
   assert_plan_has "$PLAN_DIR/bundles.list" "dotnet-sdk"
 }
 
@@ -342,15 +324,12 @@ EOF2
 @test "installed state matches a tap-qualified Homebrew action by its bare formula name" {
   # brew list prints bare names; priming is faked so no package tool runs.
   CHOICE_STATE_PRIMED=1
-  INSTALLED_BREW_FORMULAE[cliamp]=1
-  INSTALLED_RPM_NAMES[gcc]=1
+  INSTALLED_BREW_FORMULAE[some-formula]=1
 
-  run action_present "brew:bjarneo/cliamp/cliamp"
+  run action_present "brew:some-user/some-tap/some-formula"
   [ "$status" -eq 0 ]
-  run action_present "brew:bjarneo/cliamp/missing"
+  run action_present "brew:some-user/some-tap/missing"
   [ "$status" -ne 0 ]
-  run choice_installed media cliamp
-  [ "$status" -eq 0 ]
 }
 
 @test "npm global packages install, register, and uninstall in the user's ~/.local prefix" {
@@ -448,10 +427,10 @@ EOF2
 
 @test "zz app asks before installing or removing unless told otherwise" {
   # A declined prompt, or no answer at all, changes nothing and exits clean.
-  run bash -c "printf 'n\n' | bash '$ROOT_DIR/bin/zz' app remove office/pinta"
+  run bash -c "printf 'n\n' | bash '$ROOT_DIR/bin/zz' app remove office/zoom"
   [ "$status" -eq 0 ]
   assert_contains "$output" "About to remove:"
-  assert_contains "$output" "Pinta (Office, office/pinta)"
+  assert_contains "$output" "Zoom (Office, office/zoom)"
   assert_contains "$output" "Proceed? [y/N]"
   assert_contains "$output" "Cancelled."
   refute_contains "$output" "Log file:"

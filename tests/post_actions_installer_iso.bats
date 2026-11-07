@@ -85,7 +85,7 @@ setup() {
 }
 
 @test "chroot install defers extra-data flatpaks, then first-run installs them in-session" {
-  build_test_plan "media=spotify" "office=zoom,pinta"
+  build_test_plan "media=spotify" "office=zoom,onlyoffice"
   TARGET_USER="test-user"
   TARGET_HOME="$TEST_ROOT/extra-data-home"
   mkdir -p "$TARGET_HOME"
@@ -117,7 +117,7 @@ setup() {
   assert_file_line "$(flatpak_deferred_plan_file)" "us.zoom.Zoom"
   refute_file_contains "$command_log" "com.spotify.Client"
   refute_file_contains "$command_log" "us.zoom.Zoom"
-  assert_file_contains "$command_log" "com.github.PintaProject.Pinta"
+  assert_file_contains "$command_log" "org.onlyoffice.desktopeditors"
 
   # Phase 2: first login runs in the user's real session, where the sandbox
   # works and polkit allows an active session to install system flatpaks.
@@ -450,10 +450,10 @@ EOF
   write_fake_command flatpak <<'EOF'
 #!/usr/bin/env bash
 [[ "$*" == *"--cached"* ]] && exit 0
-printf '[Application]\nname=org.inkscape.Inkscape\n'
+printf '[Application]\nname=org.onlyoffice.desktopeditors\n'
 EOF
   probe_status=0
-  PATH="$FAKE_BIN:$PATH" flatpak_app_uses_extra_data flathub org.inkscape.Inkscape || probe_status=$?
+  PATH="$FAKE_BIN:$PATH" flatpak_app_uses_extra_data flathub org.onlyoffice.desktopeditors || probe_status=$?
   assert_equal "1" "$probe_status"
 }
 

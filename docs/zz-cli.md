@@ -223,7 +223,7 @@ without root.
 ```bash
 zz app list
 zz app install brave
-zz app remove office/pinta --dry-run
+zz app remove office/zoom --dry-run
 ```
 
 `zz app` changes one wizard choice at a time on an installed system. A

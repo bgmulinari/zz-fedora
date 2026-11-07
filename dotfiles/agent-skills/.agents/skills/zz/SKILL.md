@@ -156,7 +156,7 @@ niri msg windows          # open windows with app-id and title (for window rules
 | `zz update all` | Update dnf, flatpak, brew, npm, .NET, Claude Code | `zz update all --dry-run` |
 | `zz app list` | Every catalog choice with its selected and installed state | `zz app list` |
 | `zz app install <choice>` | Install one catalog choice and save it; only its units run; asks first (`--yes` skips) | `zz app install brave` |
-| `zz app remove <choice>` | Remove one choice and what no other choice needs; unsave it; asks first | `zz app remove office/pinta --dry-run` |
+| `zz app remove <choice>` | Remove one choice and what no other choice needs; unsave it; asks first | `zz app remove office/zoom --dry-run` |
 | `zz first-run` | Resume unfinished first-login setup (theme artifacts, GTK opt-in, greeter profile) | `zz first-run` |
 | `zz defaults` | Reapply default applications and browser preferences | `zz defaults` |
 | `zz ssh setup` | Key-only SSH access: import a GitHub account's keys (rerun to sync adds and removals) or paste one, start sshd, turn password logins off | `zz ssh setup` |

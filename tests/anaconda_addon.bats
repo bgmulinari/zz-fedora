@@ -432,7 +432,7 @@ assert git_commands[1][0] == [
 selection_lines = [
     "selected=1\n",
     "desktop_app_profile=minimal\n",
-    "select.desktop=boxes\n",
+    "select.desktop=calculator\n",
     "preferred_browser=firefox\n",
 ]
 profile = task._read_desktop_app_profile(selection_lines)
@@ -454,7 +454,7 @@ task._write_selection_config(
 )
 selection_text = selection_config.read_text()
 assert "desktop_app_profile=minimal\n" in selection_text
-assert "select.desktop=boxes\n" in selection_text
+assert "select.desktop=calculator\n" in selection_text
 
 task._write_runner_script(
     target_repo_dir=Path("/home/zztest/.zz"),
@@ -610,9 +610,6 @@ assert [choice.id for choice in category_by_id["desktop"].choices] == [
     "camera",
     "document-scanner",
     "file-roller",
-    "software",
-    "boxes",
-    "connections",
 ]
 assert any(choice.id == "docker" for choice in category_by_id["dev"].choices)
 PY

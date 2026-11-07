@@ -842,8 +842,8 @@ TOML
   assert_equal "brave-browser" "$(bundle_step_items browsers-brave 0)"
   assert_equal $'brave-browser\nbrowser-theme:brave' "$(bundle_items browsers-brave)"
 
-  assert_equal $'0\tflatpak\tflathub' "$(bundle_steps office-pinta)"
-  assert_equal "com.github.PintaProject.Pinta" "$(bundle_step_items office-pinta 0)"
+  assert_equal $'0\tflatpak\tflathub' "$(bundle_steps office-zoom)"
+  assert_equal "us.zoom.Zoom" "$(bundle_step_items office-zoom 0)"
 
   assert_equal $'0\taction\tartifact:claude-code' "$(bundle_steps ai-claude-code)"
   assert_equal "claude-code" "$(bundle_step_items ai-claude-code 0)"

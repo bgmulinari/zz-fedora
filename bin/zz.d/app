@@ -24,7 +24,7 @@ Usage:
 
 Install or remove one application from the ZZ catalog without rerunning
 the whole install. A choice is a wizard row such as zed, browsers/brave, or
-office/pinta; the category is needed only when the same id exists in more
+office/zoom; the category is needed only when the same id exists in more
 than one category. Installing or removing rewrites the saved selections,
 so `zz update zz` keeps the change.
 
