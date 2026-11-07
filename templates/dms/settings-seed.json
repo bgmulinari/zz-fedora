@@ -53,7 +53,8 @@
         },
         {
           "id": "workspaceSwitcher",
-          "showWorkspaceIndex": true
+          "showWorkspaceIndex": true,
+          "workspaceIndicatorStyle": "dots"
         },
         "focusedWindow"
       ],

@@ -505,6 +505,7 @@ EOF
   assert_equal "true" "$(jq -r '.dockConfigs[0].smartAutoHide' "$settings")"
   # Bar widget options live on the widget's entry in the bar.
   assert_equal "true" "$(jq -r '.barConfigs[0].leftWidgets[] | objects | select(.id == "workspaceSwitcher").showWorkspaceIndex' "$settings")"
+  assert_equal "dots" "$(jq -r '.barConfigs[0].leftWidgets[] | objects | select(.id == "workspaceSwitcher").workspaceIndicatorStyle' "$settings")"
   assert_equal "custom" "$(jq -r '.barConfigs[0].leftWidgets[] | objects | select(.id == "launcherButton").launcherLogoMode' "$settings")"
   assert_equal "false" "$(jq -r '.barElevationEnabled' "$settings")"
   assert_equal "true" "$(jq -r '.barConfigs[0].squareCorners' "$settings")"
