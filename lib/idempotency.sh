@@ -429,15 +429,30 @@ flatpak_remote_add_with_retry() {
   return 1
 }
 
+# Flathub is the only Flatpak remote a ZZ system carries. Fedora's package adds
+# its own remotes from a oneshot unit on the first boot after flatpak is
+# installed, which on an ISO install is still ahead when this runs, so masking
+# the unit matters as much as deleting what it already added. fedora-testing is
+# added disabled, and only --show-disabled lists it.
+flatpak_remove_fedora_remotes() {
+  local remote
+  run_cmd_as_root systemctl mask flatpak-add-fedora-repos.service ||
+    log_warn "Could not mask flatpak-add-fedora-repos.service; Fedora Flatpak remotes may return."
+  for remote in fedora fedora-testing; do
+    if flatpak remotes --show-disabled --columns=name 2>/dev/null | grep -Fx "$remote" >/dev/null 2>&1; then
+      log_info "Removing Fedora Flatpak remote: $remote"
+      run_cmd_as_root flatpak remote-delete --force "$remote" ||
+        log_warn "Could not remove Fedora Flatpak remote: $remote"
+    fi
+  done
+}
+
 flatpak_remote_add_if_missing() {
   local name="$1"
   local url="$2"
 
   if [[ "$name" == "flathub" ]] && have_cmd flatpak; then
-    if flatpak remotes --columns=name 2>/dev/null | grep -Fx fedora >/dev/null 2>&1; then
-      log_info "Removing Fedora Flatpak remote before configuring Flathub"
-      run_cmd_as_root flatpak remote-delete --force fedora || true
-    fi
+    flatpak_remove_fedora_remotes
   fi
 
   if [[ "$DRY_RUN" -eq 1 ]]; then

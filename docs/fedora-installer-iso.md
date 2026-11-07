@@ -184,6 +184,11 @@ who want SSH run `zz ssh setup` afterwards, which authorizes a key and turns
 password logins off before enabling the server. `zz doctor` reports the state
 under "Checking privileged access".
 
+Flathub is the only Flatpak remote on a ZZ system. Fedora's `flatpak` package
+enables `flatpak-add-fedora-repos.service`, which would add the `fedora` and
+`fedora-testing` remotes on the first boot of an ISO install, so Flathub setup
+masks that unit and deletes either remote if it already exists.
+
 ## VM Validation
 
 Run the unattended VM harness against the same Fedora input ISO before publishing

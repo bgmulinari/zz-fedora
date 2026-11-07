@@ -42,12 +42,14 @@ setup() {
   refute_contains "$output" "user:test-user:flatpak --user install"
 }
 
-@test "Flathub setup removes Fedora remote and adds official system remote" {
+@test "Flathub setup removes Fedora remotes, masks their first-boot unit, and adds official system remote" {
   remote_fixed=0
   flatpak() {
     case "$1" in
       remotes)
         printf 'fedora\n'
+        # fedora-testing is added disabled, so only --show-disabled lists it.
+        [[ "$*" == *--show-disabled* ]] && printf 'fedora-testing\n'
         [[ "$remote_fixed" -eq 1 ]] && printf 'flathub\n'
         return 0
         ;;
@@ -74,10 +76,39 @@ setup() {
   run flatpak_remote_add_if_missing flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" "Removing Fedora Flatpak remote before configuring Flathub"
-  assert_contains "$output" "root:flatpak remote-delete --force fedora"
+  assert_contains "$output" "root:systemctl mask flatpak-add-fedora-repos.service"
+  assert_contains "$output" "root:flatpak remote-delete --force fedora"$'\n'
+  assert_contains "$output" "root:flatpak remote-delete --force fedora-testing"
   assert_contains "$output" "root:flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
   refute_contains "$output" "user:test-user:flatpak --user remote-add"
+}
+
+@test "Flathub setup masks the Fedora remote unit even before the unit has added anything" {
+  flatpak() {
+    case "$1" in
+      remotes)
+        [[ -f "$TEST_ROOT/flathub-added" ]] && printf 'flathub\n'
+        return 0
+        ;;
+      remote-ls)
+        return 0
+        ;;
+    esac
+    return 1
+  }
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*"
+    if [[ "$*" == "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" ]]; then
+      : >"$TEST_ROOT/flathub-added"
+    fi
+  }
+  DRY_RUN=0
+
+  run flatpak_remote_add_if_missing flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "root:systemctl mask flatpak-add-fedora-repos.service"
+  refute_contains "$output" "remote-delete"
 }
 
 @test "unusable Flathub remote is repaired with GPG import and never no-gpg-verify" {
