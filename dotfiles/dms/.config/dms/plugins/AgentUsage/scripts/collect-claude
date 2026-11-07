@@ -1,30 +1,22 @@
 #!/usr/bin/python3
 """Collect Claude Code usage into one display-ready JSON record.
 
-Everything the agent-usage panel shows for Claude comes from this one
-command: local transcript stats from the Claude Code projects directory, the
-stats-cache and history fallbacks for machines without transcripts, pi/omp
-and opencode sessions that ran on an Anthropic provider, and the
-authoritative rate limits from Anthropic's OAuth usage endpoint. The panel
-only ever reads the JSON this prints; it never touches disk formats or
-endpoints itself.
-
-Usage: collect-claude [--force] [--limits-only]
+Everything the widget shows for Claude comes from this one
+command: local transcript stats from ~/.claude/projects, the stats-cache and
+history fallbacks for machines without transcripts, pi/omp and opencode
+sessions that ran on an Anthropic provider, and the authoritative rate
+limits from Anthropic's OAuth usage endpoint. The widget itself only ever
+reads the JSON this prints; it never talks to disk formats or endpoints.
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
-import fcntl
-import hashlib
 import json
 import os
-import re
-import sqlite3
 import sys
 import time
-import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -33,154 +25,193 @@ from typing import Any
 # module must not litter it with bytecode.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-
 from usage_common import (  # noqa: E402
-    LIMITS_REUSE_SECONDS,
-    UsageStats,
-    cache_root,
-    cached_limits,
-    local_day,
-    merge_stats,
+    HttpError,
+    LimitsCache,
+    Stats,
+    base_record,
+    cached_scan,
+    claude_code_base_url,
+    claude_code_dir,
+    claude_code_index_path,
+    claude_code_owner,
+    claude_code_scan_match,
+    emit,
+    empty_bucket,
     number,
+    obj,
+    open_json,
     opencode_db,
     pi_session_roots,
-    read_cached_stats,
-    recent_date_strings,
-    scan_reuse_seconds,
-    store_limits,
-    today_string,
-    usage_token,
-    write_cached_stats,
+    read_json,
+    recent_dates,
+    scan_max_age,
+    claude_code_usage,
+    scan_opencode,
+    scan_pi_sessions,
+    today as today_string,
+    warn,
 )
 
 AGENT_ID = "claude"
 AGENT_NAME = "Claude Code"
 AUTH_HELP = "Run `claude auth login` to restore authoritative usage."
 USAGE_ENDPOINT = "https://api.anthropic.com/api/oauth/usage"
+# Anthropic rate-limits its usage endpoint readily. A refused re-check of
+# numbers this recent still describes the account; only older ones are
+# reported as stale.
+CURRENT_ENOUGH_SECONDS = 900
 
 
 def config_dir() -> Path:
-    return Path(os.path.expandvars(os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude"))).resolve()
+    return claude_code_dir()
+
+
+def expand_path(value: str) -> Path:
+    return Path(os.path.expandvars(os.path.expanduser(value))).resolve()
 
 
 # ---------------------------------------------------------------- local scan
 
 
-def scan_projects(projects_path: Path) -> dict[str, Any]:
-    stats = UsageStats()
-    seen: set[str] = set()
-
-    files = projects_path.rglob("*.jsonl") if projects_path.is_dir() else []
-    for path in files:
-        try:
-            with path.open("r", encoding="utf-8", errors="replace") as handle:
-                for line_number, line in enumerate(handle, 1):
-                    # Cheap pre-filter before JSON parsing keeps files with
-                    # unrelated lines inexpensive.
-                    if '"usage":' not in line:
-                        continue
-                    try:
-                        entry = json.loads(line)
-                    except Exception:
-                        continue
-
-                    message = entry.get("message") if isinstance(entry.get("message"), dict) else {}
-                    if entry.get("type") != "assistant" and message.get("role") != "assistant":
-                        continue
-                    usage = message.get("usage") or entry.get("usage")
-                    if not isinstance(usage, dict):
-                        continue
-
-                    message_id = message.get("id") or entry.get("messageId") or ""
-                    unique_key = str(message_id) if message_id else f"{path}:{entry.get('uuid') or entry.get('requestId') or line_number}"
-                    if unique_key in seen:
-                        continue
-                    seen.add(unique_key)
-
-                    stats.add(
-                        local_day(entry.get("timestamp") or message.get("timestamp")),
-                        str(entry.get("sessionId") or path),
-                        str(message.get("model") or entry.get("model") or "claude"),
-                        usage_token(usage, "input_tokens", "inputTokens"),
-                        usage_token(usage, "output_tokens", "outputTokens"),
-                        usage_token(usage, "cache_read_input_tokens", "cacheReadInputTokens"),
-                        usage_token(usage, "cache_creation_input_tokens", "cacheCreationInputTokens"),
-                    )
-        except Exception as exc:
-            print(f"Ignoring unreadable Claude project file {path}: {exc}", file=sys.stderr)
-
-    return stats.to_dict()
+# Claude Code's transcripts are read by the shared reader, through the index
+# every collector that reads them shares. Claude Code fronts whatever
+# ANTHROPIC_BASE_URL names, and Z.ai, Ollama, MiniMax, DeepSeek, Kimi,
+# OpenRouter and Alibaba's Model Studio each document pointing it at their
+# own Anthropic-compatible API;
+# only what Anthropic served is Claude's, and claude_code_owner() hands the
+# rest to the collector that bills it.
 
 
-def cached_scan(projects_path: Path, max_age_seconds: float) -> dict[str, Any]:
-    digest = hashlib.sha1(str(projects_path).encode("utf-8")).hexdigest()[:16]
-    cache_file = cache_root() / f"claude-scan-{digest}.json"
-    lock_file = cache_root() / f"claude-scan-{digest}.lock"
+def scan_projects(projects_path: Path, index_file: Path | None = None, base_url: str = "", reread: bool = False) -> Stats:
+    return scan_projects_read(projects_path, index_file, base_url, reread)[0]
 
-    hit, cached = read_cached_stats(cache_file, max_age_seconds)
-    if hit and cached is not None:
-        return cached
 
-    with lock_file.open("w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        hit, cached = read_cached_stats(cache_file, max_age_seconds)
-        if hit and cached is not None:
-            return cached
-        summary = scan_projects(projects_path)
-        write_cached_stats(cache_file, summary)
-        return summary
+def scan_projects_read(projects_path: Path, index_file: Path | None = None, base_url: str = "", reread: bool = False) -> tuple[Stats, bool]:
+    """The transcripts' stats, and whether every transcript was read: a scan
+    that missed one isn't cached."""
+    stats = Stats()
+    rows, read_all = claude_code_usage(AGENT_ID, projects_path, index_file, base_url, reread)
+    for row in rows:
+        stats.add_row(row, row.model)
+    return stats, read_all
+
+
+def anthropic_served(model: Any, base_url: str) -> bool:
+    return claude_code_owner(model, base_url) == AGENT_ID
 
 
 # ------------------------------------------------------------- local fallback
 #
 # A machine without transcripts on disk can still know its history: Claude
 # Code keeps aggregate counters in stats-cache.json and per-prompt history in
-# history.jsonl. Only consulted when the project scan comes back empty.
+# history.jsonl. Only consulted when projects/ holds no transcript at all: a
+# scan that gave every reply to another collector has counted each prompt
+# already, under whoever answered it. Neither file says who answered, so
+# while ANTHROPIC_BASE_URL names another provider's host their prompts and
+# sessions are that provider's, which reads no fallback, and count nowhere.
+
+# Claude Code's built-in commands that run on their own and ask the model
+# nothing (Claude Code 2.1.308's `local` and `local-jsx` commands and their
+# aliases), which history.jsonl keeps as typed. The transcript reader knows
+# one by the local output answering it; history.jsonl keeps no output, so
+# only the name tells. A custom command, a skill, and a built-in that sends a
+# prompt (/init, /statusline) are prompts.
+CLAUDE_CODE_LOCAL_COMMANDS = frozenset((
+    "add-dir", "advisor", "agents", "allowed-tools", "android", "app", "artifacts", "autocompact", "autofix-pr",
+    "auto-mode-setup", "background", "bashes", "bg", "branch", "break-reminder", "breaks", "brief", "btw", "bug", "cd",
+    "checkpoint", "clear", "cloud-plugins", "color", "compact", "config", "context", "copy", "cost", "daemon",
+    "design-consent", "design-login", "design-revoke", "desktop", "diff", "downtime", "effort", "exit", "export",
+    "extra-usage", "fast", "feedback", "focus", "fork", "goal", "heapdump", "help", "hooks", "ide", "import", "install",
+    "install-github-app", "install-slack-app", "ios", "list-agents", "login", "logout", "loops", "marketplace", "mcp",
+    "memory", "memory-pause", "mobile", "model", "name", "new", "output-style", "passes", "pause-memory", "peers",
+    "permissions", "plan", "plugin", "plugins", "powerup", "privacy-settings", "pro-trial-expired", "quit", "radio",
+    "rate-limit-options", "rc", "recap", "reload-plugins", "reload-skills", "remote", "remote-control", "remote-env",
+    "rename", "reset", "restart", "resume", "rewind", "scroll-speed", "session", "settings", "setup-bedrock",
+    "setup-vertex", "skill-doctor", "skills", "stats", "status", "stickers", "stop", "subtask", "tasks", "teleport",
+    "terminal-setup", "theme", "toggle-memory", "tp", "tui", "ultraplan", "ultrareview", "undo", "update", "upgrade",
+    "usage", "usage-credits", "version", "voice", "web-setup", "wellbeing", "workflow-launch-exec", "workflows",
+))
 
 
-def stats_cache_fallback(claude_dir: Path) -> dict[str, Any] | None:
+def history_prompt(display: Any) -> bool:
+    """Whether a history.jsonl entry's text was a prompt: anything but a
+    built-in local command, with or without arguments."""
+    text = str(display or "").strip()
+    if not text.startswith("/"):
+        return True
+    name = text[1:].split(None, 1)[0].lower() if len(text) > 1 else ""
+    return name not in CLAUDE_CODE_LOCAL_COMMANDS
+
+
+def has_transcripts(projects: Path) -> bool:
+    try:
+        return next(projects.rglob("*.jsonl"), None) is not None
+    except OSError:
+        return False
+
+
+def stats_cache_fallback(claude_dir: Path, base_url: str = "") -> dict[str, Any] | None:
     try:
         data = json.loads((claude_dir / "stats-cache.json").read_text(encoding="utf-8"))
     except Exception:
         return None
+    # A file or a field of the wrong shape reads as nothing, never a crash.
+    if not isinstance(data, dict):
+        return None
 
-    # dailyModelTokens carries the token totals per day; dailyActivity only
-    # counts messages, which is the wrong unit for the tokens-by-day strip
-    # but the right one for "which days saw use".
-    tokens_by_day: dict[str, int] = {}
-    for entry in data.get("dailyModelTokens") or []:
-        if isinstance(entry, dict) and entry.get("date"):
-            by_model = entry.get("tokensByModel") or {}
-            tokens_by_day[str(entry["date"])] = sum(number(v) for v in by_model.values()) if isinstance(by_model, dict) else 0
-    today = today_string()
-    today_tokens = {}
-    for entry in data.get("dailyModelTokens") or []:
-        if isinstance(entry, dict) and entry.get("date") == today and isinstance(entry.get("tokensByModel"), dict):
-            today_tokens = entry["tokensByModel"]
-            break
+    def entries(key: str) -> list[dict[str, Any]]:
+        value = data.get(key)
+        return [entry for entry in value if isinstance(entry, dict)] if isinstance(value, list) else []
 
-    active_dates = sorted({
-        str(day.get("date"))
-        for day in (data.get("dailyActivity") or [])
-        if isinstance(day, dict) and day.get("date") and number(day.get("messageCount")) > 0
-    } | {date for date, tokens in tokens_by_day.items() if tokens > 0})
-    today_prompts, today_sessions = today_prompts_from_history(claude_dir)
+    # Tokens by model per day, the first entry for a day standing, as the
+    # record's recentDays and today's tokens read them. Claude Code keys these
+    # by UTC date (toISOString) and stops at yesterday's, so each is read as
+    # the local day of the same date, the one it mostly overlaps: off by the
+    # UTC offset at either end, and today's tokens are usually none.
+    tokens_by_day: dict[str, dict[str, int]] = {}
+    for entry in entries("dailyModelTokens"):
+        date = entry.get("date")
+        if isinstance(date, str) and date not in tokens_by_day:
+            tokens_by_day[date] = {
+                str(model): number(tokens) for model, tokens in obj(entry.get("tokensByModel")).items()
+                if number(tokens) > 0 and anthropic_served(model, base_url)
+            }
+    today_tokens = tokens_by_day.get(today_string(), {})
+    recent_days = [{"date": date, "messageCount": sum(tokens_by_day.get(date, {}).values())} for date in recent_dates()]
+
+    # The four token kinds of each model, each a count number() trusts; the
+    # file's other fields (costUSD, webSearchRequests) aren't the record's.
+    model_usage = {
+        str(model): {field: number(bucket.get(field)) for field in empty_bucket()}
+        for model, bucket in obj(data.get("modelUsage")).items()
+        if isinstance(bucket, dict) and anthropic_served(model, base_url)
+    }
+
+    # Prompts and sessions name no model, so they are Claude's unless Claude
+    # Code is sent to another provider's host.
+    prompts_here = anthropic_served(None, base_url)
+    daily_activity = entries("dailyActivity") if prompts_here else []
+    active_dates = sorted({str(day.get("date")) for day in daily_activity if number(day.get("messageCount")) > 0 and day.get("date")})
+    today_prompts, today_sessions = today_prompts_from_history(claude_dir, base_url)
 
     return {
         "todayPrompts": today_prompts,
         "todaySessions": today_sessions,
-        "todayTotalTokens": sum(number(v) for v in today_tokens.values()),
+        "todayTotalTokens": sum(today_tokens.values()),
         "todayTokensByModel": today_tokens,
-        "recentDays": [{"date": day, "messageCount": tokens_by_day.get(day, 0)} for day in recent_date_strings()],
-        "modelUsage": data.get("modelUsage") or {},
-        "totalPrompts": number(data.get("totalMessages")),
-        "totalSessions": number(data.get("totalSessions")),
+        "recentDays": recent_days,
+        "modelUsage": model_usage,
+        "totalPrompts": number(data.get("totalMessages")) if prompts_here else 0,
+        "totalSessions": number(data.get("totalSessions")) if prompts_here else 0,
         "activeDays": len(active_dates),
         "activeDates": active_dates,
     }
 
 
-def today_prompts_from_history(claude_dir: Path) -> tuple[int, int]:
+def today_prompts_from_history(claude_dir: Path, base_url: str = "") -> tuple[int, int]:
+    if not anthropic_served(None, base_url):
+        return 0, 0
     prompts = 0
     sessions: set[str] = set()
     start_of_day = dt.datetime.combine(dt.datetime.now().date(), dt.time.min).timestamp() * 1000
@@ -198,139 +229,126 @@ def today_prompts_from_history(claude_dir: Path) -> tuple[int, int]:
             entry = json.loads(line)
         except Exception:
             continue
+        if not isinstance(entry, dict):
+            continue
         if number(entry.get("timestamp")) < start_of_day:
             break
+        if not history_prompt(entry.get("display")):
+            continue
         prompts += 1
         if entry.get("sessionId"):
             sessions.add(str(entry.get("sessionId")))
     return prompts, len(sessions)
 
 
-# --------------------------------------------------------------- pi and omp
+
+# ------------------------------------------------------- pi, omp, and opencode
 #
 # These agents can consume a Claude subscription without writing native
-# Claude Code transcripts. Their compatible JSONL session formats carry the
-# provider, model, and token usage on every assistant message.
+# Claude Code transcripts: pi's and omp's JSONL sessions, and opencode's
+# message database, carry the provider, model, and token usage of every
+# reply. The shared readers find them (pi and omp with `rg --no-ignore`, so a
+# $HOME that is a git checkout hides nothing) and this keeps the Anthropic
+# ones.
+
+PI_PATTERN = r'"provider"\s*:\s*"anthropic"'
 
 
-def scan_pi_usage(max_age_seconds: float) -> dict[str, Any] | None:
-    cache_file = cache_root() / "claude-pi-sessions.json"
-    hit, cached = read_cached_stats(cache_file, max_age_seconds)
-    if hit:
-        return cached
-
-    stats = UsageStats()
-    seen: set[str] = set()
-    for root in pi_session_roots():
-        files = root.rglob("*.jsonl") if root.is_dir() else []
-        for path in files:
-            try:
-                with path.open("r", encoding="utf-8", errors="replace") as handle:
-                    for line_number, line in enumerate(handle, 1):
-                        if '"usage"' not in line or '"assistant"' not in line:
-                            continue
-                        try:
-                            entry = json.loads(line)
-                            message = entry.get("message") if isinstance(entry.get("message"), dict) else {}
-                            if entry.get("type") != "message" or message.get("role") != "assistant":
-                                continue
-                            if str(message.get("provider") or "") != "anthropic":
-                                continue
-                            unique_key = f"{path}:{entry.get('id') or line_number}"
-                            if unique_key in seen:
-                                continue
-                            seen.add(unique_key)
-                            usage = message.get("usage") or {}
-                            input_tokens = usage_token(usage, "input", "inputTokens")
-                            output_tokens = usage_token(usage, "output", "outputTokens")
-                            cache_read = usage_token(usage, "cacheRead", "cache_read_input_tokens")
-                            cache_write = usage_token(usage, "cacheWrite", "cache_creation_input_tokens")
-                            if input_tokens + output_tokens + cache_read + cache_write <= 0:
-                                input_tokens = number(usage.get("totalTokens"))
-                            day = local_day(entry.get("timestamp") or message.get("timestamp"))
-                        except Exception:
-                            continue
-                        stats.add(day, str(path), str(message.get("model") or "claude"), input_tokens, output_tokens, cache_read, cache_write)
-            except OSError:
-                continue
-
-    result = stats.to_dict() if stats.prompts > 0 else None
-    write_cached_stats(cache_file, result)
-    return result
+# Exact match: provider ids are free-form, and a custom "anthropic-proxy"
+# gateway is not this subscription.
+def billed_here(provider: str, model: str, entry: dict) -> bool:
+    return provider == "anthropic"
 
 
-# ---------------------------------------------------------------- opencode
-#
-# A Claude subscription burned entirely through opencode never writes a
-# transcript under the Claude directory, but opencode records per-message
-# provider, model, and token usage in its own database. Scan it for
-# Anthropic-provider messages and merge the result into whatever the
-# transcript scan found.
+def opencode_model(model: str) -> str:
+    return str(model or "claude").rstrip("/").split("/")[-1] or "claude"
 
 
-def scan_opencode_usage(max_age_seconds: float) -> dict[str, Any] | None:
-    db = opencode_db()
-    if not db.is_file():
-        return None
+def add_shared_rows(stats: Stats, pi_rows: list, db_rows: list) -> None:
+    for row in pi_rows:
+        stats.add_row(row, row.model or "claude")
+    for row in db_rows:
+        stats.add_row(row, opencode_model(row.model))
 
-    # Same freshness contract as the transcript scan: --limits-only promises
-    # to reuse recent local stats, and a big opencode history walked on every
-    # panel open would break that promise.
-    cache_file = cache_root() / f"claude-opencode-{hashlib.sha1(str(db).encode('utf-8')).hexdigest()[:16]}.json"
-    hit, cached = read_cached_stats(cache_file, max_age_seconds)
-    if hit:
-        return cached
 
-    stats = UsageStats()
+def scan_local(claude_dir: Path, index_file: Path | None, reread: bool = False) -> tuple[dict[str, Any], bool]:
+    """Local stats from every source, and whether every source was read in full
+    (safe to cache). Transcripts come first; only a machine without any falls
+    back on Claude Code's own aggregate counters."""
+    base_url = claude_code_base_url(claude_dir)
+    projects = claude_dir / "projects"
+    stats, transcripts_complete = scan_projects_read(projects, index_file, base_url, reread)
+    pi_rows, pi_complete = scan_pi_sessions(PI_PATTERN, billed_here)
+    # The closing quote makes the database's prefilter match the whole id.
+    db_rows, db_complete = scan_opencode(['anthropic"'], billed_here)
+    complete = transcripts_complete and pi_complete and db_complete
+
+    if stats.total_prompts > 0 or stats.model_usage or has_transcripts(projects):
+        add_shared_rows(stats, pi_rows, db_rows)
+        return stats.snapshot(), complete
+
+    local = stats_cache_fallback(claude_dir, base_url)
+    if local is None:
+        local = stats.snapshot()
+        # No transcripts and no aggregate cache, but history.jsonl alone can
+        # still put numbers on today.
+        today_prompts, today_sessions = today_prompts_from_history(claude_dir, base_url)
+        if today_prompts or today_sessions:
+            local.update(todayPrompts=today_prompts, todaySessions=today_sessions)
+    extra = Stats()
+    add_shared_rows(extra, pi_rows, db_rows)
+    if extra.total_prompts > 0 or extra.model_usage:
+        local = merge_stats(local, extra.snapshot())
+    return local, complete
+
+
+def local_stats(claude_dir: Path, max_age: float, use_index: bool = True) -> dict[str, Any]:
+    # Without the index every transcript is read again, and the index rebuilt
+    # in place: the other collectors reading Claude Code share it.
     try:
-        # Read-only: opencode may be writing right now.
-        conn = sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True, timeout=2)
-    except sqlite3.Error:
-        return None
-    try:
-        conn.execute("PRAGMA query_only = ON")
-        # The LIKE gates skip rows whose JSON cannot contain the two key/value
-        # pairs, avoiding a JSON parse of very large blobs; the json_extract
-        # conditions are the authority. json_valid guards the extract, which
-        # raises on malformed JSON instead of returning NULL. Exact match on
-        # the provider: opencode provider ids are free-form, and a custom
-        # "anthropic-proxy" gateway is not this subscription.
-        rows = conn.execute(
-            "SELECT session_id, data FROM message"
-            " WHERE data LIKE '%\"role\"%:%\"assistant\"%'"
-            " AND data LIKE '%\"providerID\"%:%\"anthropic\"%'"
-            " AND CASE WHEN json_valid(data) THEN json_extract(data, '$.role') END = 'assistant'"
-            " AND CASE WHEN json_valid(data) THEN json_extract(data, '$.providerID') END = 'anthropic'"
-        )
-        for session_id, raw in rows:
-            # One malformed row must not abort the scan, so every shape
-            # assumption lives inside the try.
-            try:
-                entry = json.loads(raw)
-                if not isinstance(entry, dict) or entry.get("role") != "assistant":
-                    continue
-                if str(entry.get("providerID") or "") != "anthropic":
-                    continue
-                tokens = entry.get("tokens") or {}
-                cache = tokens.get("cache") or {}
-                input_tokens = number(tokens.get("input"))
-                # opencode keeps thinking tokens out of output; both are generated.
-                output_tokens = number(tokens.get("output")) + number(tokens.get("reasoning"))
-                cache_read = number(cache.get("read"))
-                cache_write = number(cache.get("write"))
-                day = local_day((entry.get("time") or {}).get("created"))
-                model = str(entry.get("modelID") or "claude").rstrip("/").split("/")[-1]
-            except Exception:
-                continue
-            stats.add(day, "opencode:" + str(session_id), model, input_tokens, output_tokens, cache_read, cache_write)
-    except sqlite3.Error:
-        return None
-    finally:
-        conn.close()
+        index_file = claude_code_index_path(claude_dir / "projects")
+    except Exception as exc:
+        warn(f"scan index unavailable ({exc})")
+        index_file = None
+    # The digest covers every data path the scan reads: the transcripts, the
+    # config home's fallbacks, the pi/omp session roots, and the opencode DB.
+    sources = [claude_dir / "projects", claude_dir, *pi_session_roots(), opencode_db()]
+    # Where Claude Code is sent decides whose its turns are, so a scan only
+    # answers for the endpoint it was made under.
+    return cached_scan(AGENT_ID, sources, max_age, lambda: scan_local(claude_dir, index_file, not use_index), match=claude_code_scan_match(claude_dir))
 
-    result = stats.to_dict() if stats.prompts > 0 else None
-    write_cached_stats(cache_file, result)
-    return result
+
+def merge_stats(base: dict[str, Any], extra: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(base)
+    for key in ("todayPrompts", "todaySessions", "todayTotalTokens", "totalPrompts", "totalSessions"):
+        merged[key] = number(base.get(key)) + number(extra.get(key))
+
+    combined = dict(base.get("todayTokensByModel") or {})
+    for model, count in (extra.get("todayTokensByModel") or {}).items():
+        combined[model] = number(combined.get(model)) + number(count)
+    merged["todayTokensByModel"] = combined
+
+    usage = {model: dict(bucket) for model, bucket in (base.get("modelUsage") or {}).items()}
+    for model, bucket in (extra.get("modelUsage") or {}).items():
+        target = usage.setdefault(model, empty_bucket())
+        for field, count in (bucket or {}).items():
+            target[field] = number(target.get(field)) + number(count)
+    merged["modelUsage"] = usage
+
+    by_date: dict[str, int] = {}
+    for source in (base.get("recentDays") or [], extra.get("recentDays") or []):
+        for day in source:
+            date = str((day or {}).get("date") or "")
+            if date:
+                by_date[date] = by_date.get(date, 0) + number((day or {}).get("messageCount"))
+    merged["recentDays"] = [{"date": date, "messageCount": by_date[date]} for date in sorted(by_date)]
+
+    # Sources overlap in time, so union dates rather than summing counts. A
+    # fallback that only knows a count still bounds the answer from below.
+    dates = set(base.get("activeDates") or []) | set(extra.get("activeDates") or [])
+    merged["activeDates"] = sorted(dates)
+    merged["activeDays"] = max(len(dates), number(base.get("activeDays")), number(extra.get("activeDays")))
+    return merged
 
 
 # ------------------------------------------------------------------- limits
@@ -340,37 +358,62 @@ def scan_opencode_usage(max_age_seconds: float) -> dict[str, Any] | None:
 # CLI's login. Nothing else leaves the credential store: the token goes
 # nowhere but the Authorization header of the limits probe, and only the
 # plan label may travel into the printed record.
-def oauth_login(claude_dir: Path) -> tuple[str, int, str]:
-    try:
-        data = json.loads((claude_dir / ".credentials.json").read_text(encoding="utf-8"))
-    except Exception:
-        return "", 0, ""
-    login = data.get("claudeAiOauth")
+def oauth_login(claude_dir: Path) -> tuple[str, int, int, str]:
+    login = read_json(claude_dir / ".credentials.json").get("claudeAiOauth")
     if not isinstance(login, dict):
-        return "", 0, ""
-    plan = plan_label(str(login.get("rateLimitTier") or ""), str(login.get("subscriptionType") or ""))
-    return str(login.get("accessToken") or ""), number(login.get("expiresAt")), plan
+        return "", 0, 0, ""
+    plan = profile_plan_name(claude_dir) or plan_label(str(login.get("subscriptionType") or ""))
+    return (
+        str(login.get("accessToken") or ""),
+        number(login.get("expiresAt")),
+        number(login.get("refreshTokenExpiresAt")),
+        plan,
+    )
 
 
-def plan_label(tier: str, subscription: str) -> str:
-    if tier:
-        match = re.search(r"max_(\d+x)", tier, re.IGNORECASE)
-        if match:
-            return "Max " + match.group(1)
-    if subscription:
-        return subscription[0].upper() + subscription[1:]
-    return ""
+# The plan as Anthropic names it, from the profile the CLI refreshes against
+# the account. Plans get renamed, so the name is only ever read, never built
+# from the rate-limit tier, whose identifiers outlive the names they stood for.
+def profile_plan_name(claude_dir: Path) -> str:
+    account = read_json(profile_path(claude_dir)).get("oauthAccount")
+    if not isinstance(account, dict):
+        return ""
+    name = account.get("planDisplayName")
+    return name.strip() if isinstance(name, str) else ""
 
 
-# The usage endpoint reports utilization as a percentage (37.0, or 0.6 for
-# a window that has barely been touched). Percentages are the only scale
-# read here: a value alone cannot tell 0.95% from a 0.95 fraction, and
-# guessing fractions turns an empty window into a red pill.
-def normalize_utilization(value: Any) -> float:
+# The CLI's profile for a config home: a legacy .config.json inside it, else
+# ~/.claude.json for the default home and <home>/.claude.json for one it was
+# pointed at with CLAUDE_CONFIG_DIR. A copy anywhere else is never refreshed,
+# and another home's profile describes another account.
+def profile_path(home: Path) -> Path:
+    legacy = home / ".config.json"
+    if legacy.exists():
+        return legacy
+    configured = os.environ.get("CLAUDE_CONFIG_DIR")
+    if home == expand_path("~/.claude") and not (configured and expand_path(configured) == home):
+        return Path.home() / ".claude.json"
+    return home / ".claude.json"
+
+
+# A profile that names no plan (an older CLI's, or one not refreshed yet)
+# leaves the subscription, which the CLI falls back on too.
+def plan_label(subscription: str) -> str:
+    return subscription[0].upper() + subscription[1:] if subscription else ""
+
+
+def parse_utilization(value: Any) -> float:
     try:
-        n = float(str(value).strip().replace("%", ""))
+        return float(str(value).strip().replace("%", ""))
     except Exception:
-        return -1.0
+        return float("nan")
+
+
+# Every utilization and percent this endpoint answers is a percentage: Claude
+# Code's own /usage renders each as `${Math.floor(utilization)}% used`, so 0.6
+# is 0.6%, not 60%.
+def normalize_utilization(value: Any) -> float:
+    n = parse_utilization(value)
     if not (n >= 0):
         return -1.0
     return min(1.0, n / 100.0)
@@ -391,7 +434,8 @@ def normalize_reset_at(value: Any) -> str:
         except Exception:
             return raw
     try:
-        return dt.datetime.fromisoformat(raw.replace("Z", "+00:00")).isoformat()
+        parsed = dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        return parsed.isoformat()
     except Exception:
         return raw
 
@@ -401,9 +445,12 @@ def usage_bucket(payload: dict[str, Any], key: str) -> dict[str, Any] | None:
     return bucket if isinstance(bucket, dict) else None
 
 
-# Every limit travels with an explicit title naming its window, so the
-# widget never has to read a window back out of free text: a model name like
-# "Opus 5 (1M context)" would parse as a one-minute window.
+# An entry's `kind` names its window the way the flat buckets' keys do
+# ("weekly_scoped", "five_hour_scoped"). The panel reads a window out of free
+# text, which cannot survive a model name like "Opus 5 (1M context)" — the
+# "1M" reads as a one-minute window — so the window is settled here instead
+# and travels as an explicit title. It is capitalized the way the flat windows
+# title themselves, so "Fable Weekly" sits beside "Weekly" rather than under it.
 def scoped_window(kind: str) -> str:
     text = kind.lower()
     if "month" in text:
@@ -416,9 +463,13 @@ def scoped_window(kind: str) -> str:
 
 
 # Alongside the flat buckets, the payload carries a `limits` array, and that
-# array is the only place a model-scoped allowance shows up. A model can hold
-# more than one scoped window, and only the pair of model and window tells
-# them apart, so both make the title and both make the dedup key.
+# array is the only place a model-scoped allowance shows up — a weekly window
+# that only Fable draws from, say. The matching legacy keys
+# (`seven_day_opus`, `seven_day_sonnet`, …) stayed behind at null, so a
+# collector that reads buckets alone silently drops a limit the account is
+# actually spending against. A model can hold more than one scoped window, and
+# only the pair of model and window tells them apart, so both make the title
+# and both make the key that keeps a repeat out.
 def scoped_limits(payload: dict[str, Any]) -> list[dict[str, Any]]:
     entries = payload.get("limits")
     if not isinstance(entries, list):
@@ -432,6 +483,8 @@ def scoped_limits(payload: dict[str, Any]) -> list[dict[str, Any]]:
         model = scope.get("model") if isinstance(scope, dict) else None
         if not isinstance(model, dict):
             continue
+        # A display name is what the panel wants, but an entry carrying only an id
+        # still names a window worth showing.
         name = str(model.get("display_name") or model.get("id") or "").strip()
         kind = str(entry.get("kind") or "").strip()
         if name == "" or (name, kind) in seen:
@@ -442,8 +495,14 @@ def scoped_limits(payload: dict[str, Any]) -> list[dict[str, Any]]:
         seen.add((name, kind))
         window = scoped_window(kind)
         title = name + " " + window if window else name
-        out.append({"label": title, "title": title, "percent": percent, "resetsAt": normalize_reset_at(entry.get("resets_at"))})
+        out.append({
+            "label": title,
+            "title": title,
+            "percent": percent,
+            "resetsAt": normalize_reset_at(entry.get("resets_at")),
+        })
     return out
+
 
 
 def probe_limits(access_token: str) -> dict[str, Any]:
@@ -456,38 +515,51 @@ def probe_limits(access_token: str) -> dict[str, Any]:
         },
     )
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
-            payload = json.loads(response.read().decode("utf-8", errors="replace"))
-    except urllib.error.HTTPError as error:
-        retry_after = error.headers.get("retry-after", "") if error.headers else ""
-        if error.code == 429:
-            help_text = "Anthropic's usage endpoint is rate limiting checks right now" + (
-                f" (retry after {retry_after}s)" if retry_after else ""
-            ) + ". Local Claude Code stats are still shown."
-        else:
-            help_text = f"Anthropic's usage endpoint returned status {error.code}. Local Claude Code stats are still shown."
-        return {"ok": False, "helpText": help_text}
-    except Exception:
-        # A transport failure reached no server at all (no route, no DNS).
-        # Any real answer, including an error status, is a server we should
-        # stop pestering; this is not.
-        return {
-            "ok": False,
-            "transport": True,
-            "helpText": "Couldn't reach Anthropic's usage endpoint. Retrying shortly. Local Claude Code stats are still shown.",
-        }
+        payload = open_json(request, timeout=10)
+    except HttpError as error:
+        if error.status:
+            retry_after = error.headers.get("retry-after", "") if error.headers else ""
+            if error.status == 429:
+                help_text = "Anthropic's usage endpoint is rate limiting checks right now" + (
+                    f" (retry after {retry_after}s)" if retry_after else ""
+                ) + ". Local Claude Code stats are still shown."
+                return {"ok": False, "rateLimited": True, "helpText": help_text}
+            if error.status in (401, 403):
+                return {
+                    "ok": False,
+                    "refused": True,
+                    "helpText": "Anthropic refused Claude Code's sign-in. Start Claude Code, or run `claude auth login`, to sign in again.",
+                }
+            help_text = f"Anthropic's usage endpoint returned status {error.status}. Local Claude Code stats are still shown."
+            return {"ok": False, "helpText": help_text}
+        if error.transport:
+            # A transport failure reached no server at all — no route, no DNS. Any
+            # real answer, including an error status, is a server we should stop
+            # pestering; this is not.
+            return {
+                "ok": False,
+                "transport": True,
+                "helpText": "Couldn't reach Anthropic's usage endpoint. Retrying shortly. Local Claude Code stats are still shown.",
+            }
+        return {"ok": False, "helpText": "Anthropic's usage endpoint returned an invalid answer. Local Claude Code stats are still shown."}
+    if not isinstance(payload, dict):
+        payload = {}
+
+    # The account's week is `seven_day`, the row Claude Code's own /usage titles
+    # "Current week (all models)". `seven_day_oauth_apps` is a side bucket it
+    # groups with cowork and omelette and never shows as the weekly limit.
+    weekly = usage_bucket(payload, "seven_day")
+    session = usage_bucket(payload, "five_hour")
 
     limits = []
-    session = usage_bucket(payload, "five_hour")
     if session is not None:
         percent = normalize_utilization(session.get("utilization"))
         if percent >= 0:
-            limits.append({"label": "Session (5-hour)", "title": "Session", "percent": percent, "resetsAt": normalize_reset_at(session.get("resets_at"))})
-    weekly = usage_bucket(payload, "seven_day_oauth_apps") or usage_bucket(payload, "seven_day")
+            limits.append({"label": "Session (5-hour)", "percent": percent, "resetsAt": normalize_reset_at(session.get("resets_at"))})
     if weekly is not None:
         percent = normalize_utilization(weekly.get("utilization"))
         if percent >= 0:
-            limits.append({"label": "Weekly (7-day)", "title": "Weekly", "percent": percent, "resetsAt": normalize_reset_at(weekly.get("resets_at"))})
+            limits.append({"label": "Weekly (7-day)", "percent": percent, "resetsAt": normalize_reset_at(weekly.get("resets_at"))})
     limits.extend(scoped_limits(payload))
 
     if not limits:
@@ -495,52 +567,92 @@ def probe_limits(access_token: str) -> dict[str, Any]:
     return {"ok": True, "limits": limits}
 
 
-def collect_limits(access_token: str, expires_at_ms: int, force: bool) -> dict[str, Any]:
-    result = {"limits": [], "usageStatusText": "", "authHelpText": AUTH_HELP}
+def collect_limits(access_token: str, expires_at_ms: int, refresh_expires_at_ms: int, force: bool, identity: str) -> dict[str, Any]:
+    # `live` says the numbers came from Anthropic just now (or within the reuse
+    # window) rather than from a cache kept past a failed or impossible probe.
+    # `fetchedAtMs` says when they were measured, so a stale account can say
+    # how old they are.
+    result = {"limits": [], "usageStatusText": "", "authHelpText": AUTH_HELP, "live": False, "fetchedAtMs": 0}
 
-    # Recent probe results are reused for a short window and kept as the
-    # answer of record when a later probe fails.
-    probe_cache = cache_root() / "claude-limits.json"
-    fallback, fetched_at, _ = cached_limits(probe_cache)
+    # A panel that is opened and shut repeatedly must not turn into a request
+    # per flick, so recent probe results are reused for a short window, and
+    # kept as the answer of record when a later probe fails. Every account
+    # keeps its own, so one account's allowance never stands in for another's.
+    # Elapsed windows come back at zero.
+    cache = LimitsCache(AGENT_ID, identity)
+    fallback, result["fetchedAtMs"] = cache.kept()
 
-    # Probing needs a live token and only the Claude Code CLI can mint one:
-    # it refreshes the credential file when it runs, so a machine left alone
-    # long enough finds the saved token lapsed. Say so, and keep showing the
-    # last numbers whose window has not since reset.
+    # Probing needs a live token and only the Claude Code CLI can mint one: it
+    # refreshes the credential file when it runs, so a machine left alone long
+    # enough finds the saved token lapsed. Say so — an empty limits list with
+    # nothing else set hides the whole section and explains nothing — and keep
+    # showing the last numbers, resetting elapsed windows to zero.
     if access_token == "":
         result["limits"] = fallback
         result["usageStatusText"] = "Waiting for auth"
         return result
     if expires_at_ms > 0 and expires_at_ms <= time.time() * 1000:
         result["limits"] = fallback
+        # A lapsed access token is routine, not a sign-out: it lives about eight
+        # hours, and the CLI mints a new one from the refresh token the next time
+        # it runs. Only a lapsed *refresh* token is a sign-in a person must redo,
+        # and saying so either way sends people to `claude auth login` nightly --
+        # which does not restore anything the CLI would not have restored itself.
+        if refresh_expires_at_ms > time.time() * 1000:
+            result["usageStatusText"] = "Limits paused"
+            result["authHelpText"] = (
+                "Claude Code's access token has lapsed"
+                + (" — showing the last known limits." if fallback else ".")
+                + " Start Claude Code to refresh it; signing in again is not needed."
+            )
+            return result
         result["usageStatusText"] = "Sign-in expired"
         result["authHelpText"] = (
             "Claude Code's saved sign-in expired"
-            + (", showing the last known limits." if fallback else ".")
+            + (" — showing the last known limits." if fallback else ".")
             + " Start Claude Code, or run `claude auth login`, to refresh it."
         )
         return result
 
-    if fallback and not force and time.time() - fetched_at < LIMITS_REUSE_SECONDS:
+    # --force is a person asking for fresh numbers, so it skips the reuse window
+    # entirely; the interval is there to absorb repeated panel opens, not to
+    # overrule someone who pressed refresh.
+    if cache.fresh(force):
         result["limits"] = fallback
+        result["live"] = True
+        result["authHelpText"] = ""
         return result
 
     probe = probe_limits(access_token)
     if probe["ok"]:
         result["limits"] = probe["limits"]
-        store_limits(probe_cache, probe["limits"])
+        result["live"] = True
+        result["authHelpText"] = ""
+        result["fetchedAtMs"] = cache.save(probe["limits"])
         return result
 
-    # The first probe after login often fires before the network is up. Ask
-    # the shell to try again sooner than its regular interval.
+    # The first probe after login often fires before DHCP has handed out a
+    # route. Ask the shell to try again sooner than its regular interval.
     if probe.get("transport"):
         result["retryAdvised"] = True
     if fallback:
         result["limits"] = fallback
+        result["authHelpText"] = probe["helpText"]
+        # Anthropic rate-limits this endpoint readily, and a 429 only says "ask
+        # later": numbers measured minutes ago still describe the account. Any
+        # other failure leaves them stale, as the collector contract has it.
+        result["live"] = bool(probe.get("rateLimited")) and cache.younger_than(CURRENT_ENOUGH_SECONDS)
     else:
         result["usageStatusText"] = "Claude limits unavailable"
         result["authHelpText"] = probe["helpText"]
+    if probe.get("refused"):
+        result["usageStatusText"] = "Sign-in expired"
     return result
+
+
+def current_account_id(home: Path) -> str:
+    account = read_json(profile_path(home)).get("oauthAccount")
+    return str(account.get("accountUuid") or "") if isinstance(account, dict) else ""
 
 
 # -------------------------------------------------------------------- record
@@ -548,46 +660,52 @@ def collect_limits(access_token: str, expires_at_ms: int, force: bool) -> dict[s
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--force", action="store_true", help="rescan transcripts and re-probe limits, ignoring caches")
+    parser.add_argument("--force", action="store_true", help="rescan transcripts from scratch and re-probe limits, ignoring caches")
     parser.add_argument("--limits-only", action="store_true", help="reuse any recent transcript scan; only the limits probe must be fresh")
     args = parser.parse_args()
 
     claude_dir = config_dir()
-    scan_age = scan_reuse_seconds(args.force, args.limits_only)
-    stats = cached_scan(claude_dir / "projects", scan_age)
+    scan_age = scan_max_age(args.force, args.limits_only)
+    stats = local_stats(claude_dir, scan_age, use_index=not args.force)
 
-    if number(stats.get("totalPrompts")) <= 0:
-        fallback = stats_cache_fallback(claude_dir)
-        if fallback is not None:
-            stats = fallback
-        else:
-            # No transcripts and no aggregate cache, but history.jsonl alone
-            # can still put numbers on today.
-            today_prompts, today_sessions = today_prompts_from_history(claude_dir)
-            if today_prompts or today_sessions:
-                stats = dict(stats, todayPrompts=today_prompts, todaySessions=today_sessions)
+    access_token, expires_at_ms, refresh_expires_at_ms, plan = oauth_login(claude_dir)
+    # Keyed by who the home is signed in as, so signing in to another
+    # subscription never shows the last one's numbers.
+    limits = collect_limits(access_token, expires_at_ms, refresh_expires_at_ms, args.force, current_account_id(claude_dir))
+    stale, fetched_at = not limits["live"] and bool(limits["limits"]), limits["fetchedAtMs"]
+    # Asking for a sign-in only makes sense where Claude Code is in use: its
+    # config home or profile exists, or there is local usage. A machine that
+    # never ran it prints the unused record, which the widget skips.
+    in_use = (
+        claude_dir.exists()
+        or profile_path(claude_dir).exists()
+        or number(stats.get("totalPrompts")) > 0
+        or bool(stats.get("modelUsage"))
+        or number(stats.get("todayPrompts")) > 0
+        or len(limits["limits"]) > 0
+    )
+    if not in_use:
+        limits = {"limits": [], "usageStatusText": "", "authHelpText": ""}
+        stale, fetched_at = False, 0
 
-    for extra in (scan_pi_usage(scan_age), scan_opencode_usage(scan_age)):
-        if extra is not None:
-            stats = merge_stats(stats, extra)
-
-    access_token, expires_at_ms, plan = oauth_login(claude_dir)
-    limits = collect_limits(access_token, expires_at_ms, args.force)
-
-    record = {
-        "schemaVersion": 1,
-        "id": AGENT_ID,
-        "name": AGENT_NAME,
-        "updatedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "tierLabel": plan,
-        "usageStatusText": limits["usageStatusText"],
-        "authHelpText": limits["authHelpText"],
-        "limits": limits["limits"],
-    }
+    record = base_record(
+        AGENT_ID,
+        AGENT_NAME,
+        ready=number(stats.get("totalPrompts")) > 0 or bool(stats.get("modelUsage")) or len(limits["limits"]) > 0,
+        hasLocalStats=True,
+        tierLabel=plan,
+        usageStatusText=limits["usageStatusText"],
+        authHelpText=limits["authHelpText"],
+        limits=limits["limits"],
+        # Numbers kept past a failed probe, and when they were measured, so the
+        # panel can tell them apart from ones checked just now.
+        limitsStale=stale,
+        limitsFetchedAt=fetched_at,
+    )
     if limits.get("retryAdvised"):
         record["retryAdvised"] = True
     record.update(stats)
-    print(json.dumps(record, separators=(",", ":"), sort_keys=True))
+    emit(record, sort_keys=True)
     return 0
 
 

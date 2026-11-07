@@ -13,22 +13,44 @@ Item {
     property string path: ""
     property var record: null
 
+    // The text the current record was parsed from, so a reload that finds the
+    // file unchanged does not hand every listener an identical new record.
+    property string parsedText: ""
+
     FileView {
+        id: agentFile
         path: root.path
         watchChanges: true
         printErrors: false
         onFileChanged: reload()
         onLoaded: root.parse(text())
-        onLoadFailed: root.record = null
+        onLoadFailed: root.clear()
+    }
+
+    // The update rewrites records with an atomic replace, which swaps the
+    // inode. Should inotify fail to rearm on the new one (watch quota, ENOSPC),
+    // the FileView goes quiet, so UsageModel also reloads every record after
+    // each update run.
+    function reload() {
+        agentFile.reload();
+    }
+
+    function clear() {
+        root.parsedText = "";
+        root.record = null;
     }
 
     function parse(content) {
+        const text = String(content || "");
+        if (root.record && text === root.parsedText)
+            return;
         try {
-            const parsed = JSON.parse(String(content || ""));
+            const parsed = JSON.parse(text);
             root.record = parsed && typeof parsed === "object" ? parsed : null;
+            root.parsedText = root.record ? text : "";
         } catch (e) {
             console.warn("agentUsage", "Ignoring bad usage record", root.path, e);
-            root.record = null;
+            root.clear();
         }
     }
 }

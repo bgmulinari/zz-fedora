@@ -1,7 +1,7 @@
 {
   "id": "agentUsage",
   "name": "Agent Usage",
-  "description": "Claude Code and Codex rate limits, pace, and token usage in the bar",
+  "description": "Claude Code, Codex, and OpenCode rate limits and token usage in the bar",
   "version": "1.0.0",
   "author": "ZZ",
   "type": "widget",

@@ -1,0 +1,136 @@
+#!/usr/bin/python3
+"""Print the path of the Codex companion's spritesheet, finding it if needed.
+
+The sheet is OpenAI's and is not shipped with this plugin. The ChatGPT desktop
+app carries the newest one, so its copy is taken into this plugin's cache when
+the app is installed. Otherwise a copy Codex already
+downloaded is reused, and failing that it is fetched once from the public CDN
+Codex uses. Prints nothing and exits 1 when there is none to show, which only
+costs the mascot.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import struct
+import sys
+import tempfile
+import urllib.request
+from pathlib import Path
+
+# The plugin directory is a link into a Git checkout; importing the shared
+# module must not litter it with bytecode. Importing it also refuses redirects.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from usage_common import cache_root, warn  # noqa: E402
+
+CHATGPT_ARCHIVE = Path("/usr/lib/chatgpt/resources/app.asar")
+APP_SHEET = re.compile(r"^webview/assets/codex-spritesheet-v(\d+)\.[0-9a-f]+\.webp$")
+CDN_SHEET = "codex-spritesheet-v4.webp"
+URL = "https://persistent.oaistatic.com/codex/pets/v1/" + CDN_SHEET
+MAX_BYTES = 4 * 1024 * 1024
+
+
+def is_webp(data: bytes) -> bool:
+    return len(data) > 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
+
+
+def valid(path: Path) -> bool:
+    try:
+        with path.open("rb") as handle:
+            return is_webp(handle.read(16))
+    except OSError:
+        return False
+
+
+def install(data: bytes, destination: Path) -> None:
+    handle, name = tempfile.mkstemp(dir=destination.parent, prefix=destination.name + ".", suffix=".tmp")
+    with os.fdopen(handle, "wb") as out:
+        out.write(data)
+    os.chmod(name, 0o644)
+    os.replace(name, destination)
+
+
+def archive_files(node: dict, prefix: str = ""):
+    for name, entry in (node.get("files") or {}).items():
+        path = f"{prefix}/{name}" if prefix else name
+        if "files" in entry:
+            yield from archive_files(entry, path)
+        else:
+            yield path, entry
+
+
+def from_app(archive: Path, directory: Path) -> Path | None:
+    """The newest sheet inside the app's archive, copied out once: an asar is a
+    length-prefixed JSON index followed by the files it lists."""
+    if not archive.is_file():
+        return None
+    try:
+        with archive.open("rb") as handle:
+            handle.seek(4)
+            index_size = struct.unpack("<I", handle.read(4))[0]
+            handle.seek(12)
+            header_size = struct.unpack("<I", handle.read(4))[0]
+            index = json.loads(handle.read(header_size))
+            sheets = []
+            for path, entry in archive_files(index):
+                match = APP_SHEET.match(path)
+                if match and "offset" in entry and not entry.get("unpacked"):
+                    sheets.append((int(match.group(1)), path, entry))
+            if not sheets:
+                return None
+            _, path, entry = max(sheets, key=lambda sheet: sheet[0])
+            destination = directory / Path(path).name
+            if valid(destination):
+                return destination
+            size = int(entry["size"])
+            if size > MAX_BYTES:
+                return None
+            handle.seek(8 + index_size + int(entry["offset"]))
+            data = handle.read(size)
+    except (OSError, ValueError, KeyError, TypeError, struct.error, RecursionError) as error:
+        warn(f"could not read the ChatGPT app's spritesheet ({error})")
+        return None
+    if not is_webp(data):
+        return None
+    install(data, destination)
+    return destination
+
+
+def fetch(destination: Path) -> bool:
+    try:
+        request = urllib.request.Request(URL, headers={"User-Agent": "zz-agent-usage/1.0"})
+        with urllib.request.urlopen(request, timeout=30) as response:
+            data = response.read(MAX_BYTES + 1)
+    except Exception as error:
+        warn(f"could not fetch the Codex spritesheet ({error})")
+        return False
+    if len(data) > MAX_BYTES or not is_webp(data):
+        warn("the Codex spritesheet was not a WebP image of the expected size")
+        return False
+    install(data, destination)
+    return True
+
+
+def main() -> int:
+    directory = cache_root()
+    sheet = from_app(CHATGPT_ARCHIVE, directory)
+    if sheet is not None:
+        print(sheet)
+        return 0
+    codex_home = Path(os.path.expanduser(os.environ.get("CODEX_HOME") or "~/.codex"))
+    own = directory / CDN_SHEET
+    for candidate in (codex_home / "cache" / "tui-pets" / "v1" / "assets" / CDN_SHEET, own):
+        if valid(candidate):
+            print(candidate)
+            return 0
+    if fetch(own):
+        print(own)
+        return 0
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

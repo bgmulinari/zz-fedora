@@ -71,6 +71,15 @@ Item {
         onObjectRemoved: (index, object) => root.rebuildAgents()
     }
 
+    // Each record's FileView follows its file on its own; this catches the
+    // ones whose watch was lost when an update replaced the file underneath.
+    function reloadRecords() {
+        for (let i = 0; i < agents.length; i++) {
+            if (agents[i])
+                agents[i].reload();
+        }
+    }
+
     function rebuildAgents() {
         const result = [];
         for (let i = 0; i < agentInstantiator.count; i++) {
@@ -146,6 +155,7 @@ Item {
         running: false
         onExited: {
             root.rescanAgents();
+            root.reloadRecords();
             if (root.pendingUpdateKind !== "") {
                 const kind = root.pendingUpdateKind;
                 root.pendingUpdateKind = "";
@@ -163,7 +173,7 @@ Item {
     // The collectors shipped in scripts/; each has a matching toggle in
     // Settings.qml. A switched-off agent is skipped at the source rather
     // than hidden after a scan.
-    readonly property var collectorIds: ["claude", "codex"]
+    readonly property var collectorIds: ["claude", "codex", "opencode"]
 
     function updateCommand(kind, agentIds) {
         const command = [scriptsDir + "/update-usage"];
@@ -248,6 +258,65 @@ Item {
         return result;
     }
 
+    // The panel gives a section only to an agent with a subscription to show:
+    // limits or a plan, or a sign-in to fix. Local history alone still counts
+    // toward the summary, but would leave an empty section.
+    readonly property var subscribedProviders: enabledProviders.filter(p => (p.limits && p.limits.length > 0) || p.tierLabel !== "" || p.usageStatusText === "Sign-in expired" || p.usageStatusText === "Waiting for auth")
+
+    // ----------------------------------------------------------------- order
+    //
+    // The panel's agents in the order someone dragged them into, kept beside
+    // the usage records but outside their directory, which holds nothing but
+    // records. An agent the order does not name yet keeps its place after the
+    // ones it does.
+    readonly property string orderPath: (Quickshell.env("XDG_STATE_HOME") || home + "/.local/state") + "/zz-fedora/agent-usage-order.json"
+    property var providerOrder: []
+
+    readonly property var panelProviders: {
+        const order = providerOrder;
+        const rank = p => {
+            const i = order.indexOf(p.providerId);
+            return i < 0 ? order.length : i;
+        };
+        return subscribedProviders.slice().sort((a, b) => rank(a) - rank(b));
+    }
+
+    // Moves one agent to a position among the ones shown, and saves the result.
+    function moveProvider(id, to) {
+        const ids = panelProviders.map(p => p.providerId);
+        const from = ids.indexOf(id);
+        if (from < 0)
+            return;
+        to = Math.max(0, Math.min(ids.length - 1, to));
+        if (from === to)
+            return;
+        ids.splice(to, 0, ids.splice(from, 1)[0]);
+        for (let i = 0; i < providerOrder.length; i++) {
+            if (ids.indexOf(providerOrder[i]) < 0)
+                ids.push(providerOrder[i]);
+        }
+        providerOrder = ids;
+        orderFile.setText(JSON.stringify(ids) + "\n");
+    }
+
+    FileView {
+        id: orderFile
+        path: root.orderPath
+        watchChanges: true
+        atomicWrites: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: {
+            let parsed = [];
+            try {
+                parsed = JSON.parse(text());
+            } catch (e) {
+                parsed = [];
+            }
+            root.providerOrder = Array.isArray(parsed) ? parsed.map(String) : [];
+        }
+    }
+
     // Settings keep one flat boolean per agent (claudeEnabled, ...); an
     // agent without a key is enabled.
     function providerEnabled(id) {
@@ -257,10 +326,13 @@ Item {
 
     // All-time keeps a quiet day from hiding an agent; today's counts admit
     // a machine whose only source is history.jsonl, which knows nothing older.
+    // A signed-in agent with a plan shows before its first numbers arrive, so
+    // a lapsed sign-in still has somewhere to say so.
     function providerHasData(p) {
         return numberValue(p.totalPrompts) > 0 || numberValue(p.totalSessions) > 0
             || numberValue(p.activeDays) > 0 || numberValue(p.todayPrompts) > 0
-            || numberValue(p.todaySessions) > 0 || (p.limits && p.limits.length > 0);
+            || numberValue(p.todaySessions) > 0 || (p.limits && p.limits.length > 0)
+            || (p.ready === true && p.tierLabel !== "");
     }
 
     // What the widget draws for one agent: the record's own limits and
@@ -273,12 +345,18 @@ Item {
         return {
             providerId: String(record.id),
             providerName: String(record.name || record.id),
+            ready: record.ready === true || !!stats,
             usageStatusText: String(record.usageStatusText || ""),
             authHelpText: String(record.authHelpText || ""),
             limits: Array.isArray(record.limits) ? record.limits : [],
+            limitsStale: record.limitsStale === true,
+            limitsFetchedAt: numberValue(record.limitsFetchedAt),
             tierLabel: String(record.tierLabel || ""),
+            // Codex's free full resets of its rate limits, when it has any.
+            resetCredits: record.resetCredits || null,
             todayPrompts: numberValue(source.todayPrompts),
             todaySessions: numberValue(source.todaySessions),
+            todayTotalTokens: numberValue(source.todayTotalTokens),
             recentDays: source.recentDays || [],
             totalPrompts: numberValue(source.totalPrompts),
             totalSessions: numberValue(source.totalSessions),
@@ -599,6 +677,7 @@ Item {
                 providerName: "",
                 todayPrompts: 0,
                 todaySessions: 0,
+                todayTotalTokens: 0,
                 recentByDay: recentByDay,
                 totalPrompts: 0,
                 totalSessions: 0,
@@ -622,6 +701,7 @@ Item {
                     acc.providerName = String(stats.providerName);
                 acc.todayPrompts += numberValue(stats.todayPrompts);
                 acc.todaySessions += numberValue(stats.todaySessions);
+                acc.todayTotalTokens += numberValue(stats.todayTotalTokens);
                 acc.totalPrompts += numberValue(stats.totalPrompts);
                 acc.totalSessions += numberValue(stats.totalSessions);
                 const activeDates = Array.isArray(stats.activeDates) ? stats.activeDates : [];
@@ -660,6 +740,7 @@ Item {
                 providerName: acc.providerName,
                 todayPrompts: acc.todayPrompts,
                 todaySessions: acc.todaySessions,
+                todayTotalTokens: acc.todayTotalTokens,
                 recentDays: recentDays,
                 totalPrompts: acc.totalPrompts,
                 totalSessions: acc.totalSessions,
@@ -681,6 +762,7 @@ Item {
             providerName: String(record.name || record.id),
             todayPrompts: numberValue(record.todayPrompts),
             todaySessions: numberValue(record.todaySessions),
+            todayTotalTokens: numberValue(record.todayTotalTokens),
             recentDays: cloneValue(record.recentDays, []),
             totalPrompts: numberValue(record.totalPrompts),
             totalSessions: numberValue(record.totalSessions),

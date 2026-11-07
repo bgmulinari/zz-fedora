@@ -141,6 +141,41 @@ EOS
   assert_equal "claude" "$(cat "$AGENT_FILE")"
 }
 
+@test "zz agent run --agent starts that agent and leaves the default alone" {
+  make_fake_command claude
+  make_fake_command codex
+  printf 'claude\n' >"$AGENT_FILE"
+  make_fake_command xdg-terminal-exec
+
+  zz_agent run --agent=codex
+  [ "$status" -eq 0 ]
+  assert_file_contains "$COMMAND_LOG" "xdg-terminal-exec --app-id=zz-agent --title=ZZ agent -- $FAKE_BIN/codex --approve-for-me"
+  assert_equal "claude" "$(cat "$AGENT_FILE")"
+
+  # No default is needed to name one.
+  rm "$AGENT_FILE"
+  : >"$COMMAND_LOG"
+  zz_agent run --agent=claude-code
+  [ "$status" -eq 0 ]
+  assert_file_contains "$COMMAND_LOG" "$FAKE_BIN/claude --permission-mode auto"
+  [[ ! -e "$AGENT_FILE" ]]
+
+  zz_agent run --agent=bogus
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "Unsupported agent: bogus"
+
+  # A prompt goes to the agent named, too; elsewhere naming one is a mistake.
+  printf 'claude\n' >"$AGENT_FILE"
+  : >"$COMMAND_LOG"
+  zz_agent prompt "Review this" --agent=codex
+  [ "$status" -eq 0 ]
+  assert_file_contains "$COMMAND_LOG" "$FAKE_BIN/codex --approve-for-me -- Review this"
+  zz_agent default --agent=codex
+  [ "$status" -ne 0 ]
+  assert_contains "$output" "--agent only applies to zz agent run and zz agent prompt"
+  assert_equal "claude" "$(cat "$AGENT_FILE")"
+}
+
 @test "zz agent opens the default agent in a terminal window in its unattended mode" {
   make_fake_command claude
   printf 'claude\n' >"$AGENT_FILE"

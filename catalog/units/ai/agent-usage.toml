@@ -1,5 +1,5 @@
 id = "ai-agent-usage"
-description = "Coding-agent usage bar widget for the desktop shell"
+description = "AI agent usage bar widget for the desktop shell"
 config = ["dms-plugin-agent-usage"]
 
 [choice]
@@ -8,11 +8,10 @@ id = "agent-usage"
 label = "Agent usage widget"
 default = true
 order = 50
-description = "Show Claude Code and Codex rate limits and token usage in the bar"
+description = "Show Claude Code, Codex, and OpenCode rate limits and token usage in the bar"
 
 # The collectors are stdlib Python scripts with a /usr/bin/python3 shebang;
-# the shell itself is base. python3 is also a bootstrap prerequisite, so this
-# step is an idempotent no-op on every install path.
+# the shell itself is base. python3 is also a bootstrap prerequisite.
 [[install]]
 backend = "dnf"
 packages = ["python3"]

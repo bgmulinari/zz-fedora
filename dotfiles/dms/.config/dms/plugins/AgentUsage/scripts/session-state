@@ -1,0 +1,150 @@
+#!/usr/bin/python3
+"""Print what the AI agents with a mascot are doing right now.
+
+The widget asks this every few seconds while the popout is open, to set the
+mascots' moods, so it reads only small local files and imports nothing heavy.
+
+Claude Code keeps a registry of its sessions: one file per process with a
+status of busy, idle, or waiting. A file can outlive its process, so one only
+counts while that same process is alive. Codex publishes nothing like it, so a
+running Codex counts as working while a session log it appends to has changed
+recently, and is otherwise only known to be open.
+
+Prints {"claude": {"busy": n, "waiting": n, "idle": n},
+        "codex": {"running": n, "working": bool}}.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import time
+from datetime import date, timedelta
+from pathlib import Path
+
+# Codex as someone runs it, not the servers an editor or this widget's own
+# limits probe starts.
+SERVER_ARGS = {"app-server", "mcp", "mcp-server"}
+# A long model call writes nothing for a while, so this is generous.
+WORKING_SECONDS = 20
+
+
+def process_start(pid: int) -> str:
+    """The kernel's start time for a process, "" when it is gone. Split after
+    the command name, which is parenthesized and may hold spaces."""
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    fields = stat.rsplit(")", 1)[-1].split()
+    return fields[19] if len(fields) > 19 else ""
+
+
+def claude_state() -> dict[str, int]:
+    configured = os.environ.get("CLAUDE_CONFIG_DIR")
+    home = Path(os.path.expanduser(configured)) if configured else Path.home() / ".claude"
+    statuses = []
+    try:
+        files = list((home / "sessions").glob("*.json"))
+    except OSError:
+        files = []
+    for path in files:
+        try:
+            entry = json.loads(path.read_text(encoding="utf-8"))
+            pid = int(entry["pid"])
+        except (OSError, ValueError, KeyError, TypeError, RecursionError):
+            continue
+        started = process_start(pid)
+        if not started:
+            continue
+        # A reused pid is another program entirely.
+        recorded = entry.get("procStart")
+        if recorded and str(recorded) != started:
+            continue
+        statuses.append(str(entry.get("status") or "idle"))
+    busy = statuses.count("busy")
+    waiting = statuses.count("waiting")
+    return {"busy": busy, "waiting": waiting, "idle": len(statuses) - busy - waiting}
+
+
+def codex_processes() -> tuple[int, list[int]]:
+    """Running Codex instances, one per process tree, and every Codex pid."""
+    parents: dict[int, int] = {}
+    arguments: dict[int, list[str]] = {}
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return 0, []
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        pid = int(entry)
+        try:
+            if Path(f"/proc/{pid}/comm").read_text(encoding="utf-8", errors="replace").strip() != "codex":
+                continue
+            stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8", errors="replace")
+            cmdline = Path(f"/proc/{pid}/cmdline").read_bytes().decode("utf-8", errors="replace")
+        except OSError:
+            continue
+        parents[pid] = int(stat.rsplit(")", 1)[-1].split()[1])
+        arguments[pid] = cmdline.split("\0")[1:]
+    running = sum(
+        1
+        for pid in parents
+        if parents[pid] not in parents and not SERVER_ARGS.intersection(arguments[pid])
+    )
+    return running, list(parents)
+
+
+def open_rollouts(pids: list[int]) -> list[Path]:
+    """The session logs Codex holds open, wherever they are: a resumed session
+    goes on writing the one it started in, under the day it started."""
+    logs = []
+    for pid in pids:
+        try:
+            fds = os.listdir(f"/proc/{pid}/fd")
+        except OSError:
+            continue
+        for fd in fds:
+            try:
+                target = os.readlink(f"/proc/{pid}/fd/{fd}")
+            except OSError:
+                continue
+            if target.endswith(".jsonl") and os.path.basename(target).startswith("rollout-"):
+                logs.append(Path(target))
+    return logs
+
+
+def codex_writing(pids: list[int]) -> bool:
+    """Whether a session log Codex holds open, or one from today or yesterday
+    (a session can run past midnight), has changed recently. Logs live under
+    sessions/YYYY/MM/DD."""
+    home = Path(os.path.expanduser(os.environ.get("CODEX_HOME") or "~/.codex"))
+    now = time.time()
+    found = [open_rollouts(pids)]
+    for day in (date.today(), date.today() - timedelta(days=1)):
+        try:
+            found.append(list((home / "sessions" / day.strftime("%Y/%m/%d")).glob("*.jsonl")))
+        except OSError:
+            continue
+    for logs in found:
+        for log in logs:
+            try:
+                if 0 <= now - log.stat().st_mtime < WORKING_SECONDS:
+                    return True
+            except OSError:
+                continue
+    return False
+
+
+def main() -> int:
+    running, pids = codex_processes()
+    print(json.dumps({
+        "claude": claude_state(),
+        "codex": {"running": running, "working": running > 0 and codex_writing(pids)},
+    }))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

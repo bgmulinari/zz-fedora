@@ -390,11 +390,10 @@ with the blue accent (latte + blue in light mode).
   theme is managed. Chromium and Helium share their policy directory. As with
   other machine policies, multiple desktop users share the most recently applied
   color. Removing `zz-theme.json` opts that policy directory out of future sync.
-- The integration follows the native-policy approach in
-  [Omarchy quattro](https://github.com/omacom/omarchy/blob/2fbac0c8e88eca704af1650ce721a494bd11a3d0/bin/omarchy-theme-set-browser).
-  Only `BrowserThemeColor` is emitted: Helium 0.17.0.1 accepts it but reports
-  Omarchy's `BrowserColorScheme` policy as unknown. DMS's mode-aware background
-  supplies the light/dark seed instead.
+- The integration sets the browsers' native managed policies. Only
+  `BrowserThemeColor` is emitted: Helium 0.17.0.1 accepts it but reports the
+  `BrowserColorScheme` policy as unknown. DMS's mode-aware background supplies
+  the light/dark seed instead.
 
 ## Plugins
 
@@ -534,21 +533,27 @@ Shipped plugins:
   the doctor reads its manifest through the link and warns when the bind
   is missing from an older `binds.kdl`.
 - **Agent usage** (`agentUsage`, unit `ai-agent-usage`, component
-  `dms-plugin-agent-usage`): a bar pill plus popout showing Claude Code and
-  Codex rate limits with reset countdowns, tokens per day for the last week,
-  and the all-time token split by model. The widget only displays records:
+  `dms-plugin-agent-usage`): a bar pill plus a one-page popout with a section
+  per Claude Code, Codex, and OpenCode subscription: each limit window's meter
+  and reset countdown, a sign-in link when one lapsed, a launch button, a
+  summary line over the token counts, and the Claude Code and Codex mascots,
+  whose moods follow the running sessions (`scripts/session-state`, polled only
+  while the popout is open; the Codex artwork is found at runtime by
+  `scripts/codex-pet`, never committed). The widget only displays records:
   `scripts/update-usage` inside the plugin runs one stdlib-Python collector
-  per agent (`/usr/bin/python3`, the unit's only package) and writes
+  per agent (`/usr/bin/python3`, the unit's package; `rg`, when installed, reads pi and omp sessions) and writes
   `~/.local/state/zz-fedora/agent-usage/<agent>.json`, which the QML watches
   through `FileView`. Claude limits come from Anthropic's OAuth usage
   endpoint with the signed-in CLI's token; Codex limits from the Codex
-  app-server RPC. Both keep their last probe under
-  `~/.cache/zz-fedora/agent-usage/` so a popout opened twice in a row does
-  not probe twice and a failed probe keeps the last known numbers whose
-  window has not reset. The pill collapses out of the bar until a record carries
-  usage, which is why it sits in the default bar layout. Optional
-  multi-device aggregation merges JSON snapshots from a user-chosen synced
-  folder; rate limits are never merged.
+  app-server RPC; OpenCode Go limits from OpenCode's usage endpoint. Tokens
+  count once, under the provider that bills them, wherever a session ran. Each
+  credential keeps its last answer under `~/.cache/zz-fedora/agent-usage/` so a
+  popout opened twice in a row does not probe twice and a failed probe keeps
+  the last known numbers, with their age on hover and elapsed windows back at
+  zero. The pill collapses out of the bar until a record carries usage, which
+  is why it sits in the default bar layout. Optional multi-device aggregation
+  merges JSON snapshots from a user-chosen synced folder; rate limits are never
+  merged.
 
 - **GitHub** (`github`, unit `dev-github`, component `dms-plugin-github`):
   the GitHub mark in the bar with a popout for notifications, pull

@@ -25,7 +25,7 @@ PluginSettings {
     ToggleSetting {
         settingKey: "claudeEnabled"
         label: "Claude Code"
-        description: "Session and weekly limits from the signed-in CLI, plus local transcript stats"
+        description: "Session, weekly, and model limits from the signed-in CLI, plus local transcript stats"
         defaultValue: true
     }
 
@@ -33,6 +33,20 @@ PluginSettings {
         settingKey: "codexEnabled"
         label: "Codex"
         description: "Rate limits from the Codex app server, plus local session stats"
+        defaultValue: true
+    }
+
+    ToggleSetting {
+        settingKey: "opencodeEnabled"
+        label: "OpenCode"
+        description: "OpenCode Go limits, plus local stats for Zen and Go sessions; runs on an Anthropic or OpenAI provider count under Claude Code or Codex"
+        defaultValue: true
+    }
+
+    ToggleSetting {
+        settingKey: "mascotEnabled"
+        label: "Animated mascots"
+        description: "Clawd and the Codex companion in the popout, following what their agents are doing. They only animate while the popout is open. The Codex companion's artwork comes from the installed ChatGPT app or Codex, or else is downloaded once from OpenAI."
         defaultValue: true
     }
 

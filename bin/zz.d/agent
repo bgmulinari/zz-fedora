@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # zz-name: agent
 # zz-summary: Launch the default AI agent, or choose which one that is.
-# zz-usage: zz agent [run|prompt <text>] [--inline] | zz agent default [claude|codex|opencode] [--notify] | zz agent list [--json] | zz agent invite
+# zz-usage: zz agent [run|prompt <text>] [--agent=<name>] [--inline] | zz agent default [claude|codex|opencode] [--notify] | zz agent list [--json] | zz agent invite
 set -Eeuo pipefail
 
 CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/zz-fedora/agent"
@@ -21,8 +21,8 @@ PICKER_COMMAND=(dms ipc call widget openWith zzMenu setup.agent)
 usage() {
   cat <<'USAGE'
 Usage:
-  zz agent [run] [--inline]
-  zz agent prompt <text> [--inline]
+  zz agent [run] [--agent=claude|codex|opencode] [--inline]
+  zz agent prompt <text> [--agent=claude|codex|opencode] [--inline]
   zz agent default [claude|codex|opencode] [--notify]
   zz agent list [--json]
   zz agent invite
@@ -30,6 +30,7 @@ Usage:
 Launch the default AI agent in a new terminal window, or in the current
 terminal with --inline. `prompt` starts it with a task. Agents launched this
 way run in their own don't-stop-to-ask mode, so expect them to act.
+--agent starts that agent instead of the default, without changing it.
 
 `default` prints the default agent, or sets it to Claude Code (claude),
 Codex (codex), or OpenCode (opencode); --notify confirms the change with a
@@ -211,10 +212,14 @@ agent_command() {
 launch() {
   local inline="$1"
   local prompt="$2"
-  local agent
-  agent="$(default_agent)" || { no_default_hint || exit 1; }
+  local agent="${3:-}" another="pick another with: zz agent default <name>"
+  if [[ -z "$agent" ]]; then
+    agent="$(default_agent)" || { no_default_hint || exit 1; }
+  else
+    another="name another with --agent=<name>"
+  fi
   agent_installed "$agent" ||
-    fail "$(agent_label "$agent") is not installed. Install it with: zz app install $(agent_choice "$agent"), or pick another with: zz agent default <name>"
+    fail "$(agent_label "$agent") is not installed. Install it with: zz app install $(agent_choice "$agent"), or $another"
   agent_command "$agent" "$prompt"
   # The terminal is started with the agent's resolved path so it needs no
   # PATH of its own; the agent's subprocesses inherit the PATH built above.
@@ -272,7 +277,7 @@ cmd_invite() {
 }
 
 main() {
-  local command="run" inline=0 prompt="" arg
+  local command="run" inline=0 prompt="" agent="" arg
   local -a positional=()
   if [[ $# -gt 0 ]]; then
     case "$1" in
@@ -295,6 +300,10 @@ main() {
   for arg in "$@"; do
     case "$arg" in
       --inline) inline=1 ;;
+      --agent=*)
+        agent="$(normalize_agent "${arg#--agent=}")" ||
+          fail "Unsupported agent: ${arg#--agent=} (choose claude, codex, or opencode)"
+        ;;
       -h|--help)
         usage
         return 0
@@ -302,6 +311,11 @@ main() {
       *) positional+=("$arg") ;;
     esac
   done
+  case "$command" in
+    default|list|invite)
+      [[ -z "$agent" ]] || fail "--agent only applies to zz agent run and zz agent prompt"
+      ;;
+  esac
   case "$command" in
     default)
       cmd_default "${positional[@]}"
@@ -314,12 +328,12 @@ main() {
       cmd_invite
       ;;
     prompt)
-      [[ ${#positional[@]} -eq 1 && -n "${positional[0]}" ]] || fail "Usage: zz agent prompt <text> [--inline]"
-      launch "$inline" "${positional[0]}"
+      [[ ${#positional[@]} -eq 1 && -n "${positional[0]}" ]] || fail "Usage: zz agent prompt <text> [--agent=<name>] [--inline]"
+      launch "$inline" "${positional[0]}" "$agent"
       ;;
     run)
       [[ ${#positional[@]} -eq 0 ]] || fail "Unexpected argument: ${positional[0]} (to pass a prompt: zz agent prompt \"${positional[*]}\")"
-      launch "$inline" ""
+      launch "$inline" "" "$agent"
       ;;
   esac
 }

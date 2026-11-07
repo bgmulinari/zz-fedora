@@ -107,6 +107,7 @@ client.
 ```bash
 zz agent                       # the default agent in a new terminal window
 zz agent run --inline          # the same, in this terminal
+zz agent run --agent=codex     # that agent instead, leaving the default alone
 zz agent prompt "Review this"  # start it with a task
 zz agent default               # which agent that is
 zz agent default codex         # choose one

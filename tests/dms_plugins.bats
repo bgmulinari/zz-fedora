@@ -27,7 +27,7 @@ run_plugin_script() {
   local home="$1"
   shift
   mkdir -p "$home"
-  run env -i HOME="$home" PATH="/usr/bin:/bin" \
+  run env -i HOME="$home" PATH="/usr/bin:/bin" HOMEBREW_PREFIX="$home/brew" \
     XDG_STATE_HOME="$home/.local/state" XDG_CACHE_HOME="$home/.cache" \
     XDG_DATA_HOME="$home/.local/share" XDG_CONFIG_HOME="$home/.config" \
     "$ROOT_DIR/$AGENT_USAGE_REL/scripts/$@"
@@ -88,7 +88,7 @@ write_claude_transcript() {
   cat >"$home/.claude/projects/example/session.jsonl" <<EOF
 {"type":"user","sessionId":"s1","timestamp":"$today","message":{"role":"user","content":"hi"}}
 {"type":"assistant","sessionId":"s1","timestamp":"$today","message":{"id":"m1","role":"assistant","model":"claude-opus-4-8","usage":{"input_tokens":100,"output_tokens":50,"cache_read_input_tokens":20,"cache_creation_input_tokens":5}}}
-{"type":"assistant","sessionId":"s1","timestamp":"$today","message":{"id":"m1","role":"assistant","model":"claude-opus-4-8","usage":{"input_tokens":100,"output_tokens":50}}}
+{"type":"assistant","sessionId":"s1","timestamp":"$today","message":{"id":"m1","role":"assistant","model":"claude-opus-4-8","usage":{"input_tokens":100,"output_tokens":50,"cache_read_input_tokens":20,"cache_creation_input_tokens":5}}}
 {"type":"assistant","sessionId":"s1","timestamp":"2026-01-02T10:00:00+00:00","message":{"id":"m2","role":"assistant","model":"claude-sonnet-5","usage":{"input_tokens":10,"output_tokens":5}}}
 EOF
 }
@@ -110,9 +110,64 @@ write_codex_session() {
   local home="$1"
   mkdir -p "$home/.codex/sessions/2026"
   cat >"$home/.codex/sessions/2026/rollout.jsonl" <<'EOF'
+{"type":"session_meta","payload":{"id":"s1","model_provider":"openai"}}
 {"type":"turn_context","payload":{"model":"gpt-5.6-codex"}}
+{"type":"event_msg","timestamp":"2026-01-03T09:59:00Z","payload":{"type":"user_message","message":"hi"}}
 {"type":"event_msg","timestamp":"2026-01-03T10:00:00Z","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":900,"output_tokens":300},"last_token_usage":{"input_tokens":300,"cached_input_tokens":100,"output_tokens":40}}}}
 {"type":"event_msg","timestamp":"2026-01-03T10:05:00Z","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1200,"output_tokens":400},"last_token_usage":{"input_tokens":300,"cached_input_tokens":0,"output_tokens":100}}}}
+EOF
+}
+
+# A signed-in Codex home, and an app-server on the PATH the collector adds
+# (~/.local/bin) that answers the limits RPC, or dies when told to fail.
+write_codex_login() {
+  local home="$1"
+  local claims
+  claims="$(printf '{"https://api.openai.com/auth":{"chatgpt_user_id":"u1"}}' | base64 -w0 | tr -d '=' | tr '/+' '_-')"
+  mkdir -p "$home/.codex"
+  printf '{"auth_mode":"chatgpt","tokens":{"account_id":"w1","id_token":"e30.%s.sig"}}\n' "$claims" >"$home/.codex/auth.json"
+}
+
+write_fake_codex() {
+  local home="$1" open="$2" closed="$3"
+  mkdir -p "$home/.local/bin"
+  cat >"$home/.local/bin/codex" <<EOF
+#!/usr/bin/python3
+import json, sys
+for line in sys.stdin:
+    message = json.loads(line)
+    if message.get("id") == 1:
+        print(json.dumps({"id": 1, "result": {}}), flush=True)
+    elif message.get("id") == 2:
+        print(json.dumps({"id": 2, "result": {
+            "rateLimits": {"planType": "pro",
+                           "primary": {"usedPercent": 42, "windowDurationMins": 300, "resetsAt": $open},
+                           "secondary": {"usedPercent": 90, "windowDurationMins": 10080, "resetsAt": $closed}},
+            "rateLimitResetCredits": {"credits": [{"status": "available", "expiresAt": $open}]}}}), flush=True)
+EOF
+  chmod +x "$home/.local/bin/codex"
+}
+
+# An opencode database with one reply on the subscription's own gateway, one
+# on Anthropic, and the prompts they answered.
+write_opencode_db() {
+  local home="$1"
+  mkdir -p "$home/.local/share/opencode"
+  /usr/bin/python3 -I - "$home/.local/share/opencode/opencode.db" <<'EOF'
+import json, sqlite3, sys, time
+now = int(time.time() * 1000)
+conn = sqlite3.connect(sys.argv[1])
+conn.execute("CREATE TABLE session (id text PRIMARY KEY, parent_id text, time_created integer NOT NULL)")
+conn.execute("CREATE TABLE message (id text PRIMARY KEY, session_id text, time_created integer, time_updated integer, data text)")
+def add(row, session, **data):
+    conn.execute("INSERT INTO message VALUES (?, ?, ?, ?, ?)", (row, session, now, now, json.dumps({"time": {"created": now}, **data})))
+for session in ("zen", "sub"):
+    conn.execute("INSERT INTO session VALUES (?, NULL, ?)", (session, now - 1000))
+    add("u-" + session, session, role="user")
+tokens = {"input": 100, "output": 40, "reasoning": 10, "cache": {"read": 5, "write": 0}}
+add("a-zen", "zen", role="assistant", parentID="u-zen", providerID="opencode-go", modelID="glm-5:high", tokens=tokens)
+add("a-sub", "sub", role="assistant", parentID="u-sub", providerID="anthropic", modelID="claude-opus-5", tokens=tokens)
+conn.commit()
 EOF
 }
 
@@ -140,7 +195,7 @@ apply_component() {
   local dir="$ROOT_DIR/$AGENT_USAGE_REL"
 
   assert_equal "agentUsage" "$(jq -r '.id' "$dir/plugin.json")"
-  assert_equal "python3" "$(jq -r '.dependencies[0]' "$dir/plugin.json")"
+  assert_equal '["python3"]' "$(jq -c '.dependencies' "$dir/plugin.json")"
   assert_file_contains "$dir/StartupCheck.qml" "/usr/bin/python3"
   assert_file_contains "$dir/Settings.qml" 'pluginId: "agentUsage"'
   assert_file_contains "$dir/AgentUsageWidget.qml" "horizontalBarPill"
@@ -148,24 +203,57 @@ apply_component() {
   assert_file_contains "$dir/AgentUsageWidget.qml" "property var popoutService"
 
   local script
-  for script in update-usage collect-claude collect-codex; do
+  for script in update-usage session-state codex-pet collect-claude collect-codex collect-opencode; do
     [[ -x "$dir/scripts/$script" ]]
     assert_equal "#!/usr/bin/python3" "$(head -n 1 "$dir/scripts/$script")"
   done
   [[ -f "$dir/scripts/usage_common.py" ]]
 
-  # The widget hides an agent through <id>Enabled; both collectors need a
+  # The widget hides an agent through <id>Enabled; every collector needs a
   # toggle and the update command skips a switched-off collector by id.
   assert_file_contains "$dir/Settings.qml" 'settingKey: "claudeEnabled"'
   assert_file_contains "$dir/Settings.qml" 'settingKey: "codexEnabled"'
+  assert_file_contains "$dir/Settings.qml" 'settingKey: "opencodeEnabled"'
   assert_file_contains "$dir/UsageModel.qml" 'settings[id + "Enabled"]'
-  assert_file_contains "$dir/UsageModel.qml" 'collectorIds: ["claude", "codex"]'
+  assert_file_contains "$dir/UsageModel.qml" 'collectorIds: ["claude", "codex", "opencode"]'
+
+  # The order lives outside the usage directory, where every JSON is a record.
+  assert_file_contains "$dir/UsageModel.qml" '"/zz-fedora/agent-usage-order.json"'
+
+  # A launch button starts its own agent, whichever one is the default.
+  assert_file_contains "$dir/AgentUsageWidget.qml" 'zz agent run --agent='
+
+  local name
+  # The mascots only move and ask about sessions while the popout is open.
+  assert_file_contains "$dir/AgentUsageWidget.qml" "AgentMascot {"
+  assert_file_contains "$dir/AgentUsageWidget.qml" "running: root.interactionActive && root.mascotsShown"
+  assert_file_contains "$dir/AgentMascot.qml" "running: scene.animated"
+  # Every duet a pairing of moods can pick has its steps written down.
+  for name in highFive chase copycat hideAndSeek catch jam party wakeUp visit glance cheerUp comfort; do
+    assert_file_contains "$dir/AgentMascot.qml" "case \"$name\":"
+    assert_file_contains "$dir/AgentMascot.qml" "\"$name\""
+  done
+  # Every sequence a mood can break into is one the table defines.
+  assert_file_contains "$dir/AgentMascot.qml" "clawdEntrances: clawdClickSequences.concat"
+  for name in jump look spin peekaboo drop wink boop tap sneeze turn coinHop skip waddle peek; do
+    grep -q "^            $name: " "$dir/AgentMascot.qml"
+  done
+  # Every prop either mascot can pick is one it can draw, with a pose for each.
+  for name in juggle think doze groove confetti idea coffee bubble dizzy; do
+    grep -q "^            $name: \[\]\.concat" "$dir/AgentMascot.qml"
+    grep -q "^            $name: \[\"" "$dir/AgentMascot.qml"
+    assert_file_contains "$dir/AgentMascot.qml" "case \"$name\":"
+  done
+  assert_file_contains "$dir/Settings.qml" 'settingKey: "mascotEnabled"'
+  [[ -x "$dir/scripts/session-state" ]]
 
   # The hero resolves assets/<id>.svg per collector, with a dark twin for a
   # mark drawn in white.
   [[ -f "$dir/assets/claude.svg" ]]
   [[ -f "$dir/assets/codex.svg" ]]
   [[ -f "$dir/assets/codex-light.svg" ]]
+  [[ -f "$dir/assets/opencode.svg" ]]
+  [[ -f "$dir/assets/opencode-light.svg" ]]
   assert_file_contains "$dir/AgentUsageWidget.qml" '"assets/" + p.providerId + ".svg"'
 }
 
@@ -966,7 +1054,7 @@ EOF
   [ "$status" -eq 0 ]
 }
 
-@test "claude collector summarizes transcripts offline and reports missing auth" {
+@test "claude collector counts typed prompts, each reply once, and reports missing auth" {
   local home="$TEST_ROOT/claude-home"
   write_claude_transcript "$home"
 
@@ -975,12 +1063,15 @@ EOF
 
   local record="$output"
   assert_equal "claude" "$(jq -r '.id' <<<"$record")"
-  # The duplicated message id counts once; the older message counts too.
-  assert_equal "2" "$(jq -r '.totalPrompts' <<<"$record")"
+  assert_equal "true" "$(jq -r '.ready' <<<"$record")"
+  # The one prompt typed, not the three reply lines.
+  assert_equal "1" "$(jq -r '.totalPrompts' <<<"$record")"
   assert_equal "1" "$(jq -r '.todayPrompts' <<<"$record")"
+  # The duplicated message id counts once; the older message counts too.
   assert_equal "175" "$(jq -r '.todayTotalTokens' <<<"$record")"
   assert_equal "100" "$(jq -r '.modelUsage["claude-opus-4-8"].inputTokens' <<<"$record")"
   assert_equal "20" "$(jq -r '.modelUsage["claude-opus-4-8"].cacheReadInputTokens' <<<"$record")"
+  assert_equal "10" "$(jq -r '.modelUsage["claude-sonnet-5"].inputTokens' <<<"$record")"
   assert_equal "2" "$(jq -r '.activeDays' <<<"$record")"
   assert_equal "7" "$(jq -r '.recentDays | length' <<<"$record")"
   assert_equal "175" "$(jq -r '.recentDays[-1].messageCount' <<<"$record")"
@@ -1010,7 +1101,37 @@ EOF
   assert_equal "1750" "$(jq -r '.todayTotalTokens' <<<"$record")"
 }
 
-@test "codex collector counts the last turn of each token snapshot and reports a missing CLI" {
+@test "claude limits read the account's week and tell apart a lapsed token from a lapsed sign-in" {
+  run env -i HOME="$TEST_ROOT/claude-limits-home" PATH="/usr/bin:/bin" XDG_CACHE_HOME="$TEST_ROOT/claude-limits-cache" \
+    /usr/bin/python3 -I "$ROOT_DIR/tests/support/agent_usage_claude_limits.py" "$ROOT_DIR/$AGENT_USAGE_REL/scripts/collect-claude"
+  [ "$status" -eq 0 ]
+  local probe="${lines[0]}"
+  assert_equal "Session (5-hour):0.37 Weekly (7-day):0.6 Fable Weekly:0.12" \
+    "$(jq -r '[.limits[] | "\(.label):\(.percent)"] | join(" ")' <<<"$probe")"
+  assert_equal "Fable Weekly" "$(jq -r '.limits[2].title' <<<"$probe")"
+  assert_equal "Limits paused" "${lines[1]}"
+  assert_equal "Sign-in expired" "${lines[2]}"
+}
+
+@test "claude collector names the plan the way the account does, and never from the rate-limit tier" {
+  local home="$TEST_ROOT/claude-plan-home"
+  mkdir -p "$home/.claude"
+  # A token already lapsed, so nothing here asks the network.
+  cat >"$home/.claude/.credentials.json" <<'EOF'
+{"claudeAiOauth":{"accessToken":"t","expiresAt":1,"refreshTokenExpiresAt":1,"subscriptionType":"max","rateLimitTier":"default_claude_max_20x"}}
+EOF
+
+  run_plugin_script "$home" collect-claude --force
+  [ "$status" -eq 0 ]
+  assert_equal "Max" "$(jq -r '.tierLabel' <<<"$output")"
+
+  printf '{"oauthAccount":{"planDisplayName":"Ultra","organizationRateLimitTier":"default_claude_max_20x"}}\n' >"$home/.claude.json"
+  run_plugin_script "$home" collect-claude --force
+  [ "$status" -eq 0 ]
+  assert_equal "Ultra" "$(jq -r '.tierLabel' <<<"$output")"
+}
+
+@test "codex collector counts each response's tokens and typed prompts and reports a missing CLI" {
   local home="$TEST_ROOT/codex-home"
   write_codex_session "$home"
 
@@ -1019,37 +1140,189 @@ EOF
 
   local record="$output"
   assert_equal "codex" "$(jq -r '.id' <<<"$record")"
-  assert_equal "2" "$(jq -r '.totalPrompts' <<<"$record")"
+  # The prompt typed, not the two requests that answered it.
+  assert_equal "1" "$(jq -r '.totalPrompts' <<<"$record")"
   assert_equal "1" "$(jq -r '.totalSessions' <<<"$record")"
   # Cached tokens are carved out of input rather than counted twice.
   assert_equal "500" "$(jq -r '.modelUsage["gpt-5.6-codex"].inputTokens' <<<"$record")"
   assert_equal "100" "$(jq -r '.modelUsage["gpt-5.6-codex"].cacheReadInputTokens' <<<"$record")"
   assert_equal "140" "$(jq -r '.modelUsage["gpt-5.6-codex"].outputTokens' <<<"$record")"
-  assert_equal "Codex unavailable" "$(jq -r '.usageStatusText' <<<"$record")"
+  assert_equal "Codex limits unavailable" "$(jq -r '.usageStatusText' <<<"$record")"
   assert_equal "[]" "$(jq -c '.limits' <<<"$record")"
 }
 
-@test "codex collector keeps the last probed limits whose window is still open" {
+@test "codex collector names the plan and keeps the last limits past a failed probe, zeroing elapsed windows" {
   local home="$TEST_ROOT/codex-cache-home"
-  local cache="$home/.cache/zz-fedora/agent-usage"
-  mkdir -p "$cache"
-  local open closed
-  open="$(date -u -d '+3 hours' +%Y-%m-%dT%H:%M:%S+00:00)"
-  closed="$(date -u -d '-3 hours' +%Y-%m-%dT%H:%M:%S+00:00)"
-  cat >"$cache/codex-limits.json" <<EOF
-{"fetchedAtMs":0,"tierLabel":"plus","limits":[
- {"label":"5h window","title":"Session","percent":0.42,"resetsAt":"$open"},
- {"label":"Weekly (7-day)","title":"Weekly","percent":0.9,"resetsAt":"$closed"}]}
-EOF
+  local soon later
+  soon="$(date -d '+2 seconds' +%s)"
+  later="$(date -d '+3 hours' +%s)"
+  write_codex_login "$home"
+  write_fake_codex "$home" "$later" "$soon"
 
-  run_plugin_script "$home" collect-codex
+  run_plugin_script "$home" collect-codex --force
   [ "$status" -eq 0 ]
-
   local record="$output"
-  assert_equal "plus" "$(jq -r '.tierLabel' <<<"$record")"
-  assert_equal "1" "$(jq -r '.limits | length' <<<"$record")"
-  assert_equal "Session" "$(jq -r '.limits[0].title' <<<"$record")"
-  assert_equal "Codex unavailable" "$(jq -r '.usageStatusText' <<<"$record")"
+  assert_equal "Pro 200" "$(jq -r '.tierLabel' <<<"$record")"
+  assert_equal "2" "$(jq -r '.limits | length' <<<"$record")"
+  assert_equal "5h window" "$(jq -r '.limits[0].label' <<<"$record")"
+  assert_equal "0.42" "$(jq -r '.limits[0].percent' <<<"$record")"
+  assert_equal "false" "$(jq -r '.limitsStale' <<<"$record")"
+  assert_equal "1" "$(jq -r '.resetCredits.available' <<<"$record")"
+
+  # The app-server is gone and the weekly window has since reset.
+  rm "$home/.local/bin/codex"
+  sleep 3
+  run_plugin_script "$home" collect-codex --force
+  [ "$status" -eq 0 ]
+  record="$output"
+  assert_equal "true" "$(jq -r '.limitsStale' <<<"$record")"
+  assert_equal "Pro 200" "$(jq -r '.tierLabel' <<<"$record")"
+  assert_equal "" "$(jq -r '.usageStatusText' <<<"$record")"
+  assert_equal "0.42" "$(jq -r '.limits[0].percent' <<<"$record")"
+  assert_equal "true" "$(jq -r '.limits[1].percent == 0' <<<"$record")"
+  assert_equal "" "$(jq -r '.limits[1].resetsAt' <<<"$record")"
+
+  # Signed in as someone else, the last account's numbers do not stand in.
+  sed -i 's/"w1"/"w2"/' "$home/.codex/auth.json"
+  run_plugin_script "$home" collect-codex --force
+  [ "$status" -eq 0 ]
+  assert_equal "[]" "$(jq -c '.limits' <<<"$output")"
+}
+
+@test "opencode sessions count once, under the collector that bills their provider" {
+  local home="$TEST_ROOT/opencode-home"
+  write_opencode_db "$home"
+
+  run_plugin_script "$home" collect-opencode --force
+  [ "$status" -eq 0 ]
+  local record="$output"
+  assert_equal "opencode" "$(jq -r '.id' <<<"$record")"
+  assert_equal "true" "$(jq -r '.ready' <<<"$record")"
+  assert_equal "1" "$(jq -r '.totalPrompts' <<<"$record")"
+  # A variant suffix names the thinking level, and thinking counts as output.
+  assert_equal "100" "$(jq -r '.modelUsage["GLM-5"].inputTokens' <<<"$record")"
+  assert_equal "50" "$(jq -r '.modelUsage["GLM-5"].outputTokens' <<<"$record")"
+  assert_equal "null" "$(jq -r '.modelUsage["claude-opus-5"]' <<<"$record")"
+  # With no key anywhere there is nothing to sign in to.
+  assert_equal "" "$(jq -r '.usageStatusText' <<<"$record")"
+
+  run_plugin_script "$home" collect-claude --force
+  [ "$status" -eq 0 ]
+  assert_equal "100" "$(jq -r '.modelUsage["claude-opus-5"].inputTokens' <<<"$output")"
+  assert_equal "null" "$(jq -r '.modelUsage["GLM-5"]' <<<"$output")"
+
+  # A machine that never ran it prints the record the widget skips.
+  run_plugin_script "$TEST_ROOT/opencode-unused-home" collect-opencode --force
+  [ "$status" -eq 0 ]
+  assert_equal "false" "$(jq -r '.ready' <<<"$output")"
+  assert_equal "0" "$(jq -r '.totalPrompts' <<<"$output")"
+}
+
+@test "opencode's newer store books a prompt on the day it was typed and none for a row it made itself" {
+  local home="$TEST_ROOT/opencode-v2-home"
+  mkdir -p "$home/.local/share/opencode"
+  /usr/bin/python3 -I "$ROOT_DIR/tests/support/agent_usage_opencode_v2.py" "$home/.local/share/opencode/opencode.db"
+
+  run_plugin_script "$home" collect-opencode --force
+  [ "$status" -eq 0 ]
+  # Only the typed prompt counts, and on yesterday, when it was typed.
+  assert_equal "1" "$(jq -r '.totalPrompts' <<<"$output")"
+  assert_equal "0" "$(jq -r '.todayPrompts' <<<"$output")"
+  # Both replies' tokens are today's, the synthetic row's reply included.
+  assert_equal "300" "$(jq -r '.todayTotalTokens' <<<"$output")"
+}
+
+@test "session-state counts live Claude Code sessions by status and ignores stale files" {
+  local home="$TEST_ROOT/session-home" sessions start
+  sessions="$home/.claude/sessions"
+  mkdir -p "$sessions"
+  # Live: this test's own shell, recorded with its real start time.
+  start="$(awk '{ print $22 }' "/proc/$$/stat")"
+  printf '{"pid":%s,"procStart":"%s","status":"busy"}' "$$" "$start" >"$sessions/busy.json"
+  printf '{"pid":%s,"status":"waiting","waitingFor":"permission"}' "$$" >"$sessions/waiting.json"
+  printf '{"pid":%s,"status":"idle"}' "$$" >"$sessions/idle.json"
+  # Stale: the pid was reused by another process, or nothing has it.
+  printf '{"pid":%s,"procStart":"1","status":"busy"}' "$$" >"$sessions/reused.json"
+  printf '{"pid":4194304,"status":"busy"}' >"$sessions/gone.json"
+  printf 'not json' >"$sessions/broken.json"
+
+  run_plugin_script "$home" session-state
+  [ "$status" -eq 0 ]
+  assert_equal '{"busy":1,"waiting":1,"idle":1}' "$(jq -c '.claude' <<<"$output")"
+}
+
+@test "session-state counts a running Codex once, not the servers others start, and infers work from its log" {
+  local home="$TEST_ROOT/session-agents-home" bin="$TEST_ROOT/session-agents-bin"
+  local log="$home/.codex/sessions/$(date +%Y/%m/%d)/rollout.jsonl"
+  mkdir -p "$bin" "$(dirname "$log")"
+  # A script's process name is its own, so this reads as a process called codex.
+  cat >"$bin/codex" <<'EOF'
+#!/usr/bin/python3
+import os, time
+# The session log it writes, held open as Codex holds it.
+held = open(os.environ["HELD_LOG"], "a") if os.environ.get("HELD_LOG") else None
+time.sleep(30)
+EOF
+  chmod +x "$bin/codex"
+
+  run_plugin_script "$home" session-state
+  [ "$status" -eq 0 ]
+  local before
+  before="$(jq -r '.codex.running' <<<"$output")"
+
+  "$bin/codex" app-server &
+  local server=$!
+  sleep 0.3
+  run_plugin_script "$home" session-state
+  local during_server="$output"
+  kill "$server"; wait "$server" 2>/dev/null || true
+  assert_equal "$before" "$(jq -r '.codex.running' <<<"$during_server")"
+
+  "$bin/codex" &
+  local agent=$!
+  sleep 0.3
+  touch -d '-5 minutes' "$log"
+  run_plugin_script "$home" session-state
+  local quiet="$output"
+  touch "$log"
+  run_plugin_script "$home" session-state
+  local writing="$output"
+  kill "$agent"; wait "$agent" 2>/dev/null || true
+
+  assert_equal "$((before + 1))" "$(jq -r '.codex.running' <<<"$quiet")"
+  assert_equal "false" "$(jq -r '.codex.working' <<<"$quiet")"
+  assert_equal "true" "$(jq -r '.codex.working' <<<"$writing")"
+
+  # A resumed session goes on writing the log it began in, days ago.
+  local resumed="$home/.codex/sessions/2020/01/01/rollout-2020-01-01T09-00-00-resumed.jsonl"
+  mkdir -p "$(dirname "$resumed")"
+  touch -d '-5 minutes' "$log"
+  HELD_LOG="$resumed" "$bin/codex" &
+  agent=$!
+  sleep 0.3
+  touch "$resumed"
+  run_plugin_script "$home" session-state
+  local resumed_state="$output"
+  kill "$agent"; wait "$agent" 2>/dev/null || true
+  assert_equal "true" "$(jq -r '.codex.working' <<<"$resumed_state")"
+}
+
+@test "codex-pet prefers the ChatGPT app's newest sheet, then Codex's copy, and refuses anything else" {
+  local dir="$ROOT_DIR/$AGENT_USAGE_REL"
+  local home="$TEST_ROOT/pet-home"
+  run find "$dir" -name '*spritesheet*'
+  [ -z "$output" ]
+
+  mkdir -p "$home/.codex/cache/tui-pets/v1/assets"
+  printf 'RIFF\0\0\0\0WEBPVP8Lx' >"$home/.codex/cache/tui-pets/v1/assets/codex-spritesheet-v4.webp"
+
+  run env -i HOME="$home" PATH="/usr/bin:/bin" XDG_CACHE_HOME="$home/.cache" \
+    /usr/bin/python3 -I "$ROOT_DIR/tests/support/agent_usage_codex_pet.py" "$dir/scripts/codex-pet" "$TEST_ROOT/app.asar"
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "app codex-spritesheet-v6.bbbb.webp True"
+  assert_contains "$output" "$home/.codex/cache/tui-pets/v1/assets/codex-spritesheet-v4.webp"
+  assert_contains "$output" "html False False"
+  assert_contains "$output" "webp True True"
 }
 
 @test "update-usage writes one record per collector into the state directory" {
@@ -1062,8 +1335,10 @@ EOF
   local usage_dir="$home/.local/state/zz-fedora/agent-usage"
   [[ -f "$usage_dir/claude.json" ]]
   [[ -f "$usage_dir/codex.json" ]]
+  [[ -f "$usage_dir/opencode.json" ]]
   assert_equal "claude" "$(jq -r '.id' "$usage_dir/claude.json")"
   assert_equal "codex" "$(jq -r '.id' "$usage_dir/codex.json")"
+  assert_equal "opencode" "$(jq -r '.id' "$usage_dir/opencode.json")"
   run find "$usage_dir" -name '*.tmp'
   [ -z "$output" ]
 
