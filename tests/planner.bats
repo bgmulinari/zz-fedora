@@ -675,3 +675,25 @@ assert warnings[1] == 'second\x1f warning', warnings
   assert_plan_has "$PLAN_DIR/config/components.list" "claude-code"
   assert_plan_has "$PLAN_DIR/files/managed-files.list" "~/.claude/settings.json"
 }
+
+@test "styled install plan renders under errexit and lists planned trust exceptions" {
+  build_test_plan "dev=zed"
+  assert_plan_has "$PLAN_DIR/sources/terra.list" "terra"
+
+  run bash -c '
+    set -Eeuo pipefail
+    source "$1/tests/helpers/common.bash"
+    source_core
+    is_tty() { return 0; }
+    tui_has_gum() { return 0; }
+    gum() { printf "%s\n" "${@: -1}"; }
+    tui_show_install_plan
+    printf "plan-rendered\n"
+  ' _ "$ROOT_DIR"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Planned Actions"* ]]
+  [[ "$output" == *"Trust Exceptions"* ]]
+  [[ "$output" == *"terra (unsigned-bootstrap)"* ]]
+  [[ "$output" == *"plan-rendered" ]]
+}

@@ -380,20 +380,24 @@ tui_show_install_plan() {
   [[ "$conflicts" -gt 0 ]] && printf '  %s %s managed config conflict%s will be backed up\n' "$(gum style --foreground 11 '!')" "$conflicts" "$([[ "$conflicts" -eq 1 ]] && printf '' || printf 's')"
   [[ "$first_run" -gt 0 ]] && printf '  %s %s first-run config task%s\n' "$(gum style --foreground 12 '→')" "$first_run" "$([[ "$first_run" -eq 1 ]] && printf '' || printf 's')"
 
-  if [[ -f "$PLAN_DIR/base-rationale.tsv" ]]; then
-    local trust_exceptions
-    trust_exceptions="$(awk -F'\t' '$1=="source" {print $2}' "$PLAN_DIR/base-rationale.tsv" | while IFS= read -r source_id; do
+  local -a trust_exceptions=()
+  local source_file source_id trust_exception
+  for source_file in "$PLAN_DIR"/sources/*.list; do
+    [[ -f "$source_file" ]] || continue
+    while IFS= read -r source_id; do
       [[ -n "$source_id" ]] || continue
       load_source_descriptor "$source_id" || continue
-      [[ "${SOURCE_BOOTSTRAP_EXCEPTION:-0}" -eq 1 ]] && printf '%s (%s)\n' "$SOURCE_ID" "$SOURCE_GPG_POLICY"
-    done)"
-    if [[ -n "$trust_exceptions" ]]; then
-      printf '\n'
-      gum style --bold --foreground 11 "Trust Exceptions"
-      while IFS= read -r line; do
-        [[ -n "$line" ]] && printf '  %s %s\n' "$(gum style --foreground 11 '!')" "$line"
-      done <<<"$trust_exceptions"
-    fi
+      if [[ "${SOURCE_BOOTSTRAP_EXCEPTION:-0}" -eq 1 ]]; then
+        trust_exceptions+=("$SOURCE_ID ($SOURCE_GPG_POLICY)")
+      fi
+    done < <(read_plan_file "$source_file")
+  done
+  if [[ "${#trust_exceptions[@]}" -gt 0 ]]; then
+    printf '\n'
+    gum style --bold --foreground 11 "Trust Exceptions"
+    for trust_exception in "${trust_exceptions[@]}"; do
+      printf '  %s %s\n' "$(gum style --foreground 11 '!')" "$trust_exception"
+    done
   fi
 
   if [[ "${#WARNING_MESSAGES[@]}" -gt 0 ]]; then
