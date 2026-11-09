@@ -16,7 +16,7 @@ custom-shader = shaders/cursor_tail.glsl
 custom-shader-animation = always
 
 # Misc
-copy-on-select = clipboard
+copy-on-select = both
 bold-color = bright
 confirm-close-surface = false
 quit-after-last-window-closed = false
