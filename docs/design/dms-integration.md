@@ -663,6 +663,44 @@ adds only what the package cannot know:
 - enables greetd as the fallback graphical login, skipping (with a recorded
   skip) when another display manager is already enabled.
 
+The `greeter-gpu-wait` managed-config component (selected by
+`base-login-manager`) installs a greetd drop-in,
+`/usr/lib/systemd/system/greetd.service.d/50-zz-gpu-ready.conf`, that runs
+`/usr/lib/zz/greeter-wait-for-gpu` before the greeter starts. niri picks its
+primary GPU once at startup (smithay's `udev::primary_gpu`: the `boot_vga`
+card, whether or not udev has processed it) and never picks again. Fedora's
+NVIDIA driver packages leave their modules out of the initramfs, so the driver
+loads from the real root while greetd is starting. A greeter started in that
+window either takes the firmware `simpledrm` card, whose parent is the boot
+GPU and which the real driver removes moments later, or opens the new card
+before udev has applied its SELinux label and permissions. Either way it
+renders a black screen.
+
+The helper only waits; it never loads a driver. It runs
+`udevadm wait --initialized=yes` on every PCI display controller (class
+`0x03`), then on the card and render nodes found under them. In systemd 255
+and later that wait also covers a device's `RUN` steps (`ID_PROCESSING`), and
+udev's driver load (`RUN{builtin}+="kmod load"` in `80-drivers.rules`, which
+honors blacklists) is one of them. `nvidia_drm` registers its DRM devices from
+module init, so its nodes exist once the controller's event completes. udev
+applies node permissions and SELinux labels before it marks a device
+initialized, so the node wait covers both. akmods, which builds and loads a
+missing module at boot, already orders itself before `display-manager.service`.
+A GPU without a driver (none installed, blacklisted, or `vfio-pci`) has no
+nodes, so the helper returns as soon as udev has handled its event. GDM does
+the equivalent before starting its login display: it ignores `simpledrm`
+cards and waits up to 10 seconds for the boot GPU's card. Both waits share
+one 30-second deadline, well inside greetd's 90-second start timeout, and the
+helper always exits 0. It covers PCI GPUs from any vendor and is installed
+with `base-login-manager` on every system, where the drop-in stays inert
+unless greetd is the enabled display manager. GPUs off the PCI bus (SoC
+platform GPUs, USB displays) are not waited on; their drivers either load
+from the initramfs or are not the boot display. A display controller whose
+udev event hangs holds the greeter for the full deadline, after which it
+starts as it would have without the helper. Installing or changing a managed
+file under a systemd system unit directory reloads systemd once at the end of
+the managed-configuration pass, so a later restart uses the new drop-in.
+
 The sudo-free per-user preview slot (`dms-greeter sync --profile`) runs as
 a first-run checkpoint once the user's shell state exists. The capability
 probe remains as protection against an incomplete or independently packaged

@@ -148,3 +148,61 @@ assert settings == {"attribution": {"commit": "", "pr": "", "sessionUrl": False}
   assert_equal "personal bashrc" "$(cat "$TARGET_HOME/.bashrc")"
   assert_file_contains "$TEST_ROOT/system-install" "/usr/lib/environment.d/test.conf"
 }
+
+write_systemd_drop_in_rows() {
+  mkdir -p "$PLAN_DIR/files"
+  {
+    printf 'greeter-gpu-wait\t/usr/lib/systemd/system/zz-test.service.d/a.conf\tsystem-file\tregenerate\tdotfiles/greetd/50-zz-gpu-ready.conf\t-\tDrop-in\n'
+    printf 'greeter-gpu-wait\t/usr/lib/systemd/system/zz-test.service.d/b.conf\tsystem-file\tregenerate\tdotfiles/greetd/50-zz-gpu-ready.conf\t-\tDrop-in\n'
+  } >"$(managed_config_deployment_plan_file)"
+}
+
+@test "a changed systemd system drop-in reloads systemd once after the apply pass" {
+  write_systemd_drop_in_rows
+  install_file_if_changed() { INSTALL_FILE_CHANGED=1; }
+  run_cmd_as_root() { printf '%s\n' "$*" >>"$TEST_ROOT/root-commands"; }
+
+  apply_managed_config_plan
+
+  assert_equal "systemctl daemon-reload" "$(cat "$TEST_ROOT/root-commands")"
+}
+
+@test "a repeated apply with unchanged systemd drop-ins does not reload systemd" {
+  write_systemd_drop_in_rows
+  install_file_if_changed() { INSTALL_FILE_CHANGED=0; }
+  run_cmd_as_root() { printf '%s\n' "$*" >>"$TEST_ROOT/root-commands"; }
+
+  apply_managed_config_plan
+
+  [ ! -e "$TEST_ROOT/root-commands" ]
+}
+
+@test "system files outside the systemd unit directories do not reload systemd" {
+  mkdir -p "$PLAN_DIR/files"
+  printf 'environment\t/usr/lib/environment.d/zz-test.conf\tsystem-file\tregenerate\tdotfiles/environment/.config/environment.d/10-zz-desktop.conf\t-\tEnvironment\n' \
+    >"$(managed_config_deployment_plan_file)"
+  install_file_if_changed() { INSTALL_FILE_CHANGED=1; }
+  run_cmd_as_root() { printf '%s\n' "$*" >>"$TEST_ROOT/root-commands"; }
+
+  apply_managed_config_plan
+
+  [ ! -e "$TEST_ROOT/root-commands" ]
+}
+
+@test "install_file_if_changed reports whether it installed the file" {
+  local source="$TEST_ROOT/source.conf" destination="$TARGET_HOME/dest.conf"
+  printf 'v1\n' >"$source"
+
+  install_file_if_changed user "$source" "$destination"
+  assert_equal 1 "$INSTALL_FILE_CHANGED"
+  assert_equal v1 "$(cat "$destination")"
+
+  install_file_if_changed user "$source" "$destination"
+  assert_equal 0 "$INSTALL_FILE_CHANGED"
+
+  printf 'v2\n' >"$source"
+  backup_user_file_if_needed() { :; }
+  install_file_if_changed user "$source" "$destination"
+  assert_equal 1 "$INSTALL_FILE_CHANGED"
+  assert_equal v2 "$(cat "$destination")"
+}

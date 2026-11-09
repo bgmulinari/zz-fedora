@@ -169,17 +169,30 @@ replace_user_path_with_product_link() {
   run_cmd_as_user "$TARGET_USER" ln -s "$source" "$destination"
 }
 
+# Set when a system-file row changes a systemd system unit or drop-in, so
+# the apply pass reloads systemd once and the next start or restart uses the
+# new definition instead of the one loaded at boot.
+MANAGED_CONFIG_SYSTEMD_CHANGED=0
+
+managed_config_is_systemd_system_path() {
+  [[ "$1" == /etc/systemd/system/* || "$1" == /usr/lib/systemd/system/* ]]
+}
+
 install_system_config_file() {
   local source="$1" destination="$2"
   [[ "$destination" == /etc/* || "$destination" == /usr/lib/* ]] ||
     die "System config destination is outside the supported roots: $destination"
-  install_file_if_changed root "$source" "$destination"
+  install_file_if_changed root "$source" "$destination" || return
+  if [[ "$INSTALL_FILE_CHANGED" -eq 1 ]] && managed_config_is_systemd_system_path "$destination"; then
+    MANAGED_CONFIG_SYSTEMD_CHANGED=1
+  fi
 }
 
 apply_managed_config_plan() {
   local plan_file
   plan_file="$(managed_config_deployment_plan_file)"
   [[ -f "$plan_file" ]] || return 0
+  MANAGED_CONFIG_SYSTEMD_CHANGED=0
 
   local component path mode conflict source required_command description
   local source_path destination
@@ -216,6 +229,9 @@ apply_managed_config_plan() {
         ;;
     esac
   done <"$plan_file"
+  if [[ "$MANAGED_CONFIG_SYSTEMD_CHANGED" -eq 1 ]]; then
+    run_cmd_as_root systemctl daemon-reload
+  fi
 }
 
 write_managed_config_conflict_preview() {

@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# greetd ExecStartPre helper: hold the greeter until udev has finished with
+# every display controller and with the DRM nodes its driver registered.
+#
+# niri picks its primary GPU once, at startup, through smithay's
+# udev::primary_gpu (the boot_vga card, whether or not udev has processed
+# it) and never picks again. Fedora keeps the NVIDIA modules out of the
+# initramfs, so the greeter can start while udev is still loading them: niri
+# then takes the firmware framebuffer (simpledrm, whose parent is the boot
+# GPU), which the real driver removes moments later, or opens the new card
+# before udev has applied its SELinux label and permissions. Either way the
+# greeter renders a black screen.
+#
+# Two udev guarantees (systemd >= 255) make this a pure wait:
+# - `udevadm wait --initialized=yes` returns only once a device is fully
+#   processed, RUN steps included (ID_PROCESSING). udev's driver load,
+#   `RUN{builtin}+="kmod load"`, is such a step and honors blacklists, so a
+#   display controller's event completes only after its driver (for NVIDIA,
+#   nvidia and nvidia_drm, which registers its DRM devices from module init)
+#   has loaded or been refused.
+# - Node permissions and SELinux labels are applied before a device is
+#   marked initialized, so waiting on the DRM nodes covers both.
+#
+# GDM waits the same way before starting its login display. Nothing is
+# loaded here: a GPU without a driver (none installed, blacklisted,
+# vfio-pci) has no DRM nodes to wait for. Both waits share one deadline and
+# the helper always exits 0, so the greeter is never held longer than that.
+
+GPU_WAIT_PCI_DEVICES_ROOT="/sys/bus/pci/devices"
+GPU_WAIT_DEV_ROOT="/dev/dri"
+GPU_WAIT_TIMEOUT=30
+
+gpu_wait_log() {
+  printf 'greeter-wait-for-gpu: %s\n' "$*" >&2
+}
+
+gpu_wait_main() {
+  local deadline=$((SECONDS + GPU_WAIT_TIMEOUT)) remaining device_path class node
+  local -a controllers=() nodes=()
+
+  # PCI class 0x03xxxx: VGA, XGA, 3D, and other display controllers.
+  for device_path in "$GPU_WAIT_PCI_DEVICES_ROOT"/*; do
+    [[ -r "$device_path/class" ]] || continue
+    IFS= read -r class <"$device_path/class" || continue
+    if [[ "${class,,}" == 0x03* ]]; then
+      controllers+=("$device_path")
+    fi
+  done
+  [[ "${#controllers[@]}" -gt 0 ]] || return 0
+
+  if ! udevadm wait --timeout="$GPU_WAIT_TIMEOUT" --initialized=yes "${controllers[@]}"; then
+    gpu_wait_log "udev did not finish with ${controllers[*]##*/} within ${GPU_WAIT_TIMEOUT}s; starting the greeter."
+    return 0
+  fi
+
+  # Collected only now: the nodes appear while the controller's driver loads.
+  for device_path in "${controllers[@]}"; do
+    for node in "$device_path"/drm/card* "$device_path"/drm/renderD*; do
+      if [[ -e "$node" ]]; then
+        nodes+=("$GPU_WAIT_DEV_ROOT/${node##*/}")
+      fi
+    done
+  done
+  [[ "${#nodes[@]}" -gt 0 ]] || return 0
+
+  remaining=$((deadline - SECONDS))
+  if ((remaining < 1)) ||
+    ! udevadm wait --timeout="$remaining" --initialized=yes "${nodes[@]}"; then
+    gpu_wait_log "udev did not initialize ${nodes[*]} within ${GPU_WAIT_TIMEOUT}s; starting the greeter."
+  fi
+  return 0
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  gpu_wait_main || true
+fi

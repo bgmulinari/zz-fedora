@@ -26,6 +26,8 @@ zsh	~/.zprofile	product-link	backup-before-link	dotfiles/zsh/.zprofile	zsh	Links
 environment	/usr/lib/environment.d/10-zz-desktop.conf	system-file	regenerate	dotfiles/environment/.config/environment.d/10-zz-desktop.conf	-	Installs the ZZ-managed desktop session environment.
 npm	/etc/npmrc	system-file	regenerate	dotfiles/npm/npmrc	npm	Installs the ZZ-managed npm global configuration that keeps global packages in each user's ~/.local.
 portals	/etc/xdg/xdg-desktop-portal/niri-portals.conf	system-file	regenerate	dotfiles/portals/.config/xdg-desktop-portal/niri-portals.conf	-	Installs the ZZ-managed desktop portal preference map.
+greeter-gpu-wait	/usr/lib/zz/greeter-wait-for-gpu	system-file	regenerate	dotfiles/greetd/greeter-wait-for-gpu	-	Installs the greetd pre-start helper that waits for udev to finish with the display controllers and their DRM nodes.
+greeter-gpu-wait	/usr/lib/systemd/system/greetd.service.d/50-zz-gpu-ready.conf	system-file	regenerate	dotfiles/greetd/50-zz-gpu-ready.conf	-	Holds the greeter until the GPU devices are ready so a late-loading driver cannot leave it on a black screen.
 niri	~/.config/niri/config.kdl	seed-if-missing	preserve	dotfiles/niri/.config/niri/config.kdl	niri	Seeds the user-owned Niri entrypoint over the live ZZ defaults.
 niri	~/.config/niri/dms/colors.kdl	seed-if-missing	preserve	templates/niri/dms-colors.kdl	niri	Seeds the generated DMS Niri theme include.
 niri	~/.config/niri/dms/layout.kdl	seed-if-missing	preserve	templates/niri/dms-layout.kdl	niri	Seeds Xray and Dank Bar Xray off in the DMS-owned Niri layout include.

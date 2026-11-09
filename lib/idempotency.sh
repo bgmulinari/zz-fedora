@@ -274,16 +274,24 @@ backup_user_file_if_needed() {
 # Single file-install primitive shared by root- and user-context callers:
 # skip when unchanged, back up an existing destination, then install with
 # the requested mode. Context selects the execution identity.
+# INSTALL_FILE_CHANGED reports the last call's decision (1 when the
+# destination differed and was (re)installed) so callers can react to a
+# change without repeating the comparison.
+# shellcheck disable=SC2034  # Consumed by lib/files.sh.
+INSTALL_FILE_CHANGED=0
 install_file_if_changed() {
   local context="$1"
   local source_file="$2"
   local destination="$3"
   local mode="${4:-0644}"
+  INSTALL_FILE_CHANGED=0
   [[ -f "$source_file" ]] || die "Managed source file not found: $source_file"
   if [[ -f "$destination" ]] && cmp -s "$source_file" "$destination"; then
     log_info "Unchanged file: $destination"
     return 0
   fi
+  # shellcheck disable=SC2034  # Consumed by lib/files.sh.
+  INSTALL_FILE_CHANGED=1
   case "$context" in
     root)
       backup_file_if_needed "$destination"

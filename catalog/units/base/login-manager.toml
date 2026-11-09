@@ -1,5 +1,6 @@
 id = "base-login-manager"
 description = "DMS Greeter login manager for Fedora"
+config = ["greeter-gpu-wait"]
 
 [base]
 order = 60
