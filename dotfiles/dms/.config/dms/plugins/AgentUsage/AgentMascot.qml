@@ -134,8 +134,15 @@ Canvas {
 
     readonly property var codexIdleMs: [280, 110, 110, 140, 140, 320].map(ms => ms * 6)
     readonly property var codexTracks: ({
-            running_right: codexTrack(1, 8, 120, 220),
-            running_left: codexTrack(2, 8, 120, 220),
+            // The running rows are a scramble for being dragged, not a walk: one
+            // leg swings through (column 2) and reaches (column 4) while the
+            // other stays put, the stands between them are near copies, and the
+            // last two columns repeat the first two. Played straight, it holds
+            // a stand for frames on end and steps on one leg. This order swings
+            // the leg out and back through its stride instead, with a single
+            // stand between strides.
+            running_right: codexCycle(1, [1, 2, 4, 2]),
+            running_left: codexCycle(2, [1, 2, 4, 2]),
             waving: codexTrack(3, 4, 140, 280),
             jumping: codexTrack(4, 5, 140, 280),
             failed: codexTrack(5, 8, 140, 240),
@@ -160,11 +167,17 @@ Canvas {
     // Running to a spot, -1 when not, and how much faster than its stride.
     property real codexTarget: -1
     property real codexSpeed: 1
-    // Pixels a tick at each column of a running row. The app only plays these
-    // rows while the pet is dragged, so left to move itself it has to keep to its
-    // legs: they cross in the middle columns, and a body sliding at one speed
-    // skates through the columns where its feet are apart.
-    readonly property var codexStride: [0.5, 1, 3, 3, 3, 1, 0.5, 0.5]
+    // Pixels a tick while it runs. The app only plays the running rows while the
+    // pet is dragged, so their feet run in place and any travel slides them;
+    // travel bunched into some frames shows as a skid on one leg, while an even
+    // pace reads as the stride carrying it.
+    readonly property real codexPace: 1.5
+    // How far each running frame carries it. Its legs step by the ground covered,
+    // not by the clock, so a faster run steps faster instead of gliding further
+    // on each frame. A speed that is a whole multiple of the pace keeps the
+    // steps on whole ticks.
+    readonly property real codexFrameStride: 3
+    property real codexWalked: 0
     // A row a duet holds it on.
     property string codexHeldRow: ""
     property real codexX: width - codexCellWidth - 16
@@ -204,6 +217,16 @@ Canvas {
                 ms: i === count - 1 ? lastMs : ms
             });
         return frames;
+    }
+
+    // A running row's columns in the order they play. Its steps follow the
+    // ground covered rather than a clock, so the frames carry no time.
+    function codexCycle(row, columns) {
+        return columns.map(column => ({
+                    row: row,
+                    column: column,
+                    ms: 0
+                }));
     }
 
     function codexIdleFrames() {
@@ -253,6 +276,7 @@ Canvas {
         }
         codexIndex = 0;
         codexElapsed = 0;
+        codexWalked = 0;
         showCodexFrame();
     }
 
@@ -310,14 +334,21 @@ Canvas {
             runCodexTo(codexHomeX);
         if (codexTarget >= 0) {
             const gap = codexTarget - codexX;
-            const travel = codexStride[codexColumn] * codexSpeed;
+            const travel = codexPace * codexSpeed;
             if (Math.abs(gap) <= travel) {
                 codexX = codexTarget;
                 codexTarget = -1;
                 startCodexState();
             } else {
                 codexX += gap > 0 ? travel : -travel;
+                codexWalked += travel;
+                if (codexWalked >= codexFrameStride) {
+                    codexWalked -= codexFrameStride;
+                    codexIndex = (codexIndex + 1) % codexFrames.length;
+                    showCodexFrame();
+                }
             }
+            return;
         } else if (duetSteps === null && codexTransient === "" && !codexHovered) {
             // Now and then it does something else, whatever it is up to, as Clawd
             // does.
@@ -357,7 +388,8 @@ Canvas {
     Item {
         id: codexSprite
         visible: scene.showCodex && scene.codexSheet !== "" && codexImage.status === Image.Ready
-        x: Math.round(scene.codexX)
+        // On whole device pixels, so an even pace stays even on a scaled output.
+        x: Math.round(scene.codexX * scene.deviceRatio) / scene.deviceRatio
         y: scene.codexY
         width: scene.codexCellWidth
         height: scene.codexCellHeight
@@ -746,7 +778,7 @@ Canvas {
         case "chase":
             return [{
                     codexRun: besideClawd + 30,
-                    speed: 1.5
+                    speed: 2
                 }, {
                     hold: lookRight(1)[0],
                     wait: 5
@@ -758,11 +790,11 @@ Canvas {
                 }, {
                     // A head start: Clawd's steps cover more ground than its legs.
                     codexRun: clawdPixelWidth + 40,
-                    speed: 1.5
+                    speed: 2
                 }, {
                     codexRun: home,
                     clawdWalk: meetColumn,
-                    speed: 1.5
+                    speed: 2
                 }, {
                     codex: "jumping",
                     codexPasses: 1,
@@ -865,7 +897,7 @@ Canvas {
                     codexPasses: 1
                 }, {
                     codexRun: home,
-                    speed: 1.5
+                    speed: 2
                 }];
         case "visit":
             return [{
@@ -1059,7 +1091,7 @@ Canvas {
                 if (grid[y][x] === 0 || column < 0 || column >= clawdColumns)
                     continue;
                 ctx.fillStyle = grid[y][x] === 2 ? clawdBackground : clawdBody;
-                ctx.fillRect(left + column * px, clawdTop + row * px, px, px);
+                fillCell(ctx, left + column * px, clawdTop + row * px, px, px);
             }
         }
         // The puffs a crouch kicks up, and the shadow under a coin hop.
@@ -1067,12 +1099,12 @@ Canvas {
         if (frame.poof && frame.offset > 0) {
             const puff = frame.poof === "dot" ? [[1, 10]] : [[0, 10], [1, 9]];
             for (let i = 0; i < puff.length; i++) {
-                ctx.fillRect(left + puff[i][0] * px, clawdTop + puff[i][1] * px, px, px);
-                ctx.fillRect(left + (16 + puff[i][0]) * px, clawdTop + puff[i][1] * px, px, px);
+                fillCell(ctx, left + puff[i][0] * px, clawdTop + puff[i][1] * px, px, px);
+                fillCell(ctx, left + (16 + puff[i][0]) * px, clawdTop + puff[i][1] * px, px, px);
             }
         }
         if (frame.shadow)
-            ctx.fillRect(left + (frame.shadow === "wide" ? 6 : 8) * px, clawdTop + 11 * px, (frame.shadow === "wide" ? 6 : 2) * px, px);
+            fillCell(ctx, left + (frame.shadow === "wide" ? 6 : 8) * px, clawdTop + 11 * px, (frame.shadow === "wide" ? 6 : 2) * px, px);
     }
 
     // ----------------------------------------------------------------- props
@@ -1124,12 +1156,12 @@ Canvas {
         for (let r = 0; r < rows.length; r++)
             for (let c = 0; c < rows[r].length; c++)
                 if (rows[r][c] === "#")
-                    ctx.fillRect(left + c * propPixel, top + r * propPixel, propPixel, propPixel);
+                    fillCell(ctx, left + c * propPixel, top + r * propPixel, propPixel, propPixel);
     }
 
     function propDot(ctx, x, y, size, color) {
         ctx.fillStyle = color;
-        ctx.fillRect(Math.round(x), Math.round(y), size * propPixel, size * propPixel);
+        fillCell(ctx, Math.round(x), Math.round(y), size * propPixel, size * propPixel);
     }
 
     function drawProp(ctx, name, t, at) {
@@ -1150,7 +1182,7 @@ Canvas {
             if (t > 14) {
                 const bubbleX = at.x + at.side * 20 - 10;
                 ctx.fillStyle = bright;
-                ctx.fillRect(Math.round(bubbleX), Math.max(0, Math.round(at.top - 17)), 20, 9);
+                fillCell(ctx, Math.round(bubbleX), Math.max(0, Math.round(at.top - 17)), 20, 9);
                 for (let i = 0; i < 3; i++)
                     if (Math.floor(t / 5) % 4 > i)
                         propDot(ctx, bubbleX + 3 + i * 5, Math.max(0, Math.round(at.top - 17)) + 3, 1, clawdBackground);
@@ -1166,11 +1198,11 @@ Canvas {
             break;
         case "groove":
             ctx.fillStyle = bright;
-            ctx.fillRect(Math.round(at.x - at.halfWidth + 5), Math.round(at.top - 4), 2 * at.halfWidth - 10, propPixel);
-            ctx.fillRect(Math.round(at.x - at.halfWidth + 1), Math.round(at.top - 2), propPixel * 2, propPixel);
-            ctx.fillRect(Math.round(at.x + at.halfWidth - 5), Math.round(at.top - 2), propPixel * 2, propPixel);
-            ctx.fillRect(Math.round(at.x - at.halfWidth - 1), Math.round(at.top), propPixel * 2, 12);
-            ctx.fillRect(Math.round(at.x + at.halfWidth - 3), Math.round(at.top), propPixel * 2, 12);
+            fillCell(ctx, Math.round(at.x - at.halfWidth + 5), Math.round(at.top - 4), 2 * at.halfWidth - 10, propPixel);
+            fillCell(ctx, Math.round(at.x - at.halfWidth + 1), Math.round(at.top - 2), propPixel * 2, propPixel);
+            fillCell(ctx, Math.round(at.x + at.halfWidth - 5), Math.round(at.top - 2), propPixel * 2, propPixel);
+            fillCell(ctx, Math.round(at.x - at.halfWidth - 1), Math.round(at.top), propPixel * 2, 12);
+            fillCell(ctx, Math.round(at.x + at.halfWidth - 3), Math.round(at.top), propPixel * 2, 12);
             for (let i = 0; i < 2; i++) {
                 const rise = ((t + i * 14) % 28) / 28;
                 ctx.globalAlpha = 1 - rise * rise;
@@ -1200,7 +1232,7 @@ Canvas {
             const cupY = at.ground - 8;
             propSprite(ctx, propCup, cupX, cupY, bright);
             ctx.fillStyle = "#7A4F2B";
-            ctx.fillRect(Math.round(cupX), Math.round(cupY), 8, propPixel);
+            fillCell(ctx, Math.round(cupX), Math.round(cupY), 8, propPixel);
             for (let i = 0; i < 2; i++) {
                 const rise = ((t + i * 9) % 18) / 18;
                 ctx.globalAlpha = 1 - rise;
@@ -1249,9 +1281,24 @@ Canvas {
         propDot(ctx, fromX + (toX - fromX) * done, fromY + (toY - fromY) * done - peak, 2, propColors[0]);
     }
 
+    // The window's own scale, not the screen's: on a fractionally scaled output
+    // the screen reports the next whole number while the canvas paints at, say,
+    // 1.25 device pixels to the point.
+    property real deviceRatio: 1
+
+    // Every rectangle drawn here, its edges on whole device pixels. Unsnapped, a
+    // 3-point cell at 1.25 lands on fractional pixels, each edge is antialiased
+    // against the next cell's, and the seams show as a grid across the sprite.
+    function fillCell(ctx, x, y, w, h) {
+        const left = Math.round(x * deviceRatio) / deviceRatio;
+        const top = Math.round(y * deviceRatio) / deviceRatio;
+        ctx.fillRect(left, top, Math.round((x + w) * deviceRatio) / deviceRatio - left, Math.round((y + h) * deviceRatio) / deviceRatio - top);
+    }
+
     onPaint: {
         const ctx = getContext("2d");
         ctx.reset();
+        deviceRatio = Window.window ? Window.window.devicePixelRatio : 1;
         // Behind the companion's sprite, which is the strip's child.
         if (codexProp !== "" && codexSprite.visible)
             drawProp(ctx, codexProp, codexPropTick, codexAnchor());

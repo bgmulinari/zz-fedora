@@ -43,6 +43,56 @@ PluginSettings {
         defaultValue: true
     }
 
+    SelectionSetting {
+        settingKey: "barAgent"
+        label: "Bar agent"
+        description: "Whose usage the bar shows. Any shows whichever agent is closest to a limit"
+        options: [
+            {
+                label: "Any",
+                value: "any"
+            },
+            {
+                label: "Claude Code",
+                value: "claude"
+            },
+            {
+                label: "Codex",
+                value: "codex"
+            },
+            {
+                label: "OpenCode",
+                value: "opencode"
+            }
+        ]
+        defaultValue: "any"
+    }
+
+    SelectionSetting {
+        settingKey: "barLimit"
+        label: "Bar limit"
+        description: "Which window the bar shows. Fullest shows whichever is closest to running out; an agent without the chosen window shows its fullest instead"
+        options: [
+            {
+                label: "Fullest",
+                value: "fullest"
+            },
+            {
+                label: "Session",
+                value: "Session"
+            },
+            {
+                label: "Weekly",
+                value: "Weekly"
+            },
+            {
+                label: "Monthly",
+                value: "Monthly"
+            }
+        ]
+        defaultValue: "fullest"
+    }
+
     ToggleSetting {
         settingKey: "mascotEnabled"
         label: "Animated mascots"

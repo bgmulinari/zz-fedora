@@ -2,7 +2,8 @@
 
 One bar pill and one popout for the AI agent subscriptions on the machine:
 Claude Code, Codex, and OpenCode. The pill shows the fullest rate-limit window
-as a percentage and turns red at 90%. The popout is one page, limits first:
+as a percentage, or the agent and window pinned in the settings, and turns red
+at 90%. The popout is one page, limits first:
 
 - **Hero**: a line that rotates through what the token counts add up to across
   every agent (tokens this week and today, the most used model, the busiest
@@ -40,8 +41,8 @@ as a percentage and turns red at 90%. The popout is one page, limits first:
 
 - **One section per subscription**: an agent with limits or a plan gets one;
   local history alone only feeds the hero's line. Its mark, name, and plan,
-  then a compact line per limit window with its meter and the time until it
-  resets (the exact percentage on hover). A model-scoped allowance on the same
+  then a compact line per limit window with its meter, the percentage used,
+  and the time until it resets. A model-scoped allowance on the same
   clock (Claude's Fable weekly limit) is a tick on that window's meter, named
   in the row's tooltip. A lapsed or missing sign-in shows a _Sign-in required_
   link that signs in again from a terminal. Any other trouble leaves the last
@@ -100,7 +101,9 @@ bar layout: a machine that never ran an AI agent draws nothing.
 
 ## Settings
 
-Settings > Plugins > Agent Usage: enable or disable each agent, set the
+Settings > Plugins > Agent Usage: enable or disable each agent, pin the bar to
+one agent or kind of window (an agent without the pinned window shows its
+fullest, and one without limits leaves the bar to the fullest anywhere), set the
 refresh interval, and optionally merge usage snapshots from other machines
 through a synced folder. Rate limits stay per-account and are never merged.
 

@@ -31,8 +31,11 @@ PluginComponent {
     }
 
     // The bar speaks for every subscription: the fullest window anywhere is
-    // the one about to stop a prompt.
-    readonly property var pillWindow: worstWindow(providers)
+    // the one about to stop a prompt. The settings can pin it to one agent, one
+    // kind of window, or both.
+    readonly property string pinnedAgent: String(usage.setting("barAgent", "any"))
+    readonly property string pinnedLimit: String(usage.setting("barLimit", "fullest"))
+    readonly property var pillWindow: pinnedWindow(providers, pinnedAgent, pinnedLimit)
     readonly property bool alarming: !!pillWindow && pillWindow.percent >= 0.9
     readonly property string pillText: pillWindow ? Math.round(pillWindow.percent * 100) + "%" : ""
 
@@ -158,6 +161,27 @@ PluginComponent {
             }
         }
         return best;
+    }
+
+    // The pinned window, or the nearest thing to it: a pinned agent without the
+    // pinned kind of window shows its own fullest, and one with no limits at
+    // all leaves the bar to the fullest anywhere rather than to nothing. A kind
+    // of window means that window itself, not a model's allowance on its clock.
+    function pinnedWindow(list, agent, limit) {
+        const agents = agent === "any" ? list : list.filter(p => p.providerId === agent);
+        if (limit !== "fullest") {
+            let best = null;
+            for (let i = 0; i < agents.length; i++) {
+                const windows = limitWindows(agents[i]);
+                for (let j = 0; j < windows.length; j++) {
+                    if (windows[j].title === limit && (!best || windows[j].percent > best.percent))
+                        best = windows[j];
+                }
+            }
+            if (best)
+                return best;
+        }
+        return worstWindow(agents) || worstWindow(list);
     }
 
     function resetMsFor(w) {
@@ -1004,46 +1028,55 @@ PluginComponent {
                         }
                     }
 
-                    AgentMascot {
-                        id: scene
+                    // The strip's top is headroom for what they play with, empty
+                    // most of the time; it rises into the gap above it rather than
+                    // widening that gap.
+                    Item {
                         visible: root.mascotsShown
                         width: parent.width
-                        height: implicitHeight
-                        active: popout.showing && root.mascotsShown
-                        showClaude: root.hasClaude
-                        showCodex: root.hasCodex && root.codexSheet !== ""
-                        claudeMood: root.claudeMood
-                        codexMood: root.codexMood
-                        codexSheet: root.codexSheet
-                        pointerInside: sceneMouse.containsMouse
-                        pointerX: sceneMouse.mouseX
-                        pointerY: sceneMouse.mouseY
+                        height: scene.height - Theme.spacingL
 
-                        // Held until the strip is on screen to play them.
-                        readonly property var pending: active ? root.pendingReactions : ({})
-                        onPendingChanged: {
-                            const agents = Object.keys(pending);
-                            if (agents.length === 0)
-                                return;
-                            for (let i = 0; i < agents.length; i++)
-                                play(agents[i]);
-                            // Clearing them here would re-enter this binding.
-                            Qt.callLater(() => root.pendingReactions = ({}));
-                        }
+                        AgentMascot {
+                            id: scene
+                            y: -Theme.spacingL
+                            width: parent.width
+                            height: implicitHeight
+                            active: popout.showing && root.mascotsShown
+                            showClaude: root.hasClaude
+                            showCodex: root.hasCodex && root.codexSheet !== ""
+                            claudeMood: root.claudeMood
+                            codexMood: root.codexMood
+                            codexSheet: root.codexSheet
+                            pointerInside: sceneMouse.containsMouse
+                            pointerX: sceneMouse.mouseX
+                            pointerY: sceneMouse.mouseY
 
-                        MouseArea {
-                            id: sceneMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: mouse => scene.clickAt(mouse.x, mouse.y)
-                        }
+                            // Held until the strip is on screen to play them.
+                            readonly property var pending: active ? root.pendingReactions : ({})
+                            onPendingChanged: {
+                                const agents = Object.keys(pending);
+                                if (agents.length === 0)
+                                    return;
+                                for (let i = 0; i < agents.length; i++)
+                                    play(agents[i]);
+                                // Clearing them here would re-enter this binding.
+                                Qt.callLater(() => root.pendingReactions = ({}));
+                            }
 
-                        DTooltipHost {
-                            target: scene
-                            hoverArea: sceneMouse
-                            text: root.mascotText()
-                            multiline: true
+                            MouseArea {
+                                id: sceneMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: mouse => scene.clickAt(mouse.x, mouse.y)
+                            }
+
+                            DTooltipHost {
+                                target: scene
+                                hoverArea: sceneMouse
+                                text: root.mascotText()
+                                multiline: true
+                            }
                         }
                     }
 
@@ -1339,9 +1372,9 @@ PluginComponent {
         }
     }
 
-    // One line per limit window: title, meter, and the time until it resets.
-    // The exact percentage is in the row's tooltip, along with any model-scoped
-    // allowance on the same clock, which is a tick on this row's meter.
+    // One line per limit window: title, meter, the share used, and the time
+    // until it resets. The row's tooltip adds any model-scoped allowance on the
+    // same clock, which is a tick on this row's meter.
     component CompactLimit: Item {
         id: compact
         property var window: null
@@ -1382,8 +1415,8 @@ PluginComponent {
 
         Meter {
             anchors.left: compactTitle.right
-            anchors.right: compactValue.left
-            anchors.rightMargin: Theme.spacingL
+            anchors.right: compactPercent.left
+            anchors.rightMargin: Theme.spacingM
             anchors.verticalCenter: parent.verticalCenter
             value: compact.window ? compact.window.percent : -1
             alarming: compact.alarming
@@ -1396,6 +1429,26 @@ PluginComponent {
             visible: false
             text: "00h 00m"
             font.pixelSize: Theme.fontSizeSmall
+        }
+
+        // Sized to the widest share, for the same reason.
+        StyledText {
+            id: compactPercentWidest
+            visible: false
+            text: "100%"
+            font.pixelSize: Theme.fontSizeSmall
+        }
+
+        StyledText {
+            id: compactPercent
+            width: Math.ceil(compactPercentWidest.implicitWidth)
+            anchors.right: compactValue.left
+            anchors.rightMargin: Theme.spacingL
+            anchors.verticalCenter: parent.verticalCenter
+            horizontalAlignment: Text.AlignRight
+            text: compact.window ? Math.round(compact.window.percent * 100) + "%" : ""
+            font.pixelSize: Theme.fontSizeSmall
+            color: compact.alarming ? Theme.error : Theme.surfaceText
         }
 
         StyledText {
