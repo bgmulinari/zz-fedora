@@ -18,6 +18,7 @@ Singleton {
     readonly property color surfaceText: "#e6e1e5"
     readonly property color surfaceVariantText: "#cac4d0"
     readonly property color outlineVariant: "#49454f"
+    readonly property color surfaceContainer: "#211f26"
 
     function withAlpha(color, alpha) {
         return Qt.rgba(color.r, color.g, color.b, alpha);

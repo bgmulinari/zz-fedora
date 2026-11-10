@@ -75,8 +75,9 @@ between pages. Refresh starts every list over.
 
 The search field searches GitHub on the pull request and issue lists: the
 words join the list's own search (Created, Assigned, ...) a moment after
-typing stops, GitHub's search syntax included (`label:bug`,
-`repo:owner/name`), and the results page in as you scroll. A search covers
+typing stops, GitHub's advanced search syntax included (`label:bug`,
+`repo:owner/name`, `-author:name`, `label:a OR label:b`, parentheses, and a
+`sort:` of your own), and the results page in as you scroll. A search covers
 every state, open or closed; in a picked repository, whose filters are
 states, the filter chips dim and the search spans the whole tab. Loaded
 rows that match show at once, and those GitHub's text search cannot find
@@ -91,7 +92,28 @@ twice matches either value, and words match the rows' text, which
 github.com's inbox cannot search. The notifications API has no search of
 its own, so filtering the Inbox loads its remaining pages (up to 500
 notifications, a search typed while the Inbox still loads included) and
-filters those; the Actions tab filters the runs it has.
+filters those. The Actions tab filters the runs it has, as github.com's
+filter over runs: `workflow:name`, `branch:main`, `event:push`,
+`status:failure` (a run's status or its conclusion), and `repo:owner/name`
+over every repository. On the Inbox and Actions, a dash leaves out what a
+qualifier matches (`-reason:subscribed`), and a value with a space goes in
+quotes (`workflow:"CI Build"`).
+
+As on github.com, the search field suggests while you type: a word that
+starts a qualifier's name (or a word of its label: `date` offers
+`updated:`, `created:`, ...) lists the qualifiers that tab's search reads,
+and once a qualifier has its colon, its values. Values come from the tab:
+states, review states, sorts, and date ranges (past day, week, month,
+year) from the plugin; labels, people, repositories, owners, workflows,
+branches, and events from the rows loaded; and from GitHub, for the
+repository on screen or the one `repo:` names, its labels, open
+milestones, issue types, branches (for `base:` and `head:`), and the
+people who can be assigned there, plus GitHub's users from two letters of
+a name. Tab takes the picked suggestion (or the first), Down and Up pick
+one, Enter takes a picked one, a click takes one, and Escape puts the menu
+away until the word changes. The filter button at the end of the field
+lists every qualifier, with AND, OR, and Exclude on the pull request and
+issue lists.
 
 ## Pages
 
@@ -241,7 +263,8 @@ is a web or mail link: bodies are written by anyone, and a link to a file or
 another app does nothing but say so.
 
 Keys: arrows move, Enter opens the page (on a page: opens it on GitHub),
-Ctrl+Enter opens the row on GitHub, Tab switches tabs, Left and Right
+Ctrl+Enter opens the row on GitHub, Tab switches tabs (while the search's
+suggestions show, the arrows and Tab are theirs; see above), Left and Right
 switch filters, Ctrl+R refreshes, `c` focuses the comment box, Ctrl+Enter
 posts, Escape goes back and then closes (the popout; a window stays). In
 the Inbox, Space checks the row (Ctrl+Space while the search has text),
@@ -297,7 +320,9 @@ many bars show the mark.
 | The bar's counts while nothing is on screen | `gh api graphql` with `queries/inbox.graphql` (operation `Badge`) |
 | One repository's lists | `gh api graphql` with `queries/inbox.graphql` (operation `Repository`), one request |
 | Repositories by name, for the picker | `gh search repos` |
-| The next page of a list, or a search | `gh api graphql` with `queries/inbox.graphql` (operation `Page`) |
+| The next page of a list | `gh api graphql` with `queries/inbox.graphql` (operation `Page`) |
+| A search typed over a list, and its next pages | `gh api graphql` with `queries/inbox.graphql` (operation `Search`, GitHub's advanced search) |
+| The search's suggestions: a repository's labels, milestones, and issue types; its branches; who can be assigned there; GitHub's users by name | `gh api graphql` with `queries/suggest.graphql` (operations `Repository`, `Branches`, `People`, `Users`), a moment after typing stops, each answer kept five minutes |
 | Unread notifications (the dot, the counts, desktop notifications) | `gh api notifications` (the newest 50) |
 | The Inbox | `gh api notifications?all=true` (or `repos/<owner>/<name>/notifications?all=true`), 50 at a time, the next ones with `before=` the oldest loaded |
 | What each Inbox subject is now (state, author) | `gh api graphql` with one `issueOrPullRequest` per subject, each repository once, per page |

@@ -5,9 +5,10 @@
 # in (which the Actions tab watches unless the settings name others, and
 # the repository picker offers). Badge is what the bar needs while nothing
 # is on screen: the counts alone. Repository is one repository's lists,
-# everyone's items in it, open and closed. Page is one search's next page as
-# a list scrolls to its end, or, without a cursor, the first pages of a
-# search with the viewer's words added. Resolve is what a github.com link
+# everyone's items in it, open and closed. Page is a list's next page as it
+# scrolls to its end. Search is a search with the viewer's words added, a
+# page at a time, through GitHub's advanced search (the one github.com's
+# search bar uses, which reads AND, OR, and parentheses). Resolve is what a github.com link
 # to #N is (an issue or a pull request, both under /issues/N), as a row
 # carries it, so a page opened from a link has its state before its own
 # load. The search strings come from GitHubLogic.js (searchFor), so every
@@ -47,6 +48,10 @@ query Repository($first: Int!, $prOpen: String!, $prMerged: String!, $prClosed: 
 
 query Page($search: String!, $first: Int!, $after: String) {
   search(type: ISSUE, first: $first, after: $after, query: $search) { ...results }
+}
+
+query Search($search: String!, $first: Int!, $after: String) {
+  search(type: ISSUE_ADVANCED, first: $first, after: $after, query: $search) { ...results }
 }
 
 query Resolve($owner: String!, $name: String!, $number: Int!) {

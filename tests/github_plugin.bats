@@ -1910,3 +1910,256 @@ EOF
   assert_file_contains "$dir/GitHubWidget.qml" 'resumeSeconds: root.resumeSeconds'
   assert_file_contains "$dir/Settings.qml" 'settingKey: "resumeSeconds"'
 }
+
+@test "github search suggests each tab's qualifiers, then their values, as github.com's search bar does" {
+  need_node
+
+  run github_logic <<'EOF'
+const at = (tab, scope, text, values, all) => {
+  const c = L.searchContext(tab, scope, text, text.length);
+  return L.searchSuggestions(tab, scope, c, values || [], Date.parse("2026-11-10T12:00:00Z"), !!all);
+};
+const inserts = list => list.map(e => e.insert);
+const take = (tab, scope, text, values, index) => {
+  const c = L.searchContext(tab, scope, text, text.length);
+  return L.applySuggestion(text, c, L.searchSuggestions(tab, scope, c, values || [], 0, false)[index || 0]);
+};
+return {
+  // A word that begins a name, or a word of one's label.
+  prs: inserts(at("prs", "", "re")),
+  issues: inserts(at("issues", "", "re")),
+  byLabel: inserts(at("issues", "o/r", "date")),
+  ops: inserts(at("prs", "", "o")),
+  // Nothing typed lists nothing, unless the filter button asks.
+  quiet: at("issues", "", "fix ").length,
+  all: inserts(at("actions", "o/r", "", [], true)),
+  viewerOnly: [at("issues", "", "rep").length, at("issues", "o/r", "rep").length],
+  inbox: inserts(at("inbox", "", "re")),
+  excluded: inserts(at("issues", "o/r", "-la")),
+  // Values: fixed ones per kind, a source's, a date's ranges, a hint.
+  isPr: inserts(at("prs", "", "is:m")),
+  isIssue: inserts(at("issues", "", "is:m")),
+  labels: at("issues", "o/r", "label:go", [{ value: "bug", color: "d73a4a" }, { value: "good first issue", color: "7057ff" }, { value: "Good First Issue" }]),
+  negated: inserts(at("issues", "o/r", "-label:b", [{ value: "bug" }])),
+  dates: inserts(at("issues", "", "updated:")),
+  hint: at("issues", "", "parent-issue:"),
+  unknown: [at("issues", "", "https://github.com").length, at("issues", "", "foo:bar").length, at("issues", "", "#12").length],
+  // Taking one: a qualifier keeps the cursor after its colon, a value
+  // closes its word, and a quoted value being typed is one word.
+  qualifier: take("issues", "o/r", "fix la"),
+  value: take("issues", "o/r", "crash label:\"good fi", [{ value: "good first issue" }]),
+  middle: L.applySuggestion("is:open au crash", L.searchContext("issues", "", "is:open au crash", 10), { insert: "author:", final: false }),
+  repo: [L.searchedRepo("crash repo:o/r"), L.searchedRepo("repo:a/b repo:c/d"), L.searchedRepo("-repo:o/r")],
+  answers: [
+    L.suggestedValues("repository", { repository: { labels: { totalCount: 1, nodes: [{ name: "bug", color: "d73a4a", description: "Broken" }] }, milestones: { nodes: [{ title: "v1", dueOn: "2026-12-01T00:00:00Z" }] }, issueTypes: null } }),
+    L.suggestedValues("repository", { repository: { labels: { totalCount: 150, nodes: [{ name: "a" }] } } }).moreLabels,
+    L.suggestedValues("users", { search: { nodes: [{ login: "octo", name: "Octo Cat" }, {}] } })
+  ]
+};
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '["review-requested:","repo:","reviewed-by:","reactions:","review:","user-review-requested:","team-review-requested:"]' "$(jq -c '.prs' <<<"$output")"
+  assert_equal '["repo:","reason:","reactions:"]' "$(jq -c '.issues' <<<"$output")"
+  assert_equal '["updated:","created:","closed:"]' "$(jq -c '.byLabel' <<<"$output")"
+  assert_equal '["org:","OR"]' "$(jq -c '.ops' <<<"$output")"
+  assert_equal 0 "$(jq -r '.quiet' <<<"$output")"
+  assert_equal '["workflow:","status:","branch:","event:","-"]' "$(jq -c '.all' <<<"$output")"
+  # A repository's search is already in it: no repo:, org:, or archived:.
+  assert_equal '[1,0]' "$(jq -c '.viewerOnly' <<<"$output")"
+  assert_equal '["reason:","repo:"]' "$(jq -c '.inbox' <<<"$output")"
+  assert_equal '["-label:","-language:"]' "$(jq -c '.excluded' <<<"$output")"
+  assert_equal '["is:merged","is:unmerged"]' "$(jq -c '.isPr' <<<"$output")"
+  assert_equal '[]' "$(jq -c '.isIssue' <<<"$output")"
+  # Matches by their start first, a value once whatever its case, quoted
+  # when it has a space, with its color.
+  assert_equal '[["good first issue","label:\"good first issue\"","7057ff",true]]' "$(jq -c '[.labels[] | [.label, .insert, .color, .final]]' <<<"$output")"
+  assert_equal '["-label:bug"]' "$(jq -c '.negated' <<<"$output")"
+  assert_equal '["updated:>=2026-11-09","updated:>=2026-11-03","updated:>=2026-10-11","updated:>=2025-11-10"]' "$(jq -c '.dates' <<<"$output")"
+  assert_equal '[true,"owner/name#number"]' "$(jq -c '[.hint[0].hint, .hint[0].label]' <<<"$output")"
+  assert_equal '[0,0,0]' "$(jq -c '.unknown' <<<"$output")"
+  assert_equal '{"text":"fix label:","cursor":10}' "$(jq -c '.qualifier' <<<"$output")"
+  assert_equal '{"text":"crash label:\"good first issue\" ","cursor":31}' "$(jq -c '.value' <<<"$output")"
+  assert_equal '{"text":"is:open author: crash","cursor":15}' "$(jq -c '.middle' <<<"$output")"
+  assert_equal '["o/r","",""]' "$(jq -c '.repo' <<<"$output")"
+  assert_equal '{"moreLabels":false,"label":[{"value":"bug","detail":"Broken","color":"d73a4a"}],"milestone":[{"value":"v1","detail":"Due 2026-12-01"}],"type":[]}' "$(jq -c '.answers[0]' <<<"$output")"
+  # A repository with more labels than the answer holds is asked again by
+  # what is typed.
+  assert_equal true "$(jq -r '.answers[1]' <<<"$output")"
+  assert_equal '{"user":[{"value":"octo","detail":"Octo Cat","login":"octo"}]}' "$(jq -c '.answers[2]' <<<"$output")"
+}
+
+@test "github list searches keep their own qualifiers apart from a typed OR, and take a typed sort" {
+  need_node
+
+  run github_logic <<'EOF'
+return {
+  plain: L.listSearch("prAssigned", "crash label:bug"),
+  or: L.listSearch("issueOpen@o/r", "label:a OR label:b"),
+  sort: L.listSearch("issueAssigned", "sort:comments-desc crash"),
+  unfinished: L.listSearch("prReview", "crash label: -author:"),
+  quoted: L.listSearch("issueOpen@o/r", "label:\"help wanted\""),
+  // What is still being written waits until it is whole.
+  typing: ["crash label:\"good fi", "crash -", "label:a OR", "OR label:a", "(label:a OR label:b", "crash -label:\""].map(text => L.listSearch("issueOpen@o/r", text)),
+  // The loaded rows answer plain words, and a sort narrows nothing.
+  rows: ["Crash parser", "crash sort:created-asc", "\"good first\"", "crash label:bug", "crash -label:bug", "a OR b"].map(text => L.rowWords(text))
+};
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal "is:pr archived:false assignee:@me sort:updated-desc crash label:bug" "$(jq -r '.plain' <<<"$output")"
+  # Bare, GitHub would read the list's qualifiers as one side of the OR.
+  assert_equal "repo:o/r is:issue sort:updated-desc (label:a OR label:b)" "$(jq -r '.or' <<<"$output")"
+  # GitHub sorts by the first sort: it reads.
+  assert_equal "is:issue archived:false assignee:@me sort:comments-desc crash" "$(jq -r '.sort' <<<"$output")"
+  assert_equal "is:pr archived:false review-requested:@me sort:updated-desc crash" "$(jq -r '.unfinished' <<<"$output")"
+  assert_equal 'repo:o/r is:issue sort:updated-desc label:"help wanted"' "$(jq -r '.quoted' <<<"$output")"
+  assert_equal '["repo:o/r is:issue sort:updated-desc crash","repo:o/r is:issue sort:updated-desc crash","repo:o/r is:issue sort:updated-desc label:a","repo:o/r is:issue sort:updated-desc label:a","repo:o/r is:issue sort:updated-desc ((label:a OR label:b))","repo:o/r is:issue sort:updated-desc crash"]' "$(jq -c '.typing' <<<"$output")"
+  assert_equal '[["crash","parser"],["crash"],["good first"],null,null,null]' "$(jq -c '.rows' <<<"$output")"
+  # The typed search goes through GitHub's advanced search.
+  assert_file_contains "$ROOT_DIR/$GITHUB_REL/queries/inbox.graphql" "search(type: ISSUE_ADVANCED"
+}
+
+@test "github Actions and inbox searches read qualifiers, quotes, and exclusions" {
+  need_node
+
+  run github_logic <<'EOF'
+const runs = [
+  { id: 1, repo: "o/r", workflowName: "CI Build", headBranch: "main", event: "push", status: "completed", conclusion: "failure", displayTitle: "Fix it" },
+  { id: 2, repo: "o/r", workflowName: "Release", headBranch: "main", event: "release", status: "completed", conclusion: "success", displayTitle: "v1" },
+  { id: 3, repo: "x/y", workflowName: "CI Build", headBranch: "dev", event: "pull_request", status: "in_progress", conclusion: "", displayTitle: "Try" }
+];
+const find = text => runs.filter(run => L.runMatches(run, L.runsQuery(text))).map(run => run.id).join(",");
+const t = (id, reason, repo) => ({ kind: "notification", id: id, reason: reason, type: "Issue", repo: repo, title: "t" + id, number: 1 });
+const threads = [t("a", "subscribed", "o/r"), t("b", "mention", "o/r"), t("c", "subscribed", "x/y")];
+const inbox = text => threads.filter(th => L.threadMatches(th, L.inboxQuery(text), false, "")).map(th => th.id).join(",");
+return {
+  workflow: find("workflow:\"ci build\""),
+  status: [find("status:failure"), find("status:in_progress"), find("status:completed")],
+  excluded: find("-branch:main"),
+  mixed: find("event:push event:release -status:success"),
+  repo: find("repo:X/Y"),
+  words: find("try"),
+  unfinished: find("workflow:"),
+  inboxExcluded: inbox("-reason:subscribed"),
+  inboxBoth: inbox("repo:o/r -reason:mention"),
+  inboxUnfinished: inbox("reason:")
+};
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal "1,3" "$(jq -r '.workflow' <<<"$output")"
+  assert_equal '["1","3","1,2"]' "$(jq -c '.status' <<<"$output")"
+  assert_equal "3" "$(jq -r '.excluded' <<<"$output")"
+  assert_equal "1" "$(jq -r '.mixed' <<<"$output")"
+  assert_equal "3" "$(jq -r '.repo' <<<"$output")"
+  assert_equal "3" "$(jq -r '.words' <<<"$output")"
+  # A qualifier being written narrows nothing until it has its value.
+  assert_equal "1,2,3" "$(jq -r '.unfinished' <<<"$output")"
+  assert_equal "b" "$(jq -r '.inboxExcluded' <<<"$output")"
+  assert_equal "a" "$(jq -r '.inboxBoth' <<<"$output")"
+  assert_equal "a,b,c" "$(jq -r '.inboxUnfinished' <<<"$output")"
+}
+
+@test "github search suggestions take the keys they use, ask GitHub once, and step back when put away" {
+  need_qs
+
+  run github_views <<'EOF'
+const component = Qt.createComponent("GitHubSearchHelper.qml");
+if (component.status !== Component.Ready)
+    return { "error": component.errorString() };
+const asks = [];
+const github = Qt.createQmlObject('import QtQuick; QtObject { signal accountSwitched(); property string login: "me"; property var loadSuggestions: null }', root);
+github.loadSuggestions = (what, repo, search, done) => asks.push({ "what": what, "repo": repo, "search": search, "done": done });
+const input = Qt.createQmlObject('import QtQuick; TextInput { width: 400 }', root);
+const helper = component.createObject(root, {
+    "github": github,
+    "input": input,
+    "tab": "issues",
+    "scope": "o/r",
+    "active": true,
+    "width": 400,
+    "localValues": source => source === "label" ? [{ "value": "bug", "color": "d73a4a" }] : []
+});
+const key = (k, modifiers) => helper.handleKey({ "key": k, "modifiers": modifiers || 0 });
+const type = text => {
+    input.text = text;
+    input.cursorPosition = text.length;
+};
+const out = {};
+type("crash la");
+out.qualifiers = helper.entries.map(e => e.insert);
+// Enter with nothing picked is the list's; Tab takes the first.
+out.enter = key(Qt.Key_Return);
+out.tab = key(Qt.Key_Tab);
+out.afterTab = [input.text, input.cursorPosition];
+// The repository's labels are asked for once, beside the loaded ones.
+helper.lookUp();
+helper.lookUp();
+out.asks = asks.map(a => a.what + " " + a.repo);
+asks[0].done({ "label": [{ "value": "good first issue", "color": "7057ff" }, { "value": "bug" }] });
+out.labels = helper.entries.map(e => e.label);
+type("crash label:goo");
+out.down = key(Qt.Key_Down);
+out.picked = key(Qt.Key_Return);
+out.afterPick = input.text;
+out.closed = helper.open;
+// Escape puts the menu away until the word changes.
+type("crash au");
+const opened = helper.open;
+out.escape = key(Qt.Key_Escape);
+out.away = [opened, helper.open];
+type("crash aut");
+out.back = helper.open;
+// People: who can be assigned there, and GitHub's users from two letters.
+type("author:mo");
+helper.lookUp();
+out.people = asks.slice(1).map(a => a.what + " " + a.repo + " " + a.search);
+// An @ is no part of a login GitHub matches.
+type("assignee:@ka");
+helper.lookUp();
+out.at = asks.slice(3).map(a => a.what + " " + a.search);
+// A failed lookup is asked again; a switch drops what is on its way.
+asks[3].done(null);
+helper.lookUp();
+out.retried = asks.slice(5).map(a => a.what + " " + a.search);
+github.accountSwitched();
+const late = asks.length;
+asks[4].done({ "user": [{ "value": "old" }] });
+out.switched = [helper.pendingCount, Object.keys(helper.remote).length];
+helper.lookUp();
+out.again = asks.length > late;
+// A repository with more labels than its answer holds is asked by name.
+type("label:wo");
+helper.lookUp();
+asks.filter(a => a.what === "repository").pop().done({ "label": [{ "value": "bug" }], "moreLabels": true });
+helper.lookUp();
+out.labelsByName = asks.filter(a => a.what === "labels").map(a => a.search);
+// The inbox's filter cannot read @me, so it is not offered there.
+helper.tab = "inbox";
+type("author:");
+out.inboxMe = helper.entries.some(e => e.label === "@me");
+helper.tab = "issues";
+out.issuesMe = helper.entries.some(e => e.label === "@me");
+// The filter button lists every qualifier after what is typed.
+type("fix");
+helper.listAll();
+out.all = [input.text, helper.open, helper.entries.length > 30, helper.entries[helper.entries.length - 1].label];
+out.closedKeys = (() => { type("fix crash "); return key(Qt.Key_Down); })();
+return out;
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '["label:","language:"]' "$(jq -c '.qualifiers' <<<"$output")"
+  assert_equal '[false,true]' "$(jq -c '[.enter, .tab]' <<<"$output")"
+  assert_equal '["crash label:",12]' "$(jq -c '.afterTab' <<<"$output")"
+  assert_equal '["repository o/r"]' "$(jq -c '.asks' <<<"$output")"
+  assert_equal '["bug","good first issue"]' "$(jq -c '.labels' <<<"$output")"
+  assert_equal '[true,true,"crash label:\"good first issue\" ",false]' "$(jq -c '[.down, .picked, .afterPick, .closed]' <<<"$output")"
+  assert_equal '[true,[true,false],true]' "$(jq -c '[.escape, .away, .back]' <<<"$output")"
+  assert_equal '["people o/r mo","users  mo"]' "$(jq -c '.people' <<<"$output")"
+  assert_equal '["people ka","users ka"]' "$(jq -c '.at' <<<"$output")"
+  assert_equal '["people ka"]' "$(jq -c '.retried' <<<"$output")"
+  assert_equal '[[0,0],true]' "$(jq -c '[.switched, .again]' <<<"$output")"
+  assert_equal '["wo"]' "$(jq -c '.labelsByName' <<<"$output")"
+  assert_equal '[false,true]' "$(jq -c '[.inboxMe, .issuesMe]' <<<"$output")"
+  assert_equal '["fix ",true,true,"Exclude"]' "$(jq -c '.all' <<<"$output")"
+  # Closed, the keys are the list's again.
+  assert_equal false "$(jq -r '.closedKeys' <<<"$output")"
+}

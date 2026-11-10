@@ -140,17 +140,20 @@ Item {
     // The loaded rows the search words match, at once as they are typed;
     // on the pull request and issue lists, GitHub's answer to the search
     // follows and leads, with the loaded matches it missed (a number, a
-    // repository name) after it.
+    // repository name) after it. A search with qualifiers or operators is
+    // GitHub's alone to answer (Logic.rowWords).
     function computeRows() {
         if (tab === "inbox")
             return inboxRows();
+        if (tab === "actions")
+            return runRows();
         // A repository's search covers every state, and so do the loaded
         // rows it matches.
         let items = statesIgnored ? [].concat(...currentFilters.map(filter => filterItems(filter.key))) : filterItems(filterKey);
-        const words = Logic.searchWords(query);
-        if (words.length === 0)
+        if (!searchActive)
             return items;
-        items = items.filter(item => Logic.rowMatches(item, words));
+        const words = Logic.rowWords(query);
+        items = words ? items.filter(item => Logic.rowMatches(item, words)) : [];
         if (!searchFresh)
             return items;
         const found = statesIgnored ? searchResult.items : searchResult.items.filter(item => !github.isHidden(item, filterKey));
@@ -158,6 +161,16 @@ Item {
         for (const item of found)
             seen[item.url] = true;
         return found.concat(items.filter(item => !seen[item.url]));
+    }
+
+    // The Actions tab's search is github.com's filter over runs: qualifiers
+    // (Logic.runsQuery) and the words of the rows.
+    function runRows() {
+        const items = filterItems(filterKey);
+        const q = Logic.runsQuery(query);
+        if (q.words.length === 0 && Object.keys(q.qualifiers).length === 0 && Object.keys(q.excluded).length === 0)
+            return items;
+        return items.filter(run => Logic.runMatches(run, q));
     }
 
     // The inbox's search is github.com's: qualifiers (Logic.inboxQuery) and
@@ -181,7 +194,7 @@ Item {
         let items = filterItems(filterKey);
         if (unreadOnly)
             items = items.filter(thread => github.isUnread(thread));
-        if (q.words.length === 0 && Object.keys(q.qualifiers).length === 0)
+        if (q.words.length === 0 && Object.keys(q.qualifiers).length === 0 && Object.keys(q.excluded).length === 0)
             return items;
         return items.filter(thread => {
             const subject = github.subjectOf(thread);
@@ -292,6 +305,73 @@ Item {
                     "value": filter.key,
                     "count": tab === "inbox" ? Logic.filterThreads(unread, filter.key).length : (tab === "actions" ? filterItems(filter.key).length : github.total(filter.key))
                 }));
+    }
+
+    // What the search's suggestions offer from what the tab has loaded,
+    // for a source of Logic.searchQualifiers: the labels and people of the
+    // rows, their repositories and owners (and the ones opened lately or
+    // watched), and the workflows, branches, and events of the runs.
+    function suggestionValues(source) {
+        const g = github;
+        let items = [];
+        if (tab === "inbox")
+            items = g.inboxThreads(scope);
+        else if (tab === "actions")
+            items = scopeRuns;
+        else
+            items = [].concat(...currentFilters.map(filter => g.visibleItems(filter.key)), searchFresh ? searchResult.items : []);
+        const values = [];
+        const add = (value, extra) => {
+            if (value)
+                values.push(Object.assign({
+                    "value": String(value)
+                }, extra || {}));
+        };
+        const repos = () => items.map(item => item.repo).concat(recentRepos, g.watchedRepos, g.pushedRepos);
+        switch (source) {
+        case "label":
+            for (const item of items)
+                for (const label of item.labels || [])
+                    add(label.name, {
+                        "color": label.color || ""
+                    });
+            break;
+        case "user":
+            for (const item of items) {
+                const subject = tab === "inbox" ? g.subjectOf(item) : null;
+                const login = tab === "inbox" ? (subject ? subject.author : "") : item.author;
+                if (login && login !== "ghost")
+                    add(login, {
+                        "login": login
+                    });
+            }
+            break;
+        case "repo":
+            for (const repo of repos())
+                add(repo);
+            break;
+        case "owner":
+            add(g.login);
+            for (const repo of repos())
+                add(String(repo || "").split("/")[0]);
+            break;
+        case "workflow":
+            for (const run of items)
+                add(run.workflowName);
+            break;
+        case "branch":
+            if (tab === "actions")
+                for (const run of items)
+                    add(run.headBranch);
+            break;
+        case "event":
+            for (const run of items)
+                add(run.event);
+            for (const event of ["push", "pull_request", "pull_request_target", "schedule", "workflow_dispatch", "workflow_run", "release", "merge_group"])
+                add(event);
+            break;
+        }
+        return values;
     }
 
     // ---------------------------------------------------------------- scope
@@ -672,6 +752,11 @@ Item {
                 event.accepted = true;
             return;
         }
+        // The search's suggestions take the keys they use while they show.
+        if (searchHelper.handleKey(event)) {
+            event.accepted = true;
+            return;
+        }
         const control = event.modifiers & Qt.ControlModifier;
         const shift = event.modifiers & Qt.ShiftModifier;
         switch (event.key) {
@@ -897,6 +982,28 @@ Item {
         width: 1
         height: 1
         Keys.onPressed: event => panel.handleKey(event)
+    }
+
+    // While the search's suggestions show, a press anywhere but the field
+    // and the menu puts them away and still reaches what is under it, so
+    // a tab, a chip, or a row takes the click it looks ready for. Hover
+    // and the wheel are never taken.
+    MouseArea {
+        anchors.fill: parent
+        z: 100
+        enabled: searchHelper.open
+        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+        onPressed: mouse => {
+            if (!panel.hits(field, mouse) && !panel.hits(searchHelper, mouse))
+                searchHelper.dismiss();
+            mouse.accepted = false;
+        }
+        onWheel: wheel => wheel.accepted = false
+    }
+
+    function hits(item, point) {
+        const at = item.mapToItem(panel, 0, 0);
+        return point.x >= at.x && point.x < at.x + item.width && point.y >= at.y && point.y < at.y + item.height;
     }
 
     // ---------------------------------------------------------------- layout
@@ -1353,7 +1460,7 @@ Item {
             leftIconName: "search"
             placeholderText: {
                 if (panel.tab === "actions")
-                    return panel.scope ? "Filter runs by title, workflow, or branch" : "Filter runs by title, workflow, branch, or repository";
+                    return panel.scope ? "Filter runs: workflow:name, branch:main, status:failure, or words" : "Filter runs: workflow:name, branch:main, status:failure, repo:owner/name, or words";
                 if (panel.tab === "inbox")
                     return "Filter: is:unread, reason:mention, repo:owner/name, author:name, or words";
                 return panel.scope ? "Search " + panel.scope + ": words, #number, label:bug, author:name…" : "Search GitHub: words, #number, or label:bug, repo:owner/name…";
@@ -1363,9 +1470,33 @@ Item {
             ignoreUpDownKeys: true
             ignoreTabKeys: true
             keyForwardTargets: [keys]
+            // Room at the right for the filter button.
+            rightAccessoryWidth: filterButton.width + Theme.spacingXS
             onTextEdited: {
                 panel.selectedIndex = 0;
                 list.positionViewAtBeginning();
+            }
+
+            // Every qualifier the tab's search reads, as github.com's
+            // search bar lists them, for a word after what is typed. The
+            // field keeps the focus, so the menu stays up for the click.
+            DActionButton {
+                id: filterButton
+                focusPolicy: Qt.NoFocus
+                anchors.right: parent.right
+                anchors.rightMargin: Theme.spacingS
+                anchors.verticalCenter: parent.verticalCenter
+                buttonSize: 28
+                iconName: "filter_list"
+                iconSize: Theme.iconSizeSmall + 2
+                iconColor: searchHelper.open ? Theme.primary : Theme.surfaceVariantText
+                tooltipText: "Filters"
+                onClicked: {
+                    if (searchHelper.open)
+                        searchHelper.dismiss();
+                    else
+                        searchHelper.listAll();
+                }
             }
         }
 
@@ -1375,6 +1506,20 @@ Item {
             visible: tabRow.visible
             width: parent.width
             height: panel.height - header.height - tabRow.height - chips.height - field.height - footer.height - layout.spacing * 5
+
+            // The search's suggestions, over the top of the list.
+            GitHubSearchHelper {
+                id: searchHelper
+                z: 10
+                width: parent.width
+                maxCardHeight: Math.max(120, Math.min(340, parent.height - Theme.spacingL))
+                github: panel.github
+                input: field
+                tab: panel.tab
+                scope: panel.scope
+                active: panel.listShowing && field.inputFocused
+                localValues: source => panel.suggestionValues(source)
+            }
 
             // github.com's bar over the inbox: Select all, and All / Unread,
             // which once rows are checked give way to what to do with them.

@@ -217,6 +217,58 @@ function searchBase(key) {
     return searchFor(key).replace(/\bis:open\s+/, "");
 }
 
+// What a search typed over a list asks GitHub (its advanced search, which
+// reads AND, OR, and parentheses as github.com does): the list's search
+// in every state, then the words. GitHub sorts by the first sort: it
+// reads, so a typed one takes the list's place. Words with AND, OR, or
+// parentheses go in parentheses of their own: bare, GitHub would read the
+// list's qualifiers as one side of an OR and search all of GitHub on the
+// other. What is still being written waits until it is whole: a
+// qualifier without its value (label:), a lone dash, a quote not closed
+// yet, an AND or OR with nothing on one side, a parenthesis not closed.
+function listSearch(key, words) {
+    const tokens = typedTerms(words);
+    const sort = tokens.find(word => /^sort:\S/i.test(word));
+    const rest = tokens.filter(word => !/^sort:/i.test(word));
+    let base = searchBase(key);
+    if (sort)
+        base = base.replace(/(^|\s)sort:\S+/g, "") + " " + sort;
+    let terms = rest.join(" ");
+    if (/(^|\s)(AND|OR)(\s|$)|[()]/.test(terms))
+        terms = "(" + terms + ")";
+    return (base + " " + terms).trim();
+}
+
+// The whole words of a typed search (see listSearch).
+function typedTerms(text) {
+    const operator = word => word === "AND" || word === "OR";
+    const out = searchTokens(text).map(token => token.text).filter(word => word !== "-" && !/^-?[a-zA-Z][\w-]*:"?$/.test(word) && (word.split("\"").length - 1) % 2 === 0);
+    while (out.length > 0 && operator(out[0]))
+        out.shift();
+    while (out.length > 0 && (operator(out[out.length - 1]) || /^-?\($/.test(out[out.length - 1])))
+        out.pop();
+    const open = out.join(" ").split("(").length - out.join(" ").split(")").length;
+    if (open > 0)
+        out[out.length - 1] += ")".repeat(open);
+    return out;
+}
+
+// What a typed search asks of the loaded rows, which can only be read for
+// words: [word], lowercased, without a sort: (which narrows nothing), or
+// null when the search has qualifiers or operators only GitHub can read,
+// and so no loaded row stands for its answer.
+function rowWords(text) {
+    const words = [];
+    for (const word of typedTerms(text)) {
+        if (/^sort:/i.test(word))
+            continue;
+        if (qualifierOf(word) || word === "AND" || word === "OR" || /[()]/.test(word) || word.charAt(0) === "-")
+            return null;
+        words.push(word.replace(/"/g, "").toLowerCase());
+    }
+    return words;
+}
+
 function filtersFor(scope, tab) {
     if (FIXED_FILTERS[tab])
         return FIXED_FILTERS[tab];
@@ -336,10 +388,6 @@ function rowMatches(item, words) {
     const parts = [item.title, item.repo, String(item.number || ""), item.author, item.displayTitle, item.workflowName, item.headBranch, item.event, item.reason ? REASONS[item.reason] : ""];
     const haystack = parts.concat((item.labels || []).map(label => label.name || label)).filter(part => !!part).join(" ").toLowerCase();
     return words.every(word => haystack.indexOf(word) >= 0);
-}
-
-function searchWords(text) {
-    return String(text || "").toLowerCase().split(/\s+/).filter(word => word.length > 0);
 }
 
 // ------------------------------------------------------------ notifications
@@ -497,30 +545,102 @@ var SUBJECT_TYPES = {
 };
 var INBOX_QUALIFIERS = ["is", "reason", "repo", "org", "author"];
 
-// { qualifiers: { name: [value] }, words: [word], unsupported: "" }: the
-// value lowercased, dashes and underscores alike.
-function inboxQuery(text) {
+// The words of a search with where each is: [{ start, end, text }]. A
+// quoted value is one word, spaces and all (label:"good first issue").
+function searchTokens(text) {
+    const s = String(text || "");
+    const out = [];
+    let i = 0;
+    while (i < s.length) {
+        if (/\s/.test(s[i])) {
+            i++;
+            continue;
+        }
+        const start = i;
+        let quoted = false;
+        while (i < s.length && (quoted || !/\s/.test(s[i]))) {
+            if (s[i] === '"')
+                quoted = !quoted;
+            i++;
+        }
+        out.push({
+            "start": start,
+            "end": i,
+            "text": s.slice(start, i)
+        });
+    }
+    return out;
+}
+
+// A word read as a qualifier: { exclude, name, value } (the name
+// lowercased, the value without its quotes), or null for a plain word.
+function qualifierOf(word) {
+    const match = String(word || "").match(/^(-?)([a-zA-Z][\w-]*):(.*)$/);
+    if (!match)
+        return null;
+    return {
+        "exclude": match[1] === "-",
+        "name": match[2].toLowerCase(),
+        "value": match[3].replace(/"/g, "")
+    };
+}
+
+// A search over what is loaded, read against the qualifiers it knows:
+// { qualifiers: { name: [value] }, excluded: { name: [value] }, words },
+// the values lowercased; any other word is a word of the rows. A known
+// qualifier still without its value (label: as it is being written)
+// narrows nothing yet.
+function localQuery(text, known) {
     const out = {
         "qualifiers": {},
-        "words": [],
-        "unsupported": ""
+        "excluded": {},
+        "words": []
     };
-    for (const part of String(text || "").split(/\s+/)) {
-        const match = part.match(/^([a-zA-Z]+):(.+)$/);
-        const name = match ? match[1].toLowerCase() : "";
-        if (INBOX_QUALIFIERS.indexOf(name) < 0) {
-            if (part !== "")
-                out.words.push(part.toLowerCase());
+    for (const token of searchTokens(text)) {
+        const q = qualifierOf(token.text);
+        if (!q || known.indexOf(q.name) < 0) {
+            out.words.push(token.text.replace(/"/g, "").toLowerCase());
             continue;
         }
-        let value = match[2].toLowerCase();
-        if (name === "is" || name === "reason")
-            value = value.replace(/_/g, "-");
-        if (name === "is" && (value === "saved" || value === "done")) {
+        if (q.value === "")
+            continue;
+        const into = q.exclude ? out.excluded : out.qualifiers;
+        into[q.name] = (into[q.name] || []).concat([q.value.toLowerCase()]);
+    }
+    return out;
+}
+
+// Whether a local query's qualifiers pass, given a test per qualifier.
+function qualifiersPass(query, tests) {
+    for (const name in query.qualifiers)
+        if (!query.qualifiers[name].some(tests[name]))
+            return false;
+    for (const name in query.excluded)
+        if (query.excluded[name].some(tests[name]))
+            return false;
+    return true;
+}
+
+// { qualifiers: { name: [value] }, excluded, words: [word], unsupported:
+// "" }: the value lowercased, dashes and underscores alike. A qualifier
+// with a dash before it (-reason:subscribed) leaves out what it matches.
+function inboxQuery(text) {
+    const out = Object.assign(localQuery(text, INBOX_QUALIFIERS), {
+        "unsupported": ""
+    });
+    for (const into of [out.qualifiers, out.excluded]) {
+        for (const name of ["is", "reason"])
+            if (into[name])
+                into[name] = into[name].map(value => value.replace(/_/g, "-"));
+        const kept = (into.is || []).filter(value => value !== "saved" && value !== "done");
+        if (into.is && kept.length < into.is.length) {
+            const value = into.is.find(other => kept.indexOf(other) < 0);
             out.unsupported = "GitHub's API does not share " + value + " notifications, so is:" + value + " works on github.com only.";
-            continue;
+            if (kept.length > 0)
+                into.is = kept;
+            else
+                delete into.is;
         }
-        out.qualifiers[name] = (out.qualifiers[name] || []).concat([value]);
     }
     return out;
 }
@@ -528,21 +648,18 @@ function inboxQuery(text) {
 // Whether a thread passes a query from inboxQuery. `unread` is whether it
 // is unread now, and `author` who opened its subject, "" while unknown.
 function threadMatches(thread, query, unread, author) {
-    const q = query.qualifiers;
-    const any = (name, test) => !q[name] || q[name].some(test);
     const repo = String(thread.repo || "").toLowerCase();
     // An app answers to its name, its bot's login, and app/name alike.
     const person = name => String(name || "").toLowerCase().replace(/^app\//, "").replace(/\[bot\]$/, "");
     const login = person(author);
-    if (!any("is", value => value === "unread" ? unread : (value === "read" ? !unread : (SUBJECT_TYPES[value] || []).indexOf(thread.type) >= 0)))
-        return false;
-    if (!any("reason", value => value === "participating" ? isParticipating(thread) : thread.reason === value.replace(/-/g, "_")))
-        return false;
-    if (!any("repo", value => repo === value) || !any("org", value => repo.split("/")[0] === value))
-        return false;
-    if (!any("author", value => login !== "" && login === person(value)))
-        return false;
-    return query.words.length === 0 || rowMatches(thread, query.words);
+    const passes = qualifiersPass(query, {
+        "is": value => value === "unread" ? unread : (value === "read" ? !unread : (SUBJECT_TYPES[value] || []).indexOf(thread.type) >= 0),
+        "reason": value => value === "participating" ? isParticipating(thread) : thread.reason === value.replace(/-/g, "_"),
+        "repo": value => repo === value,
+        "org": value => repo.split("/")[0] === value,
+        "author": value => login !== "" && login === person(value)
+    });
+    return passes && (query.words.length === 0 || rowMatches(thread, query.words));
 }
 
 // What a notification's subject is now (its state and who opened it),
@@ -777,6 +894,28 @@ function filterRuns(runs, key) {
     if (key === "failed")
         return runs.filter(run => isFailedRun(run));
     return runs;
+}
+
+// The Actions tab's search, as github.com's filter over runs: workflow:,
+// branch:, event:, status: (a run's status or its conclusion), and, over
+// every repository, repo:; a dash before one leaves out what it matches,
+// and the words left match the row's text.
+var RUN_QUALIFIERS = ["workflow", "branch", "event", "status", "repo"];
+
+function runsQuery(text) {
+    return localQuery(text, RUN_QUALIFIERS);
+}
+
+function runMatches(run, query) {
+    const lower = value => String(value || "").toLowerCase();
+    const passes = qualifiersPass(query, {
+        "workflow": value => lower(run.workflowName) === value,
+        "branch": value => lower(run.headBranch) === value,
+        "event": value => lower(run.event) === value,
+        "status": value => lower(run.status) === value || lower(run.conclusion) === value,
+        "repo": value => lower(run.repo) === value
+    });
+    return passes && (query.words.length === 0 || rowMatches(run, query.words));
 }
 
 // ------------------------------------------------------------ job logs
@@ -2020,6 +2159,483 @@ function withKey(object, key, value) {
     else
         next[key] = value;
     return next;
+}
+
+// ------------------------------------------------------ search suggestions
+//
+// What the search field offers as it is typed, as github.com's search bar
+// does: the qualifiers a tab's search understands while a word is typed,
+// then the values of the one being written (labels, people, states) once
+// its colon is. Pull requests and issues hand the search to GitHub, so
+// theirs are GitHub's qualifiers; the inbox and Actions runs filter what is
+// loaded, so theirs are the ones inboxQuery and runsQuery read. A value
+// comes from here (states, sorts, dates), or from a source the panel fills
+// (GitHubSearchHelper): what it has loaded, and what GitHub answers for
+// the repository searched or the name typed.
+//
+// A qualifier: { name, label, icon, values, source, hint, only, where }.
+// values are fixed ones ([value, detail, only]); source names the panel's
+// ("label", "user", "owner", "repo", "milestone", "type", "branch",
+// "workflow", "event", "date", "count"); hint says what to type when
+// neither has anything. only keeps it to pull requests ("pr") or issues
+// ("issue"), and where to a repository's search ("repo") or the viewer's
+// ("viewer").
+
+function qualifier(name, label, icon, extra) {
+    return Object.assign({
+        "name": name,
+        "label": label,
+        "icon": icon,
+        "values": [],
+        "source": "",
+        "hint": "",
+        "only": "",
+        "where": ""
+    }, extra || {});
+}
+
+var BOOLEAN_VALUES = [["true", "Yes"], ["false", "No"]];
+var HAS_VALUES = [["label", "Labels"], ["milestone", "A milestone"], ["assignee", "Assignees"], ["project", "A project"], ["type", "An issue type", "issue"], ["parent-issue", "A parent issue", "issue"]];
+
+var ISSUE_QUALIFIERS = [
+    qualifier("is", "Is", "apps", {
+        "values": [["open", "Open"], ["closed", "Closed"], ["merged", "Merged", "pr"], ["unmerged", "Closed without merging", "pr"], ["draft", "Draft", "pr"], ["blocked", "Blocked by an issue", "issue"], ["blocking", "Blocking an issue", "issue"], ["locked", "Conversation locked"], ["unlocked", "Conversation not locked"], ["public", "In a public repository"], ["private", "In a private repository"]]
+    }),
+    qualifier("state", "State", "radio_button_unchecked", {
+        "values": [["open", "Open"], ["closed", "Closed"]]
+    }),
+    qualifier("label", "Label", "sell", {
+        "source": "label"
+    }),
+    qualifier("project", "Project", "table_chart", {
+        "hint": "owner/number, as in octo-org/5"
+    }),
+    qualifier("assignee", "Assignee", "person", {
+        "source": "user"
+    }),
+    qualifier("author", "Author", "person", {
+        "source": "user"
+    }),
+    qualifier("type", "Type", "category", {
+        "source": "type",
+        "only": "issue"
+    }),
+    qualifier("milestone", "Milestone", "flag", {
+        "source": "milestone"
+    }),
+    qualifier("involves", "Involves", "group", {
+        "source": "user"
+    }),
+    qualifier("mentions", "Mentions", "alternate_email", {
+        "source": "user"
+    }),
+    qualifier("parent-issue", "Parent issue", "account_tree", {
+        "hint": "owner/name#number",
+        "only": "issue"
+    }),
+    qualifier("blocking", "Blocking", "block", {
+        "hint": "owner/name#number",
+        "only": "issue"
+    }),
+    qualifier("blocked-by", "Blocked by", "do_not_disturb_on", {
+        "hint": "owner/name#number",
+        "only": "issue"
+    }),
+    qualifier("sub-issue", "Sub-issue", "subdirectory_arrow_right", {
+        "hint": "owner/name#number",
+        "only": "issue"
+    }),
+    qualifier("updated", "Update date", "calendar_today", {
+        "source": "date"
+    }),
+    qualifier("created", "Creation date", "calendar_today", {
+        "source": "date"
+    }),
+    qualifier("closed", "Closed date", "calendar_today", {
+        "source": "date"
+    }),
+    qualifier("merged", "Merge date", "calendar_today", {
+        "source": "date",
+        "only": "pr"
+    }),
+    qualifier("review-requested", "Review requested", "person", {
+        "source": "user",
+        "only": "pr"
+    }),
+    qualifier("in", "In", "apps", {
+        "values": [["title", "The title"], ["body", "The description"], ["comments", "The comments"]]
+    }),
+    qualifier("commenter", "Commenter", "person", {
+        "source": "user"
+    }),
+    qualifier("user", "User", "person", {
+        "source": "owner",
+        "where": "viewer"
+    }),
+    qualifier("org", "Organization", "domain", {
+        "source": "owner",
+        "where": "viewer"
+    }),
+    qualifier("repo", "Repository", "book", {
+        "source": "repo",
+        "where": "viewer"
+    }),
+    qualifier("user-review-requested", "User review requested", "alternate_email", {
+        "source": "user",
+        "only": "pr"
+    }),
+    qualifier("reviewed-by", "Reviewed by", "person", {
+        "source": "user",
+        "only": "pr"
+    }),
+    qualifier("comments", "Comment count", "chat_bubble", {
+        "source": "count"
+    }),
+    qualifier("interactions", "Interactions count", "forum", {
+        "source": "count"
+    }),
+    qualifier("reason", "Closed reason", "task_alt", {
+        "values": [["completed", "Completed"], ["\"not planned\"", "Not planned"], ["duplicate", "Duplicate"]],
+        "only": "issue"
+    }),
+    qualifier("linked", "Linked", "link", {
+        "values": [["pr", "Linked to a pull request", "issue"], ["issue", "Linked to an issue", "pr"]]
+    }),
+    qualifier("archived", "Archived", "inventory_2", {
+        "values": BOOLEAN_VALUES,
+        "where": "viewer"
+    }),
+    qualifier("reactions", "Reaction count", "add_reaction", {
+        "source": "count"
+    }),
+    qualifier("draft", "Draft", "edit_note", {
+        "values": BOOLEAN_VALUES,
+        "only": "pr"
+    }),
+    qualifier("review", "Review state", "rate_review", {
+        "values": [["none", "No reviews yet"], ["required", "Review required"], ["approved", "Approved"], ["changes_requested", "Changes requested"]],
+        "only": "pr"
+    }),
+    qualifier("language", "Language", "code", {
+        "hint": "a language, as in python"
+    }),
+    qualifier("sha", "Commit SHA", "commit", {
+        "hint": "seven or more characters of a commit SHA",
+        "only": "pr"
+    }),
+    qualifier("base", "Base", "call_split", {
+        "source": "branch",
+        "only": "pr"
+    }),
+    qualifier("head", "Head", "call_split", {
+        "source": "branch",
+        "only": "pr"
+    }),
+    qualifier("status", "Status", "check_circle", {
+        "values": [["success", "Checks passing"], ["failure", "Checks failing"], ["pending", "Checks running"]],
+        "only": "pr"
+    }),
+    qualifier("team", "Team", "groups", {
+        "hint": "org/team, as in octo-org/devs"
+    }),
+    qualifier("team-review-requested", "Team review requested", "groups", {
+        "hint": "org/team, as in octo-org/devs",
+        "only": "pr"
+    }),
+    qualifier("has", "Has", "check_box", {
+        "values": HAS_VALUES
+    }),
+    qualifier("no", "Missing", "check_box_outline_blank", {
+        "values": HAS_VALUES
+    }),
+    qualifier("sort", "Sort", "sort", {
+        "values": [["updated-desc", "Recently updated"], ["updated-asc", "Least recently updated"], ["created-desc", "Newest"], ["created-asc", "Oldest"], ["comments-desc", "Most commented"], ["comments-asc", "Least commented"], ["reactions-desc", "Most reactions"], ["reactions-+1-desc", "Most 👍"], ["interactions-desc", "Most interactions"]]
+    })
+];
+
+var SEARCH_QUALIFIERS = {
+    "issues": ISSUE_QUALIFIERS,
+    "prs": ISSUE_QUALIFIERS,
+    "inbox": [
+        qualifier("is", "Is", "apps", {
+            "values": [["unread", "Unread"], ["read", "Read"], ["pr", "Pull requests"], ["issue", "Issues"], ["issue-or-pull-request", "Issues and pull requests"], ["release", "Releases"], ["discussion", "Discussions"], ["commit", "Commits"], ["check-suite", "Actions runs"], ["gist", "Gists"], ["repository-invitation", "Repository invitations"], ["repository-vulnerability-alert", "Security alerts"], ["repository-advisory", "Security advisories"]]
+        }),
+        qualifier("reason", "Reason", "help", {
+            "values": [["participating", "Participating"]].concat(Object.keys(REASONS).map(key => [key.replace(/_/g, "-"), REASONS[key]]))
+        }),
+        qualifier("repo", "Repository", "book", {
+            "source": "repo"
+        }),
+        qualifier("org", "Organization", "domain", {
+            "source": "owner"
+        }),
+        qualifier("author", "Author", "person", {
+            "source": "user"
+        })
+    ],
+    "actions": [
+        qualifier("workflow", "Workflow", "account_tree", {
+            "source": "workflow"
+        }),
+        qualifier("status", "Status", "check_circle", {
+            "values": [["success", "Succeeded"], ["failure", "Failed"], ["in_progress", "In progress"], ["queued", "Queued"], ["waiting", "Waiting"], ["cancelled", "Cancelled"], ["skipped", "Skipped"], ["action_required", "Action required"], ["timed_out", "Timed out"], ["completed", "Completed"]]
+        }),
+        qualifier("branch", "Branch", "call_split", {
+            "source": "branch"
+        }),
+        qualifier("event", "Event", "bolt", {
+            "source": "event"
+        }),
+        qualifier("repo", "Repository", "book", {
+            "source": "repo",
+            "where": "viewer"
+        })
+    ]
+};
+
+// AND and OR join what GitHub searches; the inbox and runs read every
+// word as AND already.
+var SEARCH_OPERATORS = [
+    {
+        "name": "AND",
+        "label": "AND",
+        "icon": "add_circle",
+        "detail": "Both sides"
+    },
+    {
+        "name": "OR",
+        "label": "OR",
+        "icon": "join",
+        "detail": "Either side"
+    }
+];
+
+// The qualifiers a tab's search offers in a scope ("" or owner/name).
+function searchQualifiers(tab, scope) {
+    const kind = tab === "prs" ? "pr" : (tab === "issues" ? "issue" : "");
+    return (SEARCH_QUALIFIERS[tab] || []).filter(def => (def.only === "" || def.only === kind) && (def.where === "" || (def.where === "repo") === !!scope));
+}
+
+// The word under the cursor and what it is: { start, end, text, exclude,
+// mode, name, def, value }. mode is "qualifier" for a word that may still
+// become one (the start of a name, or nothing yet), "value" once a known
+// qualifier has its colon (value is what follows, without quotes), and ""
+// for anything else (a URL, an unknown name:).
+function searchContext(tab, scope, text, cursor) {
+    const s = String(text || "");
+    const at = Math.max(0, Math.min(s.length, Number(cursor) || 0));
+    const token = searchTokens(s).find(t => t.start <= at && at <= t.end) || {
+        "start": at,
+        "end": at,
+        "text": ""
+    };
+    const out = Object.assign({}, token, {
+        "exclude": token.text.charAt(0) === "-",
+        "mode": "",
+        "name": "",
+        "def": null,
+        "value": ""
+    });
+    const q = qualifierOf(token.text);
+    if (q) {
+        const def = searchQualifiers(tab, scope).find(other => other.name === q.name);
+        if (def)
+            Object.assign(out, {
+                "mode": "value",
+                "name": def.name,
+                "def": def,
+                "value": q.value,
+                "exclude": q.exclude
+            });
+        return out;
+    }
+    if (/^-?[a-zA-Z-]*$/.test(token.text))
+        out.mode = "qualifier";
+    return out;
+}
+
+// A value as a qualifier takes it: quoted when it has a space.
+function quotedValue(value) {
+    const v = String(value || "").replace(/"/g, "");
+    return /\s/.test(v) ? "\"" + v + "\"" : v;
+}
+
+function isoDay(ms) {
+    return new Date(ms).toISOString().slice(0, 10);
+}
+
+// The values a source offers whatever is loaded: a date's ranges back
+// from `now`, a count's thresholds.
+function presetValues(source, now) {
+    if (source === "date")
+        return [["Past day", 1], ["Past week", 7], ["Past month", 30], ["Past year", 365]].map(preset => ({
+                    "value": ">=" + isoDay(now - preset[1] * 86400000),
+                    "detail": preset[0]
+                }));
+    if (source === "count")
+        return [["0", "None"], [">0", "Any"], [">5", "More than 5"], [">10", "More than 10"], [">50", "More than 50"]].map(preset => ({
+                    "value": preset[0],
+                    "detail": preset[1]
+                }));
+    return [];
+}
+
+// What the menu lists for a context from searchContext: entries of {
+// label, detail, icon, color, login, insert, final, hint }. insert is the
+// word that takes the typed one's place; final says the word is done (a
+// space follows it); hint is a line that says what to type, which cannot
+// be chosen. `values` are the source's ([{ value, detail, color, login }],
+// what the panel has and GitHub answered), `now` dates the presets, and
+// `all` lists every qualifier for a word not begun yet (the field's
+// filter button).
+function searchSuggestions(tab, scope, context, values, now, all) {
+    const c = context;
+    const kind = tab === "prs" ? "pr" : (tab === "issues" ? "issue" : "");
+    const dash = c.exclude ? "-" : "";
+    const out = [];
+    if (c.mode === "qualifier") {
+        const typed = c.text.replace(/^-/, "").toLowerCase();
+        if (typed === "" && !all && !c.exclude)
+            return out;
+        const defs = searchQualifiers(tab, scope);
+        const byName = defs.filter(def => def.name.indexOf(typed) === 0);
+        const byLabel = defs.filter(def => byName.indexOf(def) < 0 && typed !== "" && def.label.toLowerCase().split(/\s+/).some(word => word.indexOf(typed) === 0));
+        for (const def of byName.concat(byLabel))
+            out.push({
+                "label": def.label,
+                "detail": dash + def.name + ":",
+                "icon": def.icon,
+                "insert": dash + def.name + ":",
+                "final": false
+            });
+        if (c.exclude)
+            return out;
+        if (kind !== "")
+            for (const op of SEARCH_OPERATORS)
+                if (op.name.toLowerCase().indexOf(typed) === 0)
+                    out.push({
+                        "label": op.label,
+                        "detail": op.detail,
+                        "icon": op.icon,
+                        "insert": op.name,
+                        "final": true
+                    });
+        if (typed === "")
+            out.push({
+                "label": "Exclude",
+                "detail": "-qualifier:value",
+                "icon": "remove_circle",
+                "insert": "-",
+                "final": false
+            });
+        return out;
+    }
+    if (c.mode !== "value")
+        return out;
+    const def = c.def;
+    const typed = c.value.toLowerCase();
+    const candidates = def.values.filter(entry => !entry[2] || entry[2] === kind).map(entry => ({
+                "value": entry[0],
+                "detail": entry[1]
+            })).concat(presetValues(def.source, now), values || []);
+    const seen = {};
+    const first = [];
+    const rest = [];
+    for (const entry of candidates) {
+        const value = String(entry.value || "");
+        const key = value.toLowerCase().replace(/"/g, "");
+        if (value === "" || seen[key])
+            continue;
+        const detail = String(entry.detail || "");
+        const where = key.indexOf(typed);
+        if (typed !== "" && where < 0 && detail.toLowerCase().indexOf(typed) < 0)
+            continue;
+        seen[key] = true;
+        (where === 0 ? first : rest).push({
+                "label": value.replace(/"/g, ""),
+                "detail": detail,
+                "icon": def.icon,
+                "color": String(entry.color || ""),
+                "login": String(entry.login || ""),
+                "insert": dash + def.name + ":" + (value.charAt(0) === "\"" ? value : quotedValue(value)),
+                "final": true
+            });
+    }
+    const found = first.concat(rest).slice(0, 50);
+    if (found.length === 0 && def.hint !== "")
+        found.push({
+            "label": def.hint,
+            "detail": "",
+            "icon": "info",
+            "hint": true
+        });
+    return found;
+}
+
+// The text and cursor once an entry takes the place of the word under the
+// cursor: a finished word is followed by a space, and the cursor goes
+// after it.
+function applySuggestion(text, context, entry) {
+    const s = String(text || "");
+    const before = s.slice(0, context.start);
+    let after = s.slice(context.end);
+    let insert = entry.insert;
+    if (entry.final) {
+        insert += " ";
+        after = after.replace(/^\s+/, "");
+    }
+    return {
+        "text": before + insert + after,
+        "cursor": before.length + insert.length
+    };
+}
+
+// GitHub's answers for the suggestions (queries/suggest.graphql) as the
+// values each source offers: { label, milestone, type } for "repository",
+// { branch } for "branches", { user } for "users"; "labels" is a
+// repository's labels by what is typed.
+function suggestedValues(what, data) {
+    const d = data || {};
+    const repo = d.repository || {};
+    if (what === "repository" || what === "labels")
+        return {
+            // More than the first page: the labels are asked for again by
+            // what is typed.
+            "moreLabels": totalOf(repo.labels, 0) > nodesOf(repo.labels).length,
+            "label": nodesOf(repo.labels).map(label => ({
+                        "value": String(label.name || ""),
+                        "detail": String(label.description || ""),
+                        "color": String(label.color || "")
+                    })),
+            "milestone": nodesOf(repo.milestones).map(milestone => ({
+                        "value": String(milestone.title || ""),
+                        "detail": milestone.dueOn ? "Due " + String(milestone.dueOn).slice(0, 10) : ""
+                    })),
+            "type": nodesOf(repo.issueTypes).map(type => ({
+                        "value": String(type.name || ""),
+                        "detail": String(type.description || "")
+                    }))
+        };
+    if (what === "branches")
+        return {
+            "branch": nodesOf(repo.refs).map(ref => ({
+                        "value": String(ref.name || "")
+                    }))
+        };
+    return {
+        "user": nodesOf(d.search).filter(person => person.login).map(person => ({
+                    "value": String(person.login),
+                    "detail": String(person.name || ""),
+                    "login": String(person.login)
+                }))
+    };
+}
+
+// The repository a search names (repo:owner/name), for its labels and
+// people when the panel is not on one; "" for none or several.
+function searchedRepo(text) {
+    const repos = searchTokens(text).map(token => qualifierOf(token.text)).filter(q => q && !q.exclude && q.name === "repo" && isRepo(q.value)).map(q => q.value);
+    return repos.length === 1 ? repos[0] : "";
 }
 
 // ---------------------------------------------------------------- popout

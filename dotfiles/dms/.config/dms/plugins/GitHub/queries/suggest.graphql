@@ -1,0 +1,33 @@
+# What the search field's suggestions (GitHubSearchHelper) need from
+# GitHub, picked with operationName (who can be assigned in a repository
+# comes from assignees.graphql, as for the assignee picker). Repository:
+# the labels, open milestones, and issue types of the repository searched,
+# asked for once and narrowed as a value is typed. Labels: its labels that
+# match what is typed, for a repository with more than Repository's first
+# 100. Branches: its branches that match what is typed, the latest first.
+# Users: GitHub's people and organizations by name, from two letters on.
+query Repository($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    labels(first: 100, orderBy: { field: NAME, direction: ASC }) { totalCount nodes { name color description } }
+    milestones(first: 50, states: OPEN, orderBy: { field: DUE_DATE, direction: ASC }) { nodes { title dueOn } }
+    issueTypes(first: 25) { nodes { name description } }
+  }
+}
+
+query Branches($owner: String!, $name: String!, $search: String!) {
+  repository(owner: $owner, name: $name) {
+    refs(refPrefix: "refs/heads/", first: 20, query: $search, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) { nodes { name } }
+  }
+}
+
+query Labels($owner: String!, $name: String!, $search: String!) {
+  repository(owner: $owner, name: $name) {
+    labels(first: 30, query: $search, orderBy: { field: NAME, direction: ASC }) { totalCount nodes { name color description } }
+  }
+}
+
+query Users($search: String!) {
+  search(type: USER, first: 10, query: $search) {
+    nodes { ... on User { login name } ... on Organization { login name } }
+  }
+}

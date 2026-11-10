@@ -493,15 +493,15 @@ Item {
     }
 
     // What the viewer types in a pull request or issue list goes to GitHub:
-    // the list's own search in every state (Logic.searchBase) with the words
-    // added, GitHub's search syntax and all. Each panel keeps its own
+    // the list's own search in every state with the words added, GitHub's
+    // advanced search syntax and all (Logic.listSearch). Each panel keeps its own
     // search, so the answer goes back to the caller: { items, cursor, more,
     // count, error }.
     function searchPage(key, words, after, callback, owner) {
         if (!Logic.searchFor(key))
             return;
-        graphql("inbox", "Page", {
-            "search": Logic.searchBase(key) + " " + words,
+        graphql("inbox", "Search", {
+            "search": Logic.listSearch(key, words),
             "first": listSize,
             "after": after || null
         }, (answer, failure) => {
@@ -1873,6 +1873,43 @@ Item {
         }, {
             "owner": owner
         });
+    }
+
+    // What the search field suggests that only GitHub knows
+    // (queries/suggest.graphql), as Logic.suggestedValues makes of it:
+    // "repository", a repository's labels, open milestones, and issue
+    // types; "labels", "branches", and "people" (who can be assigned, as
+    // loadAssignable answers) there that match `search`; "users", GitHub's
+    // people and organizations by name. callback({ source: [value] }), or
+    // null when gh failed.
+    function loadSuggestions(what, repo, search, callback, owner) {
+        const done = answer => callback(answer ? Logic.suggestedValues(what, answer.data) : null);
+        const options = {
+            "owner": owner
+        };
+        const words = String(search || "");
+        if (what === "users")
+            graphql("suggest", "Users", {
+                "search": words
+            }, done, options);
+        else if (what === "branches")
+            graphql("suggest", "Branches", Object.assign(repoVars(repo), {
+                "search": words
+            }), done, options);
+        else if (what === "labels")
+            graphql("suggest", "Labels", Object.assign(repoVars(repo), {
+                "search": words
+            }), done, options);
+        else if (what === "people")
+            loadAssignable(repo, words, users => callback(users ? {
+                    "user": users.map(user => ({
+                            "value": user.login,
+                            "detail": user.name,
+                            "login": user.login
+                        }))
+                } : null), owner);
+        else
+            graphql("suggest", "Repository", repoVars(repo), done, options);
     }
 
     // ----------------------------------------------------------------- drafts
