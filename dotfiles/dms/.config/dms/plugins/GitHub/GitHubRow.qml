@@ -5,9 +5,12 @@ import "GitHubLogic.js" as Logic
 
 // One pull request, issue, workflow run, or notification in the popout
 // list: what it is and where it stands on the left, the title with its
-// repository, age, and labels (small badges in their own colors), and on
-// the right the CI state, the conversation size, how long a run took, or
-// the spinner of a change in flight. The edge button opens the row on
+// repository, age, and labels (small badges in their own colors), an
+// issue's sub-issue progress beside its title, and on the right, in
+// columns as github.com lines them up, the CI state, the pull requests an
+// issue is linked to (or the issues a pull request closes), the
+// conversation size, and who is assigned; or how long a run took, or the
+// spinner of a change in flight. The edge button opens the row on
 // GitHub. A notification row is github.com's: a checkbox, a dot and a bold
 // title while unread, its subject's state once known, why it came and
 // when on the right, and under the pointer Done, Mark as read, and
@@ -22,6 +25,9 @@ Rectangle {
     // The panel's clock, for a run still running (the rest say their age as
     // of when they were drawn: the list redraws them as it refreshes).
     property double now: Date.now()
+    // Which columns the list's pull request and issue rows fill
+    // (Logic.rowColumns): this row keeps a slot for each, empty or not.
+    property var columns: ({})
 
     signal hovered()
     signal activated()
@@ -41,6 +47,10 @@ Rectangle {
     readonly property string checks: item && item.kind === "pr" ? String(item.checks || "") : ""
     // How long a run took, as GitHub's run list shows it (from its start to
     // its last update), counting while it runs.
+    readonly property bool isItem: !!item && (item.kind === "pr" || item.kind === "issue")
+    readonly property var subIssues: isItem && item.subIssues ? item.subIssues : null
+    // Who is assigned and what is linked, once asked (GitHubData.extrasFor).
+    readonly property var extra: isItem && github ? github.extrasFor(item) : null
     readonly property bool runActive: isRun && Logic.isActiveRun(item)
     readonly property string runTime: isRun ? (runActive ? Logic.duration(item.startedAt || item.createdAt, "", now) : Logic.duration(item.startedAt || item.createdAt, item.updatedAt)) : ""
 
@@ -148,7 +158,7 @@ Rectangle {
             }
 
             StyledText {
-                width: parent.width - (number.visible ? number.implicitWidth + parent.spacing : 0)
+                width: Math.min(implicitWidth, parent.width - (number.visible ? number.implicitWidth + parent.spacing : 0) - (progress.visible ? progress.width + parent.spacing : 0))
                 text: row.item ? (row.isRun ? String(row.item.displayTitle || row.item.workflowName || "") : row.item.title) : ""
                 textFormat: Text.PlainText
                 font.pixelSize: Theme.fontSizeMedium
@@ -156,6 +166,41 @@ Rectangle {
                 color: Theme.surfaceText
                 wrapMode: Text.NoWrap
                 elide: Text.ElideRight
+            }
+
+            // Sub-issues done of all, as github.com shows them by the title.
+            Rectangle {
+                id: progress
+                readonly property bool done: !!row.subIssues && row.subIssues.completed >= row.subIssues.total
+                visible: !!row.subIssues
+                anchors.verticalCenter: parent.verticalCenter
+                width: progressRow.implicitWidth + 10
+                height: 18
+                radius: 9
+                color: Theme.withAlpha(done ? Theme.primary : Theme.surfaceText, 0.1)
+
+                Row {
+                    id: progressRow
+                    anchors.centerIn: parent
+                    spacing: 3
+
+                    DIcon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: progress.done ? "check_circle" : "donut_large"
+                        size: Theme.iconSizeSmall - 4
+                        color: progress.done ? Theme.primary : Theme.surfaceVariantText
+                    }
+
+                    StyledText {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: row.subIssues ? row.subIssues.completed + " / " + row.subIssues.total : ""
+                        font.pixelSize: Theme.fontSizeSmall - 1
+                        font.features: {
+                            "tnum": 1
+                        }
+                        color: progress.done ? Theme.primary : Theme.surfaceVariantText
+                    }
+                }
             }
         }
 
@@ -206,8 +251,12 @@ Rectangle {
         }
     }
 
+    // Over the row's click area, which would otherwise take the pointer's
+    // hover from the avatars (their hover cards); a click on what takes
+    // none here still reaches the row under it.
     Row {
         id: trail
+        z: 1
         anchors.right: parent.right
         anchors.rightMargin: Theme.spacingS
         anchors.verticalCenter: parent.verticalCenter
@@ -244,11 +293,55 @@ Rectangle {
             }
         }
 
-        GitHubStatusIcon {
-            visible: !row.isBusy && row.checks !== ""
+        // A pull request's checks, in their column.
+        Item {
+            visible: !row.isBusy && (row.isItem ? !!row.columns.checks : row.checks !== "")
             anchors.verticalCenter: parent.verticalCenter
-            outcome: Logic.outcome("", row.checks)
-            size: Theme.iconSizeSmall
+            width: Theme.iconSizeSmall
+            height: Theme.iconSizeSmall
+
+            GitHubStatusIcon {
+                visible: row.checks !== ""
+                anchors.centerIn: parent
+                outcome: Logic.outcome("", row.checks)
+                size: Theme.iconSizeSmall
+            }
+        }
+
+        // The pull requests an issue is linked to, or the issues a pull
+        // request closes.
+        Item {
+            visible: !row.isBusy && row.isItem && !!row.columns.linked
+            anchors.verticalCenter: parent.verticalCenter
+            width: 34
+            height: linkedRow.implicitHeight
+
+            Row {
+                id: linkedRow
+                visible: !!row.extra && row.extra.linked > 0
+                anchors.right: parent.right
+                spacing: 2
+
+                // GitHub's glyph, in the color of where the links stand.
+                GitHubOcticon {
+                    readonly property var shown: row.extra ? row.extra.linkGlyph : null
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: shown ? shown.icon : ""
+                    size: Theme.iconSizeSmall - 2
+                    color: shown ? ({
+                            "success": Theme.success,
+                            "accent": Theme.primary,
+                            "error": Theme.error
+                        })[shown.tone] || Theme.surfaceVariantText : Theme.surfaceVariantText
+                }
+
+                StyledText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: row.extra ? String(row.extra.linked) : ""
+                    font.pixelSize: Theme.fontSizeSmall
+                    color: Theme.surfaceVariantText
+                }
+            }
         }
 
         Row {
@@ -274,35 +367,105 @@ Rectangle {
             }
         }
 
-        Row {
-            visible: !row.isBusy && !row.isRun && !row.isNotification && !!row.item && row.item.comments > 0
+        Item {
+            visible: !row.isBusy && row.isItem && !!row.columns.comments
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 2
+            // Room for four digits.
+            width: 46
+            height: commentRow.implicitHeight
 
-            DIcon {
-                anchors.verticalCenter: parent.verticalCenter
-                name: "chat_bubble"
-                size: Theme.iconSizeSmall - 2
-                color: Theme.surfaceVariantText
-            }
+            Row {
+                id: commentRow
+                visible: !!row.item && row.item.comments > 0
+                anchors.right: parent.right
+                spacing: 2
 
-            StyledText {
-                anchors.verticalCenter: parent.verticalCenter
-                text: row.item ? String(row.item.comments) : ""
-                font.pixelSize: Theme.fontSizeSmall
-                color: Theme.surfaceVariantText
+                DIcon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: "chat_bubble"
+                    size: Theme.iconSizeSmall - 2
+                    color: Theme.surfaceVariantText
+                }
+
+                StyledText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: row.item ? String(row.item.comments) : ""
+                    font.pixelSize: Theme.fontSizeSmall
+                    color: Theme.surfaceVariantText
+                }
             }
         }
 
-        DActionButton {
+        // Who is assigned, their pictures overlapping as on github.com: up
+        // to three, or two and a disc saying how many more, so every row's
+        // column is as wide (three pictures).
+        Item {
+            visible: !row.isBusy && row.isItem && !!row.columns.assignees
             anchors.verticalCenter: parent.verticalCenter
-            visible: !row.isNotification && row.showActions
-            buttonSize: 28
-            iconName: "open_in_new"
-            iconSize: Theme.iconSizeSmall
-            iconColor: Theme.surfaceVariantText
-            tooltipText: "Open on GitHub"
-            onClicked: row.openedExternally()
+            width: 20 * 3 - 4 * 2
+            height: 20
+
+            Row {
+                id: avatars
+                readonly property var all: row.extra ? row.extra.assignees : []
+                readonly property int count: row.extra ? Math.max(all.length, row.extra.assigneeCount) : 0
+                readonly property var logins: count > 3 ? all.slice(0, 2) : all
+                readonly property int more: count - logins.length
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: -4
+
+                Repeater {
+                    model: avatars.logins
+
+                    GitHubAvatar {
+                        required property var modelData
+                        anchors.verticalCenter: parent.verticalCenter
+                        login: modelData
+                        size: 20
+                        subjectId: row.item ? row.item.nodeId || "" : ""
+                    }
+                }
+
+                Rectangle {
+                    visible: avatars.more > 0
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 20
+                    height: 20
+                    radius: 10
+                    color: Theme.surfaceContainerHigh
+                    border.width: 1
+                    border.color: Theme.withAlpha(Theme.outlineVariant, 0.8)
+
+                    StyledText {
+                        anchors.centerIn: parent
+                        text: "+" + Math.min(avatars.more, 99)
+                        font.pixelSize: Theme.fontSizeSmall - 3
+                        font.weight: Font.DemiBold
+                        color: Theme.surfaceVariantText
+                    }
+                }
+            }
+        }
+
+        // Every row keeps the button's room, shown or not, so the columns
+        // stay put as the pointer moves down the list.
+        Item {
+            visible: !row.isNotification
+            anchors.verticalCenter: parent.verticalCenter
+            width: 28
+            height: 28
+
+            DActionButton {
+                visible: row.showActions
+                anchors.centerIn: parent
+                buttonSize: 28
+                iconName: "open_in_new"
+                iconSize: Theme.iconSizeSmall
+                iconColor: Theme.surfaceVariantText
+                tooltipText: "Open on GitHub"
+                onClicked: row.openedExternally()
+            }
         }
     }
 

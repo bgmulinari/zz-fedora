@@ -378,8 +378,90 @@ function itemOf(node) {
         "stateReason": String(node.stateReason || ""),
         "reviewDecision": String(node.reviewDecision || ""),
         "checks": checks,
-        "labels": labelsOf(node.labels)
+        "labels": labelsOf(node.labels),
+        // The node, for what the rows on screen ask for apart (extrasOf).
+        "nodeId": String(node.id || ""),
+        // An issue's sub-issues, done and in all, beside its title.
+        "subIssues": kind === "issue" && node.subIssuesSummary && node.subIssuesSummary.total > 0 ? {
+            "completed": Number(node.subIssuesSummary.completed || 0),
+            "total": Number(node.subIssuesSummary.total)
+        } : null
     };
+}
+
+// Where a row's links stand, for the icon beside their count: the one that
+// says most of the first few, as github.com's lists draw it. An issue's
+// pull requests: open, then draft, merged, closed; a pull request's
+// issues: open, then completed, not planned.
+var LINK_GLYPHS = {
+    "open": glyph("git-pull-request", "success"),
+    "draft": glyph("git-pull-request-draft", "muted"),
+    "merged": glyph("git-merge", "accent"),
+    "closed": glyph("git-pull-request-closed", "error"),
+    "issueOpen": glyph("issue-opened", "success"),
+    "completed": glyph("issue-closed", "accent"),
+    "notPlanned": glyph("skip", "muted")
+};
+
+function linkState(kind, links) {
+    const states = links.map(link => {
+        const state = String(link.state || "");
+        if (kind === "pr")
+            return state === "OPEN" ? "issueOpen" : (String(link.stateReason || "") === "NOT_PLANNED" || String(link.stateReason || "") === "DUPLICATE" ? "notPlanned" : "completed");
+        if (state === "OPEN")
+            return link.isDraft ? "draft" : "open";
+        return state === "MERGED" ? "merged" : "closed";
+    });
+    const order = kind === "pr" ? ["issueOpen", "completed", "notPlanned"] : ["open", "draft", "merged", "closed"];
+    return order.find(state => states.indexOf(state) >= 0) || (kind === "pr" ? "issueOpen" : "open");
+}
+
+// What queries/inbox.graphql's Extras answers for the rows on screen, by
+// url: { updatedAt, assignees (the first three logins), assigneeCount,
+// linked (the pull requests an issue is linked to, or the issues a pull
+// request closes), linkGlyph (Octicon and tone for where they stand) }.
+function extrasOf(data) {
+    const out = {};
+    for (const node of nodesOf(data ? {
+        "nodes": data.nodes
+    } : null)) {
+        if (!node.url)
+            continue;
+        const assignees = nodesOf(node.assignees).map(user => String(user.login || "")).filter(login => login !== "");
+        const kind = node.__typename === "PullRequest" ? "pr" : "issue";
+        const links = kind === "pr" ? node.closingIssuesReferences : node.closedByPullRequestsReferences;
+        out[String(node.url)] = {
+            "updatedAt": String(node.updatedAt || ""),
+            "assignees": assignees,
+            "assigneeCount": totalOf(node.assignees, assignees.length),
+            "linked": totalOf(links, nodesOf(links).length),
+            "linkGlyph": LINK_GLYPHS[linkState(kind, nodesOf(links))]
+        };
+    }
+    return out;
+}
+
+// Which of the columns on the right of a list's pull request and issue rows
+// any row fills, so each row keeps a slot for them (and only them) and the
+// columns line up as on github.com: checks, links, comments, assignees.
+// `extras` are the rows' extrasOf answers, by url.
+function rowColumns(items, extras) {
+    const has = {
+        "checks": false,
+        "linked": false,
+        "comments": false,
+        "assignees": false
+    };
+    for (const item of items || []) {
+        if (!item || (item.kind !== "pr" && item.kind !== "issue"))
+            continue;
+        const extra = (extras || {})[item.url] || {};
+        has.checks = has.checks || !!item.checks;
+        has.linked = has.linked || extra.linked > 0;
+        has.comments = has.comments || item.comments > 0;
+        has.assignees = has.assignees || (extra.assignees || []).length > 0;
+    }
+    return has;
 }
 
 // The words of a list search in the loaded rows: every word somewhere in
@@ -667,7 +749,7 @@ function threadMatches(thread, query, unread, author) {
 // page of them, each repository once: { query, vars, keys }, where keys
 // maps each alias to the subject's url. Names travel as variables, never
 // inside the query.
-var SUBJECT_FIELDS = "__typename ... on PullRequest { state isDraft author { login } } ... on Issue { state stateReason author { login } }";
+var SUBJECT_FIELDS = "__typename ... on PullRequest { state isDraft author { __typename login } } ... on Issue { state stateReason author { __typename login } }";
 
 function subjectsQuery(threads) {
     const repos = {};
@@ -2636,6 +2718,112 @@ function suggestedValues(what, data) {
 function searchedRepo(text) {
     const repos = searchTokens(text).map(token => qualifierOf(token.text)).filter(q => q && !q.exclude && q.name === "repo" && isRepo(q.value)).map(q => q.value);
     return repos.length === 1 ? repos[0] : "";
+}
+
+// ------------------------------------------------------------ hover cards
+//
+// A person's card over their avatar (queries/hovercard.graphql), as
+// github.com's: { login, name, pronouns, status: { emoji, message, busy }
+// or null, bio, location, company, contexts: [{ icon, html }], found,
+// app }. A context's html is its line with its teams or organizations as
+// links. An app or a bot is no user GitHub can describe, so its card is
+// only its name, asked for nothing.
+
+var OCTICONS = {
+    "issue-opened": "adjust",
+    "issue-closed": "check_circle",
+    "git-pull-request": "merge",
+    "git-merge": "merge",
+    "git-commit": "commit",
+    "people": "group",
+    "organization": "domain",
+    "repo": "book",
+    "eye": "visibility",
+    "star": "star",
+    "comment": "chat_bubble",
+    "person": "person",
+    "clock": "schedule",
+    "check": "check",
+    "code-review": "rate_review"
+};
+
+function isApp(login) {
+    const name = String(login || "");
+    return name === "" || name === "ghost" || /\[bot\]$/.test(name) || name.indexOf("app/") === 0;
+}
+
+function hovercardContext(context) {
+    const link = (url, text) => "<a href=\"" + escapeHtml(String(url || "")) + "\">" + escapeHtml(String(text || "")) + "</a>";
+    const more = (shown, total) => total > shown ? " and " + (total - shown) + " more" : "";
+    let html = escapeHtml(String(context.message || ""));
+    if (context.__typename === "OrganizationTeamsHovercardContext") {
+        const teams = nodesOf(context.relevantTeams);
+        if (teams.length > 0)
+            html = "Member of " + teams.map(team => link(team.url, team.combinedSlug || team.name)).join(", ") + more(teams.length, Number(context.totalTeamCount || 0));
+    } else if (context.__typename === "OrganizationsHovercardContext") {
+        const orgs = nodesOf(context.relevantOrganizations);
+        if (orgs.length > 0)
+            html = "Member of " + orgs.map(org => link(org.url, org.name || org.login)).join(", ") + more(orgs.length, Number(context.totalOrganizationCount || 0));
+    }
+    return {
+        "icon": OCTICONS[context.octicon] || "info",
+        "html": html
+    };
+}
+
+// The logins GitHub names as bots anywhere in an answer: GraphQL gives a
+// bot's login bare ("dependabot"), and a user may hold the same name, so
+// a bot's card must not ask for that user.
+function botLogins(data) {
+    const out = {};
+    const walk = (value, depth) => {
+        if (!value || typeof value !== "object" || depth > 30)
+            return;
+        if (Array.isArray(value)) {
+            for (const entry of value)
+                walk(entry, depth + 1);
+            return;
+        }
+        if (value.__typename === "Bot" && typeof value.login === "string" && value.login !== "")
+            out[value.login] = true;
+        for (const key in value)
+            walk(value[key], depth + 1);
+    };
+    walk(data, 0);
+    return out;
+}
+
+function hovercardOf(data, login) {
+    const user = data ? data.user : null;
+    const card = {
+        "login": String(login || ""),
+        "name": "",
+        "pronouns": "",
+        "status": null,
+        "bio": "",
+        "location": "",
+        "company": "",
+        "contexts": [],
+        "found": !!user,
+        "app": isApp(login)
+    };
+    if (!user)
+        return card;
+    const status = user.status && (user.status.message || user.status.emoji) ? {
+        "emoji": String(user.status.emoji || ""),
+        "message": String(user.status.message || ""),
+        "busy": !!user.status.indicatesLimitedAvailability
+    } : null;
+    return Object.assign(card, {
+        "login": String(user.login || login),
+        "name": String(user.name || ""),
+        "pronouns": String(user.pronouns || ""),
+        "status": status,
+        "bio": String(user.bio || ""),
+        "location": String(user.location || ""),
+        "company": String(user.company || ""),
+        "contexts": (user.hovercard && Array.isArray(user.hovercard.contexts) ? user.hovercard.contexts : []).filter(context => !!context && !!context.message).map(hovercardContext)
+    });
 }
 
 // ---------------------------------------------------------------- popout

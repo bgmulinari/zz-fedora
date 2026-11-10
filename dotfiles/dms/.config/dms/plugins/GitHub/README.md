@@ -73,6 +73,21 @@ stays scrolled through the background refresh, which fetches it again as
 far as it was loaded (100 at a time, 50 for the Inbox) so no item slips
 between pages. Refresh starts every list over.
 
+Pull request and issue rows show what github.com's lists show on the
+right, in columns that line up down the list (a column takes room only
+when a row on screen fills it): a pull request's checks, the pull requests
+an issue is linked to (or the issues a pull request closes, each count
+behind GitHub's own glyph in the color of where the links stand: an open
+pull request green, a draft grey, a merged one in the accent, a closed one
+red; an open issue green, a completed one in the accent, one not planned
+grey; drawn from Octicons in `GitHubOcticon.qml`), the comments,
+and who is assigned (the first three pictures, and how many more). An
+issue with sub-issues shows how many are done beside its title. The lists
+come without who is assigned and what is linked: asked of every list at
+each refresh, those would more than double the request's cost, so they are
+asked apart for the rows on screen (one point for up to 100 rows), a
+moment after the rows come.
+
 The search field searches GitHub on the pull request and issue lists: the
 words join the list's own search (Created, Assigned, ...) a moment after
 typing stops, GitHub's advanced search syntax included (`label:bug`,
@@ -322,7 +337,9 @@ many bars show the mark.
 | Repositories by name, for the picker | `gh search repos` |
 | The next page of a list | `gh api graphql` with `queries/inbox.graphql` (operation `Page`) |
 | A search typed over a list, and its next pages | `gh api graphql` with `queries/inbox.graphql` (operation `Search`, GitHub's advanced search) |
-| The search's suggestions: a repository's labels, milestones, and issue types; its branches; who can be assigned there; GitHub's users by name | `gh api graphql` with `queries/suggest.graphql` (operations `Repository`, `Branches`, `People`, `Users`), a moment after typing stops, each answer kept five minutes |
+| The search's suggestions: a repository's labels, milestones, and issue types (and its labels by name past the first 100); its branches; who can be assigned there; GitHub's users by name | `gh api graphql` with `queries/suggest.graphql` (operations `Repository`, `Labels`, `Branches`, `Users`) and `queries/assignees.graphql`, a moment after typing stops, each answer kept five minutes |
+| Who is assigned to the rows on screen, and what they link | `gh api graphql` with `queries/inbox.graphql` (operation `Extras`, the rows by node id, up to 100 a request), again for a row once its update time moves |
+| A person's hover card | `gh api graphql` with `queries/hovercard.graphql` (operation `Hovercard`), kept ten minutes per person and page |
 | Unread notifications (the dot, the counts, desktop notifications) | `gh api notifications` (the newest 50) |
 | The Inbox | `gh api notifications?all=true` (or `repos/<owner>/<name>/notifications?all=true`), 50 at a time, the next ones with `before=` the oldest loaded |
 | What each Inbox subject is now (state, author) | `gh api graphql` with one `issueOrPullRequest` per subject, each repository once, per page |
@@ -372,9 +389,16 @@ lately shown go first), cleared when the shell starts, and one that failed
 is not tried again for ten minutes. A picture plays only while it is in
 view.
 
-The profile pictures in post headers are GitHub's public avatars
-(`avatars.githubusercontent.com/<login>`), with the initial standing in
-when there is none.
+The profile pictures in post headers and list rows are GitHub's public
+avatars (`avatars.githubusercontent.com/<login>`), with the initial
+standing in when there is none. Resting the pointer on one opens the
+person's hover card, as on github.com: their name, status, bio, location,
+and company, and GitHub's lines about them beside the pull request or
+issue on screen (opened it, committed to the repository lately, the teams
+and organizations they belong to, which open on GitHub). The pointer can
+move onto the card for its links; it goes a moment after the pointer
+leaves both. GitHub's API does not share the local time github.com shows
+there, and an app or a bot has a card with its name only.
 
 ## Staying within GitHub's limits
 

@@ -98,6 +98,18 @@ Item {
         if (liveRows)
             rows = liveRows;
     }
+    // The columns the rows on screen fill, so every row lines them up.
+    readonly property var rowColumns: Logic.rowColumns(rows, github.extras)
+    // What the right of the rows shows beyond the lists' answer is asked
+    // for the rows on screen, a moment after they settle (onRowsChanged).
+    Timer {
+        id: extrasTimer
+        interval: 300
+        onTriggered: {
+            if (panel.listShowing && (panel.tab === "prs" || panel.tab === "issues"))
+                panel.github.lookupExtras(panel.rows);
+        }
+    }
     readonly property var selectedRow: selectedIndex >= 0 && selectedIndex < rows.length ? rows[selectedIndex] : null
 
     // One clock for the durations of runs in progress.
@@ -123,7 +135,10 @@ Item {
 
     // The panel says while it is on screen, so the full lists and runs in
     // progress are fetched only while someone looks.
-    onShowingChanged: github.setWatching(panel, showing)
+    onShowingChanged: {
+        github.setWatching(panel, showing);
+        cardLayer.close();
+    }
     Component.onCompleted: github.setWatching(panel, showing)
     Component.onDestruction: github.setWatching(panel, false)
 
@@ -442,6 +457,8 @@ Item {
 
     // Back from a page, what went stale meanwhile follows at once.
     onListShowingChanged: {
+        // A card over the list goes with it (a page opens, the popout hides).
+        cardLayer.close();
         if (listShowing && detailStack.length === 0)
             poll();
     }
@@ -960,6 +977,7 @@ Item {
     }
 
     onRowsChanged: {
+        extrasTimer.restart();
         if (selectedIndex >= rows.length)
             selectedIndex = Math.max(0, rows.length - 1);
         // A thread that left the rows (done, or filtered out) is no longer
@@ -999,6 +1017,17 @@ Item {
             mouse.accepted = false;
         }
         onWheel: wheel => wheel.accepted = false
+    }
+
+    // People's hover cards, over the lists and the pages alike: an avatar
+    // finds it as hovercardLayer (GitHubAvatar).
+    readonly property Item hovercardLayer: cardLayer
+
+    GitHubHovercard {
+        id: cardLayer
+        anchors.fill: parent
+        z: 300
+        github: panel.github
     }
 
     function hits(item, point) {
@@ -1711,6 +1740,7 @@ Item {
                     item: modelData
                     github: panel.github
                     now: panel.now
+                    columns: panel.rowColumns
                     selected: index === panel.selectedIndex
                     checked: !!panel.checked[modelData.id]
                     onHovered: panel.selectedIndex = index

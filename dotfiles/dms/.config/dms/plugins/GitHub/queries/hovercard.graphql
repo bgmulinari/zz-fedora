@@ -1,0 +1,26 @@
+# A person's hover card, as github.com shows it over an avatar: who they
+# are (name, status, bio, location, company) and what GitHub says about
+# them in the light of $subject, the pull request or issue on screen when
+# there is one ("Opened this issue", "Committed to this repository in the
+# past week", the teams and organizations they share with it). GitHub keeps
+# the local time it shows there to its own pages.
+query Hovercard($login: String!, $subject: ID) {
+  user(login: $login) {
+    login
+    name
+    location
+    company
+    bio
+    pronouns
+    status { emoji message indicatesLimitedAvailability }
+    hovercard(primarySubjectId: $subject) {
+      contexts {
+        __typename
+        message
+        octicon
+        ... on OrganizationTeamsHovercardContext { teamsUrl totalTeamCount relevantTeams(first: 3) { nodes { name combinedSlug url } } }
+        ... on OrganizationsHovercardContext { totalOrganizationCount relevantOrganizations(first: 3) { nodes { login name url } } }
+      }
+    }
+  }
+}

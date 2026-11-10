@@ -76,6 +76,7 @@ Rectangle {
                 page: post.page
                 login: post.login
                 size: 20
+                subjectId: post.page ? post.page.subjectId : ""
             }
 
             GitHubLinkText {
@@ -341,6 +342,7 @@ Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
                                 login: Logic.loginOf(threadComment.modelData)
                                 size: 16
+                                subjectId: post.page ? post.page.subjectId : ""
                             }
 
                             GitHubLinkText {

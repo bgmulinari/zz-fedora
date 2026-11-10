@@ -140,6 +140,7 @@ Item {
         gh(args, (code, out, err) => {
             const answer = Logic.graphqlAnswer(out);
             if (answer && answer.data) {
+                noteBots(answer.data);
                 callback(answer, "");
                 return;
             }
@@ -807,6 +808,10 @@ Item {
         reactorsKept = {};
         subjects = {};
         subjectsAsked = {};
+        extras = {};
+        extrasAsked = {};
+        hovercards = {};
+        hovercardsAsked = {};
         tokenScopes = null;
         runAccess = {};
         jobLogs = {};
@@ -1611,6 +1616,135 @@ Item {
                     subjects = Object.assign({}, subjects, found);
             });
         }
+    }
+
+    // What the right of a pull request or issue row shows beyond its list's
+    // answer (Logic.extrasOf), by url, asked for only for the rows a panel
+    // has on screen and again once a row's updatedAt moves (an assignment
+    // or a link moves it). extrasAsked says for which updatedAt.
+    property var extras: ({})
+    property var extrasAsked: ({})
+    readonly property int extrasKept: 600
+
+    function extrasFor(item) {
+        return item ? extras[item.url] || null : null;
+    }
+
+    function lookupExtras(items) {
+        const wanted = Logic.appendNew([], (items || []).filter(item => (item.kind === "pr" || item.kind === "issue") && item.nodeId && extrasAsked[item.url] !== item.updatedAt), "url");
+        if (wanted.length === 0)
+            return;
+        const asked = Object.assign({}, extrasAsked);
+        for (const item of wanted)
+            asked[item.url] = item.updatedAt;
+        extrasAsked = asked;
+        for (let i = 0; i < wanted.length; i += 100) {
+            const chunk = wanted.slice(i, i + 100);
+            graphql("inbox", "Extras", {
+                "ids": chunk.map(item => item.nodeId)
+            }, answer => {
+                if (!answer) {
+                    // Asked again with the next look.
+                    const retry = Object.assign({}, extrasAsked);
+                    for (const item of chunk)
+                        delete retry[item.url];
+                    extrasAsked = retry;
+                    return;
+                }
+                // The answered rows move to the end, so the ones let go
+                // past extrasKept are the longest unanswered; what is
+                // still on its way keeps its mark.
+                const found = Logic.extrasOf(answer.data);
+                const next = {};
+                for (const url in extras)
+                    if (!found[url])
+                        next[url] = extras[url];
+                Object.assign(next, found);
+                const urls = Object.keys(next);
+                if (urls.length > extrasKept) {
+                    const dropped = {};
+                    for (const url of urls.slice(0, urls.length - extrasKept)) {
+                        dropped[url] = true;
+                        delete next[url];
+                    }
+                    const keptAsked = {};
+                    for (const url in extrasAsked)
+                        if (!dropped[url])
+                            keptAsked[url] = extrasAsked[url];
+                    extrasAsked = keptAsked;
+                }
+                extras = next;
+            });
+        }
+    }
+
+    // People's hover cards (Logic.hovercardOf), by login and the pull
+    // request or issue they are shown over (GitHub's lines about them
+    // depend on it), kept hovercardMs and at most hovercardsKept.
+    property var hovercards: ({})
+    readonly property int hovercardMs: 600000
+    readonly property int hovercardsKept: 200
+    // The callbacks waiting on a card already asked for, by its key.
+    property var hovercardsAsked: ({})
+    // Logins GitHub named as bots in any answer (Logic.botLogins).
+    property var bots: ({})
+
+    function noteBots(data) {
+        const found = Logic.botLogins(data);
+        if (Object.keys(found).some(login => !bots[login]))
+            bots = Object.assign({}, bots, found);
+    }
+
+    // callback(card): at once when kept, else once GitHub answers (or
+    // fails: the card then says no more than the login); a card already
+    // on its way is asked for once, for every panel that asks meanwhile,
+    // so the request belongs to none of them. An app or a bot is asked
+    // nothing.
+    function loadHovercard(login, subjectId, callback) {
+        const key = login + "@" + (subjectId || "");
+        const kept = hovercards[key];
+        if (kept && Date.now() - kept.at < hovercardMs) {
+            callback(kept.card);
+            return;
+        }
+        if (Logic.isApp(login) || bots[login]) {
+            callback(Object.assign(Logic.hovercardOf(null, login), {
+                "app": true
+            }));
+            return;
+        }
+        if (hovercardsAsked[key]) {
+            hovercardsAsked[key].push(callback);
+            return;
+        }
+        hovercardsAsked[key] = [callback];
+        graphql("hovercard", "Hovercard", {
+            "login": login,
+            "subject": subjectId || null
+        }, answer => {
+            const waiting = hovercardsAsked[key] || [];
+            delete hovercardsAsked[key];
+            const card = Logic.hovercardOf(answer ? answer.data : null, login);
+            if (answer) {
+                const next = {};
+                const now = Date.now();
+                const keys = Object.keys(hovercards).filter(other => now - hovercards[other].at < hovercardMs);
+                for (const other of keys.slice(Math.max(0, keys.length - hovercardsKept + 1)))
+                    next[other] = hovercards[other];
+                next[key] = {
+                    "at": now,
+                    "card": card
+                };
+                hovercards = next;
+            }
+            // Each panel that asked meanwhile, one gone since included,
+            // which the answer does not reach.
+            for (const done of waiting) {
+                try {
+                    done(card);
+                } catch (e) {}
+            }
+        });
     }
 
     // ------------------------------------------------------------ reactions

@@ -7,14 +7,46 @@ import "GitHubLogic.js" as Logic
 // A person's GitHub picture, round, from GitHub's public avatar host (no
 // credential involved); the initial stands in while it loads or when there
 // is none (an app or a bot). With a page (GitHubDetail), it opens the
-// profile.
+// profile. The pointer resting on it opens the person's hover card
+// (GitHubHovercard) from the panel it is in, beside subjectId (the pull
+// request or issue it is shown for) when it has one; a menu's or a card's
+// own picture turns that off (hovercard).
 ClippingRectangle {
     id: avatar
 
     property var page: null
     property string login: ""
     property int size: 20
+    property bool hovercard: true
+    property string subjectId: ""
     readonly property bool loaded: picture.status === Image.Ready
+
+    // The panel's card layer, the first parent that has one, found on the
+    // first hover and kept: a list lets go of a row (its parent) before it
+    // destroys it, so the layer cannot be looked for then.
+    property Item cardHost: null
+
+    function cardLayer() {
+        if (!cardHost)
+            for (let p = avatar.parent; p && !cardHost; p = p.parent)
+                if (p.hovercardLayer !== undefined)
+                    cardHost = p.hovercardLayer;
+        return cardHost;
+    }
+
+    HoverHandler {
+        enabled: avatar.hovercard && avatar.login !== ""
+        onHoveredChanged: {
+            const layer = avatar.cardLayer();
+            if (layer)
+                layer.hovered(avatar, avatar.login, avatar.subjectId, hovered);
+        }
+    }
+
+    Component.onDestruction: {
+        if (avatar.cardHost)
+            avatar.cardHost.gone(avatar);
+    }
 
     width: size
     height: size

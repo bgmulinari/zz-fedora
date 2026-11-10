@@ -60,6 +60,21 @@ query Resolve($owner: String!, $name: String!, $number: Int!) {
   }
 }
 
+# What the right of a list's rows shows beyond the lists' own answer: who
+# is assigned, and the pull requests an issue is linked to (or the issues
+# a pull request closes) with where the first ones stand, for the icon's
+# color, asked for only for the rows on screen. Every
+# connection in the lists' fragments is asked of all seven lists at once,
+# which would cost the Inbox poll more than doubled; by id, the rows on
+# screen cost a point.
+query Extras($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    __typename
+    ... on PullRequest { url updatedAt assignees(first: 3) { totalCount nodes { login } } closingIssuesReferences(first: 3) { totalCount nodes { state stateReason } } }
+    ... on Issue { url updatedAt assignees(first: 3) { totalCount nodes { login } } closedByPullRequestsReferences(first: 3, includeClosedPrs: true) { totalCount nodes { state isDraft } } }
+  }
+}
+
 fragment results on SearchResultItemConnection {
   issueCount
   pageInfo { hasNextPage endCursor }
@@ -67,13 +82,14 @@ fragment results on SearchResultItemConnection {
 }
 
 fragment pr on PullRequest {
+  id
   number
   title
   url
   isDraft
   state
   updatedAt
-  author { login }
+  author { __typename login }
   repository { nameWithOwner }
   reviewDecision
   comments { totalCount }
@@ -82,14 +98,16 @@ fragment pr on PullRequest {
 }
 
 fragment issue on Issue {
+  id
   number
   title
   url
   state
   stateReason
   updatedAt
-  author { login }
+  author { __typename login }
   repository { nameWithOwner }
   comments { totalCount }
   labels(first: 3) { nodes { name color } }
+  subIssuesSummary { completed total }
 }

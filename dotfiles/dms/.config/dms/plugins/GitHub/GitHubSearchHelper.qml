@@ -374,6 +374,7 @@ Item {
                         anchors.centerIn: parent
                         login: entry.modelData.login || ""
                         size: 18
+                        hovercard: false
                     }
 
                     DIcon {

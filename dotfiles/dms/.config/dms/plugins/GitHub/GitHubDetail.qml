@@ -100,6 +100,9 @@ Item {
 
     readonly property string kind: item ? item.kind : ""
     readonly property string itemUrl: item ? item.url : ""
+    // The pull request or issue as a node, which people's hover cards are
+    // shown beside (GitHubHovercard).
+    readonly property string subjectId: detail && detail.reactions && detail.reactions.id ? detail.reactions.id : (item && item.nodeId ? item.nodeId : "")
     readonly property bool isBusy: !!github && itemUrl !== "" && !!github.busy[itemUrl]
     readonly property string busyAction: isBusy ? github.busy[itemUrl] : ""
     readonly property string itemState: detail && detail.state ? String(detail.state) : (item && item.state ? String(item.state) : "OPEN")
@@ -1583,6 +1586,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         login: reactor.modelData.login
                         size: 24
+                        hovercard: false
                     }
 
                     Column {

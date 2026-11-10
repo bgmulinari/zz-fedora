@@ -2163,3 +2163,281 @@ EOF
   # Closed, the keys are the list's again.
   assert_equal false "$(jq -r '.closedKeys' <<<"$output")"
 }
+
+@test "github list rows carry sub-issues, ask for assignees and links apart, and line up their columns" {
+  need_node
+
+  run github_logic <<'EOF'
+const issue = L.itemOf({ __typename: "Issue", id: "I_1", url: "u1", number: 1, subIssuesSummary: { completed: 6, total: 6 }, comments: { totalCount: 0 } });
+const pr = L.itemOf({ __typename: "PullRequest", id: "PR_2", url: "u2", number: 2, comments: { totalCount: 3 } });
+const bare = L.itemOf({ __typename: "Issue", url: "u3", number: 3, subIssuesSummary: { completed: 0, total: 0 } });
+const extras = L.extrasOf({ nodes: [
+  { __typename: "Issue", url: "u1", updatedAt: "t1", assignees: { totalCount: 5, nodes: [{ login: "a" }, { login: "b" }, { login: "c" }] }, closedByPullRequestsReferences: { totalCount: 2, nodes: [{ state: "MERGED" }, { state: "OPEN", isDraft: true }] } },
+  { __typename: "PullRequest", url: "u2", updatedAt: "t2", assignees: { totalCount: 0, nodes: [] }, closingIssuesReferences: { totalCount: 1, nodes: [{ state: "CLOSED", stateReason: "COMPLETED" }] } },
+  null
+] });
+// Where the links stand, the one that says most first, as github.com
+// draws them.
+const glyphOf = (kind, links) => L.extrasOf({ nodes: [Object.assign({ __typename: kind, url: "x" }, kind === "Issue" ? { closedByPullRequestsReferences: { nodes: links } } : { closingIssuesReferences: { nodes: links } })] }).x.linkGlyph;
+const glyphs = [
+  glyphOf("Issue", [{ state: "CLOSED" }, { state: "OPEN" }]),
+  glyphOf("Issue", [{ state: "CLOSED" }, { state: "MERGED" }]),
+  glyphOf("Issue", [{ state: "CLOSED" }]),
+  glyphOf("PullRequest", [{ state: "CLOSED", stateReason: "NOT_PLANNED" }]),
+  glyphOf("PullRequest", [{ state: "OPEN" }, { state: "CLOSED", stateReason: "COMPLETED" }])
+].map(g => g.icon + " " + g.tone);
+return {
+  ids: [issue.nodeId, pr.nodeId, bare.nodeId],
+  subIssues: [issue.subIssues, pr.subIssues, bare.subIssues],
+  extras: extras,
+  glyphs: glyphs,
+  columns: [L.rowColumns([issue, pr], extras), L.rowColumns([issue, pr], {}), L.rowColumns([{ kind: "run", comments: 4 }], {})]
+};
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '["I_1","PR_2",""]' "$(jq -c '.ids' <<<"$output")"
+  # No sub-issues is no progress to show.
+  assert_equal '[{"completed":6,"total":6},null,null]' "$(jq -c '.subIssues' <<<"$output")"
+  assert_equal '{"u1":{"updatedAt":"t1","assignees":["a","b","c"],"assigneeCount":5,"linked":2,"linkGlyph":{"icon":"git-pull-request-draft","tone":"muted"}},"u2":{"updatedAt":"t2","assignees":[],"assigneeCount":0,"linked":1,"linkGlyph":{"icon":"issue-closed","tone":"accent"}}}' "$(jq -c '.extras' <<<"$output")"
+  assert_equal '["git-pull-request success","git-merge accent","git-pull-request-closed error","skip muted","issue-opened success"]' "$(jq -c '.glyphs' <<<"$output")"
+  # Every glyph the links take is one GitHubOcticon draws.
+  local glyph
+  for glyph in git-pull-request git-pull-request-draft git-merge git-pull-request-closed issue-opened issue-closed skip; do
+    assert_file_contains "$ROOT_DIR/$GITHUB_REL/GitHubOcticon.qml" "\"$glyph\": \"M"
+  done
+  # A column shows when any pull request or issue row fills it.
+  assert_equal '[{"checks":false,"linked":true,"comments":true,"assignees":true},{"checks":false,"linked":false,"comments":true,"assignees":false},{"checks":false,"linked":false,"comments":false,"assignees":false}]' "$(jq -c '.columns' <<<"$output")"
+  # The lists' fragments ask for none of the extras' connections: each
+  # would be asked of all seven lists at every poll.
+  local query="$ROOT_DIR/$GITHUB_REL/queries/inbox.graphql"
+  run bash -c "sed -n '/^fragment pr on/,\$p' '$query' | grep -cE 'assignees|closingIssuesReferences|closedByPullRequestsReferences'"
+  assert_equal 0 "$output"
+  assert_file_contains "$query" 'query Extras($ids: [ID!]!) {'
+}
+
+@test "github asks for the extras of the rows on screen once per change, and again after a failure" {
+  need_qs
+
+  run github_data <<'EOF'
+const gh = fakeGh(data);
+const item = (n, at) => ({ kind: "issue", url: "u" + n, nodeId: "I_" + n, updatedAt: at });
+data.lookupExtras([item(1, "a"), item(2, "a"), { kind: "run", url: "r" }]);
+const first = gh.waiting("operationName=Extras").length;
+// Asked already: nothing more until a row changes.
+data.lookupExtras([item(1, "a"), item(2, "a")]);
+const again = gh.waiting("operationName=Extras").length;
+gh.answer(gh.next("operationName=Extras"), JSON.stringify({ data: { nodes: [{ __typename: "Issue", url: "u1", updatedAt: "a", assignees: { totalCount: 1, nodes: [{ login: "me" }] }, closedByPullRequestsReferences: { totalCount: 1, nodes: [{ state: "OPEN" }] } }] } }));
+const kept = data.extrasFor(item(1, "a"));
+// A row that changed is asked for again, alone.
+data.lookupExtras([item(1, "b"), item(2, "a")]);
+const changed = gh.waiting("operationName=Extras").map(call => call.args.filter(arg => arg.indexOf("ids[]=") === 0));
+// gh failing leaves it to be asked again with the next look.
+gh.answer(gh.next("operationName=Extras"), "", 1, "boom");
+data.lookupExtras([item(1, "b")]);
+const retried = gh.waiting("operationName=Extras").length;
+return { first: first, again: again, kept: kept, changed: changed, retried: retried };
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '[1,1]' "$(jq -c '[.first, .again]' <<<"$output")"
+  assert_equal '{"updatedAt":"a","assignees":["me"],"assigneeCount":1,"linked":1,"linkGlyph":{"icon":"git-pull-request","tone":"success"}}' "$(jq -c '.kept' <<<"$output")"
+  assert_equal '[["ids[]=I_1"]]' "$(jq -c '.changed' <<<"$output")"
+  assert_equal 1 "$(jq -r '.retried' <<<"$output")"
+}
+
+@test "github hover cards say who someone is and link their teams and organizations, as github.com's" {
+  need_node
+
+  run github_logic <<'EOF'
+const data = { user: {
+  login: "octo", name: "Octo <Cat>", location: "Curitiba", company: "@acme", bio: "Hi", pronouns: "they/them",
+  status: { emoji: ":house:", message: "Working from home", indicatesLimitedAvailability: true },
+  hovercard: { contexts: [
+    { __typename: "GenericHovercardContext", message: "Opened this issue", octicon: "issue-opened" },
+    { __typename: "OrganizationTeamsHovercardContext", message: "Member of @acme/devs", octicon: "people", totalTeamCount: 3, relevantTeams: { nodes: [{ name: "Devs", combinedSlug: "acme/devs", url: "https://github.com/orgs/acme/teams/devs" }] } },
+    { __typename: "OrganizationsHovercardContext", message: "Member of @acme", octicon: "organization", totalOrganizationCount: 1, relevantOrganizations: { nodes: [{ login: "acme", name: "", url: "https://github.com/acme" }] } },
+    { __typename: "GenericHovercardContext", message: "", octicon: "x" },
+    { __typename: "GenericHovercardContext", message: "Something new", octicon: "rocket" }
+  ] }
+} };
+const card = L.hovercardOf(data, "octo");
+return {
+  card: [card.name, card.pronouns, card.status, card.location, card.company, card.found, card.app],
+  contexts: card.contexts,
+  missing: L.hovercardOf({ user: null }, "gone"),
+  apps: ["dependabot[bot]", "app/renovate", "ghost", "octo"].map(L.isApp)
+};
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '["Octo <Cat>","they/them",{"emoji":":house:","message":"Working from home","busy":true},"Curitiba","@acme",true,false]' "$(jq -c '.card' <<<"$output")"
+  # Teams and organizations become links (the rest is text, escaped), an
+  # empty line is left out, and an icon GitHub adds later falls back.
+  assert_equal '[{"icon":"adjust","html":"Opened this issue"},{"icon":"group","html":"Member of <a href=\"https://github.com/orgs/acme/teams/devs\">acme/devs</a> and 2 more"},{"icon":"domain","html":"Member of <a href=\"https://github.com/acme\">acme</a>"},{"icon":"info","html":"Something new"}]' "$(jq -c '.contexts' <<<"$output")"
+  assert_equal '["gone",false,[]]' "$(jq -c '.missing | [.login, .found, .contexts]' <<<"$output")"
+  assert_equal '[true,true,true,false]' "$(jq -c '.apps' <<<"$output")"
+}
+
+@test "github asks for a hover card once per person and page, and never for an app" {
+  need_qs
+
+  run github_data <<'EOF'
+const gh = fakeGh(data);
+const cards = [];
+data.loadHovercard("octo", "I_1", card => cards.push(card.name));
+const call = gh.next("operationName=Hovercard");
+const vars = call.args.filter(arg => /^(login|subject)=/.test(arg));
+gh.answer(call, JSON.stringify({ data: { user: { login: "octo", name: "Octo", hovercard: { contexts: [] } } } }));
+// Kept: answered at once, nothing asked.
+data.loadHovercard("octo", "I_1", card => cards.push(card.name));
+const kept = gh.waiting("operationName=Hovercard").length;
+// Beside another page, GitHub says other things.
+data.loadHovercard("octo", "I_2", card => cards.push(card.name));
+const other = gh.waiting("operationName=Hovercard").length;
+// A failure answers the login alone, and is not kept.
+gh.answer(gh.next("operationName=Hovercard"), "", 1, "boom");
+data.loadHovercard("octo", "I_2", () => {});
+const retried = gh.waiting("operationName=Hovercard").length;
+data.loadHovercard("dependabot[bot]", "I_1", card => cards.push(card.app));
+return { vars: vars, cards: cards, kept: kept, other: other, retried: retried, apps: gh.waiting("dependabot").length };
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '["login=octo","subject=I_1"]' "$(jq -c '.vars' <<<"$output")"
+  assert_equal '["Octo","Octo","",true]' "$(jq -c '.cards' <<<"$output")"
+  assert_equal '[0,1,1,0]' "$(jq -c '[.kept, .other, .retried, .apps]' <<<"$output")"
+}
+
+@test "github avatars open their hover card from the panel's layer, and take it along when they go" {
+  # Every avatar shown for a person opens one, but a menu's, a card's, and
+  # the reactors' own pictures, which sit over another surface.
+  local dir="$ROOT_DIR/$GITHUB_REL"
+  run grep -c "hovercard: false" "$dir/GitHubSearchHelper.qml" "$dir/GitHubHovercard.qml" "$dir/GitHubDetail.qml"
+  assert_equal "$dir/GitHubSearchHelper.qml:1
+$dir/GitHubHovercard.qml:1
+$dir/GitHubDetail.qml:1" "$output"
+  run grep -c "subjectId:" "$dir/GitHubRow.qml" "$dir/GitHubPost.qml"
+  assert_equal "$dir/GitHubRow.qml:1
+$dir/GitHubPost.qml:2" "$output"
+  assert_file_contains "$dir/GitHubPanel.qml" "readonly property Item hovercardLayer: cardLayer"
+  assert_file_contains "$dir/GitHubAvatar.qml" "layer.hovered(avatar, avatar.login, avatar.subjectId, hovered);"
+  assert_file_contains "$dir/GitHubAvatar.qml" "avatar.cardHost.gone(avatar);"
+  # A row's click area tracks the pointer too: the columns lie over it, or
+  # it would take the hover from the avatars in them.
+  run awk '/id: trail/ { getline; print }' "$dir/GitHubRow.qml"
+  assert_equal "        z: 1" "$output"
+}
+
+@test "github hover cards open and close with the pointer, and outlive the rows rebuilt under them" {
+  need_qs
+
+  run github_views <<'EOF'
+const component = Qt.createComponent("GitHubHovercard.qml");
+if (component.status !== Component.Ready)
+    return { "error": component.errorString() };
+const asks = [];
+const github = { "loadHovercard": (login, subject, done) => asks.push({ "login": login, "subject": subject, "done": done }) };
+const layer = component.createObject(root, { "github": github, "width": 600, "height": 600 });
+const picture = y => Qt.createQmlObject('import QtQuick; Item { width: 20; height: 20 }', root);
+const a = picture(), b = picture();
+a.y = 100;
+b.y = 200;
+const out = {};
+// Resting on a picture waits; a close meanwhile drops the wait.
+layer.hovered(a, "octo", "I_1", true);
+out.waiting = !!layer.waiting;
+layer.close();
+out.dropped = [layer.waiting, layer.shown];
+// Open: the login at once, the card once GitHub answers.
+layer.open({ "avatar": a, "login": "octo", "subject": "I_1" });
+out.open = [layer.shown, layer.login, asks.length, asks[0].subject];
+asks[0].done({ "login": "octo", "name": "Octo" });
+out.card = layer.card.name;
+// Off this picture, over another and off it before its card opens: the
+// shown card still goes.
+layer.hovered(a, "octo", "I_1", false);
+layer.hovered(b, "cat", "I_1", true);
+const held = layer.closing;
+layer.hovered(b, "cat", "I_1", false);
+out.passing = [held, layer.closing, layer.waiting];
+// The rows rebuilt under the card: it lets go of the picture and goes
+// in a moment, unless the same person's new picture takes it over.
+layer.hovered(a, "octo", "I_1", true);
+layer.gone(a);
+out.gone = [layer.shown, layer.avatar === null, layer.closing];
+const c = picture();
+c.y = 100;
+layer.hovered(c, "octo", "I_1", true);
+out.taken = [layer.avatar === c, layer.closing, asks.length];
+// An answer for someone else's card, asked before, does not land here.
+layer.close();
+layer.open({ "avatar": b, "login": "cat", "subject": "" });
+asks[0].done({ "login": "octo", "name": "Stale" });
+out.stale = layer.card;
+return out;
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '[true,[null,false]]' "$(jq -c '[.waiting, .dropped]' <<<"$output")"
+  assert_equal '[true,"octo",1,"I_1"]' "$(jq -c '.open' <<<"$output")"
+  assert_equal "Octo" "$(jq -r '.card' <<<"$output")"
+  assert_equal '[false,true,null]' "$(jq -c '.passing' <<<"$output")"
+  assert_equal '[true,true,true]' "$(jq -c '.gone' <<<"$output")"
+  assert_equal '[true,false,1]' "$(jq -c '.taken' <<<"$output")"
+  assert_equal null "$(jq -c '.stale' <<<"$output")"
+}
+
+@test "github asks for one hover card for everyone waiting on it, and none for a bot GitHub named" {
+  need_qs
+
+  run github_data <<'EOF'
+const gh = fakeGh(data);
+const cards = [];
+data.loadHovercard("octo", "", card => cards.push("a:" + card.name));
+data.loadHovercard("octo", "", card => cards.push("b:" + card.name));
+const asked = gh.waiting("operationName=Hovercard").length;
+gh.answer(gh.next("operationName=Hovercard"), JSON.stringify({ data: { user: { login: "octo", name: "Octo", hovercard: { contexts: [] } } } }));
+// A page's answer names a bot whose login a user also holds: its card is
+// asked for nothing.
+gh.answer((data.graphql("detail", "Issue", {}, () => {}), gh.next("operationName=Issue")), JSON.stringify({ data: { repository: { issue: { author: { __typename: "Bot", login: "claude" } } } } }));
+data.loadHovercard("claude", "", card => cards.push("bot:" + card.app));
+return { asked: asked, cards: cards, botAsks: gh.waiting("login=claude").length };
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal 1 "$(jq -r '.asked' <<<"$output")"
+  assert_equal '["a:Octo","b:Octo","bot:true"]' "$(jq -c '.cards' <<<"$output")"
+  assert_equal 0 "$(jq -r '.botAsks' <<<"$output")"
+}
+
+@test "github keeps the extras of the rows answered last, and the marks of the ones on their way" {
+  need_qs
+
+  run github_data <<'EOF'
+const gh = fakeGh(data);
+const item = (n, at) => ({ kind: "issue", url: "u" + n, nodeId: "I_" + n, updatedAt: at || "a" });
+const node = (n, at) => ({ __typename: "Issue", url: "u" + n, updatedAt: at || "a", assignees: { nodes: [] }, closedByPullRequestsReferences: { nodes: [] } });
+const answerAll = () => {
+  for (const call of gh.waiting("operationName=Extras")) {
+    const ids = call.args.filter(arg => arg.indexOf("ids[]=") === 0).map(arg => Number(arg.slice("ids[]=I_".length)));
+    gh.answer(call, JSON.stringify({ data: { nodes: ids.map(n => node(n, n === 0 ? "b" : "a")) } }));
+  }
+};
+const all = [];
+for (let n = 0; n < data.extrasKept; n++)
+  all.push(item(n));
+data.lookupExtras(all);
+answerAll();
+// Row 0 changed and is answered again: it is now the newest. One row on
+// its way meanwhile keeps its mark when a new row pushes the oldest out.
+data.lookupExtras([item(0, "b")]);
+answerAll();
+data.lookupExtras([item(9999)]);
+data.lookupExtras([item(5000)]);
+gh.answer(gh.next("ids[]=I_9999"), JSON.stringify({ data: { nodes: [node(9999)] } }));
+return {
+  kept: [!!data.extrasFor(item(0)), !!data.extrasFor(item(1)), !!data.extrasFor(item(2)), !!data.extrasFor(item(9999))],
+  count: Object.keys(data.extras).length,
+  onItsWay: data.extrasAsked["u5000"] === "a"
+};
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '[true,false,true,true]' "$(jq -c '.kept' <<<"$output")"
+  assert_equal 600 "$(jq -r '.count' <<<"$output")"
+  assert_equal true "$(jq -r '.onItsWay' <<<"$output")"
+}
