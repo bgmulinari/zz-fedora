@@ -242,11 +242,11 @@ with the blue accent (latte + blue in light mode).
   for the current format, so it migrates nothing: a key from an older schema is
   silently ignored rather than converted. Keep the seed in the current format.
   Bar widget options sit on the widget's entry in `barConfigs` (the launcher logo,
-  the workspace index), dock options on `dockConfigs`, and the square corners are
-  `radiusMode: "fixed"` with `fixedRadius: 0`. `scripts/dms-seed-diff.sh` names a
-  seeded key the specs no longer know. The workspace switcher uses the `dots` style
-  for small indicators, square through the global corners: while it shows index
-  numbers, the `pills` size follows the bar font and its Compact option has no effect.
+  the workspace index), dock options on `dockConfigs`, and the corners follow the
+  Material shape scale (`radiusMode: "scale"` at the default strength).
+  `scripts/dms-seed-diff.sh` names a seeded key the specs no longer know. The
+  workspace switcher uses the `cards` style: while it shows index numbers, the
+  `pills` size follows the bar font and its Compact option has no effect.
 - `~/.local/state/dms/session.json` is seeded with the
   managed default wallpaper; dark mode and an empty pinned-app list inherit
   their upstream defaults and are not redundantly serialized.

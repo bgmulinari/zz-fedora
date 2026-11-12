@@ -15,7 +15,7 @@
   },
   "fontFamily": "Adwaita Sans",
   "monoFontFamily": "JetBrainsMono Nerd Font",
-  "radiusMode": "fixed",
+  "radiusMode": "scale",
   "fixedRadius": 0,
   "popupTransparency": 0.9,
   "widgetBackgroundColor": "sth",
@@ -32,6 +32,7 @@
   "notificationCompactMode": true,
   "notificationShowTimeoutBar": true,
   "notificationPopupBodyInvokesAction": true,
+  "notificationFocusedMonitor": true,
   "updaterCheckOnStart": true,
   "updaterUseCustomCommand": true,
   "updaterCustomCommand": "zz update all",
@@ -48,13 +49,12 @@
           "id": "launcherButton",
           "launcherLogoMode": "custom",
           "launcherLogoCustomPath": "/usr/share/icons/hicolor/scalable/apps/start-here.svg",
-          "launcherLogoColorOverride": "surface",
-          "launcherLogoSizeOffset": -2
+          "launcherLogoColorOverride": "surface"
         },
         {
           "id": "workspaceSwitcher",
           "showWorkspaceIndex": true,
-          "workspaceIndicatorStyle": "dots"
+          "workspaceIndicatorStyle": "cards"
         },
         "focusedWindow"
       ],
@@ -74,12 +74,12 @@
         },
         "github",
         "agentUsage",
-        "battery",
         "notificationButton",
         {
           "id": "systemUpdate",
           "hideWhenIdle": true
         },
+        "battery",
         "controlCenterButton"
       ],
       "spacing": 0,

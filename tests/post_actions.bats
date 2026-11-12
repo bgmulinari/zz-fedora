@@ -498,14 +498,14 @@ EOF
   assert_equal "null" "$(jq -r '.iconThemeDark' "$settings")"
   assert_equal "null" "$(jq -r '.iconThemeLight' "$settings")"
   # Appearance defaults the managed desktop pins on top of the DMS defaults.
-  assert_equal "fixed" "$(jq -r '.radiusMode' "$settings")"
+  assert_equal "scale" "$(jq -r '.radiusMode' "$settings")"
   assert_equal "0" "$(jq -r '.fixedRadius' "$settings")"
   assert_equal "sth" "$(jq -r '.widgetBackgroundColor' "$settings")"
   assert_equal "false" "$(jq -r 'has("showDock")' "$settings")"
   assert_equal "true" "$(jq -r '.dockConfigs[0].smartAutoHide' "$settings")"
   # Bar widget options live on the widget's entry in the bar.
   assert_equal "true" "$(jq -r '.barConfigs[0].leftWidgets[] | objects | select(.id == "workspaceSwitcher").showWorkspaceIndex' "$settings")"
-  assert_equal "dots" "$(jq -r '.barConfigs[0].leftWidgets[] | objects | select(.id == "workspaceSwitcher").workspaceIndicatorStyle' "$settings")"
+  assert_equal "cards" "$(jq -r '.barConfigs[0].leftWidgets[] | objects | select(.id == "workspaceSwitcher").workspaceIndicatorStyle' "$settings")"
   assert_equal "custom" "$(jq -r '.barConfigs[0].leftWidgets[] | objects | select(.id == "launcherButton").launcherLogoMode' "$settings")"
   assert_equal "false" "$(jq -r '.barElevationEnabled' "$settings")"
   assert_equal "true" "$(jq -r '.barConfigs[0].squareCorners' "$settings")"
@@ -518,6 +518,8 @@ EOF
   # Preserve ZZ's Num Lock default through the DMS-owned input fragment.
   assert_equal "true" "$(jq -r '.keyboardNumlock' "$settings")"
   assert_equal "1" "$(jq -r '.focusFollowsMouse' "$settings")"
+  # Notifications pop up on the focused monitor.
+  assert_equal "true" "$(jq -r '.notificationFocusedMonitor' "$settings")"
   assert_equal "$TARGET_HOME/.local/share/backgrounds/Alpenglow.jpg" \
     "$(jq -r '.wallpaperPath' "$session")"
   assert_equal "false" "$(jq -r 'has("isLightMode")' "$session")"
