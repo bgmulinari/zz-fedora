@@ -20,7 +20,7 @@ module_40_new_defaults() {
     done < <(split_csv "$(choice_field "$record" 4)")
   done
   if [[ "${#units[@]}" -eq 0 ]]; then
-    save_selections
+    save_applied_selections
     return 0
   fi
 
@@ -33,9 +33,9 @@ module_40_new_defaults() {
     if ! apply_units_focused "${closure[@]}"; then
       append_warning "New defaults were not installed and will be retried by the next update: $(join_by ', ' "${labels[@]}")"
       defer_new_default_choices
-      save_selections
+      save_applied_selections
       return 1
     fi
   fi
-  save_selections
+  save_applied_selections
 }

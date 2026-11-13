@@ -218,7 +218,7 @@ build_plan_from_selections() {
   # defaults to install (modules/40-new-defaults.sh).
   case "$COMMAND" in
     install|wizard)
-      [[ "${#NEW_DEFAULT_CHOICES[@]}" -gt 0 ]] || save_selections
+      [[ "${#NEW_DEFAULT_CHOICES[@]}" -gt 0 ]] || save_applied_selections
       ;;
   esac
 }

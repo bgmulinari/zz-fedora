@@ -249,6 +249,13 @@ first_run_desktop_defaults_fingerprint() {
     printf 'update_mode=%s\n' "$UPDATE_MODE"
     printf 'browser_choices\n'
     effective_choice_ids "browsers"
+    # A selected browser that was missing when the defaults last ran (its
+    # install failed) is set once a later `zz app install` provides it.
+    local browser_desktop
+    browser_desktop="$(selected_browser_desktop_file)"
+    if [[ -n "$browser_desktop" ]] && desktop_file_installed_for_user "$browser_desktop"; then
+      printf 'browser_installed=%s\n' "$browser_desktop"
+    fi
     first_run_files_fingerprint \
       "$ROOT_DIR/config/default-applications.tsv" \
       "$PLAN_DIR/bundles.list" \

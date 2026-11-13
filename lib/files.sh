@@ -273,6 +273,12 @@ write_managed_config_conflict_preview() {
 }
 
 managed_files_report_path() {
+  # A preview reports beside its own plan: the state-root report describes
+  # the installed system, and zz debug collects it.
+  if [[ "$PLAN_DIR" == "$PREVIEW_PLAN_DIR" ]]; then
+    printf '%s/managed-files-report.txt\n' "$PLAN_DIR"
+    return 0
+  fi
   printf '%s/managed-files-report.txt\n' "$STATE_DIR"
 }
 

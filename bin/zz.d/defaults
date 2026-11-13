@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # zz-name: defaults
-# zz-summary: Reapply default applications and browser preferences.
+# zz-summary: Reapply every ZZ default application and browser preference.
 # zz-usage: zz defaults
 set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

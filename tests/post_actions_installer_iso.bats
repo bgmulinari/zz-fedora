@@ -268,6 +268,18 @@ setup() {
   [[ "$(cat "$(first_run_action_marker desktop-defaults)")" != "$previous_defaults_marker" ]]
 }
 
+@test "the desktop defaults checkpoint reruns once a missing selected browser is installed" {
+  build_test_plan "browser=zen"
+  PREFERRED_BROWSER=""
+  local missing installed
+  desktop_file_installed_for_user() { return 1; }
+  missing="$(first_run_desktop_defaults_fingerprint)"
+  desktop_file_installed_for_user() { [[ "$1" == "zen-browser.desktop" ]]; }
+  installed="$(first_run_desktop_defaults_fingerprint)"
+
+  [[ "$missing" != "$installed" ]]
+}
+
 @test "completed first-run state does not hide changed checkpoint inputs" {
   build_test_plan "browser=firefox,brave"
   TARGET_USER="test-user"
@@ -276,6 +288,7 @@ setup() {
   mkdir -p "$TARGET_HOME"
   DRY_RUN=0
   command_log="$TEST_ROOT/completed-input-change-commands.log"
+  desktop_file_installed_for_user() { return 0; }
 
   stub_run_cmd_as_user "$command_log"
   register_first_run_hook

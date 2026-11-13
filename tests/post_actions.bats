@@ -81,6 +81,7 @@ setup() {
   fedora_package_installed() {
     [[ "$1" == "nautilus" ]]
   }
+  desktop_file_installed_for_user() { return 0; }
   have_cmd() {
     return 1
   }
@@ -94,6 +95,160 @@ setup() {
 
   assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.Nautilus.desktop application/zip"
   refute_file_contains "$TEST_ROOT/commands.log" "org.gnome.Decibels.desktop"
+}
+
+@test "MIME defaults ZZ already applied are left alone so a later user pick survives" {
+  build_test_plan "desktop=text-editor"
+  DRY_RUN=0
+  ensure_state_dirs
+  desktop_file_installed_for_user() { return 0; }
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf '%s:%s\n' "$user" "$(printf '%q ' "$@")" >>"$TEST_ROOT/commands.log"
+  }
+
+  run_without_bats_debug_trap configure_default_applications_from_tsv
+  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.TextEditor.desktop text/plain"
+  assert_file_line "$(applied_defaults_file)" $'text/plain\torg.gnome.TextEditor.desktop'
+
+  # An unchanged intent is not reasserted over whatever the user picked since.
+  : >"$TEST_ROOT/commands.log"
+  run run_without_bats_debug_trap configure_default_applications_from_tsv
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "ZZ already applied them"
+  refute_file_contains "$TEST_ROOT/commands.log" "xdg-mime default"
+
+  # A changed intent (here, a different app recorded last time) is applied.
+  sed -i 's|^text/plain\t.*|text/plain\tother.desktop|' "$(applied_defaults_file)"
+  run_without_bats_debug_trap configure_default_applications_from_tsv
+  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.TextEditor.desktop text/plain"
+  assert_file_line "$(applied_defaults_file)" $'text/plain\torg.gnome.TextEditor.desktop'
+
+  # zz defaults reasserts every intent.
+  : >"$TEST_ROOT/commands.log"
+  REAPPLY_DEFAULTS=1
+  run_without_bats_debug_trap configure_default_applications_from_tsv
+  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.TextEditor.desktop text/plain"
+}
+
+@test "a MIME default whose xdg-mime call failed is retried by the next run" {
+  build_test_plan "desktop=text-editor"
+  DRY_RUN=0
+  ensure_state_dirs
+  desktop_file_installed_for_user() { return 0; }
+  run_cmd_as_user() { return 1; }
+
+  run_without_bats_debug_trap configure_default_applications_from_tsv
+
+  refute_file_contains "$(applied_defaults_file)" "text/plain"
+}
+
+@test "a MIME default is not set to a missing app and is applied again once the app returns" {
+  build_test_plan "desktop=text-editor"
+  DRY_RUN=0
+  ensure_state_dirs
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf '%s:%s\n' "$user" "$(printf '%q ' "$@")" >>"$TEST_ROOT/commands.log"
+  }
+  desktop_file_installed_for_user() { return 0; }
+  run_without_bats_debug_trap configure_default_applications_from_tsv
+  assert_file_line "$(applied_defaults_file)" $'text/plain\torg.gnome.TextEditor.desktop'
+
+  # The app is removed (or its install failed): no default names it, and the
+  # record forgets it.
+  : >"$TEST_ROOT/commands.log"
+  desktop_file_installed_for_user() { [[ "$1" != "org.gnome.TextEditor.desktop" ]]; }
+  run_without_bats_debug_trap configure_default_applications_from_tsv
+  refute_file_contains "$TEST_ROOT/commands.log" "org.gnome.TextEditor.desktop"
+  refute_file_contains "$(applied_defaults_file)" "org.gnome.TextEditor.desktop"
+
+  # Installing it again makes it the default again.
+  desktop_file_installed_for_user() { return 0; }
+  run_without_bats_debug_trap configure_default_applications_from_tsv
+  assert_file_contains "$TEST_ROOT/commands.log" "xdg-mime default org.gnome.TextEditor.desktop text/plain"
+}
+
+@test "applied defaults load from a record with a blank or partial last line" {
+  DRY_RUN=0
+  ensure_state_dirs
+  printf 'text/plain\torg.gnome.TextEditor.desktop\nweb-browser\n' >"$(applied_defaults_file)"
+
+  load_applied_defaults
+
+  assert_equal "org.gnome.TextEditor.desktop" "${APPLIED_DEFAULTS[text/plain]}"
+  [[ -z "${APPLIED_DEFAULTS[web-browser]:-}" ]]
+}
+
+@test "a dry run records no applied defaults" {
+  build_test_plan "desktop=text-editor"
+  ensure_state_dirs
+  run_cmd_as_user() { :; }
+
+  run_without_bats_debug_trap configure_default_applications_from_tsv
+
+  [[ ! -e "$(applied_defaults_file)" ]]
+}
+
+@test "the default browser is set once per selected browser so a later user pick survives" {
+  set_category_override browsers "zen,helium"
+  PREFERRED_BROWSER="zen"
+  TARGET_USER=test-user
+  DRY_RUN=0
+  ensure_state_dirs
+  desktop_file_installed_for_user() { return 0; }
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf 'user:%s:%s\n' "$user" "$*" >>"$TEST_ROOT/browser-default-commands.log"
+  }
+
+  configure_selected_browser_default
+  assert_file_contains "$TEST_ROOT/browser-default-commands.log" "xdg-settings set default-web-browser zen-browser.desktop"
+
+  : >"$TEST_ROOT/browser-default-commands.log"
+  run configure_selected_browser_default
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "ZZ already set zen-browser.desktop"
+  refute_file_contains "$TEST_ROOT/browser-default-commands.log" "default"
+
+  # Selecting a different preferred browser in ZZ applies it.
+  PREFERRED_BROWSER="helium"
+  configure_selected_browser_default
+  assert_file_contains "$TEST_ROOT/browser-default-commands.log" "xdg-settings set default-web-browser helium.desktop"
+
+  : >"$TEST_ROOT/browser-default-commands.log"
+  REAPPLY_DEFAULTS=1
+  configure_selected_browser_default
+  assert_file_contains "$TEST_ROOT/browser-default-commands.log" "xdg-settings set default-web-browser helium.desktop"
+
+  # Deselecting the browser forgets it, so selecting it again applies it.
+  REAPPLY_DEFAULTS=0
+  set_category_override browsers ""
+  PREFERRED_BROWSER=""
+  configure_selected_browser_default
+  refute_file_contains "$(applied_defaults_file)" "web-browser"
+  set_category_override browsers "helium"
+  : >"$TEST_ROOT/browser-default-commands.log"
+  configure_selected_browser_default
+  assert_file_contains "$TEST_ROOT/browser-default-commands.log" "xdg-settings set default-web-browser helium.desktop"
+}
+
+@test "a default browser whose MIME types did not all take is retried by the next run" {
+  DRY_RUN=0
+  TARGET_USER=test-user
+  ensure_state_dirs
+  run_cmd_as_user() {
+    shift
+    [[ "$*" != *"application/xhtml+xml"* ]]
+  }
+
+  run set_default_browser zen-browser.desktop
+  [ "$status" -eq 0 ]
+
+  [[ ! -e "$(applied_defaults_file)" ]] || refute_file_contains "$(applied_defaults_file)" "web-browser"
 }
 
 @test "terminal preference is a single desktop ID so the DMS default apps picker can read and rewrite it" {
@@ -156,6 +311,7 @@ setup() {
   set_category_override browsers "firefox"
   PREFERRED_BROWSER=""
   TARGET_USER=test-user
+  desktop_file_installed_for_user() { [[ "$1" == "org.mozilla.firefox.desktop" ]]; }
   run_cmd_as_user() {
     local user="$1"
     shift
@@ -172,6 +328,7 @@ setup() {
   set_category_override browsers "firefox,brave"
   PREFERRED_BROWSER="brave"
   TARGET_USER=test-user
+  desktop_file_installed_for_user() { [[ "$1" == "brave-browser.desktop" ]]; }
   run_cmd_as_user() {
     local user="$1"
     shift
@@ -184,10 +341,27 @@ setup() {
   refute_file_contains "$TEST_ROOT/browser-default-commands.log" "firefox.desktop"
 }
 
-@test "update mode preserves browser defaults when the saved browser was removed" {
+@test "zen browser default names the desktop file the zen-browser package ships" {
+  set_category_override browsers "zen"
+  PREFERRED_BROWSER=""
+  TARGET_USER=test-user
+  desktop_file_installed_for_user() { [[ "$1" == "zen-browser.desktop" ]]; }
+  run_cmd_as_user() {
+    local user="$1"
+    shift
+    printf 'user:%s:%s\n' "$user" "$*" >>"$TEST_ROOT/browser-default-commands.log"
+  }
+
+  configure_selected_browser_default
+
+  assert_file_contains "$TEST_ROOT/browser-default-commands.log" "user:test-user:xdg-mime default zen-browser.desktop x-scheme-handler/https"
+  assert_file_contains "$TEST_ROOT/browser-default-commands.log" "user:test-user:xdg-settings set default-web-browser zen-browser.desktop"
+}
+
+@test "browser defaults are preserved when the selected browser is not installed" {
   set_category_override browsers "firefox"
   PREFERRED_BROWSER=""
-  UPDATE_MODE=1
+  UPDATE_MODE=0
   DRY_RUN=0
   TARGET_USER=test-user
   TARGET_HOME="$TEST_ROOT/browser-home"
@@ -203,7 +377,7 @@ setup() {
   run configure_selected_browser_default
 
   [ "$status" -eq 0 ]
-  assert_contains "$output" "saved browser is not installed: org.mozilla.firefox.desktop"
+  assert_contains "$output" "selected browser is not installed: org.mozilla.firefox.desktop"
   [[ ! -e "$TEST_ROOT/browser-default-commands.log" ]]
 }
 

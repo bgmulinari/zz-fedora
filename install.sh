@@ -51,6 +51,16 @@ done
 
 prepare_context() {
   parse_cli "$@"
+  # First-run, doctor, refresh, and `zz defaults` reuse the plan of the last
+  # real run, so a run that only previews a plan builds it beside that one.
+  case "$COMMAND" in
+    print-plan|check) PLAN_DIR="$PREVIEW_PLAN_DIR" ;;
+    install|wizard|add-choice|remove-choice)
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        PLAN_DIR="$PREVIEW_PLAN_DIR"
+      fi
+      ;;
+  esac
   [[ "$COMMAND" != "apply" || "${ZZ_INTERNAL_APPLY:-0}" -eq 1 ]] || die "apply is internal; run install or wizard so the plan is generated first"
   if [[ "$UPDATE_MODE" -eq 1 ]]; then
     [[ "$COMMAND" == "install" ]] || die "--update is supported only with the install command"
@@ -62,6 +72,14 @@ prepare_context() {
       # selections, so those must exist and are always the starting point.
       [[ -f "$SAVED_SELECTIONS" ]] || die "Saved selections not found at $SAVED_SELECTIONS; run the installer once before changing choices"
       USE_SAVED_SELECTIONS=1
+      ;;
+    defaults|first-run)
+      # These converge an installed system, so they follow its saved
+      # selections (the browser to make default among them) rather than the
+      # catalog defaults; without saved selections there is nothing else.
+      if [[ -f "$SAVED_SELECTIONS" ]]; then
+        USE_SAVED_SELECTIONS=1
+      fi
       ;;
   esac
   exec_setup_as_root_if_needed "$@"
@@ -404,6 +422,7 @@ main() {
     defaults)
       acquire_lock
       [[ -f "$PLAN_DIR/bundles.list" ]] || build_plan_from_selections
+      REAPPLY_DEFAULTS=1
       module_80_defaults
       ;;
     list-profiles)

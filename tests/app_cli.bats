@@ -222,6 +222,38 @@ EOF2
   assert_equal "" "$output"
 }
 
+@test "a dry-run choice change reports that nothing was saved" {
+  WARNING_MESSAGES=()
+  DRY_RUN=1
+  run print_choice_change_summary added
+  assert_contains "$output" "Dry run: the choice would be added."
+  assert_contains "$output" "Saved selections unchanged: $SAVED_SELECTIONS"
+  refute_contains "$output" "Choice added"
+
+  DRY_RUN=0
+  run print_choice_change_summary removed
+  assert_contains "$output" "Choice removed."
+  assert_contains "$output" "Saved selections: $SAVED_SELECTIONS"
+}
+
+@test "remove-choice forgets the applied defaults of apps it uninstalled so a reinstall applies them again" {
+  save_test_selections "desktop=text-editor" "browsers=helium"
+  load_saved_selections
+  parse_select_arg desktop=text-editor
+  COMMAND=remove-choice
+  DRY_RUN=0
+  stub_apply_steps
+  ensure_state_dirs
+  printf 'text/plain\torg.gnome.TextEditor.desktop\nweb-browser\thelium.desktop\n' >"$(applied_defaults_file)"
+  desktop_file_installed_for_user() { [[ "$1" != "org.gnome.TextEditor.desktop" ]]; }
+
+  run run_without_bats_debug_trap apply_choice_removals
+  [ "$status" -eq 0 ]
+
+  refute_file_contains "$(applied_defaults_file)" "text/plain"
+  assert_file_line "$(applied_defaults_file)" $'web-browser\thelium.desktop'
+}
+
 @test "remove-choice removes what no remaining choice needs and unsaves the choice" {
   save_test_selections "office=onlyoffice,zoom" "dotnet=sdk,ef" "ai=agent-usage" "dev=lazydocker"
   load_saved_selections
@@ -315,7 +347,8 @@ EOF2
   assert_contains "$removed" "Left in place, no automatic removal exists for: action docker"
   run grep -E 'dnf remove -y .*firefox' <<<"$removed"
   [ "$status" -eq 0 ]
-  assert_contains "$removed" "Run zz defaults"
+  # The remaining browser becomes the default right away.
+  assert_contains "$removed" "xdg-settings set default-web-browser brave-browser.desktop"
   # Dry run: the saved selections are untouched.
   assert_file_contains "$SAVED_SELECTIONS" "select.browsers=firefox,brave"
   assert_file_contains "$SAVED_SELECTIONS" "preferred_browser=firefox"

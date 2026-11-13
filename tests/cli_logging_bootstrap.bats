@@ -38,10 +38,44 @@ setup() {
   assert_contains "$output" "sudo systemctl enable --force greetd.service"
 }
 
-@test "installer update mode keeps convergence steps and skips optional software installation" {
+@test "a dry run or plan preview leaves the installed system's plan in place" {
+  local real_plan="$XDG_STATE_HOME/zz-fedora/plan"
+  mkdir -p "$real_plan"
+  printf 'installed-plan-sentinel\n' >"$real_plan/bundles.list"
+  printf 'installed-report-sentinel\n' >"$XDG_STATE_HOME/zz-fedora/managed-files-report.txt"
+
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
     bash "$ROOT_DIR/install.sh" install --dry-run --no-tui
   [ "$status" -eq 0 ]
+  run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
+    bash "$ROOT_DIR/install.sh" print-plan --no-tui
+  [ "$status" -eq 0 ]
+
+  assert_equal "installed-plan-sentinel" "$(cat "$real_plan/bundles.list")"
+  assert_equal "installed-report-sentinel" "$(cat "$XDG_STATE_HOME/zz-fedora/managed-files-report.txt")"
+  [[ -s "$XDG_STATE_HOME/zz-fedora/plan-preview/managed-files-report.txt" ]]
+  assert_file_contains "$XDG_STATE_HOME/zz-fedora/plan-preview/bundles.list" "browsers-firefox"
+}
+
+@test "zz defaults follows the saved browser selection, not the catalog default" {
+  mkdir -p "$XDG_CONFIG_HOME/zz-fedora"
+  printf '%s\n' "target_user=$TARGET_USER" desktop_app_profile=full preferred_browser=zen \
+    select.browsers=zen,helium >"$XDG_CONFIG_HOME/zz-fedora/selections.conf"
+
+  run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
+    bash "$ROOT_DIR/install.sh" defaults --dry-run --no-tui
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "xdg-settings set default-web-browser zen-browser.desktop"
+  refute_contains "$output" "org.mozilla.firefox.desktop"
+}
+
+@test "installer update mode keeps convergence steps and skips optional software installation" {
+  # The catalog defaults, saved the way a real install saves them.
+  source_core
+  DESKTOP_APP_PROFILE=full
+  DRY_RUN=0
+  save_selections
 
   run env XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LOG_DIR="$LOG_DIR" DESKTOP_APP_PROFILE=full \
     bash "$ROOT_DIR/install.sh" install --dry-run --no-tui --yes --use-saved --update
@@ -97,12 +131,13 @@ EOF
   [ "$status" -eq 0 ]
   run grep -E 'dnf install .* code$' <<<"$output"
   [ "$status" -ne 0 ]
-  assert_file_contains "$XDG_CONFIG_HOME/zz-fedora/selections.conf" "select.dev=vscode,zed"
-  run grep -E '^offered\.dev=.*(^|,)zed(,|$)' "$XDG_CONFIG_HOME/zz-fedora/selections.conf"
-  [ "$status" -eq 0 ]
+  # A dry run installs nothing, so the saved selections stay as they were
+  # and a real update still finds Zed new.
+  assert_file_line "$XDG_CONFIG_HOME/zz-fedora/selections.conf" "select.dev=vscode"
+  assert_file_line "$XDG_CONFIG_HOME/zz-fedora/selections.conf" "offered.dev=$offered_dev"
 }
 
-@test "installer update mode prunes obsolete saved choices and persists the current selection set" {
+@test "installer update mode prunes obsolete saved choices without a dry run rewriting them" {
   mkdir -p "$XDG_CONFIG_HOME/zz-fedora"
   cat >"$XDG_CONFIG_HOME/zz-fedora/selections.conf" <<EOF
 target_user=$TARGET_USER
@@ -124,9 +159,8 @@ EOF
   assert_contains "$output" "Saved choice 'retired-desktop-app' in category 'desktop' is no longer available and was removed."
   assert_contains "$output" "Saved selection category 'retired-category' is no longer available and was removed."
   assert_contains "$output" "Saved preferred browser 'retired-browser' is no longer available and was removed."
-  assert_file_contains "$XDG_CONFIG_HOME/zz-fedora/selections.conf" "preferred_browser="
-  assert_file_contains "$XDG_CONFIG_HOME/zz-fedora/selections.conf" "select.browsers=firefox"
-  assert_file_contains "$XDG_CONFIG_HOME/zz-fedora/selections.conf" "select.desktop="
+  assert_file_line "$XDG_CONFIG_HOME/zz-fedora/selections.conf" "preferred_browser=retired-browser"
+  assert_file_line "$XDG_CONFIG_HOME/zz-fedora/selections.conf" "select.browsers=firefox,retired-browser"
 }
 
 @test "installer update mode still rejects an unknown explicit selection" {

@@ -158,7 +158,7 @@ niri msg windows          # open windows with app-id and title (for window rules
 | `zz app install <choice>` | Install one catalog choice and save it; only its units run; asks first (`--yes` skips) | `zz app install brave` |
 | `zz app remove <choice>` | Remove one choice and what no other choice needs; unsave it; asks first | `zz app remove office/zoom --dry-run` |
 | `zz first-run` | Resume unfinished first-login setup (theme artifacts, GTK opt-in, greeter profile) | `zz first-run` |
-| `zz defaults` | Reapply default applications and browser preferences | `zz defaults` |
+| `zz defaults` | Reapply every ZZ default application and browser preference, overriding ones the user changed (installs and updates leave those alone) | `zz defaults` |
 | `zz ssh setup` | Key-only SSH access: import a GitHub account's keys (rerun to sync adds and removals) or paste one, start sshd, turn password logins off | `zz ssh setup` |
 | `zz ssh remove` | Disable sshd and its password-login restriction; asks before removing keys | `zz ssh remove` |
 | `zz agent` | Launch the default AI agent in a terminal; `default` chooses it (claude, codex, opencode; none until chosen), `prompt` starts it with a task | `zz agent default codex` |

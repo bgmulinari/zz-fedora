@@ -58,6 +58,10 @@ normalize_dir_var CONFIG_DIR
 LOG_DIR="${LOG_DIR:-$STATE_DIR/logs}"
 normalize_dir_var LOG_DIR
 PLAN_DIR="$STATE_DIR/plan"
+# Where a run that only previews a plan builds it (install.sh), and writes the
+# reports derived from it, so the installed system's plan and reports stay.
+# shellcheck disable=SC2034  # Consumed by install.sh and lib/files.sh.
+PREVIEW_PLAN_DIR="$STATE_DIR/plan-preview"
 SAVED_SELECTIONS="$CONFIG_DIR/selections.conf"
 # shellcheck disable=SC2034  # Consumed by lib/idempotency.sh.
 LOCK_FILE="$STATE_DIR/install.lock"
@@ -163,6 +167,9 @@ DRY_RUN="${ZZ_DRY_RUN:-0}"
 ASSUME_YES="${ZZ_ASSUME_YES:-0}"
 # shellcheck disable=SC2034
 USE_SAVED_SELECTIONS=0
+# Set by `zz defaults` to reassert every default ZZ intends (desktop-defaults.sh).
+# shellcheck disable=SC2034
+REAPPLY_DEFAULTS=0
 # shellcheck disable=SC2034
 SKIP_USER_CONFIG="${ZZ_SKIP_USER_CONFIG:-0}"
 # shellcheck disable=SC2034

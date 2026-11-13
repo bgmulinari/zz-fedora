@@ -348,14 +348,6 @@ install_focused_plan() {
   return "$status"
 }
 
-# The saved selections record what is installed, so a choice is written
-# there once its units are in place: a change that fails halfway is not
-# remembered as done, since `zz update zz` never installs optional software.
-save_choice_selections() {
-  [[ "$DRY_RUN" -eq 1 ]] && return 0
-  save_selections
-}
-
 apply_choice_additions() {
   local -a units=() closure=()
   collect_requested_choice_units units "Adding"
@@ -370,7 +362,7 @@ apply_choice_additions() {
     log_progress "Installing units: ${closure[*]}"
     apply_units_focused "${closure[@]}" || return 1
   fi
-  save_choice_selections
+  save_applied_selections
   log_progress "Converging managed configuration and desktop defaults"
   module_60_user_config
   module_80_post_actions
@@ -566,25 +558,39 @@ apply_choice_removals() {
     log_progress "Removing Flatpak: $item"
     run_cmd_as_root flatpak uninstall -y "$item" || log_warn "Flatpak removal failed: $item"
   done
-  save_choice_selections
+  prune_applied_defaults
+  save_applied_selections
   if [[ "${#leftovers[@]}" -gt 0 ]]; then
     log_warn "Left in place, no automatic removal exists for: $(join_by ', ' "${leftovers[@]}")"
   fi
   if [[ -n "${removed_by_category[browsers]:-}" ]]; then
-    log_info "Run zz defaults to reapply the default browser and file associations"
+    # The removed browser's default now names a missing app, and xdg-open
+    # skips it for whatever else claims http (the ChatGPT app does), so the
+    # remaining browser is made the default now rather than at next login.
+    configure_selected_browser_default || true
+    if [[ -z "$(selected_browser_desktop_file)" ]]; then
+      log_info "Choose a default browser in DMS Settings > Default Apps, or set a preferred browser and run zz defaults"
+    fi
   fi
 }
 
 print_choice_change_summary() {
-  local verb="$1" message
+  local verb="$1" message outcome="Choice $1"
+  # A dry run changes nothing, so it reports what would happen and that the
+  # saved selections were left as they are.
+  [[ "$DRY_RUN" -eq 1 ]] && outcome="Dry run: the choice would be $verb"
   printf '\n'
   if [[ "${#WARNING_MESSAGES[@]}" -gt 0 ]]; then
-    printf 'Choice %s with warnings:\n' "$verb"
+    printf '%s with warnings:\n' "$outcome"
     for message in "${WARNING_MESSAGES[@]}"; do
       printf -- '- %s\n' "$message"
     done
   else
-    printf 'Choice %s.\n' "$verb"
+    printf '%s.\n' "$outcome"
   fi
-  printf 'Saved selections: %s\n' "$SAVED_SELECTIONS"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'Saved selections unchanged: %s\n' "$SAVED_SELECTIONS"
+  else
+    printf 'Saved selections: %s\n' "$SAVED_SELECTIONS"
+  fi
 }

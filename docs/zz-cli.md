@@ -10,7 +10,7 @@
 | `zz logs` | Print the path to the latest installer log. |
 | `zz debug` | Create a sanitized local debug bundle. |
 | `zz first-run` | Resume unfinished first-login actions using independent, input-aware completion state. |
-| `zz defaults` | Reapply default applications and browser preferences. |
+| `zz defaults` | Reapply every ZZ default application and browser preference, overriding ones changed since. |
 | `zz dotnet` | Manage .NET development utilities. |
 | `zz ssh` | Set up, inspect, or remove key-only SSH access to this machine. |
 | `zz refresh` | Replace user-owned configs with the current ZZ defaults, backing them up first. |
@@ -192,6 +192,15 @@ packages, and custom installation actions are skipped. An optional application
 that the user deliberately removed is therefore not reinstalled from its saved
 selection, and application defaults are reapplied only for optional software
 that remains installed.
+
+ZZ sets a default application or browser only when its own intent for it
+changes: an app it newly installs, or a different selected browser. A default
+it already applied is not reasserted, so one the user has since changed, for
+example in DMS Settings > Default Apps, survives later updates and first-run
+passes. `zz defaults` reapplies every ZZ default regardless. Removing the
+default browser with `zz app remove` makes the remaining selected browser the
+default right away, so links never fall through to another app that claims
+them.
 
 If a saved category or choice no longer exists in the current catalog, update
 mode reports it, removes it from the saved selections, and continues. Explicit

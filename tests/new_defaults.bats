@@ -161,6 +161,7 @@ run_in_shell() {
   assert_file_contains "$SAVED_SELECTIONS" "select.dev=vscode"
   refute_saved_choice dev zed
 
+  DRY_RUN=0
   apply_units_focused() { printf 'APPLY: %s\n' "$*"; }
   run run_without_bats_debug_trap module_40_new_defaults
   [ "$status" -eq 0 ]
@@ -174,6 +175,37 @@ run_in_shell() {
   assert_file_contains "$SAVED_SELECTIONS" "offered.dev=$(offered_without dev)"
 }
 
+@test "a dry-run update shows the new defaults without saving them" {
+  write_saved_selections \
+    "select.dev=vscode" "offered.dev=$(offered_without dev zed)"
+  load_saved_selections
+  run_in_shell normalize_saved_selections_for_update
+  run_in_shell build_plan_from_selections
+
+  apply_units_focused() { printf 'APPLY: %s\n' "$*"; }
+  run run_without_bats_debug_trap module_40_new_defaults
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Development / Zed"
+  assert_file_contains "$SAVED_SELECTIONS" "select.dev=vscode"
+  assert_file_contains "$SAVED_SELECTIONS" "offered.dev=$(offered_without dev zed)"
+}
+
+@test "a dry-run install plans its own selections without replacing the saved ones" {
+  UPDATE_MODE=0
+  write_saved_selections "select.browsers=zen,helium" "offered.browsers=$(offered_without browsers)"
+  # A fresh install plans from the catalog defaults, not the saved file.
+  run_in_shell build_plan_from_selections
+  [ "$status" -eq 0 ]
+
+  assert_plan_has "$PLAN_DIR/bundles.list" "browsers-firefox"
+  assert_file_contains "$SAVED_SELECTIONS" "select.browsers=zen,helium"
+
+  DRY_RUN=0
+  run_in_shell build_plan_from_selections
+  [ "$status" -eq 0 ]
+  assert_file_contains "$SAVED_SELECTIONS" "select.browsers=$(default_choice_ids browsers | paste -sd ,)"
+}
+
 @test "a failed new-defaults install leaves the choices for the next update to retry" {
   write_saved_selections \
     "select.dev=vscode" "offered.dev=$(offered_without dev zed)"
@@ -181,6 +213,7 @@ run_in_shell() {
   run_in_shell normalize_saved_selections_for_update
   run_in_shell build_plan_from_selections
 
+  DRY_RUN=0
   apply_units_focused() { return 1; }
   run_in_shell module_40_new_defaults
   [ "$status" -ne 0 ]
@@ -210,6 +243,7 @@ run_in_shell() {
   assert_plan_has "$PLAN_DIR/bundles.list" "utilities-rustconn"
   refute_saved_choice utilities rustconn
 
+  DRY_RUN=0
   apply_units_focused() { printf 'APPLY: %s\n' "$*"; }
   run run_without_bats_debug_trap module_40_new_defaults
   [ "$status" -eq 0 ]
@@ -225,6 +259,7 @@ run_in_shell() {
   run_in_shell normalize_saved_selections_for_update
   run_in_shell build_plan_from_selections
 
+  DRY_RUN=0
   apply_units_focused() { return 1; }
   run_in_shell module_40_new_defaults
   [ "$status" -ne 0 ]

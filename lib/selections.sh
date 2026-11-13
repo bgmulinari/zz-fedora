@@ -95,6 +95,17 @@ save_selections() {
   } >"$SAVED_SELECTIONS"
 }
 
+# Saves the selections unless this is a dry run: a dry run applies nothing, so
+# it must not replace the system's record with its own (possibly default)
+# selections. A choice change and an update that installs new defaults call
+# this once their units are in place, so a change that fails halfway is not
+# remembered as done; a full install or wizard calls it at plan time, since
+# those selections are the user's intent for the whole system.
+save_applied_selections() {
+  [[ "$DRY_RUN" -eq 1 ]] && return 0
+  save_selections
+}
+
 load_saved_selections() {
   [[ -f "$SAVED_SELECTIONS" ]] || die "Saved selections not found at $SAVED_SELECTIONS"
   local key value category
