@@ -7,7 +7,9 @@ order = 185
 
 # wl-clipboard is named explicitly even though it is usually present: satty
 # publishes the finished capture through wl-copy, and no other base unit owns
-# that command.
+# that command. Fedora does not package satty; Terra does, so the step
+# enables it rather than relying on an optional choice to have done so.
 [[install]]
 backend = "dnf"
+sources = ["terra"]
 packages = ["satty", "wl-clipboard"]

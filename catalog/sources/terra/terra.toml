@@ -1,7 +1,8 @@
 id = "terra"
 kind = "terra"
 label = "Terra"
-description = "Terra repository for optional apps such as Zed and T3 Code"
+required = true
+description = "Terra repository for the satty screenshot editor and optional apps such as Zed and T3 Code"
 gpg_policy = "unsigned-bootstrap"
 bootstrap_exception = true
 # The release package is fetched unsigned once to obtain terra-gpg-keys.
@@ -9,7 +10,7 @@ bootstrap_exception = true
 # repository metadata are both GPG-verified against the shipped
 # RPM-GPG-KEY-terra<release> key (terra-release sets gpgcheck=1 and
 # repo_gpgcheck=1, and Terra signs repomd.xml with that key).
-reason = "Bootstraps Terra release packages unsigned before installing optional apps; packages and repository metadata are GPG-verified against the shipped Terra key afterwards"
+reason = "Bootstraps Terra release packages unsigned before installing satty and optional apps; packages and repository metadata are GPG-verified against the shipped Terra key afterwards"
 # Terra also packages the DMS stack; the Dux Labs COPRs own it here, so
 # keep Terra from ever shadowing those builds. noctalia-qs declares
 # "Provides: quickshell", so without its exclusion the solver can pick it

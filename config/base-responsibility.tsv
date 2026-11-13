@@ -8,6 +8,7 @@ source	copr:duxlabs/dux-repo	desktop-service	DMS ecosystem and Qt theme	Provides
 source	copr:scottames/ghostty	default-app	Ghostty	Provides the Ghostty package used as the default terminal.
 source	copr:atim/starship	theme-font	Starship prompt	Provides the Starship package used by the base shell prompt.
 source	copr:lihaohong/yazi	default-app	Yazi shell file manager	Provides the Yazi package used by the base shell tooling.
+source	terra	default-app	Screenshot annotation	Provides satty, the editor the shipped screenshot keybinds open; Fedora does not package it.
 dnf	@standard	platform-support	Fedora base system	Matches the standard package group included by Fedora Workstation, including CPU microcode, storage tools, and hardware diagnostics.
 dnf	@hardware-support	hardware-support	physical devices	Installs Fedora's default firmware and hardware utility group.
 dnf	@networkmanager-submodules	hardware-support	network hardware	Adds Fedora's default Wi-Fi, Bluetooth, WWAN, and NetworkManager support packages.

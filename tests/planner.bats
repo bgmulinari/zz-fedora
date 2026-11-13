@@ -96,6 +96,8 @@ assert_all_bundles_reachable() {
   assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:duxlabs/dms"
   assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:duxlabs/dux-repo"
   assert_plan_has "$PLAN_DIR/sources/copr.list" "copr:scottames/ghostty"
+  # satty (base screenshot editor) is packaged only by Terra.
+  assert_plan_has "$PLAN_DIR/sources/terra.list" "terra"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:oh-my-zsh"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:zsh-autosuggestions"
   assert_plan_has "$PLAN_DIR/sources/artifacts.list" "artifact:zsh-syntax-highlighting"
