@@ -47,6 +47,15 @@ list_tagged_bats_suites() {
 # Callers must run from the repository root.
 shell_lint_targets() {
   printf '%s\n' bootstrap.sh install.sh bin/zz bin/zz.d/* scripts/*.sh iso/scripts/*.sh iso/lib/*.sh lib/*.sh lib/actions/*.sh modules/*.sh tests/*.sh tests/helpers/*.bash
+  # Bash scripts shipped under dotfiles/ (session helpers, plugin scripts) are
+  # extensionless, so select them by their shebang.
+  local script line
+  while IFS= read -r -d '' script; do
+    IFS= read -r line <"$script" || continue
+    if [[ "$line" == '#!/usr/bin/env bash' ]]; then
+      printf '%s\n' "$script"
+    fi
+  done < <(find dotfiles -type f -print0 | sort -z)
 }
 
 run_bash_syntax_checks() {

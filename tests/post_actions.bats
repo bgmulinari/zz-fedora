@@ -579,13 +579,13 @@ setup() {
   assert_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" 'binds {'
   # Every screenshot bind pipes the DMS capture into the annotation editor.
   assert_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" \
-    'Print hotkey-overlay-title="Screenshot: Full Screen + Annotate" { spawn-sh "dms screenshot full --stdout | satty --filename -"; }'
+    'Print hotkey-overlay-title="Screenshot: Full Screen + Annotate" { spawn-sh "dms screenshot full --stdout | zz-screenshot-annotate"; }'
   assert_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" \
-    'Ctrl+Print hotkey-overlay-title="Screenshot: Region + Annotate" { spawn-sh "dms screenshot --stdout | satty --filename -"; }'
+    'Ctrl+Print hotkey-overlay-title="Screenshot: Region + Annotate" { spawn-sh "dms screenshot --stdout | zz-screenshot-annotate"; }'
   assert_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" \
-    'Alt+Print hotkey-overlay-title="Screenshot: Window + Annotate" { spawn-sh "dms screenshot window --stdout | satty --filename -"; }'
+    'Alt+Print hotkey-overlay-title="Screenshot: Window + Annotate" { spawn-sh "dms screenshot window --stdout | zz-screenshot-annotate"; }'
   assert_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" \
-    'Mod+Shift+S hotkey-overlay-title="Screenshot: Region + Annotate" { spawn-sh "dms screenshot --stdout | satty --filename -"; }'
+    'Mod+Shift+S hotkey-overlay-title="Screenshot: Region + Annotate" { spawn-sh "dms screenshot --stdout | zz-screenshot-annotate"; }'
   refute_file_contains "$ROOT_DIR/templates/niri/dms-binds.kdl" \
     'dms ipc call niri screenshot'
   refute_file_contains "$ROOT_DIR/dotfiles/niri/.config/niri/defaults.kdl" 'keybinds.kdl'

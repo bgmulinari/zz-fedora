@@ -71,7 +71,9 @@ Launcher plugins add trigger-prefixed searches (for example `=` for the calculat
 
 `dms screenshot` captures (region by default; `full`, `window`, `all`, `scroll`,
 `last`), but has no annotation of its own. The shipped keybinds pipe the capture into
-satty, the annotation editor (arrows, shapes, text, blur, crop):
+satty, the annotation editor (arrows, shapes, text, blur, crop), through
+`zz-screenshot-annotate`, which sizes the editor window to the capture and the
+focused output and passes any extra arguments on to satty:
 
 | Bind | Flow |
 | --- | --- |
@@ -80,11 +82,14 @@ satty, the annotation editor (arrows, shapes, text, blur, crop):
 | Alt+Print | focused window, then satty |
 
 In satty, Enter copies to the clipboard, saves to `~/Pictures/Screenshots`, and
-closes; Escape discards. Those actions, the save path, the initial tool, and the
+closes; Escape copies to the clipboard without saving and closes; closing the
+window (Mod+Q) discards the capture. niri's own "Screenshot captured"
+notification for a window capture is dropped by a seeded DMS notification rule
+(Settings → Notifications → Rules), so satty's notification is the only one. Those actions, the save path, the initial tool, and the
 annotation font live in the user-owned `~/.config/satty/config.toml` (`satty --man`
 lists every key; `zz refresh satty/config.toml` restores the shipped defaults). To
 change a flow, edit the bind command, for example `dms screenshot --stdout --cursor on |
-satty --filename -` to include the pointer, `satty --filename - --initial-tool text`
+zz-screenshot-annotate` to include the pointer, `zz-screenshot-annotate --initial-tool text`
 to override one option for one bind, or plain `dms screenshot` for a bind that
 skips the editor and goes straight to clipboard and file.
 

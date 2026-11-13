@@ -10,16 +10,20 @@
 
 [general]
 # Enter copies the annotated capture to the clipboard, saves it, and closes
-# the editor. Escape discards the capture.
+# the editor. Escape skips saving: it copies the capture to the clipboard and
+# closes. Closing the window instead (Mod+Q) discards the capture.
 actions-on-enter = ["save-to-clipboard", "save-to-file", "exit"]
-actions-on-escape = ["exit"]
+actions-on-escape = ["save-to-clipboard", "exit"]
 # The toolbar Copy and Save buttons close the editor as well.
 early-exit = ["all"]
 copy-command = "wl-copy"
 # Same directory and naming scheme as niri's own screenshot-path.
 output-filename = "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
 initial-tool = "rectangle"
-# Size the editor to the capture instead of opening a full-size window.
+# Size the editor to the capture when satty is started directly. The shipped
+# keybinds open it through zz-screenshot-annotate, which passes its own size:
+# the capture's on-screen size plus the toolbars, scaled to fit the focused
+# output.
 resize = { mode = "smart" }
 notification-thumbnail = "screenshot"
 

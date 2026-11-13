@@ -162,14 +162,27 @@ capture.
 
 DMS has no annotation step of its own, so every screenshot bind pipes the capture
 (`dms screenshot ... --stdout`) into satty, the annotation editor the
-`base-screenshot-tools` unit installs. With `--stdout` DMS writes neither a
+`base-screenshot-tools` unit installs, through the linked
+`zz-screenshot-annotate` helper. The helper sizes the editor window itself:
+satty's smart resize reads the monitor before niri has placed the window, so
+GTK reports the first listed output and a full capture on a larger monitor
+opened in a small window. The helper reads the PNG size and the focused
+output's logical size and scale from niri, opens a capture at its on-screen
+size plus satty's toolbars, and scales anything larger down to 90% of the
+output; GTK keeps the window wide enough for the toolbars. With `--stdout` DMS writes neither a
 file nor the clipboard nor a notification; satty owns all three through the
 seeded `~/.config/satty/config.toml`: Enter copies, saves to the same
-`~/Pictures/Screenshots` path niri uses, and closes; Escape discards. A
-cancelled region selection produces no image, and satty exits on the empty
-input without opening a window. On niri the window capture is
+`~/Pictures/Screenshots` path niri uses, and closes; Escape only copies and
+closes, so skipping annotation keeps the capture on the clipboard in every
+mode; closing the window discards it. A
+cancelled region selection produces no image, and the helper exits on the
+empty input without opening a window. On niri the window capture is
 also copied by the compositor itself, which DMS cannot disable; satty's copy
-replaces it once the annotation is confirmed. A seeded window rule floats
+replaces it when the editor closes with Enter or Escape. niri also posts its own
+"Screenshot captured" notification for that capture, which it cannot be told to
+skip, so the DMS settings seed carries a notification rule that drops it
+(app name `niri`, summary `Screenshot captured`, action `ignore`) and satty's
+notification stays the only one. A seeded window rule floats
 the satty window so a small region capture does not open as a tiled column.
 
 Window rules are seeded into `dms/windowrules.kdl` the way keybinds are

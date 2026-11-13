@@ -94,5 +94,23 @@
   "batteryLockTimeout": 300,
   "batteryPostLockMonitorTimeout": 30,
   "fadeToDpmsGracePeriod": 10,
-  "fadeToLockGracePeriod": 10
+  "fadeToLockGracePeriod": 10,
+  "notificationRules": [
+    {
+      "enabled": true,
+      "field": "appName",
+      "pattern": "niri",
+      "matchType": "exact",
+      "conditions": [
+        {
+          "field": "summary",
+          "matchType": "exact",
+          "pattern": "Screenshot captured"
+        }
+      ],
+      "action": "ignore",
+      "urgency": "default",
+      "bypassDnd": false
+    }
+  ]
 }

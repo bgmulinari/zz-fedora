@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Open a capture piped on stdin in satty, with the editor window sized to the
+# capture: its on-screen size plus the toolbars, scaled down to fit the focused
+# output. satty's own smart resize measures whichever monitor GTK lists first,
+# because the window has not entered an output yet when satty sizes it.
+#
+# Usage: dms screenshot [mode] --stdout | zz-screenshot-annotate [satty options]
+#
+# Options are passed on to satty. The helper supplies --filename itself, and a
+# --resize or --fullscreen option replaces its computed window size.
+set -Eeuo pipefail
+
+# Logical height of satty's top and bottom toolbars, which sit outside the
+# image area, and the share of the output the window may cover.
+TOOLBAR_HEIGHT=92
+OUTPUT_FILL=0.9
+
+png_size() {
+  local bytes
+  bytes="$(od -An -v -tu1 -N24 -- "$1" | tr -s ' \n' ' ')"
+  read -r -a bytes <<< "$bytes"
+  ((${#bytes[@]} == 24)) || return 1
+  [[ "${bytes[*]:0:8}" == "137 80 78 71 13 10 26 10" ]] || return 1
+  printf '%d %d\n' \
+    "$(((bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19]))" \
+    "$(((bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23]))"
+}
+
+focused_output_size() {
+  niri msg -j focused-output 2>/dev/null |
+    jq -er '.logical | select(.width > 0 and .height > 0 and .scale > 0) | "\(.width) \(.height) \(.scale)"'
+}
+
+# True when the caller already chose how satty sizes its window.
+sizes_window() {
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --resize | --resize=* | --fullscreen | --fullscreen=*) return 0 ;;
+    esac
+  done
+  return 1
+}
+
+# Prints WIDTHxHEIGHT for an image of IMAGE_W x IMAGE_H pixels on an output of
+# OUTPUT_W x OUTPUT_H logical pixels at SCALE, and fails when the image or the
+# output leaves no room for a usable window.
+window_size() {
+  awk -v iw="$1" -v ih="$2" -v ow="$3" -v oh="$4" -v scale="$5" \
+    -v chrome="$TOOLBAR_HEIGHT" -v fill="$OUTPUT_FILL" 'BEGIN {
+      w = iw / scale; h = ih / scale
+      max_w = ow * fill; max_h = oh * fill - chrome
+      if (w <= 0 || h <= 0 || max_w < 1 || max_h < 1) exit 1
+      f = 1
+      if (max_w / w < f) f = max_w / w
+      if (max_h / h < f) f = max_h / h
+      if (w * f < 1 || h * f < 1) exit 1
+      printf "%dx%d\n", w * f, h * f + chrome
+    }'
+}
+
+main() {
+  local image output size resize=()
+  CAPTURE="$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/zz-screenshot.XXXXXX")"
+  trap 'rm -f -- "$CAPTURE"' EXIT
+  cat > "$CAPTURE"
+  # A cancelled selection produces no image.
+  [[ -s "$CAPTURE" ]] || return 0
+
+  # shellcheck disable=SC2086 # image and output are space-separated number lists
+  if ! sizes_window "$@" && image="$(png_size "$CAPTURE")" &&
+    output="$(focused_output_size)" && size="$(window_size $image $output)"; then
+    resize=(--resize "$size")
+  fi
+  satty --filename "$CAPTURE" "${resize[@]}" "$@"
+}
+
+main "$@"
