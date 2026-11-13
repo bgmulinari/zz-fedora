@@ -591,6 +591,59 @@ EOF
   assert_file_contains "$command_log" "systemctl enable --now docker"
   refute_file_contains "$command_log" "usermod"
 }
+@test "netwatch capture action grants the brewed binary its capabilities only when missing" {
+  DRY_RUN=0
+  command_log="$TEST_ROOT/netwatch-capture-commands.log"
+  TARGET_USER=zz-tester
+  BREW_PREFIX="$TEST_ROOT/linuxbrew"
+  local keg="$BREW_PREFIX/Cellar/netwatch/1.0.0/bin/netwatch"
+  mkdir -p "$(dirname "$keg")" "$BREW_PREFIX/bin"
+  touch "$keg"
+  ln -s "../Cellar/netwatch/1.0.0/bin/netwatch" "$BREW_PREFIX/bin/netwatch"
+  run_cmd_as_root() {
+    printf '%s\n' "$*" >>"$command_log"
+  }
+  getent() { [[ -n "$ZZ_TEST_GROUP_EXISTS" ]]; }
+  id() { printf '%s\n' "$ZZ_TEST_GROUPS"; }
+  stat() { printf '%s\n' "$ZZ_TEST_STAT"; }
+  getcap() { [[ -z "$ZZ_TEST_CAPS" ]] || printf '%s %s\n' "$1" "$ZZ_TEST_CAPS"; }
+
+  ZZ_TEST_GROUP_EXISTS="" ZZ_TEST_GROUPS="zz-tester wheel" ZZ_TEST_STAT="zz-tester:zz-tester:555" ZZ_TEST_CAPS=""
+  install_netwatch_capture
+  [ "$NETWATCH_CAPTURE_NEW_MEMBER" -eq 1 ]
+  assert_file_contains "$command_log" "groupadd --system netwatch"
+  assert_file_contains "$command_log" "usermod -aG netwatch zz-tester"
+  assert_file_contains "$command_log" "chown root:netwatch $keg"
+  assert_file_contains "$command_log" "chmod 0750 $keg"
+  assert_file_contains "$command_log" "setcap cap_net_raw,cap_bpf,cap_perfmon+eip $keg"
+  run verify_custom_action netwatch-capture
+  [ "$status" -ne 0 ]
+
+  # A brew upgrade leaves the group and membership but pours a bare keg.
+  : >"$command_log"
+  ZZ_TEST_GROUP_EXISTS=1 ZZ_TEST_GROUPS="zz-tester netwatch"
+  install_netwatch_capture
+  [ "$NETWATCH_CAPTURE_NEW_MEMBER" -eq 0 ]
+  refute_file_contains "$command_log" "groupadd"
+  refute_file_contains "$command_log" "usermod"
+  assert_file_contains "$command_log" "setcap cap_net_raw,cap_bpf,cap_perfmon+eip $keg"
+
+  : >"$command_log"
+  ZZ_TEST_STAT="root:netwatch:750" ZZ_TEST_CAPS="cap_net_raw,cap_perfmon,cap_bpf=eip"
+  run verify_custom_action netwatch-capture
+  [ "$status" -eq 0 ]
+  run install_netwatch_capture
+  [ "$status" -eq 0 ]
+  [[ ! -s "$command_log" ]]
+
+  ZZ_TEST_CAPS="cap_net_raw=eip"
+  run verify_custom_action netwatch-capture
+  [ "$status" -ne 0 ]
+  ZZ_TEST_CAPS="cap_net_raw,cap_perfmon,cap_bpf=ep"
+  run verify_custom_action netwatch-capture
+  [ "$status" -ne 0 ]
+}
+
 @test "Sudoless Docker action adds the docker group only when missing and removes it on request" {
   DRY_RUN=0
   command_log="$TEST_ROOT/docker-group-commands.log"

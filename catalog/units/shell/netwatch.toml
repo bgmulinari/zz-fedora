@@ -1,5 +1,5 @@
 id = "shell-netwatch"
-description = "Netwatch network diagnostics bundle from Homebrew"
+description = "Netwatch network diagnostics from Homebrew, with packet-capture privileges for the netwatch group"
 
 [base]
 order = 275
@@ -7,4 +7,4 @@ order = 275
 [[install]]
 backend = "action"
 sources = ["artifact:homebrew"]
-actions = ["brew:netwatch"]
+actions = ["brew:netwatch", "netwatch-capture"]

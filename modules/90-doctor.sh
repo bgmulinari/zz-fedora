@@ -148,6 +148,19 @@ doctor_check_docker_group() {
   fi
 }
 
+# A brew upgrade run outside `zz update brew` pours a netwatch keg without the
+# capture grant, which netwatch reports only as "capture off".
+doctor_check_netwatch_capture() {
+  doctor_plan_has_entry "$PLAN_DIR/actions/actions.list" netwatch-capture || return 0
+  local link="$BREW_PREFIX/bin/netwatch"
+  netwatch_capture_binary "$link" >/dev/null || return 0
+  if netwatch_capture_granted "$link" "$TARGET_USER"; then
+    printf '[ok] netwatch has capture privileges for the %s group\n' "$NETWATCH_GROUP"
+  else
+    printf '[warn] netwatch lacks its capture privileges (a brew upgrade replaced the binary); re-grant them with: zz update brew\n'
+  fi
+}
+
 doctor_plan_has_entry() {
   local plan_file="$1"
   local entry="$2"
@@ -511,6 +524,7 @@ module_90_doctor() {
   log_progress "Checking privileged access"
   doctor_check_sshd
   doctor_check_docker_group
+  doctor_check_netwatch_capture
 
   log_progress "Collecting Fedora repository diagnostics"
   run_cmd_as_root dnf copr list || true

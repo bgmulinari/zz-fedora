@@ -15,6 +15,8 @@ source "$ROOT_DIR/lib/cli.sh"
 source "$ROOT_DIR/lib/packages.sh"
 # shellcheck source=./lib/dotnet.sh
 source "$ROOT_DIR/lib/dotnet.sh"
+# shellcheck source=./lib/netwatch.sh
+source "$ROOT_DIR/lib/netwatch.sh"
 # shellcheck source=./lib/dms.sh
 source "$ROOT_DIR/lib/dms.sh"
 # shellcheck source=./lib/actions.sh

@@ -42,6 +42,8 @@ run_user_login_shell() {
 
 # shellcheck source=./actions/homebrew.sh
 source "$ROOT_DIR/lib/actions/homebrew.sh"
+# shellcheck source=./actions/netwatch.sh
+source "$ROOT_DIR/lib/actions/netwatch.sh"
 # shellcheck source=./actions/npm.sh
 source "$ROOT_DIR/lib/actions/npm.sh"
 # shellcheck source=./actions/vscode.sh

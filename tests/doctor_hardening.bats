@@ -347,6 +347,28 @@ step_table_failure_policy() {
   assert_contains "$output" "[ok] sshd.service not enabled"
 }
 
+@test "doctor warns when a brew upgrade dropped netwatch capture privileges" {
+  build_test_plan
+  BREW_PREFIX="$TEST_ROOT/linuxbrew"
+  mkdir -p "$BREW_PREFIX/bin"
+
+  run doctor_check_netwatch_capture
+  [ "$status" -eq 0 ]
+  refute_contains "$output" "netwatch"
+
+  touch "$BREW_PREFIX/bin/netwatch"
+  netwatch_capture_granted() { return 1; }
+  run doctor_check_netwatch_capture
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "[warn] netwatch lacks its capture privileges"
+  assert_contains "$output" "zz update brew"
+
+  netwatch_capture_granted() { return 0; }
+  run doctor_check_netwatch_capture
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "[ok] netwatch has capture privileges for the netwatch group"
+}
+
 @test "doctor reports docker group membership against the Sudoless Docker selection" {
   build_test_plan "dev=docker"
   TARGET_USER=zz-tester

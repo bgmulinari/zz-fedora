@@ -207,6 +207,35 @@ make_fake_sudo_passthrough() {
   refute_file_contains "$COMMAND_LOG" "npm update"
 }
 
+@test "zz update brew re-grants netwatch capture privileges to an upgraded keg" {
+  make_fake_command brew
+  make_fake_command sudo
+  local keg="$TEST_ROOT/Cellar/netwatch/2.0.0/bin/netwatch"
+  mkdir -p "$(dirname "$keg")"
+  touch "$keg"
+  ln -s "$keg" "$FAKE_BIN/netwatch"
+
+  run env PATH="$FAKE_BIN:$PATH" bash "$ROOT_DIR/bin/zz" update brew
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "Granting netwatch capture privileges to the netwatch group."
+  assert_file_contains "$COMMAND_LOG" "brew upgrade -y"
+  assert_file_contains "$COMMAND_LOG" "sudo chown root:netwatch $keg"
+  assert_file_contains "$COMMAND_LOG" "sudo chmod 0750 $keg"
+  assert_file_contains "$COMMAND_LOG" "sudo setcap cap_net_raw,cap_bpf,cap_perfmon+eip $keg"
+}
+
+@test "zz update brew leaves capture privileges alone without netwatch" {
+  make_fake_command brew
+  make_fake_command sudo
+
+  run env PATH="$FAKE_BIN:$PATH" bash "$ROOT_DIR/bin/zz" update brew
+
+  [ "$status" -eq 0 ]
+  refute_contains "$output" "netwatch"
+  refute_file_contains "$COMMAND_LOG" "sudo"
+}
+
 @test "zz update all aggregates target failures and keeps going" {
   make_fake_command dnf
   make_fake_command dnf5

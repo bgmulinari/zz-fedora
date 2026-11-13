@@ -15,6 +15,8 @@ source "$ROOT_DIR/lib/common.sh"
 source "$ROOT_DIR/lib/idempotency.sh"
 # shellcheck source=../../lib/dotnet.sh
 source "$ROOT_DIR/lib/dotnet.sh"
+# shellcheck source=../../lib/netwatch.sh
+source "$ROOT_DIR/lib/netwatch.sh"
 
 BREW_CANDIDATE="/home/linuxbrew/.linuxbrew/bin/brew"
 RUN_USER="${ZZ_UPDATE_RUN_USER:-${SUDO_USER:-${USER:-$(id -un)}}}"
@@ -349,12 +351,29 @@ update_brew() {
     command_missing_summary brew brew
     return 0
   }
-  if run_user_cmd "$brew_bin" update && run_user_cmd "$brew_bin" upgrade -y; then
-    set_update_summary brew ok "updates completed"
-    return 0
+  if ! run_user_cmd "$brew_bin" update || ! run_user_cmd "$brew_bin" upgrade -y; then
+    set_update_summary brew failed "update check or upgrade failed"
+    return 1
   fi
-  set_update_summary brew failed "update check or upgrade failed"
-  return 1
+  if ! refresh_netwatch_capture "$(dirname "$brew_bin")/netwatch"; then
+    set_update_summary brew failed "updates completed; netwatch capture grant failed"
+    return 1
+  fi
+  set_update_summary brew ok "updates completed"
+}
+
+# A netwatch upgrade pours a new keg whose binary has none of the capture
+# privileges the installer granted, so re-apply the grant (one sudo prompt
+# outside the root context) whenever the live binary lacks it.
+refresh_netwatch_capture() {
+  local link="$1"
+  netwatch_capture_binary "$link" >/dev/null || return 0
+  ! netwatch_capture_granted "$link" "$RUN_USER" || return 0
+  printf 'Granting netwatch capture privileges to the %s group.\n' "$NETWATCH_GROUP"
+  netwatch_capture_grant "$link" "$RUN_USER" || return 1
+  if [[ "$NETWATCH_CAPTURE_NEW_MEMBER" -eq 1 ]]; then
+    printf 'Added %s to the %s group; log out and back in before starting netwatch.\n' "$RUN_USER" "$NETWATCH_GROUP"
+  fi
 }
 
 update_npm() {
