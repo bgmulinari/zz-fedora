@@ -1,5 +1,5 @@
 id = "base-desktop-niri"
-description = "Niri compositor base bundle for Fedora"
+description = "Niri compositor base bundle for Fedora, plus gtk-launch for the default-browser keybind"
 config = ["environment", "niri"]
 
 [base]
@@ -7,4 +7,4 @@ order = 70
 
 [[install]]
 backend = "dnf"
-packages = ["niri"]
+packages = ["gtk3", "niri"]

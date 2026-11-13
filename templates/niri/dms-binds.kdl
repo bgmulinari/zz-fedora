@@ -19,7 +19,7 @@ binds {
     Mod+C hotkey-overlay-title="Open Calculator" { spawn "gnome-calculator"; }
     Mod+B hotkey-overlay-title="Open btop" { spawn "ghostty" "+new-window" "-e" "btop"; }
     Mod+N hotkey-overlay-title="Open netwatch" { spawn "ghostty" "+new-window" "-e" "netwatch"; }
-    Mod+W hotkey-overlay-title="Open Browser" { spawn-sh "xdg-open about:blank"; }
+    Mod+W hotkey-overlay-title="Open Browser" { spawn-sh "gtk-launch \"$(xdg-settings get default-web-browser)\""; }
 
     // Desktop shell. The keyboard shortcut list falls back to Niri's own hotkey
     // overlay when its plugin is not loaded.
@@ -32,7 +32,7 @@ binds {
     Mod+Comma hotkey-overlay-title="DMS Settings" { spawn-sh "dms ipc call settings focusOrToggle"; }
     Mod+V hotkey-overlay-title="DMS Clipboard History" { spawn-sh "dms ipc call clipboard toggle"; }
     Mod+Shift+N hotkey-overlay-title="DMS Notifications" { spawn-sh "dms ipc call notifications toggle"; }
-    Mod+M hotkey-overlay-title="DMS Process List" { spawn-sh "dms ipc call processlist focusOrToggle"; }
+    Mod+Escape hotkey-overlay-title="DMS Process List" { spawn-sh "dms ipc call processlist focusOrToggle"; }
     Mod+Shift+Q hotkey-overlay-title="DMS Power Menu" { spawn-sh "dms ipc call powermenu toggle"; }
     Mod+Alt+L hotkey-overlay-title="DMS Lock Screen" { spawn-sh "dms ipc call lock lock"; }
 
@@ -63,8 +63,8 @@ binds {
     Mod+Up { focus-window-up; }
     Mod+Down { focus-window-down; }
     Mod+J { focus-window-down; }
-    Mod+WheelScrollDown { focus-column-right; }
-    Mod+WheelScrollUp { focus-column-left; }
+    Mod+Shift+WheelScrollDown { focus-column-right; }
+    Mod+Shift+WheelScrollUp { focus-column-left; }
 
     // Window movement
     Mod+Ctrl+Left { move-column-left; }
@@ -97,8 +97,8 @@ binds {
     Mod+8 { focus-workspace 8; }
     Mod+9 { focus-workspace 9; }
     Mod+Tab { focus-workspace-previous; }
-    Mod+Shift+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
-    Mod+Shift+WheelScrollUp cooldown-ms=150 { focus-workspace-up; }
+    Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+    Mod+WheelScrollUp cooldown-ms=150 { focus-workspace-up; }
 
     // Workspace movement
     Mod+Ctrl+1 { move-column-to-workspace 1; }
@@ -121,19 +121,21 @@ binds {
 
     // Window layout
     Mod+Ctrl+C { center-visible-columns; }
-    Mod+F { expand-column-to-available-width; }
-    Mod+Minus { set-column-width "-10%"; }
-    Mod+Equal { set-column-width "+10%"; }
-    Mod+Shift+Minus { set-window-height "-10%"; }
-    Mod+Shift+Equal { set-window-height "+10%"; }
+    Mod+F { maximize-column; }
+    Mod+Ctrl+F { expand-column-to-available-width; }
+    Mod+Alt+Left { set-column-width "-10%"; }
+    Mod+Alt+Right { set-column-width "+10%"; }
+    Mod+Alt+Down { set-window-height "-10%"; }
+    Mod+Alt+Up { set-window-height "+10%"; }
 
     // Window state
     Mod+Q { close-window; }
     Mod+T { toggle-window-floating; }
+    Mod+M { maximize-window-to-edges; }
     Mod+Shift+F { fullscreen-window; }
 
     // Compositor and session
     Mod+O { toggle-overview; }
-    Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
+    Mod+Shift+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
     Mod+Shift+E { quit; }
 }
