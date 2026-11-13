@@ -37,8 +37,7 @@ base_plan_has_package() {
 configure_base_shell() {
   base_plan_has_package "zsh" "$@" || return 0
 
-  log_progress "Configuring the target user's shell"
-  local shell_path="/bin/zsh"
+  log_progress "Configuring zsh for Ghostty"
   local oh_my_zsh_dir="$TARGET_HOME/.oh-my-zsh"
   local custom_plugins_dir="$oh_my_zsh_dir/custom/plugins"
   if [[ "$DRY_RUN" -eq 0 ]] && ! command -v zsh >/dev/null 2>&1; then
@@ -58,22 +57,22 @@ configure_base_shell() {
 
   log_progress "Installing pinned zsh syntax highlighting"
   install_pinned_git_checkout "zsh-syntax-highlighting" "$ZSH_SYNTAX_HIGHLIGHTING_REPOSITORY" "$ZSH_SYNTAX_HIGHLIGHTING_COMMIT" "$custom_plugins_dir/zsh-syntax-highlighting"
+}
 
-  if ! grep -qxF "$shell_path" /etc/shells 2>/dev/null; then
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-      printf 'DRY-RUN: append %s to /etc/shells\n' "$shell_path"
-    else
-      run_cmd_as_root sh -c 'printf "%s\n" "$1" >> /etc/shells' sh "$shell_path"
-    fi
-  fi
-
+# Bash is the login shell, so SHELL and the passwd entry name bash for every
+# program that runs "the user's shell" non-interactively (coding agents,
+# niri-session, editors). Zsh is only the interactive shell Ghostty starts,
+# through the managed Ghostty `command` default.
+configure_login_shell() {
+  local shell_path="/bin/bash"
   local current_shell=""
   current_shell="$(getent passwd "$TARGET_USER" 2>/dev/null | cut -d: -f7 || true)"
   if [[ -z "$current_shell" ]]; then
     die "Could not resolve current login shell for target user '$TARGET_USER'."
   fi
-  if [[ "$current_shell" != "$shell_path" ]]; then
-    log_progress "Setting $TARGET_USER login shell to zsh"
+  # /bin is a symlink to /usr/bin on Fedora, so /usr/bin/bash is already bash.
+  if [[ "$(readlink -f "$current_shell" 2>/dev/null || printf '%s' "$current_shell")" != "$(readlink -f "$shell_path")" ]]; then
+    log_progress "Setting $TARGET_USER login shell to bash"
     run_cmd_as_root chsh -s "$shell_path" "$TARGET_USER"
   fi
 }
@@ -149,6 +148,7 @@ module_30_packages() {
   if [[ "$SKIP_USER_CONFIG" -eq 1 ]]; then
     log_info "Skipping target-user shell configuration"
   else
+    configure_login_shell || return 1
     configure_base_shell "$dnf_base_plan" "$flatpak_base_plan" || return 1
   fi
   install_base_actions_from_plan "$action_base_plan" || return 1

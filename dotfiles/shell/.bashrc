@@ -19,3 +19,7 @@ done
 if [ -f "$HOME/.cargo/env" ]; then
   . "$HOME/.cargo/env"
 fi
+
+if [ -f "$HOME/.zz/dotfiles/shell/path-dedupe.sh" ]; then
+  . "$HOME/.zz/dotfiles/shell/path-dedupe.sh"
+fi

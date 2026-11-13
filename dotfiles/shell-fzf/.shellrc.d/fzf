@@ -1,6 +1,9 @@
 # Managed by zz-fedora.
 
-if command -v fzf >/dev/null 2>&1; then
+# Key bindings and completion need line editing, so only an interactive
+# shell on a terminal loads them; without one zsh's zle is unavailable and
+# the fzf script fails restoring its options.
+if [[ $- == *i* && -t 0 ]] && command -v fzf >/dev/null 2>&1; then
   if [[ -n "${ZSH_VERSION:-}" ]]; then
     source <(fzf --zsh)
   elif [[ -n "${BASH_VERSION:-}" ]]; then

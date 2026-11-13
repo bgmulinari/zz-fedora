@@ -30,3 +30,7 @@ unset zz_environment_d_generator zz_environment_output zz_environment_key zz_env
 if [ -f "$HOME/.cargo/env" ]; then
   . "$HOME/.cargo/env"
 fi
+
+if [ -f "$HOME/.zz/dotfiles/shell/path-dedupe.sh" ]; then
+  . "$HOME/.zz/dotfiles/shell/path-dedupe.sh"
+fi

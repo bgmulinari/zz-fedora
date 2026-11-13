@@ -22,6 +22,35 @@ setup() {
   assert_equal "personal bashrc" "$(cat "$TARGET_HOME/.bashrc")"
 }
 
+@test "seed replaces an untouched distro skeleton copy and backs it up" {
+  timestamp() {
+    printf '20260101-000000\n'
+  }
+  DISTRO_SKEL_DIR="$TEST_ROOT/skel"
+  mkdir -p "$DISTRO_SKEL_DIR"
+  printf '# .bashrc from the distro skeleton\n' >"$DISTRO_SKEL_DIR/.bashrc"
+  cp "$DISTRO_SKEL_DIR/.bashrc" "$TARGET_HOME/.bashrc"
+
+  run seed_user_config_if_missing "$ROOT_DIR/templates/shell/bashrc" "$TARGET_HOME/.bashrc"
+
+  [ "$status" -eq 0 ]
+  cmp -s "$ROOT_DIR/templates/shell/bashrc" "$TARGET_HOME/.bashrc"
+  assert_equal '# .bashrc from the distro skeleton' \
+    "$(cat "$STATE_DIR/backups/20260101-000000$TARGET_HOME/.bashrc")"
+}
+
+@test "seed preserves a skeleton copy the user has edited" {
+  DISTRO_SKEL_DIR="$TEST_ROOT/skel"
+  mkdir -p "$DISTRO_SKEL_DIR"
+  printf '# .bashrc from the distro skeleton\n' >"$DISTRO_SKEL_DIR/.bashrc"
+  printf '# .bashrc from the distro skeleton\nalias k=kubectl\n' >"$TARGET_HOME/.bashrc"
+
+  run seed_user_config_if_missing "$ROOT_DIR/templates/shell/bashrc" "$TARGET_HOME/.bashrc"
+
+  [ "$status" -eq 0 ]
+  assert_contains "$(cat "$TARGET_HOME/.bashrc")" "alias k=kubectl"
+}
+
 @test "product links back up an existing file before linking the live ZZ default" {
   timestamp() {
     printf '20260101-000000\n'
@@ -128,6 +157,26 @@ assert settings == {"attribution": {"commit": "", "pr": "", "sessionUrl": False}
   assert_equal \
     "$(readlink -f "$ROOT_DIR/dotfiles/zsh/.zprofile")" \
     "$(readlink -f "$TARGET_HOME/.zprofile")"
+}
+
+@test "Shell component replaces the distro Bash login profile with the product link" {
+  timestamp() {
+    printf '20260101-000000\n'
+  }
+  mkdir -p "$PLAN_DIR/files"
+  : >"$(managed_config_deployment_plan_file)"
+  printf '# .bash_profile from /etc/skel\n' >"$TARGET_HOME/.bash_profile"
+  append_managed_config_component shell
+
+  run apply_managed_config_plan
+
+  [ "$status" -eq 0 ]
+  [[ -L "$TARGET_HOME/.bash_profile" ]]
+  assert_equal \
+    "$(readlink -f "$ROOT_DIR/dotfiles/shell/.bash_profile")" \
+    "$(readlink -f "$TARGET_HOME/.bash_profile")"
+  assert_equal '# .bash_profile from /etc/skel' \
+    "$(cat "$STATE_DIR/backups/20260101-000000$TARGET_HOME/.bash_profile")"
 }
 
 @test "skip user config leaves home paths alone while system rows still apply" {

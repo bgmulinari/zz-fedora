@@ -1,3 +1,8 @@
+# Shell
+# Zsh is the interactive shell here only; the login shell (SHELL) stays bash
+# so agents and other programs that run "the user's shell" get bash.
+command = /usr/bin/zsh
+
 # Font
 font-family = "JetBrainsMono Nerd Font"
 font-size = 10

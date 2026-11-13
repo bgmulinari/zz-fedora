@@ -19,6 +19,11 @@ with Ctrl+Shift+Comma or in the next window. Keep `theme = dankcolors` unless th
 wants a fixed theme. Shell integration comes from the `ghostty` package, not from rc
 files.
 
+Ghostty runs zsh through `command = /usr/bin/zsh` in `zz-defaults`, while the login shell
+stays bash. Inside Ghostty `SHELL` is therefore `/bin/bash`, which is deliberate: coding
+agents and other programs that spawn "the user's shell" get bash. Do not `chsh` to zsh or
+export `SHELL` to fix that; to change the terminal shell, set `command` in `local`.
+
 ## Bash and Zsh
 
 The entrypoints are thin and user-owned; the product defaults load first and personal
@@ -26,8 +31,8 @@ fragments last:
 
 | Shell | Entrypoint | Loads | Personal fragments |
 |-------|------------|-------|--------------------|
-| Bash | `~/.bashrc`, `~/.profile` | `~/.zz/dotfiles/shell/.bashrc` | `~/.shellrc.d/*` |
-| Zsh | `~/.zshrc`, `~/.zprofile` (product link) | `~/.zz/dotfiles/zsh/.zshrc` (Oh My Zsh, autosuggestions, syntax highlighting) | `~/.shellrc.d/*` (both shells), `~/.zshrc.d/*` (zsh only) |
+| Bash (login shell) | `~/.bashrc`, `~/.profile`, `~/.bash_profile` (product link) | `~/.zz/dotfiles/shell/.bashrc` | `~/.shellrc.d/*` |
+| Zsh (Ghostty) | `~/.zshrc`, `~/.zprofile` (product link) | `~/.zz/dotfiles/zsh/.zshrc` (Oh My Zsh, autosuggestions, syntax highlighting) | `~/.shellrc.d/*` (both shells), `~/.zshrc.d/*` (zsh only) |
 
 Product tool integrations for the selected tools (fzf, zoxide, starship, yazi,
 fastfetch) are links under `~/.config/zz-fedora/shell.d/`; each one checks for its
@@ -40,6 +45,9 @@ Session environment (PATH order, Wayland and toolkit variables) comes from
 `/usr/bin` in PATH so it never shadows Fedora packages. `EDITOR` and `VISUAL` are set
 session-wide by the product login profile (nvim when installed, else vi) so DMS and the
 ZZ menu open the same editor as the terminal; override them in `environment.d` too.
+Both shells drop duplicate `PATH` entries at startup (bash through
+`~/.zz/dotfiles/shell/path-dedupe.sh`, zsh through `typeset -U path`), so a fragment
+that appends unconditionally is harmless, but guard new additions anyway.
 
 Global npm packages are per user: the ZZ system file `/etc/npmrc` sets the prefix to
 `~/.local`, so `npm install -g` and `npm update -g` run without `sudo` and install commands

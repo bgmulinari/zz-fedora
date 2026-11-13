@@ -19,6 +19,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # keeps the prefix behind the distro directories for the same reason.
 SYSTEM_PYTHON="/usr/bin/python3"
 
+# Account creation copies these defaults into the new home before ZZ runs, so
+# a seed target that still matches its copy here is the distro default, not a
+# user customization (lib/files.sh seed_user_config_if_missing).
+# shellcheck disable=SC2034  # Consumed by lib/files.sh.
+DISTRO_SKEL_DIR="/etc/skel"
+
 require_system_python() {
   [[ -x "$SYSTEM_PYTHON" ]] ||
     die "$SYSTEM_PYTHON is required to load the catalog; install the python3 package and rerun (bootstrap.sh installs it on fresh systems)"

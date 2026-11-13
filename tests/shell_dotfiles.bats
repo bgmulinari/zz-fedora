@@ -164,16 +164,156 @@ EOF
     USER=zz-test \
     LOGNAME=zz-test \
     SHELL=/bin/zsh \
-    PATH=/usr/local/bin:/usr/bin \
+    PATH="$home_dir/.local/bin:/usr/local/bin:/usr/bin" \
     /bin/zsh -lc 'printf "PATH=%s\nTERMINAL=%s\n" "$PATH" "$TERMINAL"'
 
   [ "$status" -eq 0 ]
+  assert_equal "" "$(sed -n 's/^PATH=//p' <<<"$output" | tr ':' '\n' | sort | uniq -d)"
   assert_contains "$output" "$home_dir/.local/bin"
   assert_contains "$output" "/home/linuxbrew/.linuxbrew/bin"
   assert_contains "$output" "/home/linuxbrew/.linuxbrew/sbin"
   assert_contains "$output" "TERMINAL=xdg-terminal-exec"
   refute_contains "$output" '${HOME}'
   refute_contains "$output" '${PATH:-'
+}
+
+# niri-session re-executes itself through the Bash login shell, which reads
+# ~/.bash_profile and never ~/.profile on its own. The product login profile
+# must load the managed environment itself, because ~/.profile may be a file
+# another installer created, then ~/.profile and ~/.bashrc for the user layers.
+@test "Bash login profile imports the managed desktop environment, profile, and bashrc" {
+  local home_dir="$TEST_ROOT/bash-login-home"
+  mkdir -p "$home_dir/.config/environment.d" "$home_dir/.local/bin"
+  ln -s "$ROOT_DIR" "$home_dir/.zz"
+  ln -s "$ROOT_DIR/dotfiles/shell/.bash_profile" "$home_dir/.bash_profile"
+  printf 'export ZZ_PROFILE_LOADED=1\n' >"$home_dir/.profile"
+  printf 'ZZ_BASHRC_LOADED=1\n' >"$home_dir/.bashrc"
+  cp "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-zz-desktop.conf" \
+    "$home_dir/.config/environment.d/10-zz-desktop.conf"
+
+  run env -i \
+    HOME="$home_dir" \
+    USER=zz-test \
+    LOGNAME=zz-test \
+    SHELL=/bin/bash \
+    PATH=/usr/local/bin:/usr/bin \
+    /bin/bash -lc 'printf "PATH=%s\nTERMINAL=%s\nPROFILE=%s\nBASHRC=%s\n" "$PATH" "$TERMINAL" "${ZZ_PROFILE_LOADED:-}" "${ZZ_BASHRC_LOADED:-}"'
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "$home_dir/.local/bin"
+  assert_contains "$output" "/home/linuxbrew/.linuxbrew/bin"
+  assert_contains "$output" "TERMINAL=xdg-terminal-exec"
+  assert_contains "$output" "PROFILE=1"
+  assert_contains "$output" "BASHRC=1"
+}
+
+# Account creation copies Fedora's /etc/skel/.bashrc, which prepends
+# ~/.local/bin unless "$HOME/.local/bin:$HOME/bin:" already appears, and never
+# loads the product bashrc. The login profile must still end with a clean PATH.
+@test "Bash login with the seeded profile and a distro bashrc keeps PATH unique" {
+  local home_dir="$TEST_ROOT/bash-seeded-login-home"
+  mkdir -p "$home_dir/.config/environment.d" "$home_dir/.local/bin"
+  ln -s "$ROOT_DIR" "$home_dir/.zz"
+  ln -s "$ROOT_DIR/dotfiles/shell/.bash_profile" "$home_dir/.bash_profile"
+  cp "$ROOT_DIR/templates/shell/profile" "$home_dir/.profile"
+  cat >"$home_dir/.bashrc" <<'BASHRC'
+if ! [[ "$PATH" =~ "$HOME/.local/bin:$HOME/bin:" ]]; then
+    PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+fi
+export PATH
+BASHRC
+  cp "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-zz-desktop.conf" \
+    "$home_dir/.config/environment.d/10-zz-desktop.conf"
+
+  run env -i \
+    HOME="$home_dir" \
+    USER=zz-test \
+    LOGNAME=zz-test \
+    SHELL=/bin/bash \
+    PATH=/usr/local/bin:/usr/bin \
+    /bin/bash -lc 'printf "%s\n" "$PATH"'
+
+  [ "$status" -eq 0 ]
+  assert_equal "" "$(tr ':' '\n' <<<"$output" | sort | uniq -d)"
+  [[ "$output" == "$home_dir/.local/bin:"* ]]
+}
+
+@test "PATH cleanup keeps the first occurrence of each entry and drops empty ones" {
+  run env -i PATH='/a:/usr/bin::/b:/a:/usr/bin:/c:' /bin/sh -c \
+    '. "$1"; printf "%s\n" "$PATH"' sh "$ROOT_DIR/dotfiles/shell/path-dedupe.sh"
+
+  [ "$status" -eq 0 ]
+  assert_equal "/a:/usr/bin:/b:/c" "$output"
+}
+
+# Each login shell in the session chain (greetd's profile, then niri-session's
+# Bash login) re-imports the environment.d PATH, which prepends to the PATH it
+# inherits, so a login shell must not grow duplicates from what it inherited.
+@test "Bash login from an already-imported session environment keeps PATH unique" {
+  local home_dir="$TEST_ROOT/bash-relogin-home" inherited
+  mkdir -p "$home_dir/.config/environment.d" "$home_dir/.local/bin"
+  ln -s "$ROOT_DIR" "$home_dir/.zz"
+  ln -s "$ROOT_DIR/dotfiles/shell/.bash_profile" "$home_dir/.bash_profile"
+  cp "$ROOT_DIR/templates/shell/profile" "$home_dir/.profile"
+  printf 'export PATH="$PATH:/opt/vendor-tool"\n' >>"$home_dir/.profile"
+  cp "$ROOT_DIR/templates/shell/bashrc" "$home_dir/.bashrc"
+  cp "$ROOT_DIR/dotfiles/environment/.config/environment.d/10-zz-desktop.conf" \
+    "$home_dir/.config/environment.d/10-zz-desktop.conf"
+  inherited="$home_dir/.local/bin:/usr/local/bin:/usr/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/opt/vendor-tool"
+
+  run env -i \
+    HOME="$home_dir" \
+    USER=zz-test \
+    LOGNAME=zz-test \
+    SHELL=/bin/bash \
+    PATH="$inherited" \
+    /bin/bash -lc 'printf "%s\n" "$PATH"'
+
+  [ "$status" -eq 0 ]
+  assert_equal "" "$(tr ':' '\n' <<<"$output" | sort | uniq -d)"
+  # Distro directories stay ahead of the Homebrew prefix.
+  [[ "$output" == *"/usr/bin:"*"/home/linuxbrew/.linuxbrew/bin"* ]]
+}
+
+@test "interactive zsh drops PATH duplicates the session inherited" {
+  local home_dir="$TEST_ROOT/zsh-interactive-home"
+  mkdir -p "$home_dir"
+  ln -s "$ROOT_DIR" "$home_dir/.zz"
+  cp "$ROOT_DIR/templates/shell/zshrc" "$home_dir/.zshrc"
+
+  run env -i \
+    HOME="$home_dir" \
+    PATH="/usr/local/bin:/usr/bin:/usr/local/bin:/usr/bin" \
+    /bin/zsh -ic 'print -r -- "$PATH"' </dev/null
+
+  [ "$status" -eq 0 ]
+  assert_equal "" "$(tr ':' '\n' <<<"${lines[-1]}" | sort | uniq -d)"
+  [[ "${lines[-1]}" == "/usr/local/bin:/usr/bin"* ]]
+}
+
+@test "fzf integration loads no key bindings in a shell without a terminal" {
+  command -v fzf >/dev/null 2>&1 || skip "fzf is not installed"
+
+  run bash -ic '. "$1"; type __fzf_history__ >/dev/null 2>&1 && echo loaded || echo skipped' \
+    bash "$ROOT_DIR/dotfiles/shell-fzf/.shellrc.d/fzf" </dev/null
+
+  [ "$status" -eq 0 ]
+  assert_equal "skipped" "${lines[-1]}"
+}
+
+@test "fzf integration loads no zsh widgets in a shell without a terminal" {
+  command -v fzf >/dev/null 2>&1 || skip "fzf is not installed"
+
+  run zsh -ic '. "$1"; (( $+widgets[fzf-history-widget] )) && echo loaded || echo skipped' \
+    zsh "$ROOT_DIR/dotfiles/shell-fzf/.shellrc.d/fzf" </dev/null
+
+  [ "$status" -eq 0 ]
+  refute_contains "$output" "can't change option"
+  assert_equal "skipped" "${lines[-1]}"
+}
+
+@test "Ghostty defaults start zsh while the login shell stays bash" {
+  assert_file_contains "$ROOT_DIR/dotfiles/ghostty/.config/ghostty/config" 'command = /usr/bin/zsh'
 }
 
 # The profile hardcodes the systemd environment.d generator path, which a

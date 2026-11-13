@@ -77,12 +77,6 @@ setup() {
   install_pinned_git_checkout() {
     return 0
   }
-  getent() {
-    printf '%s:x:1000:1000::%s:/bin/zsh\n' "$TARGET_USER" "$TARGET_HOME"
-  }
-  run_cmd_as_root() {
-    return 0
-  }
   run_cmd_as_user() {
     shift
     "$@"
@@ -91,6 +85,51 @@ setup() {
   run_without_bats_debug_trap configure_base_shell "$zsh_plan"
 
   assert_equal 'source "$HOME/.zshrc.d/personal"' "$(cat "$TARGET_HOME/.zshrc")"
+}
+
+@test "login shell is switched to bash when the passwd entry names another shell" {
+  DRY_RUN=0
+  getent() {
+    printf '%s:x:1000:1000::%s:/bin/zsh\n' "$TARGET_USER" "$TARGET_HOME"
+  }
+  run_cmd_as_root() {
+    printf 'ROOT: %s\n' "$*"
+  }
+
+  run configure_login_shell
+
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "ROOT: chsh -s /bin/bash $TARGET_USER"
+}
+
+@test "login shell configuration leaves a bash passwd entry alone" {
+  DRY_RUN=0
+  getent() {
+    printf '%s:x:1000:1000::%s:/bin/bash\n' "$TARGET_USER" "$TARGET_HOME"
+  }
+  run_cmd_as_root() {
+    printf 'ROOT: %s\n' "$*"
+  }
+
+  run configure_login_shell
+
+  [ "$status" -eq 0 ]
+  refute_contains "$output" "ROOT:"
+}
+
+@test "login shell configuration treats /usr/bin/bash as bash" {
+  DRY_RUN=0
+  getent() {
+    printf '%s:x:1000:1000::%s:/usr/bin/bash\n' "$TARGET_USER" "$TARGET_HOME"
+  }
+  run_cmd_as_root() {
+    printf 'ROOT: %s\n' "$*"
+  }
+
+  run configure_login_shell
+
+  [ "$status" -eq 0 ]
+  refute_contains "$output" "ROOT:"
 }
 
 @test "DMS Greeter Fedora action configures greetd fallback" {
@@ -338,7 +377,10 @@ fake_write_root_file() {
   local action_plan="$TEST_ROOT/stdin-actions.list"
   printf 'test-stdin-eater\ntest-second-action\n' >"$action_plan"
 
-  run_without_bats_debug_trap run_actions_from_plan_file "$action_plan" optional "stdin test actions"
+  # Give the stub a stdin that ends: the inherited one may be a terminal or a
+  # harness socket that never reaches EOF, which would hang `cat` forever.
+  run_without_bats_debug_trap run_actions_from_plan_file "$action_plan" optional "stdin test actions" \
+    <<<'stdin the first action drains'
 
   assert_file_contains "$TEST_ROOT/stdin-actions.log" "second-action-ran"
 }

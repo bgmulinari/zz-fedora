@@ -136,12 +136,29 @@ managed_config_required_command_available() {
 
 seed_user_config_if_missing() {
   local source="$1" destination="$2"
-  [[ -e "$destination" || -L "$destination" ]] && {
-    log_info "Preserving user-owned config: $destination"
-    return 0
-  }
-  log_progress "Seeding user-owned config: $destination"
+  if [[ -e "$destination" || -L "$destination" ]]; then
+    if ! seed_target_is_distro_default "$destination"; then
+      log_info "Preserving user-owned config: $destination"
+      return 0
+    fi
+    log_progress "Replacing the untouched distro default with the ZZ seed: $destination"
+  else
+    log_progress "Seeding user-owned config: $destination"
+  fi
   install_file_if_changed user "$source" "$destination"
+}
+
+# Account creation copies /etc/skel into every new home (Fedora's
+# ~/.bashrc, ~/.bash_profile, ...) before ZZ runs, so "missing" would never
+# hold for those seeds. A regular file byte-identical to its skel copy carries
+# no user choice; it is backed up and replaced like a missing file.
+seed_target_is_distro_default() {
+  local destination="$1" relative skel_copy
+  [[ -f "$destination" && ! -L "$destination" ]] || return 1
+  relative="${destination#"$TARGET_HOME"/}"
+  [[ "$relative" != "$destination" ]] || return 1
+  skel_copy="$DISTRO_SKEL_DIR/$relative"
+  [[ -f "$skel_copy" ]] && cmp -s "$skel_copy" "$destination"
 }
 
 replace_user_path_with_product_link() {

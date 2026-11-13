@@ -25,7 +25,7 @@ Each manifest row has seven tab-separated fields:
 | --- | --- | --- |
 | `product-link` | ZZ | The target is a symlink into `~/.zz`. Git updates take effect immediately. A conflicting target is backed up before the link is created. |
 | `system-file` | ZZ | The installer copies the repository source to `/etc` or `/usr/lib` and replaces changed content through the normal installer backup path. |
-| `seed-if-missing` | User | The installer copies the default only when the target does not exist. Later ZZ updates preserve it. |
+| `seed-if-missing` | User | The installer copies the default only when the target does not exist, or is still byte-identical to its `/etc/skel` copy (account creation copies Fedora's skeleton files, such as `~/.bashrc`, before ZZ runs); that untouched copy is backed up first. Later ZZ updates preserve it. |
 | `directory` | User | The installer ensures an override directory exists without managing its contents. |
 | `first-run` | Installer/session | A later first-login step creates or updates the path. |
 | `generated` | Installer | Installer logic renders or installs the path. |
@@ -53,11 +53,31 @@ live ZZ defaults first and a user override last:
 | Ghostty | `~/.config/ghostty/config` and optional `~/.config/ghostty/local` | `dotfiles/ghostty/.config/ghostty/config`, linked as `~/.config/ghostty/zz-defaults` |
 | Nautilus | none; the extension link is product-owned (user extensions go beside it in `~/.local/share/nautilus-python/extensions/`) | `dotfiles/nautilus/.local/share/nautilus-python/extensions/zz-copy-path.py`, a nautilus-python extension that adds Copy Full Path to the file, folder, and background context menus |
 | Screenshot annotation | `~/.config/satty/config.toml` (seeded once, then user-owned; the shipped screenshot keybinds pipe every capture into this editor) | `templates/satty/config.toml` |
-| Bash | `~/.bashrc` and `~/.shellrc.d/` | `dotfiles/shell/.bashrc`; selected product integrations are linked under `~/.config/zz-fedora/shell.d/` |
+| Bash | `~/.bashrc`, `~/.profile`, and `~/.shellrc.d/` | `dotfiles/shell/.bashrc`; `dotfiles/shell/.bash_profile`, linked as `~/.bash_profile`, loads the product profile, `~/.profile`, and then `~/.bashrc` for the login shell; selected product integrations are linked under `~/.config/zz-fedora/shell.d/` |
 | Zsh | `~/.zshrc`, `~/.shellrc.d/`, and `~/.zshrc.d/` | `dotfiles/zsh/.zshrc` and the same selected product integration links |
 | npm | `~/.npmrc` (user overrides such as a different `prefix`) | `dotfiles/npm/npmrc`, installed as `/etc/npmrc`: global packages go to each user's `~/.local` (`~/.local/lib/node_modules`, commands in `~/.local/bin`), so `npm install -g` needs no root and CLI self-updaters work; ZZ's own npm actions, `zz app remove`, and `zz update npm` run as the user against that prefix |
 | Claude Code | `~/.claude/settings.json` (seeded once with commit and pull request attribution off, then owned by the user and Claude Code's own menus) | `templates/claude/settings.json` |
 | Assistant skills | none; the links are product-owned | `dotfiles/agent-skills/.agents/skills/zz/`, linked as `~/.agents/skills/zz`, `~/.claude/skills/zz`, `~/.codex/skills/zz`, and `~/.pi/agent/skills/zz` |
+
+Bash is the login shell: `SHELL` and the passwd entry name `/bin/bash`, so
+`niri-session`, coding agents, editors, and anything else that runs "the
+user's shell" non-interactively get Bash semantics. Zsh is only the
+interactive shell Ghostty starts, through `command = /usr/bin/zsh` in the
+Ghostty defaults; a personal `command` in `~/.config/ghostty/local` overrides
+it. Because `niri-session` re-executes itself through the Bash login shell,
+the product `~/.bash_profile` must load the product profile itself, or
+`/etc/profile` would reset session defaults such as `EDITOR`; a user-owned
+`~/.profile` cannot be relied on for that, since other installers create it
+too. `~/.zprofile` covers an explicit `zsh -l` by loading only the product
+profile.
+
+Every login shell in that chain re-imports the environment.d `PATH`, which
+prepends to the `PATH` it inherits. The product profile, the product bashrc, and
+`~/.bash_profile` (after the user files) therefore finish by sourcing
+`dotfiles/shell/path-dedupe.sh`, which keeps the first occurrence of each
+entry, and the zsh entrypoints set `typeset -U path`, so
+every shell context ends with the same duplicate-free `PATH` and Homebrew
+stays behind `/usr/bin`.
 
 This split lets Git update the product defaults without merging or overwriting
 personal changes. Optional shell integrations remain tied to their catalog

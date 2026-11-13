@@ -1,5 +1,10 @@
 # Product-owned Zsh defaults loaded from ~/.zz.
 
+# Keep PATH entries unique for the whole shell: duplicates the session
+# inherited are dropped now, and later additions by fragments are ignored
+# when already present. The first occurrence keeps its position.
+typeset -U path PATH
+
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME=""
 plugins=(git sudo zsh-autosuggestions zsh-syntax-highlighting)
