@@ -119,10 +119,18 @@ Item {
         card = null;
     }
 
+    // Where the card's links go: the panel's openUrl, which opens a
+    // profile or a repository here and the rest in the browser.
+    property var navigate: null
+
     function openLink(url) {
-        const safe = Logic.externalUrl(url);
-        if (safe !== "")
-            Qt.openUrlExternally(safe);
+        if (navigate) {
+            navigate(url);
+        } else {
+            const safe = Logic.externalUrl(url);
+            if (safe !== "")
+                Qt.openUrlExternally(safe);
+        }
         close();
     }
 
@@ -201,32 +209,27 @@ Item {
 
             GitHubAvatar {
                 login: layer.login
+                square: !!hovercard.c && hovercard.c.isOrg
                 size: 48
                 hovercard: false
             }
 
             // The login opens the profile; the name and pronouns follow.
-            StyledText {
+            GitHubRichText {
                 id: who
                 width: parent.width
-                textFormat: Text.StyledText
+                hovercard: false
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeMedium
                 color: Theme.surfaceVariantText
-                linkColor: Theme.surfaceText
-                text: {
+                linkTint: String(Theme.surfaceText)
+                html: {
                     const c = hovercard.c;
-                    const name = "<a href=\"" + Logic.escapeHtml(Logic.profileUrl(layer.login)) + "\"><b>" + Logic.escapeHtml(layer.login) + "</b></a>";
+                    const name = Logic.anchorHtml(Logic.profileUrl(layer.login), "<b>" + Logic.escapeHtml(layer.login) + "</b>");
                     const extra = c ? [c.name, c.pronouns].filter(part => part !== "").map(Logic.escapeHtml).join(" · ") : "";
                     return name + (extra !== "" ? "&nbsp;&nbsp;" + extra : "");
                 }
                 onLinkActivated: link => layer.openLink(link)
-
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.NoButton
-                    cursorShape: parent.hoveredLink !== "" ? Qt.PointingHandCursor : Qt.ArrowCursor
-                }
             }
 
             DSpinner {
@@ -323,22 +326,16 @@ Item {
                         color: Theme.surfaceVariantText
                     }
 
-                    StyledText {
+                    GitHubRichText {
                         width: line.width - lineIcon.width - line.spacing
+                        hovercard: false
                         anchors.verticalCenter: lineIcon.verticalCenter
-                        textFormat: Text.StyledText
                         wrapMode: Text.Wrap
-                                font.pixelSize: Theme.fontSizeSmall
+                        font.pixelSize: Theme.fontSizeSmall
                         color: Theme.surfaceVariantText
-                        linkColor: Theme.surfaceText
-                        text: line.modelData.html
+                        linkTint: String(Theme.surfaceText)
+                        html: line.modelData.html
                         onLinkActivated: link => layer.openLink(link)
-
-                        MouseArea {
-                            anchors.fill: parent
-                            acceptedButtons: Qt.NoButton
-                            cursorShape: parent.hoveredLink !== "" ? Qt.PointingHandCursor : Qt.ArrowCursor
-                        }
                     }
                 }
             }

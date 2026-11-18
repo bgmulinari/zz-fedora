@@ -17,6 +17,11 @@ ClippingRectangle {
     property var page: null
     property string login: ""
     property int size: 20
+    // An organization's picture is a rounded square, as on github.com.
+    property bool square: false
+    // How many pixels to fetch: the one size every list and post shares,
+    // so each picture is fetched once, and more for a profile's own.
+    property int pixels: 72
     property bool hovercard: true
     property string subjectId: ""
     readonly property bool loaded: picture.status === Image.Ready
@@ -50,7 +55,7 @@ ClippingRectangle {
 
     width: size
     height: size
-    radius: size / 2
+    radius: square ? Math.max(4, Math.round(size * 0.2)) : size / 2
     color: Theme.withAlpha(Theme.surfaceText, 0.12)
 
     StyledText {
@@ -65,10 +70,8 @@ ClippingRectangle {
     Image {
         id: picture
         anchors.fill: parent
-        // One size for every place a person shows, so each picture is
-        // fetched once.
-        source: avatar.login !== "" && avatar.login !== "ghost" ? "https://avatars.githubusercontent.com/" + encodeURIComponent(avatar.login) + "?s=72" : ""
-        sourceSize: Qt.size(72, 72)
+        source: avatar.login !== "" && avatar.login !== "ghost" ? "https://avatars.githubusercontent.com/" + encodeURIComponent(avatar.login) + "?s=" + avatar.pixels : ""
+        sourceSize: Qt.size(avatar.pixels, avatar.pixels)
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
         cache: true

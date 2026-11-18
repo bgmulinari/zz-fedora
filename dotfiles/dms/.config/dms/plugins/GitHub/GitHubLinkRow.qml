@@ -39,6 +39,7 @@ Rectangle {
         text: linkRow.text
         font.pixelSize: Theme.fontSizeSmall
         font.weight: Font.Medium
+        font.underline: linkArea.containsMouse
         color: Theme.primary
         elide: Text.ElideRight
     }

@@ -1856,7 +1856,8 @@ Item {
 
     // What a github.com link to #N really is (an issue or a pull request:
     // both answer under /issues/N), as a row would carry it; a run link
-    // needs no question.
+    // needs no question (nor do the pages Logic.pageItem makes, which the
+    // pages open without asking).
     function resolveLink(link, callback, owner) {
         if (link.kind === "run") {
             callback({
@@ -1990,6 +1991,226 @@ Item {
             callback(runAccess[item.repo]);
         }, {
             "owner": owner
+        });
+    }
+
+    // --------------------------------------------------------- browse pages
+    //
+    // The pages past pull requests, issues, and runs (GitHubBrowse), one
+    // request each from queries/browse.graphql, and from REST what GraphQL
+    // does not have: a README whatever its name, and a commit's patches.
+
+    // A REST answer: callback(the JSON, or the text when `raw`, "") or
+    // (null, why not).
+    function rest(args, callback, owner, raw) {
+        gh(["api"].concat(args), (code, out, err) => {
+            if (code !== 0) {
+                callback(null, Logic.describeFailure(code, err));
+                return;
+            }
+            if (raw) {
+                callback(out, "");
+                return;
+            }
+            try {
+                callback(JSON.parse(out), "");
+            } catch (e) {
+                callback(null, "gh answered with something that is not JSON");
+            }
+        }, {
+            "owner": owner
+        });
+    }
+
+    // A repository's home: Logic.repoHomeOf, or null and why not.
+    function loadRepoHome(repo, callback, owner) {
+        graphql("browse", "Repository", repoVars(repo), (answer, failure) => {
+            const home = answer ? Logic.repoHomeOf(answer.data.repository) : null;
+            callback(home, home ? "" : (failure || "not found"));
+        }, {
+            "owner": owner
+        });
+    }
+
+    // A README as written and as GitHub renders it (whose HTML holds the
+    // URLs its pictures load from, and the file's path): { markdown, html },
+    // or null when there is none. `path` names the file instead of the
+    // README GitHub finds (an organization's profile/README.md in its
+    // .github repository, a Markdown file's page), at `ref` when given
+    // (the default branch otherwise). Both ask at once.
+    function loadReadme(repo, path, callback, owner, ref) {
+        const endpoint = "repos/" + repo + (path ? "/contents/" + Logic.encodePath(path) : "/readme") + (path && ref ? "?ref=" + encodeURIComponent(ref) : "");
+        const answers = {};
+        let settled = false;
+        const take = (key, value) => {
+            if (settled)
+                return;
+            if (value === null) {
+                settled = true;
+                callback(null);
+                return;
+            }
+            answers[key] = value;
+            if ("markdown" in answers && "html" in answers) {
+                settled = true;
+                callback(answers);
+            }
+        };
+        rest([endpoint, "-H", "Accept: application/vnd.github.raw"], text => take("markdown", text), owner, true);
+        rest([endpoint, "-H", "Accept: application/vnd.github.html"], text => take("html", text), owner, true);
+    }
+
+    // A file at a ref (item.target, "ref/path"): Logic.fileOf, or null and
+    // why not. Where the ref ends is unknown when it has a slash in it
+    // (feature/x): the shortest ref is asked first, then a longer one, as
+    // github.com tries them.
+    readonly property int fileRefTries: 5
+
+    function loadFile(item, callback, owner) {
+        const parts = String(item.target || "").split("/");
+        let cut = 1;
+        const tryNext = () => {
+            const ref = parts.slice(0, cut).join("/");
+            const path = parts.slice(cut).join("/");
+            cut++;
+            graphql("browse", "File", Object.assign(repoVars(item.repo), {
+                "expression": ref + ":" + path,
+                "ref": ref,
+                "path": path
+            }), (answer, failure) => {
+                const repository = answer ? answer.data.repository : null;
+                if (!repository) {
+                    callback(null, failure || "not found");
+                    return;
+                }
+                const file = Logic.fileOf(repository, item.repo, ref, path);
+                if (file)
+                    callback(file, "");
+                else if (cut < parts.length && cut <= fileRefTries)
+                    tryNext();
+                else
+                    callback(null, "not found");
+            }, {
+                "owner": owner
+            });
+        };
+        if (parts.length < 2)
+            callback(null, "not found");
+        else
+            tryNext();
+    }
+
+    // A page of a branch's, a tag's, or a commit's history (the default
+    // branch's when the item names none), from `after`: Logic.historyOf,
+    // or null and why not.
+    function loadCommits(item, after, callback, owner) {
+        const vars = Object.assign(repoVars(item.repo), {
+            "after": after || null
+        });
+        if (item.ref) {
+            vars.expression = item.ref;
+            // Or the history of a path from its first part (Commits).
+            const at = item.ref.indexOf("/");
+            if (at > 0) {
+                vars.split = true;
+                vars.head = item.ref.slice(0, at);
+                vars.path = item.ref.slice(at + 1);
+            }
+        }
+        graphql("browse", item.ref ? "Commits" : "DefaultCommits", vars, (answer, failure) => {
+            const page = answer ? Logic.historyOf(answer.data.repository, item.repo, item.ref) : null;
+            callback(page, page ? "" : (failure || "No branch, tag, or commit is named " + item.ref + "."));
+        }, {
+            "owner": owner
+        });
+    }
+
+    readonly property int commitFilesPage: 100
+
+    // A commit's page: { commit, pulls, comments } from GraphQL, and its
+    // files with their patches from REST (the first commitFilesPage of
+    // them): { files, error } once that answers too. callback(page, why
+    // not) runs once, when both did.
+    function loadCommit(item, callback, owner) {
+        let page = null;
+        let failure = "";
+        let files = null;
+        let pending = 2;
+        const settle = () => {
+            if (--pending > 0)
+                return;
+            if (page)
+                page.files = files;
+            callback(page, page ? "" : failure);
+        };
+        graphql("browse", "Commit", Object.assign(repoVars(item.repo), {
+            "expression": item.sha
+        }), (answer, why) => {
+            const node = answer && answer.data.repository ? answer.data.repository.object : null;
+            const commit = node ? Logic.commitOf(node, item.repo) : null;
+            if (commit)
+                page = {
+                    "commit": commit,
+                    "pulls": Logic.commitPulls(node),
+                    "comments": node.comments ? Number(node.comments.totalCount || 0) : 0,
+                    "defaultBranch": answer.data.repository.defaultBranchRef ? String(answer.data.repository.defaultBranchRef.name || "") : ""
+                };
+            else
+                failure = why || "No commit " + item.sha + " in " + item.repo + ".";
+            settle();
+        }, {
+            "owner": owner
+        });
+        rest(["repos/" + item.repo + "/commits/" + item.sha + "?per_page=" + commitFilesPage], (json, why) => {
+            files = json && Array.isArray(json.files) ? {
+                "files": json.files.map(Logic.commitFileOf),
+                "error": ""
+            } : {
+                "files": [],
+                "error": Logic.failureText(why)
+            };
+            settle();
+        }, owner);
+    }
+
+    // A page of a repository's releases, newest first, from `after`:
+    // Logic.releasesOf, or null and why not.
+    function loadReleases(item, after, callback, owner) {
+        graphql("browse", "Releases", Object.assign(repoVars(item.repo), {
+            "after": after || null
+        }), (answer, failure) => {
+            const page = answer ? Logic.releasesOf(answer.data.repository) : null;
+            callback(page, page ? "" : (failure || "not found"));
+        }, {
+            "owner": owner
+        });
+    }
+
+    // One release by its tag (the latest when the item names none):
+    // Logic.releaseOf, or null and why not.
+    function loadRelease(item, callback, owner) {
+        graphql("browse", item.tag ? "Release" : "LatestRelease", Object.assign(repoVars(item.repo), item.tag ? {
+            "tag": item.tag
+        } : {}), (answer, failure) => {
+            const repository = answer ? answer.data.repository : null;
+            const release = repository ? Logic.releaseOf(item.tag ? repository.release : repository.latestRelease, item.repo) : null;
+            callback(release, release ? "" : (failure || (item.tag ? "No release is tagged " + item.tag + "." : item.repo + " has no releases yet.")));
+        }, {
+            "owner": owner
+        });
+    }
+
+    // A person's or an organization's profile: Logic.ownerOf, or null and
+    // why not.
+    function loadOwner(login, callback, owner) {
+        graphql("browse", "Owner", {
+            "login": login
+        }, (answer, failure) => {
+            const profile = answer ? Logic.ownerOf(answer.data.repositoryOwner) : null;
+            callback(profile, profile ? "" : (failure || "No one on GitHub is called " + login + "."));
+        }, {
+            "owner": owner,
+            "timeout": 45000
         });
     }
 

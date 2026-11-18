@@ -383,9 +383,10 @@ Item {
     }
 
     // Every clickable part of the page leads where it does on github.com
-    // (Logic's URLs), through here: pull requests, issues, runs, and
-    // searches open in place, and the rest in the browser, like a link to
-    // a place in a page, which a page here does not scroll to.
+    // (Logic's URLs), through here: pull requests, issues, runs, searches,
+    // and the pages GitHubBrowse shows (a repository, a commit, a profile)
+    // open in place, and the rest in the browser, like a link to a place
+    // in a page, which a page here does not scroll to.
     function openLink(url) {
         const search = Logic.parseSearchLink(url, kind === "pr" ? "prs" : "issues");
         if (search) {
@@ -395,6 +396,10 @@ Item {
         const link = Logic.parseLink(url);
         if (!link || link.anchor) {
             openExternally(url);
+            return;
+        }
+        if (Logic.isPageKind(link.kind)) {
+            openItem(Logic.pageItem(link));
             return;
         }
         if (link.kind === "run" ? (kind === "run" && Number(item.databaseId) === link.databaseId) : (kind !== "run" && item.repo === link.repo && Number(item.number) === link.number))
@@ -1005,7 +1010,7 @@ Item {
                             visible: sha !== ""
                             icon: "commit"
                             text: sha.slice(0, 7)
-                            url: Logic.commitUrl(detailPage.item.repo, sha)
+                            url: detailPage.item ? Logic.commitUrl(detailPage.item.repo, sha) : ""
                         }
                     }
 
@@ -1549,75 +1554,9 @@ Item {
         return detail && kind === "issue" ? "opened this issue" : "";
     }
 
-    // Who gave a reaction, above the chip under the pointer (below it when
-    // the page has no room above), as github.com's hover card lists them.
-    Rectangle {
-        id: reactorsCard
-        readonly property var shown: detailPage.reactorsShown
-        readonly property var chip: detailPage.reactorsChip
-        readonly property point spot: shown && Qt.isQtObject(chip) ? chip.mapToItem(detailPage, 0, 0) : Qt.point(0, 0)
-        readonly property int more: shown ? shown.total - shown.people.length : 0
-        visible: !!shown
+    GitHubReactorsCard {
+        page: detailPage
         z: 50
-        width: Math.min(detailPage.width - Theme.spacingS * 2, Math.max(180, reactorsColumn.implicitWidth + Theme.spacingM * 2))
-        height: reactorsColumn.implicitHeight + Theme.spacingS * 2
-        x: Math.max(Theme.spacingS, Math.min(detailPage.width - width - Theme.spacingS, spot.x))
-        y: spot.y - height - Theme.spacingXS >= 0 ? spot.y - height - Theme.spacingXS : spot.y + (shown && Qt.isQtObject(chip) ? chip.height : 0) + Theme.spacingXS
-        radius: Theme.cornerRadius
-        color: Theme.surfaceContainerHigh
-        border.width: 1
-        border.color: Theme.withAlpha(Theme.outlineVariant, 0.8)
-
-        Column {
-            id: reactorsColumn
-            x: Theme.spacingM
-            y: Theme.spacingS
-            spacing: Theme.spacingS
-
-            Repeater {
-                model: reactorsCard.shown ? reactorsCard.shown.people : []
-
-                Row {
-                    id: reactor
-                    required property var modelData
-                    spacing: Theme.spacingS
-
-                    GitHubAvatar {
-                        anchors.verticalCenter: parent.verticalCenter
-                        login: reactor.modelData.login
-                        size: 24
-                        hovercard: false
-                    }
-
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        StyledText {
-                            text: reactor.modelData.login
-                            textFormat: Text.PlainText
-                            font.pixelSize: Theme.fontSizeSmall
-                            font.weight: Font.DemiBold
-                            color: Theme.surfaceText
-                        }
-
-                        StyledText {
-                            visible: text !== ""
-                            text: reactor.modelData.name
-                            textFormat: Text.PlainText
-                            font.pixelSize: Theme.fontSizeSmall - 1
-                            color: Theme.surfaceVariantText
-                        }
-                    }
-                }
-            }
-
-            StyledText {
-                visible: reactorsCard.more > 0
-                text: "and " + reactorsCard.more + " more reacted with " + (reactorsCard.shown ? reactorsCard.shown.emoji : "")
-                font.pixelSize: Theme.fontSizeSmall
-                color: Theme.surfaceVariantText
-            }
-        }
     }
 
     // A scroll moves the chip away from under the pointer.
@@ -1636,6 +1575,8 @@ Item {
         anchors.fill: parent
         z: 100
         enabled: !!detailPage.openPicker
+        // No cursor of its own (see GitHubPanel's suggestions catcher).
+        cursorShape: undefined
         acceptedButtons: Qt.AllButtons
         onPressed: mouse => {
             const picker = detailPage.openPicker;

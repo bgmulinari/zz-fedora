@@ -1,0 +1,222 @@
+# The pages past pull requests, issues, and runs, picked with operationName,
+# each in one request: a repository's home (what its About box, its file
+# list, and its sidebar show; the README is asked for apart, through the
+# REST readme endpoint, which finds it whatever its name), a branch's or a
+# commit's history a page at a time, one commit's checks and the pull
+# requests it belongs to (its files and diff come from the REST commit
+# endpoint, which has the patches), a repository's releases a page at a
+# time and one release by its tag, a file at a ref, and a person's or an
+# organization's profile.
+query Repository($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    id nameWithOwner name description homepageUrl url
+    owner { __typename login }
+    isPrivate isFork isArchived isTemplate isMirror
+    parent { nameWithOwner }
+    templateRepository { nameWithOwner }
+    stargazerCount forkCount
+    watchers { totalCount }
+    viewerHasStarred viewerSubscription
+    issues(states: OPEN) { totalCount }
+    pullRequests(states: OPEN) { totalCount }
+    discussions { totalCount }
+    hasIssuesEnabled hasDiscussionsEnabled
+    licenseInfo { name spdxId nickname }
+    repositoryTopics(first: 20) { nodes { topic { name } } }
+    languages(first: 8, orderBy: { field: SIZE, direction: DESC }) {
+      totalSize
+      edges { size node { name color } }
+    }
+    releases { totalCount }
+    latestRelease { name tagName publishedAt url }
+    refs(refPrefix: "refs/tags/") { totalCount }
+    branches: refs(refPrefix: "refs/heads/") { totalCount }
+    defaultBranchRef {
+      name
+      target {
+        ... on Commit {
+          ...commit
+          history { totalCount }
+          tree { entries { name type path } }
+        }
+      }
+    }
+  }
+}
+
+# A history from a branch, a tag, or a commit (expression), newest first.
+# A link's /commits/<a>/<b> can also be the history of path b from a, so
+# that reading (head, path) is asked at once, and the page takes whichever
+# exists.
+query Commits($owner: String!, $name: String!, $expression: String!, $split: Boolean = false, $head: String = "", $path: String, $after: String) {
+  repository(owner: $owner, name: $name) {
+    nameWithOwner
+    defaultBranchRef { name }
+    object(expression: $expression) {
+      ... on Commit {
+        oid
+        history(first: 30, after: $after) {
+          totalCount
+          pageInfo { hasNextPage endCursor }
+          nodes { ...commit }
+        }
+      }
+    }
+    inPath: object(expression: $head) @include(if: $split) {
+      ... on Commit {
+        oid
+        history(first: 30, after: $after, path: $path) {
+          totalCount
+          pageInfo { hasNextPage endCursor }
+          nodes { ...commit }
+        }
+      }
+    }
+  }
+}
+
+# The default branch's history, for a link that names no branch.
+query DefaultCommits($owner: String!, $name: String!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    nameWithOwner
+    defaultBranchRef {
+      name
+      target {
+        ... on Commit {
+          oid
+          history(first: 30, after: $after) {
+            totalCount
+            pageInfo { hasNextPage endCursor }
+            nodes { ...commit }
+          }
+        }
+      }
+    }
+  }
+}
+
+# A commit by its SHA, whole or abbreviated (expression).
+query Commit($owner: String!, $name: String!, $expression: String!) {
+  repository(owner: $owner, name: $name) {
+    nameWithOwner
+    defaultBranchRef { name }
+    object(expression: $expression) {
+      ... on Commit {
+        ...commit
+        associatedPullRequests(first: 5) { nodes { number title url state isDraft repository { nameWithOwner } } }
+        comments { totalCount }
+      }
+    }
+  }
+}
+
+# A file at a ref (`blob`, as `ref:path`), with the last commit that
+# changed it on that ref: its text (null when binary or too large), size,
+# and whether GitHub cut it. A ref with a slash in it makes the split of
+# ref and path unknown: GitHubData.loadFile asks for each in turn.
+query File($owner: String!, $name: String!, $expression: String!, $ref: String!, $path: String!) {
+  repository(owner: $owner, name: $name) {
+    nameWithOwner isPrivate
+    defaultBranchRef { name }
+    file: object(expression: $expression) {
+      __typename
+      ... on Blob { abbreviatedOid byteSize isBinary isTruncated text }
+    }
+    at: object(expression: $ref) {
+      ... on Commit {
+        history(first: 1, path: $path) { nodes { ...commit } }
+      }
+    }
+  }
+}
+
+query Releases($owner: String!, $name: String!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    nameWithOwner
+    releases(first: 10, after: $after, orderBy: { field: CREATED_AT, direction: DESC }) {
+      totalCount
+      pageInfo { hasNextPage endCursor }
+      nodes { ...release }
+    }
+  }
+}
+
+query Release($owner: String!, $name: String!, $tag: String!) {
+  repository(owner: $owner, name: $name) {
+    nameWithOwner
+    release(tagName: $tag) { ...release }
+  }
+}
+
+query LatestRelease($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    nameWithOwner
+    latestRelease { ...release }
+  }
+}
+
+# A person's profile, or an organization's: who they are, what they pinned
+# (or their most starred repositories, asked with it since which applies is
+# not known before), a person's contributions over the last year, and an
+# organization's latest repositories, as github.com's overview shows them.
+query Owner($login: String!) {
+  repositoryOwner(login: $login) {
+    __typename login url
+    ... on User {
+      id name bio company location websiteUrl pronouns twitterUsername email createdAt
+      isViewer
+      status { emoji message }
+      followers { totalCount }
+      following { totalCount }
+      starredRepositories { totalCount }
+      organizations(first: 20) { nodes { login name } }
+      socialAccounts(first: 10) { nodes { provider displayName url } }
+      contributionsCollection {
+        contributionCalendar {
+          totalContributions
+          weeks { contributionDays { date contributionCount contributionLevel } }
+        }
+      }
+    }
+    ... on Organization {
+      id name description location websiteUrl email twitterUsername createdAt isVerified
+      membersWithRole { totalCount }
+    }
+    ... on ProfileOwner {
+      pinnedItems(first: 6, types: REPOSITORY) { nodes { ...repositoryCard } }
+    }
+    popular: repositories(first: 6, ownerAffiliations: OWNER, privacy: PUBLIC, orderBy: { field: STARGAZERS, direction: DESC }) { nodes { ...repositoryCard } }
+    # An organization's overview lists its latest repositories; a
+    # person's only counts them.
+    ... on User { recent: repositories(ownerAffiliations: OWNER) { totalCount } }
+    ... on Organization { recent: repositories(first: 10, ownerAffiliations: OWNER, orderBy: { field: PUSHED_AT, direction: DESC }) { totalCount nodes { ...repositoryCard } } }
+  }
+}
+
+fragment repositoryCard on Repository {
+  nameWithOwner name description isPrivate isFork isArchived stargazerCount forkCount pushedAt
+  owner { login }
+  parent { nameWithOwner }
+  primaryLanguage { name color }
+}
+
+fragment commit on Commit {
+  oid abbreviatedOid messageHeadline messageBody committedDate authoredDate url
+  additions deletions changedFilesIfAvailable
+  parents(first: 3) { nodes { oid abbreviatedOid } }
+  author { name email date user { login } }
+  committer { name email date user { login } }
+  authors(first: 4) { totalCount nodes { name user { login } } }
+  signature { isValid state }
+  statusCheckRollup { state }
+}
+
+fragment release on Release {
+  id name tagName url isPrerelease isDraft isLatest createdAt publishedAt description
+  author { __typename login }
+  tagCommit { oid abbreviatedOid }
+  mentions { totalCount }
+  releaseAssets(first: 30) { totalCount nodes { name size downloadCount downloadUrl updatedAt contentType } }
+  reactionGroups { content viewerHasReacted reactors { totalCount } }
+  viewerCanReact
+}

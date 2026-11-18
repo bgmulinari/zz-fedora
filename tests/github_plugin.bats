@@ -359,6 +359,371 @@ EOF
   assert_equal '[true,true,false,false,false]' "$(jq -c '.external' <<<"$output")"
 }
 
+@test "github opens repositories, commits, releases, and profiles in the popout" {
+  need_node
+
+  run github_logic <<'EOF'
+const open = u => { const l = L.parseLink(u); return l && !l.anchor && L.isPageKind(l.kind) ? L.pageItem(l) : (l ? l.kind || "issue" : null); };
+return {
+  pages: [
+    "https://github.com/abpframework/abp",
+    "https://github.com/abpframework/abp/?tab=readme-ov-file#readme",
+    "https://github.com/abpframework/abp/commits/dev/",
+    "https://github.com/o/r/commits/feature/a%20b",
+    "https://github.com/o/r/commits",
+    "https://github.com/abpframework/abp/commit/6D427B3",
+    "https://github.com/abpframework/abp/releases",
+    "https://github.com/o/r/releases/tag/v1.0%2Bbuild",
+    "https://github.com/o/r/releases/latest",
+    "https://github.com/maliming",
+    "https://github.com/maliming?tab=overview"
+  ].map(u => { const i = open(u); return [i.kind, i.url, i.ref || i.tag || i.sha || i.login || ""].join(" "); }),
+  // What has no page here: another tab, a filtered history, a place in a
+  // page, github.com's own pages, a pull request's tabs.
+  browser: [
+    "https://github.com/maliming?tab=repositories",
+    "https://github.com/o/r/commits/main?author=me",
+    "https://github.com/o/r/commit/abcdef1#diff-123",
+    "https://github.com/o/r#install",
+    "https://github.com/o/r/tree/main/docs",
+    "https://github.com/settings/profile",
+    "https://github.com/orgs/o/teams/t",
+    "https://github.com/topics/qml",
+    "https://github.com/solutions",
+    "https://github.com/o/r/pull/1/files"
+  ].map(u => L.pageItemFor(u)),
+  // The kinds GitHubDetail has keep their own shape.
+  detail: ["https://github.com/o/r/pull/3", "https://github.com/o/r/issues/4", "https://github.com/o/r/actions/runs/9"].map(open),
+  labels: [null, { kind: "pr", number: 3 }, { kind: "repo", repo: "o/r" }, { kind: "commit", sha: "6d427b3b60" }, { kind: "release", tag: "" }, { kind: "user", login: "me" }].map(L.pageLabel),
+  same: [
+    L.samePage(L.pageItemFor("https://github.com/o/r/"), L.pageItemFor("https://github.com/o/r")),
+    L.samePage(L.pageItemFor("https://github.com/o/r"), L.pageItemFor("https://github.com/o/r/releases")),
+    L.samePage({ kind: "pr", repo: "o/r", number: 3 }, { kind: "pr", repo: "o/r", number: "3" })
+  ]
+};
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '["repo https://github.com/abpframework/abp ","repo https://github.com/abpframework/abp ","commits https://github.com/abpframework/abp/commits/dev dev","commits https://github.com/o/r/commits/feature/a%20b feature/a b","commits https://github.com/o/r/commits ","commit https://github.com/abpframework/abp/commit/6d427b3 6d427b3","releases https://github.com/abpframework/abp/releases ","release https://github.com/o/r/releases/tag/v1.0%2Bbuild v1.0+build","release https://github.com/o/r/releases/latest ","user https://github.com/maliming maliming","user https://github.com/maliming maliming"]' "$(jq -c '.pages' <<<"$output")"
+  assert_equal '[null,null,null,null,null,null,null,null,null,null]' "$(jq -c '.browser' <<<"$output")"
+  assert_equal '["pr","issue","run"]' "$(jq -c '.detail' <<<"$output")"
+  assert_equal '["the list","#3","o/r","6d427b3","the latest release","@me"]' "$(jq -c '.labels' <<<"$output")"
+  assert_equal '[true,false,true]' "$(jq -c '.same' <<<"$output")"
+}
+
+@test "github opens a file in the popout, at the lines a link marks, as github.com shows it" {
+  need_node
+
+  run github_logic <<'EOF'
+const commit = { oid: "abc1234ff", abbreviatedOid: "abc1234", messageHeadline: "Fix it", committedDate: "2026-01-01T00:00:00Z", author: { name: "Ann", user: { login: "ann" } }, authors: { totalCount: 1, nodes: [{ name: "Ann", user: { login: "ann" } }] } };
+const repository = (file, extra) => Object.assign({ nameWithOwner: "o/r", isPrivate: false, file: file, at: { history: { nodes: [commit] } } }, extra || {});
+const text = L.fileOf(repository({ __typename: "Blob", byteSize: 30, isBinary: false, isTruncated: false, text: "a\n\n  \nb\n" }), "o/r", "feature/x", "docs/my file.md");
+return {
+  links: [
+    "https://github.com/o/r/blob/main/CONTRIBUTING.md",
+    "https://github.com/o/r/blob/feature/x/src/a%20b.cs#L10-L20",
+    "https://github.com/o/r/blob/main/a.cs#L7",
+    "https://github.com/o/r/blob/main/a.cs#L7C2-L9C4",
+    "https://github.com/o/r/blob/main/README.md?plain=1"
+  ].map(u => L.pageItemFor(u)).map(i => [i.kind, i.target, i.line, i.lineEnd, i.plain, i.url].join(" ")),
+  // A place in a file that is not its lines has no page here.
+  browser: L.pageItemFor("https://github.com/o/r/blob/main/README.md#install"),
+  label: L.pageLabel(L.pageItemFor("https://github.com/o/r/blob/main/docs/a.md")),
+  text: [text.name, text.dir, text.lines, text.loc, text.markdown, text.image, text.commit.short, text.url, text.rawUrl, text.historyUrl, text.folderUrl],
+  binary: (f => [f.binary, f.text, f.lines, f.image, f.imageUrl])(L.fileOf(repository({ __typename: "Blob", byteSize: 9, isBinary: true, text: null }), "o/r", "main", "bin/tool")),
+  // A picture loads from raw.githubusercontent.com only while public.
+  pictures: [false, true].map(isPrivate => L.fileOf(repository({ __typename: "Blob", byteSize: 9, isBinary: true, text: null }, { isPrivate: isPrivate }), "o/r", "main", "img/a b.PNG").imageUrl),
+  folder: (f => [f.folder, f.url])(L.fileOf(repository({ __typename: "Tree" }), "o/r", "main", "src")),
+  missing: L.fileOf(repository(null), "o/r", "main", "nope"),
+  header: L.pageHeader({ kind: "file", repo: "o/r", target: "feature/x/docs/my file.md" }, text).line.map(part => part.text + " " + (part.url || "")),
+  loading: L.pageLoadingText({ kind: "file", repo: "o/r", target: "main/docs/a.md" })
+};
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '["file main/CONTRIBUTING.md 0 0 false https://github.com/o/r/blob/main/CONTRIBUTING.md","file feature/x/src/a b.cs 10 20 false https://github.com/o/r/blob/feature/x/src/a%20b.cs#L10-L20","file main/a.cs 7 7 false https://github.com/o/r/blob/main/a.cs#L7","file main/a.cs 7 9 false https://github.com/o/r/blob/main/a.cs#L7-L9","file main/README.md 0 0 true https://github.com/o/r/blob/main/README.md?plain=1"]' "$(jq -c '.links' <<<"$output")"
+  assert_equal 'null' "$(jq -c '.browser' <<<"$output")"
+  assert_equal '"a.md"' "$(jq -c '.label' <<<"$output")"
+  # Four lines, two with something on them, as github.com counts them.
+  assert_equal '["my file.md","docs",4,2,true,false,"abc1234","https://github.com/o/r/blob/feature/x/docs/my%20file.md","https://github.com/o/r/raw/feature/x/docs/my%20file.md","https://github.com/o/r/commits/feature/x/docs/my%20file.md","https://github.com/o/r/tree/feature/x/docs"]' "$(jq -c '.text' <<<"$output")"
+  assert_equal '[true,null,0,false,""]' "$(jq -c '.binary' <<<"$output")"
+  assert_equal '["https://raw.githubusercontent.com/o/r/main/img/a%20b.PNG",""]' "$(jq -c '.pictures' <<<"$output")"
+  assert_equal '[true,"https://github.com/o/r/tree/main/src"]' "$(jq -c '.folder' <<<"$output")"
+  assert_equal 'null' "$(jq -c '.missing' <<<"$output")"
+  assert_equal '["o/r https://github.com/o/r","feature/x https://github.com/o/r/tree/feature/x","docs https://github.com/o/r/tree/feature/x/docs"]' "$(jq -c '.header' <<<"$output")"
+  assert_equal 'Loading a.md…' "$(jq -r '.loading' <<<"$output")"
+  # The code's sideways scroll leaves the wheel to the page: DMS's
+  # WheelHandler would block a vertical wheel it then declines.
+  assert_file_contains "$ROOT_DIR/$GITHUB_REL/GitHubCodeView.qml" 'wheelEnabled: false'
+}
+
+@test "github finds where a file's ref ends, asking for the shortest first" {
+  need_qs
+
+  run github_data <<'EOF'
+const gh = fakeGh(data);
+const found = [];
+const blob = { __typename: "Blob", byteSize: 2, isBinary: false, isTruncated: false, text: "x\n" };
+// feature/x/a.md: "feature" has no a "x/a.md"; "feature/x" has "a.md".
+data.loadFile({ repo: "o/r", target: "feature/x/a.md" }, (file, error) => found.push(file ? [file.ref, file.path] : error));
+const first = gh.next("operationName=File").line;
+gh.op("File", { data: { repository: { file: null, at: null } } });
+const second = gh.next("operationName=File").line;
+gh.op("File", { data: { repository: { file: blob, at: null } } });
+// Nothing at any split; a missing repository.
+data.loadFile({ repo: "o/r", target: "main/gone.md" }, (file, error) => found.push(file ? "file" : error));
+gh.op("File", { data: { repository: { file: null, at: null } } });
+data.loadFile({ repo: "o/gone", target: "main/a.md" }, (file, error) => found.push(file ? "file" : error));
+gh.op("File", { data: { repository: null }, errors: [{ message: "Could not resolve to a Repository" }] });
+return {
+  found: found,
+  asked: [first, second].map(line => ["expression=", "ref=", "path="].map(key => (line.match(new RegExp(key + "([^ ]*)")) || [])[1]))
+};
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '[["feature/x","a.md"],"not found","not found"]' "$(jq -c '.found' <<<"$output")"
+  assert_equal '[["feature:x/a.md","feature","x/a.md"],["feature/x:a.md","feature/x","a.md"]]' "$(jq -c '.asked' <<<"$output")"
+}
+
+@test "github reads a repository's home, history, commit, releases, and profile as github.com shows them" {
+  need_node
+
+  run github_logic <<'EOF'
+const commit = (oid, at, extra) => Object.assign({ oid: oid, abbreviatedOid: oid.slice(0, 7), messageHeadline: "m " + oid, messageBody: "", committedDate: at, url: "https://github.com/o/r/commit/" + oid,
+  author: { name: "Ann", user: { login: "ann" } }, committer: { name: "GitHub", user: { login: "web-flow" } }, authors: { totalCount: 1, nodes: [{ name: "Ann", user: { login: "ann" } }] },
+  parents: { nodes: [{ oid: "p1", abbreviatedOid: "p1" }] }, signature: { isValid: true }, statusCheckRollup: { state: "FAILURE" } }, extra || {});
+const home = L.repoHomeOf({
+  nameWithOwner: "o/r", name: "r", owner: { __typename: "Organization", login: "o" }, isPrivate: false, stargazerCount: 14473, forkCount: 3705,
+  watchers: { totalCount: 320 }, issues: { totalCount: 5 }, pullRequests: { totalCount: 2 }, hasIssuesEnabled: true, hasDiscussionsEnabled: false,
+  licenseInfo: { spdxId: "MIT", nickname: null, name: "MIT License" }, repositoryTopics: { nodes: [{ topic: { name: "qml" } }] },
+  languages: { totalSize: 1000, edges: [{ size: 750, node: { name: "C#", color: "#178600" } }, { size: 240, node: { name: "JS", color: "#f1e05a" } }] },
+  releases: { totalCount: 3 }, refs: { totalCount: 4 }, branches: { totalCount: 2 },
+  defaultBranchRef: { name: "dev", target: Object.assign(commit("aaaaaaa1", "2026-01-01T00:00:00Z"), { history: { totalCount: 48236 }, tree: { entries: [
+    { name: "b.txt", type: "blob", path: "b.txt" }, { name: "src", type: "tree", path: "src" }, { name: "A.md", type: "blob", path: "A.md" }, { name: "lib", type: "commit", path: "lib" }
+  ] } }) }
+});
+const history = L.historyOf({ object: { history: { totalCount: 3, pageInfo: { hasNextPage: true, endCursor: "c1" }, nodes: [
+  commit("c3", "2026-11-17T10:00:00Z", { committer: { name: "Bob", user: { login: "bob" } }, authors: { totalCount: 3, nodes: [{ name: "Ann", user: { login: "ann" } }, { name: "Cy", user: null }] } }),
+  commit("c2", "2026-11-17T09:00:00Z"), commit("c1", "2026-11-15T12:00:00Z")
+] } } }, "o/r");
+const release = L.releaseOf({ id: "RE_1", tagName: "v1.0", name: "", isLatest: true, publishedAt: "2026-01-01T00:00:00Z", description: "notes ![a](https://github.com/user-attachments/assets/x)",
+  author: { login: "ann" }, tagCommit: { oid: "abcdef0123", abbreviatedOid: "abcdef0" }, releaseAssets: { totalCount: 1, nodes: [{ name: "app.tar.gz", size: 1536000, downloadCount: 7, downloadUrl: "https://github.com/o/r/releases/download/v1.0/app.tar.gz" }] },
+  viewerCanReact: true, reactionGroups: ["THUMBS_UP", "LAUGH", "HOORAY", "HEART", "ROCKET", "EYES"].map(c => ({ content: c, viewerHasReacted: false, reactors: { totalCount: c === "HEART" ? 2 : 0 } })) }, "o/r");
+const card = n => ({ nameWithOwner: "me/" + n, name: n, stargazerCount: 1, owner: { login: "me" } });
+const person = L.ownerOf({ __typename: "User", login: "me", name: "Me", bio: "Hi", websiteUrl: "me.dev", followers: { totalCount: 3812 }, following: { totalCount: 1 },
+  pinnedItems: { nodes: [] }, popular: { nodes: [card("top")] }, recent: { totalCount: 59, nodes: [] },
+  contributionsCollection: { contributionCalendar: { totalContributions: 9, weeks: [
+    { contributionDays: [{ date: "2025-11-27", contributionCount: 0, contributionLevel: "NONE" }] },
+    { contributionDays: [{ date: "2025-11-30", contributionCount: 9, contributionLevel: "FOURTH_QUARTILE" }] },
+    { contributionDays: [{ date: "2025-12-07", contributionCount: 0, contributionLevel: "NONE" }] },
+    { contributionDays: [{ date: "2025-12-14", contributionCount: 0, contributionLevel: "NONE" }] },
+    { contributionDays: [{ date: "2025-12-21", contributionCount: 0, contributionLevel: "NONE" }] },
+    { contributionDays: [{ date: "2026-01-04", contributionCount: 0, contributionLevel: "NONE" }] }
+  ] } } });
+return {
+  entries: home.entries.map(e => (e.folder ? "/" : "") + e.name + " " + e.url),
+  home: [home.license, home.issues, home.discussions, home.commits, home.head.short, home.languages.map(l => l.name + " " + l.percent).join(", ")],
+  header: L.pageHeader({ kind: "repo", repo: "o/r" }, home).line.map(p => p.text),
+  history: [history.more, history.cursor, L.commitGroups(history.commits).map(g => g.day + ":" + g.commits.length)],
+  // GitHub's own committer (a merge on github.com) goes unnamed; someone
+  // else's commit of another's work is named.
+  committers: history.commits.map(c => c.committer ? c.committer.login : null),
+  authors: [history.commits[0].authorsTotal, history.commits[0].authors.map(a => a.login || a.name)],
+  checks: L.checksGlyph(history.commits[0].checks),
+  missing: L.historyOf({ object: null, defaultBranchRef: { name: "dev" } }, "o/r", "nope"),
+  // /commits/main/src: no ref is called main/src, so it is src's history
+  // from main.
+  inPath: (h => [h.ref, h.path, h.total])(L.historyOf({ object: null, inPath: { history: { totalCount: 4, nodes: [] } } }, "o/r", "main/src/lib")),
+  whole: (h => [h.ref, h.path, h.total])(L.historyOf({ object: { history: { totalCount: 9, nodes: [] } }, inPath: { history: { totalCount: 4, nodes: [] } } }, "o/r", "feature/x")),
+  sites: ["example.com", "https://a.b/", "javascript:alert(1)", ""].map(L.siteUrl),
+  license: [home.licenseUrl, L.licenseFile(L.treeEntries([{ name: "COPYING.txt", type: "blob" }, { name: "LICENSES", type: "tree" }], "o/r", "main")).url, L.licenseFile([])],
+  release: [release.name, release.assets.map(a => a.name + " " + a.size), release.assetsTotal, release.reactions.contents.length, release.reactions.groups.HEART.count],
+  rendering: L.releaseRendering([release, Object.assign({}, release, { id: "RE_2", body: "none" })]).map(r => r.id),
+  person: [person.website, person.pinned, person.repos.map(r => r.repo), person.reposTotal],
+  months: L.contributionMonths(person.contributions.weeks),
+  counts: [999, 3705, 14473, 999960, 1250000].map(L.shortCount).concat([L.plural(48236, "commit"), L.plural(1, "branch", "branches")]),
+  sizes: [512, 1536000].map(L.fileSize)
+};
+EOF
+  [ "$status" -eq 0 ]
+  # Folders (a submodule among them) first, then files, by name; a folder
+  # opens its tree on the default branch, a file its blob.
+  assert_equal '["/lib https://github.com/o/r/tree/dev/lib","/src https://github.com/o/r/tree/dev/src","A.md https://github.com/o/r/blob/dev/A.md","b.txt https://github.com/o/r/blob/dev/b.txt"]' "$(jq -c '.entries' <<<"$output")"
+  assert_equal '["MIT License",5,-1,48236,"aaaaaaa","C# 75.0%, JS 24.0%, Other 1.0%"]' "$(jq -c '.home' <<<"$output")"
+  assert_equal '["14.5k","3.7k","320"]' "$(jq -c '.header' <<<"$output")"
+  assert_equal 'true' "$(jq -c '.history[0]' <<<"$output")"
+  assert_equal '"c1"' "$(jq -c '.history[1]' <<<"$output")"
+  assert_equal '["Nov 17, 2026:2","Nov 15, 2026:1"]' "$(jq -c '.history[2]' <<<"$output")"
+  assert_equal '["bob",null,null]' "$(jq -c '.committers' <<<"$output")"
+  assert_equal '[3,["ann","Cy"]]' "$(jq -c '.authors' <<<"$output")"
+  assert_equal '{"icon":"close","tone":"error"}' "$(jq -c '.checks' <<<"$output")"
+  # A branch that is not there is no history, not the default branch's.
+  assert_equal null "$(jq -c '.missing' <<<"$output")"
+  assert_equal '["main","src/lib",4]' "$(jq -c '.inPath' <<<"$output")"
+  assert_equal '["feature/x","",9]' "$(jq -c '.whole' <<<"$output")"
+  # A website saved without its scheme still links; a script never does.
+  assert_equal '["https://example.com","https://a.b/","",""]' "$(jq -c '.sites' <<<"$output")"
+  # The license links to the file GitHub found it in, or nowhere.
+  assert_equal '["","https://github.com/o/r/blob/main/COPYING.txt",null]' "$(jq -c '.license' <<<"$output")"
+  # A release without a name is its tag; GitHub's source archives follow
+  # its assets; it takes the six reactions GitHub lists for it.
+  assert_equal '["v1.0",["app.tar.gz 1.5 MB","Source code (zip) ","Source code (tar.gz) "],3,6,2]' "$(jq -c '.release' <<<"$output")"
+  assert_equal '["RE_1"]' "$(jq -c '.rendering' <<<"$output")"
+  # Nothing pinned shows the most starred; a website without a scheme
+  # links over HTTPS.
+  assert_equal '["https://me.dev",false,["me/top"],59]' "$(jq -c '.person' <<<"$output")"
+  # A month names the column its first week starts; one crowding the
+  # next is left out.
+  assert_equal '[{"week":2,"label":"Dec"},{"week":5,"label":"Jan"}]' "$(jq -c '.months' <<<"$output")"
+  assert_equal '["999","3.7k","14.5k","1m","1.3m","48,236 commits","1 branch"]' "$(jq -c '.counts' <<<"$output")"
+  assert_equal '["512 Bytes","1.5 MB"]' "$(jq -c '.sizes' <<<"$output")"
+}
+
+@test "github reads a commit's diff, and folds what would slow the page" {
+  need_node
+
+  run github_logic <<'EOF'
+const patch = "@@ -10,3 +10,4 @@ class A\n a\n-b\n+c\n+d\n e\n\\ No newline at end of file";
+const lines = L.diffLines(patch);
+const file = (name, changes, patch) => L.commitFileOf({ filename: name, status: "modified", changes: changes, additions: changes, patch: patch });
+return {
+  lines: lines.map(l => [l.type, l.old, l.new, l.text].join(" ")),
+  blocks: [[48, 0], [1, 1], [3, 7], [0, 0]].map(p => L.diffstatBlocks(p[0], p[1]).join(",")),
+  // The budget of lines goes in order; a large diff never opens at once.
+  shown: L.diffsShown([file("a", 6, patch), file("big", 900, patch), file("b", 6, patch), file("c", 6, patch)], 14, 400),
+  binary: [L.commitFileOf({ filename: "x.png", status: "added", changes: 0 }).binary, L.commitFileOf({ filename: "y", status: "renamed", changes: 0 }).binary, file("z", 5000, undefined).binary],
+  status: ["added", "removed", "renamed", "weird"].map(s => L.fileStatus(s).label)
+};
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '["hunk 0 0 @@ -10,3 +10,4 @@ class A","context 10 10 a","del 11 0 b","add 0 11 c","add 0 12 d","context 12 13 e","note 0 0 No newline at end of file"]' "$(jq -c '.lines' <<<"$output")"
+  assert_equal '["add,add,add,add,add","add,del,none,none,none","add,add,del,del,del","none,none,none,none,none"]' "$(jq -c '.blocks' <<<"$output")"
+  assert_equal '[true,false,true,false]' "$(jq -c '.shown' <<<"$output")"
+  # A diff too large for the API has no patch, but is no binary file.
+  assert_equal '[true,false,false]' "$(jq -c '.binary' <<<"$output")"
+  assert_equal '["Added","Deleted","Renamed","Modified"]' "$(jq -c '.status' <<<"$output")"
+}
+
+@test "github loads a README's pictures from GitHub, and resolves its links from its folder" {
+  need_node
+
+  run github_logic <<'EOF'
+const markdown = "![b](https://img.shields.io/x.svg) ![d](img/d.png) ![up](../up.gif) ![a](https://github.com/user-attachments/assets/a) ![s](my%20shot.png) [docs](guide.md) [abs](/o/r/issues)";
+const html = '<div id="readme" class="md" data-path="docs/README.md"><img src="https://camo.githubusercontent.com/1" data-canonical-src="https://img.shields.io/x.svg"><img src="img/d.png"><img src="../up.gif" data-animated-image=""><img src="https://private-user-images.githubusercontent.com/a.png?jwt=1"><img src="my%20shot.png"></div>';
+const shown = images => Object.keys(images).map(k => k + " -> " + images[k].src);
+return {
+  public: shown(L.readmeImages(markdown, html, "o/r", true, "dev")),
+  // A private repository's files need a credential: they stay links.
+  private: shown(L.readmeImages(markdown, html, "o/r", false, "dev")),
+  animated: L.readmeImages(markdown, html, "o/r", true, "dev")["../up.gif"].animated,
+  path: L.readmePath(html),
+  base: L.readmeLinkBase(html, "o/r", "dev"),
+  links: ["guide.md", "../LICENSE", "#install", "/o/r/issues", "https://x.y/"].map(u => L.resolveUrl(u, "o/r", L.readmeLinkBase(html, "o/r", "dev"))),
+  // A body elsewhere still resolves from its issue's page.
+  issue: L.resolveUrl("guide.md", "o/r"),
+  html: L.parseMarkdown("[docs](guide.md)", "o/r", Object.assign({}, style, { linkBase: "o/r/blob/dev/docs" }))[0].html.match(/href="([^"]*)"/)[1]
+};
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '["https://img.shields.io/x.svg -> https://camo.githubusercontent.com/1","img/d.png -> https://raw.githubusercontent.com/o/r/dev/docs/img/d.png","../up.gif -> https://raw.githubusercontent.com/o/r/dev/up.gif","https://github.com/user-attachments/assets/a -> https://private-user-images.githubusercontent.com/a.png?jwt=1","my%20shot.png -> https://raw.githubusercontent.com/o/r/dev/docs/my%20shot.png"]' "$(jq -c '.public' <<<"$output")"
+  assert_equal '["https://img.shields.io/x.svg -> https://camo.githubusercontent.com/1","https://github.com/user-attachments/assets/a -> https://private-user-images.githubusercontent.com/a.png?jwt=1"]' "$(jq -c '.private' <<<"$output")"
+  assert_equal true "$(jq -r '.animated' <<<"$output")"
+  assert_equal '"docs/README.md"' "$(jq -c '.path' <<<"$output")"
+  assert_equal '"o/r/blob/dev/docs"' "$(jq -c '.base' <<<"$output")"
+  assert_equal '["https://github.com/o/r/blob/dev/docs/guide.md","https://github.com/o/r/blob/dev/LICENSE","#install","https://github.com/o/r/issues","https://x.y/"]' "$(jq -c '.links' <<<"$output")"
+  assert_equal '"https://github.com/o/r/issues/guide.md"' "$(jq -c '.issue' <<<"$output")"
+  assert_equal '"https://github.com/o/r/blob/dev/docs/guide.md"' "$(jq -c '.html' <<<"$output")"
+}
+
+@test "github shows a commit message's code, references, and mentions, and nothing else of Markdown" {
+  need_node
+
+  run github_logic <<'EOF'
+return [
+  L.commitMessageHtml("Fix `a<b>` in #12 and x/y#3 by @me :tada:", "o/r", style),
+  L.commitMessageHtml("**not bold** <b>tag</b>\nnext", "o/r", style)
+];
+EOF
+  [ "$status" -eq 0 ]
+  local first second
+  first="$(jq -r '.[0]' <<<"$output")"
+  second="$(jq -r '.[1]' <<<"$output")"
+  [[ "$first" == *"&nbsp;a&lt;b&gt;&nbsp;"* ]]
+  [[ "$first" == *'href="https://github.com/o/r/issues/12"'* ]]
+  [[ "$first" == *'href="https://github.com/x/y/issues/3"'* ]]
+  [[ "$first" == *'href="https://github.com/me"'* ]]
+  [[ "$first" == *"🎉"* ]]
+  assert_equal '**not bold** &lt;b&gt;tag&lt;/b&gt;<br>next' "$second"
+}
+
+@test "github underlines a link only while the pointer is on it, as github.com does" {
+  need_node
+
+  run github_logic <<'EOF'
+const html = L.commitMessageHtml("See #1 and x/y#2 & o/r#1", "o/r", style);
+const hovered = L.linksHovered(html, "https://github.com/o/r/issues/1", "");
+return [
+  L.linksHovered(html, "", "").match(/text-decoration:underline/g),
+  hovered.match(/text-decoration:underline/g).length,
+  hovered.indexOf('href="https://github.com/x/y/issues/2" style="text-decoration:none"') >= 0,
+  L.linksHovered(L.anchorHtml("https://a.b/?q=1&r=2", "<b>me</b>"), "https://a.b/?q=1&r=2", "#123456")
+];
+EOF
+  [ "$status" -eq 0 ]
+  # Nothing underlined off a link; both links to the hovered page underlined
+  # while the other is not; a tint colors a link the html leaves uncolored.
+  assert_equal 'null' "$(jq -c '.[0]' <<<"$output")"
+  assert_equal '2' "$(jq -c '.[1]' <<<"$output")"
+  assert_equal 'true' "$(jq -c '.[2]' <<<"$output")"
+  assert_equal '<a href="https://a.b/?q=1&amp;r=2" style="color:#123456;text-decoration:underline"><b>me</b></a>' "$(jq -r '.[3]' <<<"$output")"
+}
+
+@test "github asks for a page's parts at once, and settles once both came" {
+  need_qs
+
+  run github_data <<'EOF'
+const gh = fakeGh(data);
+const pages = [];
+const seen = [];
+// A commit: GraphQL for the commit, REST for its patches, in any order.
+data.loadCommit({ kind: "commit", repo: "o/r", sha: "abc1234" }, (page, error) => pages.push(page ? [page.commit.short, page.pulls.length, page.files.files.length, page.files.error] : error));
+const asked = [gh.next("operationName=Commit").line.indexOf("expression=abc1234") >= 0, gh.next("repos/o/r/commits/abc1234?per_page=100").line];
+gh.answer(gh.next("repos/o/r/commits/abc1234"), { files: [{ filename: "a", status: "added", additions: 1, changes: 1, patch: "@@ -0,0 +1 @@\n+x" }] });
+seen.push(pages.length);
+gh.op("Commit", { data: { repository: { nameWithOwner: "o/r", defaultBranchRef: { name: "main" }, object: { oid: "abc1234ff", abbreviatedOid: "abc1234", associatedPullRequests: { nodes: [{ number: 1, url: "u", repository: { nameWithOwner: "o/r" } }] }, comments: { totalCount: 0 } } } } });
+// A failed patch request still shows the commit, and says why.
+data.loadCommit({ kind: "commit", repo: "o/r", sha: "def5678" }, (page, error) => pages.push(page ? [page.commit.short, page.files.files.length, page.files.error] : error));
+gh.answer(gh.next("repos/o/r/commits/def5678"), "", 1, "HTTP 422: too large");
+gh.op("Commit", { data: { repository: { object: { oid: "def5678ff", abbreviatedOid: "def5678" } } } });
+// No such commit.
+data.loadCommit({ kind: "commit", repo: "o/r", sha: "0000000" }, (page, error) => pages.push(page ? "page" : error));
+gh.op("Commit", { data: { repository: { object: null } } });
+gh.answer(gh.next("repos/o/r/commits/0000000"), "", 1, "HTTP 422");
+// A README is its text and its rendering; none is null.
+const readmes = [];
+data.loadReadme("o/r", "", answer => readmes.push(answer));
+gh.answer(gh.next("application/vnd.github.html"), "<p>x</p>");
+gh.answer(gh.next("application/vnd.github.raw"), "x");
+data.loadReadme("o/.github", "profile/README.md", answer => readmes.push(answer));
+const orgPath = gh.next("repos/o/.github/contents/profile/README.md").line.indexOf("contents/profile/README.md") >= 0;
+gh.answer(gh.next("repos/o/.github/contents/profile/README.md -H Accept: application/vnd.github.raw"), "", 1, "HTTP 404");
+gh.answer(gh.next("repos/o/.github/contents/profile/README.md"), "<p>late</p>");
+// A history names its head only when the link did.
+data.loadCommits({ repo: "o/r", ref: "" }, "", () => {});
+data.loadCommits({ repo: "o/r", ref: "feature/x" }, "c1", () => {});
+// A name with a slash is also asked as a path from its first part.
+const split = gh.next("operationName=Commits").line;
+const histories = [gh.next("operationName=DefaultCommits").line.indexOf("expression") < 0, split.indexOf("expression=feature/x") >= 0 && split.indexOf("after=c1") >= 0, ["split=true", "head=feature", "path=x"].every(part => split.indexOf(part) >= 0)];
+return { asked: asked, seen: seen, pages: pages, readmes: readmes, orgPath: orgPath, histories: histories };
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '[true,"api repos/o/r/commits/abc1234?per_page=100"]' "$(jq -c '.asked' <<<"$output")"
+  # Nothing shows until both parts came.
+  assert_equal '[0]' "$(jq -c '.seen' <<<"$output")"
+  assert_equal '[["abc1234",1,1,""],["def5678",0,"HTTP 422: too large"],"No commit 0000000 in o/r."]' "$(jq -c '.pages' <<<"$output")"
+  assert_equal '[{"html":"<p>x</p>","markdown":"x"},null]' "$(jq -cS '.readmes' <<<"$output")"
+  assert_equal true "$(jq -r '.orgPath' <<<"$output")"
+  assert_equal '[true,true,true]' "$(jq -c '.histories' <<<"$output")"
+}
+
 @test "github pages come from one answer, images apart, and keep every review thread" {
   need_node
 
@@ -968,19 +1333,27 @@ EOF
   assert_file_contains "$ROOT_DIR/templates/niri/dms-windowrules.kdl" 'match app-id="^dev\\.duxlabs\\.shell$"'
   assert_file_contains "$dir/GitHubDaemon.qml" 'pluginService.savePluginState(pluginId, key, value)'
   # What loads a picture or plays a video is only ever given a signed URL
-  # from the page's answer (a GIF's local copy is made from one), or a
-  # public avatar: every source the plugin sets is one of these.
+  # from the page's answer (a GIF's local copy is made from one), a public
+  # avatar, or a public repository's picture file (Logic.fileOf's imageUrl,
+  # on raw.githubusercontent.com): every source the plugin sets is one of
+  # these.
   run grep -lw -E '(Animated)?Image \{|MediaPlayer \{' "$dir"/*.qml
   assert_equal "$dir/GitHubAvatar.qml
+$dir/GitHubFileView.qml
 $dir/GitHubMarkdown.qml
 $dir/GitHubVideo.qml" "$output"
-  run bash -c "grep -hE '^\\s*(source:|[a-z.]*source = )' '$dir'/GitHub{Avatar,Markdown,Video}.qml | sed -E 's/^\\s+//' | LC_ALL=C sort -u"
+  run bash -c "grep -hE '^\\s*(source:|[a-z.]*source = )' '$dir'/GitHub{Avatar,FileView,Markdown,Video}.qml | sed -E 's/^\\s+//' | LC_ALL=C sort -u"
   assert_equal 'item.source = Qt.binding(() => videoBox.rendered.src || "");
 player.source = source;
 source: "GitHubVideo.qml"
-source: avatar.login !== "" && avatar.login !== "ghost" ? "https://avatars.githubusercontent.com/" + encodeURIComponent(avatar.login) + "?s=72" : ""
+source: avatar.login !== "" && avatar.login !== "ghost" ? "https://avatars.githubusercontent.com/" + encodeURIComponent(avatar.login) + "?s=" + avatar.pixels : ""
 source: tile.moves ? "" : tile.signed
-source: tile.moves ? tile.copy : ""' "$output"
+source: tile.moves ? tile.copy : ""
+source: view.file ? view.file.imageUrl : ""
+source: view.page && view.page.readme ? view.page.readme.markdown : ""' "$output"
+  # (The last is a Markdown file's text, not a picture.)
+  assert_file_contains "$dir/GitHubLogic.js" '"imageUrl": image && !isPrivate ? "https://raw.githubusercontent.com/" + repo'
+
   assert_file_contains "$dir/GitHubMarkdown.qml" 'readonly property var rendered: md.images[image.url] || ({})'
   assert_file_contains "$dir/GitHubMarkdown.qml" 'signed = rendered.src;'
 }
@@ -2264,6 +2637,7 @@ return {
   card: [card.name, card.pronouns, card.status, card.location, card.company, card.found, card.app],
   contexts: card.contexts,
   missing: L.hovercardOf({ user: null }, "gone"),
+  org: L.hovercardOf({ user: null, organization: { login: "acme", name: "Acme", description: "We make things", location: "Earth" } }, "acme"),
   apps: ["dependabot[bot]", "app/renovate", "ghost", "octo"].map(L.isApp)
 };
 EOF
@@ -2271,9 +2645,52 @@ EOF
   assert_equal '["Octo <Cat>","they/them",{"emoji":":house:","message":"Working from home","busy":true},"Curitiba","@acme",true,false]' "$(jq -c '.card' <<<"$output")"
   # Teams and organizations become links (the rest is text, escaped), an
   # empty line is left out, and an icon GitHub adds later falls back.
-  assert_equal '[{"icon":"adjust","html":"Opened this issue"},{"icon":"group","html":"Member of <a href=\"https://github.com/orgs/acme/teams/devs\">acme/devs</a> and 2 more"},{"icon":"domain","html":"Member of <a href=\"https://github.com/acme\">acme</a>"},{"icon":"info","html":"Something new"}]' "$(jq -c '.contexts' <<<"$output")"
+  assert_equal '[{"icon":"adjust","html":"Opened this issue"},{"icon":"group","html":"Member of <a href=\"https://github.com/orgs/acme/teams/devs\" style=\"text-decoration:none\">acme/devs</a> and 2 more"},{"icon":"domain","html":"Member of <a href=\"https://github.com/acme\" style=\"text-decoration:none\">acme</a>"},{"icon":"info","html":"Something new"}]' "$(jq -c '.contexts' <<<"$output")"
   assert_equal '["gone",false,[]]' "$(jq -c '.missing | [.login, .found, .contexts]' <<<"$output")"
+  # An organization's login finds no user, and comes as the organization.
+  assert_equal '["acme","Acme","We make things","Earth",true,true]' "$(jq -c '.org | [.login, .name, .bio, .location, .found, .isOrg]' <<<"$output")"
   assert_equal '[true,true,true,false]' "$(jq -c '.apps' <<<"$output")"
+}
+
+@test "github opens a hover card from every link to a profile, as from an avatar" {
+  need_node
+
+  run github_logic <<'EOF'
+return ["https://github.com/octo", "https://github.com/acme/", "https://github.com/octo/repo", "https://github.com/orgs/acme/teams/devs",
+  "https://github.com/settings", "https://github.com/octo?tab=repositories", "https://example.com/octo", ""].map(L.profileLoginOf);
+EOF
+  [ "$status" -eq 0 ]
+  # A person's or an organization's profile names its login; a repository,
+  # a team, a profile's tab (its followers), GitHub's own pages, and other
+  # sites name none.
+  assert_equal '["octo","acme","","","","","",""]' "$(jq -c '.' <<<"$output")"
+
+  # Link labels, mentions in rich text, and mentions in Markdown bodies all
+  # hang the card from a GitHubCardSpot; the card's own links do not.
+  local dir="$ROOT_DIR/$GITHUB_REL"
+  run grep -l "GitHubCardSpot {" "$dir"/*.qml
+  assert_equal "$dir/GitHubLinkText.qml
+$dir/GitHubMarkdown.qml
+$dir/GitHubRichText.qml" "$output"
+
+  need_qs
+  run github_views <<'EOF'
+const layer = Qt.createQmlObject('import QtQuick; Item { property var calls: []; function hovered(item, login, subject, on) { calls.push([login, subject, on]); } function gone(item) { calls.push(["gone"]); } }', root);
+const host = Qt.createQmlObject('import QtQuick; Item { property Item hovercardLayer: null }', root);
+host.hovercardLayer = layer;
+const component = Qt.createComponent("GitHubCardSpot.qml");
+if (component.status !== Component.Ready)
+    return { "error": component.errorString() };
+const spot = component.createObject(host, { "subjectId": "I_1" });
+// Onto a mention, along to the next one, and off: the card for the last
+// one lets go of the spot before the next one's is asked for.
+spot.login = "octo";
+spot.login = "cat";
+spot.login = "";
+return layer.calls;
+EOF
+  [ "$status" -eq 0 ]
+  assert_equal '[["octo","I_1",true],["octo","I_1",false],["gone"],["cat","I_1",true],["cat","I_1",false],["gone"]]' "$(jq -c '.' <<<"$output")"
 }
 
 @test "github asks for a hover card once per person and page, and never for an app" {
@@ -2307,12 +2724,18 @@ EOF
 
 @test "github avatars open their hover card from the panel's layer, and take it along when they go" {
   # Every avatar shown for a person opens one, but a menu's, a card's, and
-  # the reactors' own pictures, which sit over another surface.
+  # the reactors' own pictures, which sit over another surface, and the
+  # picture of the profile or the repository owner a page is about (its
+  # header's, the profile's own and its organizations').
   local dir="$ROOT_DIR/$GITHUB_REL"
-  run grep -c "hovercard: false" "$dir/GitHubSearchHelper.qml" "$dir/GitHubHovercard.qml" "$dir/GitHubDetail.qml"
+  run grep -c "hovercard: false" "$dir/GitHubSearchHelper.qml" "$dir/GitHubHovercard.qml" "$dir/GitHubReactorsCard.qml" "$dir/GitHubBrowseHeader.qml" "$dir/GitHubProfileView.qml"
   assert_equal "$dir/GitHubSearchHelper.qml:1
-$dir/GitHubHovercard.qml:1
-$dir/GitHubDetail.qml:1" "$output"
+$dir/GitHubHovercard.qml:3
+$dir/GitHubReactorsCard.qml:1
+$dir/GitHubBrowseHeader.qml:1
+$dir/GitHubProfileView.qml:2" "$output"
+  run grep -l "hovercard: false" "$dir"/*.qml
+  assert_equal 5 "$(wc -l <<<"$output")"
   run grep -c "subjectId:" "$dir/GitHubRow.qml" "$dir/GitHubPost.qml"
   assert_equal "$dir/GitHubRow.qml:1
 $dir/GitHubPost.qml:2" "$output"

@@ -3,7 +3,9 @@
 # them in the light of $subject, the pull request or issue on screen when
 # there is one ("Opened this issue", "Committed to this repository in the
 # past week", the teams and organizations they share with it). GitHub keeps
-# the local time it shows there to its own pages.
+# the local time it shows there to its own pages. An organization's login
+# finds no user (GitHub answers NOT_FOUND for that half) and comes as the
+# organization: its name, description, and place.
 query Hovercard($login: String!, $subject: ID) {
   user(login: $login) {
     login
@@ -22,5 +24,11 @@ query Hovercard($login: String!, $subject: ID) {
         ... on OrganizationsHovercardContext { totalOrganizationCount relevantOrganizations(first: 3) { nodes { login name url } } }
       }
     }
+  }
+  organization(login: $login) {
+    login
+    name
+    description
+    location
   }
 }

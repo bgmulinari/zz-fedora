@@ -21,10 +21,11 @@ gh is signed out or GitHub cannot be reached.
   unread in it. A row shows its subject's state (open, draft, merged,
   closed, as GitHub colors it), its repository and author, and on the
   right why it came and when; under the pointer, Done, Mark as read, and
-  Unsubscribe take their place. Opening one reads it: a pull request or an
-  issue opens its page here, anything else (a release, a commit, a
-  discussion) the browser. Opening a pull request or an issue from
-  anywhere also reads its notification, as a visit to the page does.
+  Unsubscribe take their place. Opening one reads it: a pull request, an
+  issue, or a commit opens its page here, a release the repository's
+  releases, anything else (a discussion, a check suite) the browser.
+  Opening a pull request or an issue from anywhere also reads its
+  notification, as a visit to the page does.
 
   Each row has a checkbox, and Select all checks the rows shown; with rows
   checked, the bar above the list offers Done, Mark as read, and
@@ -270,12 +271,17 @@ tabs), post times
 rows stay a single target (a click opens the page, the edge button opens it
 on GitHub) so a click never lands on a link by accident. A pull request,
 issue, or Actions run opens in the popout, whether it comes from a `#123`
-reference, a pasted URL, or a pull request's check; Back returns through
-every page opened this way. A label, or a link to a repository's issues or
-pull requests with a query, opens that repository's list with the search
-filled in (`label:bug`). Anything else opens in the browser, as long as it
+reference, a pasted URL, or a pull request's check, and so do a
+repository, its commits, a commit, its releases, a release, and a person's
+or an organization's profile (see More pages); Back returns through every
+page opened this way. A label, or a link to a repository's issues or pull
+requests (with a query or without), opens that repository's list with the
+search filled in (`label:bug`). Anything else opens in the browser, as long as it
 is a web or mail link: bodies are written by anyone, and a link to a file or
-another app does nothing but say so.
+another app does nothing but say so. A link looks like one, as on
+github.com: the pointer turns to a hand over it, and it is underlined while
+the pointer is there, in a body, a commit message, a bio, or a hover card
+alike.
 
 Keys: arrows move, Enter opens the page (on a page: opens it on GitHub),
 Ctrl+Enter opens the row on GitHub, Tab switches tabs (while the search's
@@ -293,6 +299,84 @@ window, Refresh, Open github.com, and Settings, which opens the DMS settings
 on the Plugins page with this plugin's section expanded.
 `dms ipc call widget openWith github <inbox|issues|prs|actions>` opens the
 popout at a tab.
+
+## More pages
+
+Links to these open in the popout too, each laid out after its github.com
+page, the sidebar above or below the main column for the popout's width.
+The header carries what github.com's sticky header does, and Back, copy
+link, and refresh act on the page as on a pull request's.
+
+- **A repository** (`github.com/<owner>/<name>`): the owner and name with
+  Public, Private, or archived, its stars, forks, and watchers; the About
+  box (description, website, topics, license); its tabs with their counts,
+  where Issues, Pull requests, and Actions open the panel's lists in that
+  repository, Releases and Commits open their pages here, and Discussions
+  goes to the browser; the default branch with its branches and tags, its
+  latest commit, and its root folder (the first 12 entries, then "Show
+  more"; a file opens its page here, a folder on GitHub); the README; the
+  latest release; and the languages bar.
+- **Commits** (`/commits`, `/commits/<branch, tag, or SHA>`, and
+  `/commits/<branch>/<path>`, a folder's or a file's history): the history
+  by the day it was committed, each commit with its title (references
+  link), a "…" that unfolds the rest of its message, its authors and
+  co-authors, who committed it when someone else did, its checks,
+  Verified, its short SHA, a copy of the whole one, and a way to browse
+  the files at it on GitHub. The next 30 load as the end nears. A history
+  filtered by a query (`?author=`) stays on GitHub.
+- **A commit** (`/commit/<sha>`): the title in the header, the rest of the
+  message, authorship, checks, the pull requests it belongs to (opening
+  here), its parents and SHA, then each changed file's diff as github.com's
+  unified view draws it: line numbers on both sides, added and deleted lines
+  tinted, the hunk headers, and a file's +/− with its five blocks. A file
+  past 400 changes starts folded ("Large diffs are not rendered by
+  default"), as do the files past 3,000 lines for the whole commit, so a
+  large commit opens at once; a file shows its first 400 lines and then
+  "Show more lines". The API gives the first 100 files; the rest, and
+  diffs too large for it, say so and link to GitHub. The API cannot tell
+  an empty file from a binary one, so such a file says it is one or the
+  other.
+- **Releases** (`/releases`, `/releases/tag/<tag>`, `/releases/latest`):
+  each release with its name, Latest, Pre-release, or Draft, who published
+  it and when, its tag and commit, its notes (pictures and videos signed by
+  GitHub, as on a pull request), its assets with GitHub's source archives
+  (folded but on the first release and on a release's own page; an asset
+  downloads in the browser), and its reactions (the six a release takes).
+  The next ten load as the end nears.
+- **A file** (`/blob/<ref>/<path>`, from a repository's files, a
+  README's links, a diff, or anywhere else): its name in the header with
+  the repository, the branch (or tag, or commit), and its folder; the last
+  commit that changed it, with its History (the file's history, a page
+  here); then its lines, the lines with code, and its size, a copy of its
+  contents, and its raw file on GitHub. Markdown reads as it renders (its
+  pictures and relative links from its folder, as a README's), with Code
+  beside Preview (and Code first for `?plain=1`); code shows with its line
+  numbers and colors, unwrapped (a long line scrolls sideways), the first
+  1,000 lines and then "Show all lines"; a link's lines (`#L10-L20`) are
+  tinted and scrolled to. A picture shows while the repository is public;
+  a binary file, an empty one, or one too large for GitHub's API says so
+  and links to the raw file. A branch with a slash in its name (`feature/x`)
+  is found as github.com finds it, the shortest name first. A folder stays
+  on GitHub.
+- **A profile** (`github.com/<login>`, its Overview): the picture, name,
+  login, pronouns, and status; the bio (mentions link); followers and
+  following, or an organization's members; company, place, email,
+  website, and social accounts; the organizations; the profile README (a
+  person's `<login>/<login>` repository, an organization's
+  `.github/profile/README.md`); the pinned repositories, or the most
+  starred when nothing is pinned; a person's contributions over the last
+  year as github.com's calendar, the day under the pointer told below it;
+  and an organization's latest repositories. A profile's other tabs stay
+  on GitHub. The `@login` under the mark in the header opens the viewer's
+  own, and a hover card's name and organizations open here too.
+
+A README is the one body not written in a comment, and its relative links
+and pictures start from its folder, as on github.com: a link opens its
+file's page here, and a picture of a public repository loads from
+`raw.githubusercontent.com` (no credential; an animated one loops like any
+GIF here), while a private repository's stays a link, since its files need
+a credential. Pictures elsewhere in it are the signed URLs GitHub rendered,
+as in a post.
 
 ## Actions runs
 
@@ -339,6 +423,12 @@ many bars show the mark.
 | A search typed over a list, and its next pages | `gh api graphql` with `queries/inbox.graphql` (operation `Search`, GitHub's advanced search) |
 | The search's suggestions: a repository's labels, milestones, and issue types (and its labels by name past the first 100); its branches; who can be assigned there; GitHub's users by name | `gh api graphql` with `queries/suggest.graphql` (operations `Repository`, `Labels`, `Branches`, `Users`) and `queries/assignees.graphql`, a moment after typing stops, each answer kept five minutes |
 | Who is assigned to the rows on screen, and what they link | `gh api graphql` with `queries/inbox.graphql` (operation `Extras`, the rows by node id, up to 100 a request), again for a row once its update time moves |
+| A repository's home | `gh api graphql` with `queries/browse.graphql` (operation `Repository`), one request, and its README as `gh api repos/<owner>/<name>/readme` twice at once, as written (`Accept: application/vnd.github.raw`) and as GitHub renders it (`application/vnd.github.html`, for its pictures) |
+| A history, 30 commits at a time | `gh api graphql` with `queries/browse.graphql` (operation `Commits` from the branch, tag, or SHA named, also read as a path from its first part when it has a slash, or `DefaultCommits`) |
+| A commit | `gh api graphql` with `queries/browse.graphql` (operation `Commit`: authorship, checks, pull requests) and, at once, `gh api repos/<owner>/<name>/commits/<sha>?per_page=100` for its files and patches |
+| Releases, ten at a time, or one release | `gh api graphql` with `queries/browse.graphql` (operation `Releases`, `Release` by its tag, or `LatestRelease`) |
+| A file | `gh api graphql` with `queries/browse.graphql` (operation `File`: its text, size, and last commit; once more per longer ref when a ref with a slash in it did not end where first asked), then a Markdown file as a README is (`gh api repos/<owner>/<name>/contents/<path>?ref=<ref>`, raw and rendered) |
+| A profile | `gh api graphql` with `queries/browse.graphql` (operation `Owner`: a person or an organization, its pinned and popular repositories, and a person's contribution calendar), then its README as a repository's (an organization's through `repos/<org>/.github/contents/profile/README.md`) |
 | A person's hover card | `gh api graphql` with `queries/hovercard.graphql` (operation `Hovercard`), kept ten minutes per person and page |
 | Unread notifications (the dot, the counts, desktop notifications) | `gh api notifications` (the newest 50) |
 | The Inbox | `gh api notifications?all=true` (or `repos/<owner>/<name>/notifications?all=true`), 50 at a time, the next ones with `before=` the oldest loaded |
@@ -350,7 +440,7 @@ many bars show the mark.
 | Desktop notifications | `notify-send` (no GitHub access) |
 | Runs | `gh run list -R <repo>` per watched repository, or for the repository picked |
 | A pull request's or an issue's page: the page, what you may change there, what it links to, relationships, subscription, reviews and inline threads, and every post's reactions | `gh api graphql` with `queries/detail.graphql` (operation `PullRequest` or `Issue`), one request |
-| The signed URLs of a page's images and videos (and which images move) | `gh api graphql` with `queries/detail.graphql` (operation `Rendered`), only for the posts whose Markdown names an image or a video, kept three minutes |raphql` with `queries/detail.graphql` (operation `PullRequest` or `Issue`), one request |
+| The signed URLs of a page's images and videos (and which images move) | `gh api graphql` with `queries/detail.graphql` (operation `Rendered`), only for the posts (and release notes) whose Markdown names an image or a video, kept three minutes |
 | A run's page | `gh run view`, and `queries/detail.graphql` (operation `Permission`, once per repository) for re-run and cancel |
 | A finished job's log | `gh api --allow-escape-sequences repos/<owner>/<name>/actions/jobs/<id>/logs` |
 | A linked `#N` (issue or pull request) | `gh api graphql` with `queries/inbox.graphql` (operation `Resolve`) |
@@ -395,10 +485,13 @@ standing in when there is none. Resting the pointer on one opens the
 person's hover card, as on github.com: their name, status, bio, location,
 and company, and GitHub's lines about them beside the pull request or
 issue on screen (opened it, committed to the repository lately, the teams
-and organizations they belong to, which open on GitHub). The pointer can
-move onto the card for its links; it goes a moment after the pointer
-leaves both. GitHub's API does not share the local time github.com shows
-there, and an app or a bot has a card with its name only.
+and organizations they belong to, which open on GitHub). So does resting
+it on any link to a profile: a name, an `@mention` in a body, a commit
+message, or a bio, and a repository's owner. An organization's card has
+its name, description, and place. The pointer can move onto the card for
+its links; it goes a moment after the pointer leaves both. GitHub's API
+does not share the local time github.com shows there, and an app or a
+bot has a card with its name only.
 
 ## Staying within GitHub's limits
 
@@ -477,8 +570,16 @@ scripted (`tests/support/github_data`), answers in any order.
 `GitHubDaemon.qml` owns it, the background polls, the desktop
 notifications, and the windows; `GitHubWidget.qml` is a bar's mark, menu,
 and popout; `GitHubPanel.qml` the lists (which poll what they show while on
-screen); and `GitHubDetail.qml` a page, with `GitHubPost.qml` (the
-conversation, its bodies drawn by `GitHubMarkdown.qml`, their code colored
-by `GitHubHighlighter.qml` and a video played by `GitHubVideo.qml`) and
-`GitHubJobs.qml` (a run's jobs and logs). `GitHubScrollPlace.qml` keeps
-where the list and a page were scrolled while the popout is away.
+screen); and `GitHubDetail.qml` a pull request's, an issue's, or a run's
+page, with `GitHubPost.qml` (the conversation, its bodies drawn by
+`GitHubMarkdown.qml`, their code colored by `GitHubHighlighter.qml` and a
+video played by `GitHubVideo.qml`) and `GitHubJobs.qml` (a run's jobs and
+logs). `GitHubBrowse.qml` is the page of the other kinds (More pages),
+headed by `GitHubBrowseHeader.qml`, drawing `GitHubRepoView.qml`,
+`GitHubCommitsView.qml` (rows from `GitHubCommitRow.qml`),
+`GitHubCommitView.qml` (diffs from `GitHubDiffFile.qml`),
+`GitHubReleasesView.qml`, `GitHubFileView.qml` (code through
+`GitHubCodeView.qml`), or `GitHubProfileView.qml` (with
+`GitHubRepoCard.qml` and `GitHubContributions.qml`), a README through
+`GitHubReadme.qml`. `GitHubScrollPlace.qml` keeps where the list and a
+page were scrolled while the popout is away.

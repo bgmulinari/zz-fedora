@@ -26,8 +26,9 @@ Item {
 
     property var page: null
     property string source: ""
-    // owner/name, so a bare #123 can link to its issue or pull request.
-    readonly property string repo: page && page.item ? page.item.repo : ""
+    // owner/name, so a bare #123 can link to its issue or pull request: the
+    // page's, unless the body lives in another (a profile's README).
+    property string repo: page && page.item ? String(page.item.repo || "") : ""
     // Original image URL -> the signed URL GitHub rendered it from. Only
     // those URLs load; an image without one stays a link.
     readonly property var images: page ? page.images : ({})
@@ -44,7 +45,9 @@ Item {
             "codeText": Theme.surfaceText,
             "keyBackground": Theme.surfaceContainerHigh,
             "dark": !Theme.isLightMode,
-            "mark": Theme.withAlpha(Theme.warning, 0.25)
+            "mark": Theme.withAlpha(Theme.warning, 0.25),
+            // Where relative links start: a README's folder (GitHubBrowse).
+            "linkBase": page && page.linkBase ? String(page.linkBase) : ""
         })
     readonly property var blocks: Markdown.parseMarkdown(source, repo, style)
     readonly property int fitting: Markdown.blocksWithin(blocks, maxChars)
@@ -141,6 +144,10 @@ Item {
     // Where the pointer is over the body, for what shows on hover (a code
     // block's copy button); off the body, (-1, -1).
     property point pointerAt: Qt.point(-1, -1)
+    // The link under the pointer and the text that holds it, which
+    // underlines it (RichBody); none ("", null) off any link.
+    property string hoveredHref: ""
+    property Item hoveredText: null
 
     function hovers(item) {
         if (pointerAt.x < 0)
@@ -419,13 +426,38 @@ Item {
             return !!at && at.local.x >= 0 && at.local.x <= at.text.width && at.local.y >= 0 && at.local.y <= at.text.height;
         }
 
-        onExited: md.pointerAt = Qt.point(-1, -1)
+        // Underlining a link sets its text again, which drops a selection
+        // in it: the selection is set back. A mention's hover card hangs
+        // from the character the pointer came onto it at.
+        function hoverLink(at, href) {
+            const text = href !== "" ? at.text : null;
+            if (text === md.hoveredText && href === md.hoveredHref)
+                return;
+            if (href !== "") {
+                const rect = at.text.positionToRectangle(at.pos);
+                const spot = at.text.mapToItem(md, rect.x, rect.y);
+                cardSpot.x = spot.x;
+                cardSpot.y = spot.y;
+                cardSpot.height = rect.height;
+            }
+            md.hoveredText = text;
+            md.hoveredHref = href;
+            if (md.hasSelection)
+                md.applySelection();
+        }
+
+        onExited: {
+            md.pointerAt = Qt.point(-1, -1);
+            hoverLink(null, "");
+        }
 
         onPositionChanged: mouse => {
             md.pointerAt = Qt.point(mouse.x, mouse.y);
             if (!pressed) {
                 const at = md.hit(mouse.x, mouse.y);
-                cursorShape = md.takesClick(mouse.x, mouse.y) || linkAt(at) !== "" ? Qt.PointingHandCursor : (overText(at) ? Qt.IBeamCursor : Qt.ArrowCursor);
+                const href = md.takesClick(mouse.x, mouse.y) ? "" : linkAt(at);
+                hoverLink(at, href);
+                cursorShape = md.takesClick(mouse.x, mouse.y) || href !== "" ? Qt.PointingHandCursor : (overText(at) ? Qt.IBeamCursor : Qt.ArrowCursor);
                 return;
             }
             if (!dragged && Math.abs(mouse.x - pressedAt.x) + Math.abs(mouse.y - pressedAt.y) < 4)
@@ -483,6 +515,15 @@ Item {
             };
             md.applySelection();
         }
+    }
+
+    // Where a mention's hover card hangs (GitHubCardSpot), set as the
+    // pointer comes onto the mention.
+    GitHubCardSpot {
+        id: cardSpot
+        width: 1
+        login: Logic.profileLoginOf(md.hoveredHref)
+        subjectId: md.page && md.page.subjectId !== undefined ? md.page.subjectId : ""
     }
 
     // The shell's text rendering, read off its own text item for the
@@ -546,12 +587,13 @@ Item {
     // Rich text in a TextEdit has no lineHeight; the same spacing comes
     // from the block's CSS line-height.
     component RichBody: Selectable {
+        id: richBody
         property string html: ""
         property real lineHeight: 1.3
         property string align: ""
 
         textFormat: TextEdit.RichText
-        text: "<div align=\"" + (align || "left") + "\" style=\"line-height:" + Math.round(lineHeight * 100) + "%\">" + html + "</div>"
+        text: "<div align=\"" + (align || "left") + "\" style=\"line-height:" + Math.round(lineHeight * 100) + "%\">" + Logic.linksHovered(html, md.hoveredText === richBody ? md.hoveredHref : "", "") + "</div>"
     }
 
     // A picture at its natural size (or the width the body gives it),

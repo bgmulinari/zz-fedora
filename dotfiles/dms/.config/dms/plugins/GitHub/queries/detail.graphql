@@ -8,12 +8,13 @@
 # conversations stop at their newest 100 comments, reviews, and threads,
 # and say how many there are in all. Permission is what a run page needs:
 # whether the viewer may re-run or cancel. Rendered is the HTML GitHub
-# renders for the posts whose Markdown names images or videos, read only
-# for the media URLs GitHub signs for its viewer; asked for apart, since
-# rendering every body takes GitHub a good part of a page's time and most
-# name none. Reactors is who gave a post's reactions (the first 10 of
-# each), asked for only when the pointer rests on one, since asking with
-# the page would multiply its cost by every post's eight reactions.
+# renders for the posts (and release notes) whose Markdown names images
+# or videos, read only for the media URLs GitHub signs for its viewer;
+# asked for apart, since rendering every body takes GitHub a good part of
+# a page's time and most name none. Reactors is who gave a post's
+# reactions (the first 10 of each), asked for only when the pointer rests
+# on one, since asking with the page would multiply its cost by every
+# post's eight reactions.
 query PullRequest($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     nameWithOwner
@@ -105,6 +106,7 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 query Rendered($ids: [ID!]!) {
   nodes(ids: $ids) {
     ... on Comment { id bodyHTML }
+    ... on Release { id bodyHTML: descriptionHTML }
   }
 }
 

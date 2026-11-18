@@ -16,8 +16,8 @@ Flow {
 
     // Logic.reactionsOf: { id, canReact, groups }, or null.
     property var info: null
-    // The GitHubDetail the post is on, which closes the picker on a click
-    // elsewhere.
+    // The page the post is on (GitHubDetail, GitHubBrowse), which closes
+    // the picker on a click elsewhere.
     property var page: null
     readonly property var github: page ? page.github : null
 
@@ -115,7 +115,7 @@ Flow {
 
             // Built as it opens.
             Repeater {
-                model: reactions.picking ? Logic.REACTIONS : []
+                model: reactions.picking ? Logic.REACTIONS.filter(reaction => !reactions.info.contents || reactions.info.contents.indexOf(reaction.content) >= 0) : []
 
                 Rectangle {
                     id: choice

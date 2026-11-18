@@ -45,7 +45,7 @@ var escapeHtml = Logic.escapeHtml;
 // ---------------------------------------------------------------- links
 
 function linkOpen(url, style) {
-    return "<a href=\"" + escapeHtml(url) + "\" style=\"text-decoration:none\"><span style=\"color:" + String(style.link) + "\">";
+    return Logic.anchorOpen(url) + "<span style=\"color:" + String(style.link) + "\">";
 }
 
 var LINK_CLOSE = "</span></a>";
@@ -371,7 +371,7 @@ function inlineHtml(text, ctx) {
     const stash = stasher();
     const keep = stash.keep;
     const tags = ctx.tags || inlineTags(style);
-    const link = (url, html) => keep(linkHtml(resolveUrl(url, repo), html, style));
+    const link = (url, html) => keep(linkHtml(resolveUrl(url, repo, style.linkBase), html, style));
     let s = String(text || "");
     // A backslash at the end of a line breaks it, as the line end does.
     s = s.replace(/\\\n/g, "\n");
@@ -405,7 +405,7 @@ function inlineHtml(text, ctx) {
             return opened.pop() ? keep(LINK_CLOSE) : "";
         const href = attrOf(attrs, "href");
         opened.push(href !== "");
-        return href !== "" ? keep(linkOpen(resolveUrl(href, repo), style)) : "";
+        return href !== "" ? keep(linkOpen(resolveUrl(href, repo, style.linkBase), style)) : "";
     });
     s = s.replace(/<(\/?)([A-Za-z][A-Za-z0-9-]*)\b[^<>]*?(\/?)>/g, (m, close, name) => {
         const tag = name.toLowerCase();
@@ -445,8 +445,9 @@ function inlineHtml(text, ctx) {
 
 // Where a link in a body leads: absolute links as written, a page anchor
 // (#section) as itself for the view to scroll to, and a path the way the
-// browser resolves it on the issue's page.
-function resolveUrl(url, repo) {
+// browser resolves it on the issue's page, or from `base` (owner/name/
+// blob/branch/folder: a README's folder, which its links start from).
+function resolveUrl(url, repo, base) {
     const text = String(url || "").trim();
     if (text === "" || /^[a-z][a-z0-9+.-]*:/i.test(text) || text.charAt(0) === "#")
         return text;
@@ -454,7 +455,7 @@ function resolveUrl(url, repo) {
         return "https:" + text;
     if (text.charAt(0) === "/")
         return "https://github.com" + text;
-    const parts = (repo ? repo + "/issues" : "").split("/").filter(part => part !== "");
+    const parts = String(base || (repo ? repo + "/issues" : "")).split("/").filter(part => part !== "");
     for (const part of text.split("/")) {
         if (part === "..")
             parts.pop();
@@ -462,6 +463,25 @@ function resolveUrl(url, repo) {
             parts.push(part);
     }
     return "https://github.com/" + parts.join("/");
+}
+
+// A commit message as github.com shows one: not Markdown, only its code
+// spans, links, references (#12, owner/repo#12, @someone), and emoji, with
+// its line breaks; `repo` is where a bare #12 points.
+function commitMessageHtml(text, repo, style) {
+    const stash = stasher();
+    const keep = stash.keep;
+    let s = String(text || "");
+    s = s.replace(CODE_SPAN, (m, pre, ticks, code) => pre + keep(codeSpanHtml(code.replace(/\n/g, " "), style)));
+    s = s.replace(/(^|[^\w/])(https?:\/\/(?:[^\s<>()]|\([^\s<>()]*\))+(?:[^\s<>().,;:!?'"]|\([^\s<>()]*\)))/g, (m, pre, url) => pre + keep(linkHtml(url, linkLabelHtml(url, repo, style), style)));
+    s = escapeHtml(s);
+    s = s.replace(/(^|[^\w`\/.-])([\w.-]+\/[\w.-]+)#(\d+)\b/g, (m, pre, other, n) => pre + keep(linkHtml(Logic.repoUrl(other) + "/issues/" + n, escapeHtml(other) + "#" + n, style)));
+    s = s.replace(/(^|[^\w/`])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))(?![\w-])/g, (m, pre, user) => pre + keep(linkHtml(Logic.profileUrl(user), "@" + user, style)));
+    if (repo)
+        s = s.replace(/(^|[^\w&/])(#|GH-)(\d+)\b/g, (m, pre, mark, n) => pre + keep(linkHtml(Logic.repoUrl(repo) + "/issues/" + n, mark + n, style)));
+    s = emojify(s);
+    s = s.replace(/\n/g, "<br>");
+    return stash.restore(s);
 }
 
 // ------------------------------------------------------------- cleaning

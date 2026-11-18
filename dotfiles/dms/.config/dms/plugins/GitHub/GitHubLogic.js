@@ -1087,6 +1087,25 @@ function htmlText(html) {
     return String(html).replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
 }
 
+// A link in rich text, drawn as github.com draws one: no underline until
+// the pointer is on it (linksHovered underlines it then). Its color is the
+// html's own (GitHubMarkdown's), or the text's linkTint (GitHubRichText).
+function anchorOpen(url) {
+    return "<a href=\"" + escapeHtml(url) + "\" style=\"text-decoration:none\">";
+}
+
+function anchorHtml(url, html) {
+    return anchorOpen(url) + html + "</a>";
+}
+
+// html's links (anchorOpen's) with the one at href underlined, and each
+// colored linkTint when one is given.
+function linksHovered(html, href, linkTint) {
+    const hovered = href ? escapeHtml(href) : null;
+    const color = linkTint ? "color:" + linkTint + ";" : "";
+    return String(html).replace(/<a href="([^"]*)" style="text-decoration:none">/g, (m, url) => "<a href=\"" + url + "\" style=\"" + color + "text-decoration:" + (url === hovered ? "underline" : "none") + "\">");
+}
+
 function tint(color, html) {
     return "<span style=\"color:" + String(color) + "\">" + html + "</span>";
 }
@@ -1120,14 +1139,17 @@ function logHtml(lines, colors) {
 
 // --------------------------------------------------------------- links
 //
-// A github.com link to a pull request, an issue, or an Actions run (a job
-// page counts as its run) opens in the popout; a label, or an issues or
-// pulls page with a q=, opens that repository's list with the search; and
-// anything else goes to the browser, as long as it is a web or mail link.
-// A pull request's own tabs (Files changed, Commits, Checks) are not its
-// conversation, so they go to the browser too; so does a link to a place in
-// a page (a comment's #issuecomment-...), which a page here does not scroll
-// to: parseLink says where (`anchor`).
+// A github.com link to a pull request, an issue, an Actions run (a job
+// page counts as its run), a repository's home, its commits or one commit,
+// its releases or one release, or a person's or an organization's profile
+// opens in the popout; a label, or an issues or pulls page with a q=,
+// opens that repository's list with the search; and anything else goes to
+// the browser, as long as it is a web or mail link. A pull request's own
+// tabs (Files changed, Commits, Checks) are not its conversation, so they
+// go to the browser too, as do a profile's other tabs and a history
+// filtered by a query; so does a link to a place in a page (a comment's
+// #issuecomment-..., a commit's #diff-...), which a page here does not
+// scroll to: parseLink says where (`anchor`).
 
 function parseLink(url) {
     const text = String(url || "");
@@ -1150,7 +1172,219 @@ function parseLink(url) {
             "repo": run[1] + "/" + run[2],
             "databaseId": Number(run[3])
         };
+    return parsePageLink(text);
+}
+
+// The first path segments of github.com that are its own pages rather
+// than an account (github.com/settings, /orgs/..., /topics/...).
+var RESERVED_OWNERS = ["about", "account", "apps", "blog", "careers", "codespaces", "collections", "contact", "copilot", "customer-stories", "dashboard", "discussions", "edu", "education", "enterprise", "enterprises", "events", "explore", "features", "git-guides", "github-copilot", "home", "issues", "join", "login", "logout", "marketplace", "mobile", "models", "new", "notifications", "open-source", "organizations", "orgs", "partners", "password_reset", "premium-support", "pricing", "pulls", "readme", "resources", "search", "security", "sessions", "settings", "signup", "site", "solutions", "sponsors", "stars", "team", "topics", "trending", "users", "watching"];
+
+function decodePart(part) {
+    try {
+        return decodeURIComponent(part);
+    } catch (e) {
+        return part;
+    }
+}
+
+function encodePath(path) {
+    return String(path).split("/").map(encodeURIComponent).join("/");
+}
+
+// The pages past pull requests, issues, and runs (see above), or null.
+function parsePageLink(text) {
+    const m = text.match(/^https:\/\/github\.com\/([\w-]+)(?:\/([\w.-]+))?(\/[^?#]*)?(?:\?([^#]*))?(?:#(.*))?$/);
+    if (!m || RESERVED_OWNERS.indexOf(m[1].toLowerCase()) >= 0)
+        return null;
+    const owner = m[1];
+    const rest = String(m[3] || "").replace(/\/+$/, "");
+    const query = String(m[4] || "");
+    const anchor = String(m[5] || "");
+    if (!m[2]) {
+        // A profile's Overview, not its other tabs.
+        const tab = query.match(/(?:^|&)tab=([^&]*)/);
+        if (rest !== "" || (tab && tab[1] !== "" && tab[1] !== "overview"))
+            return null;
+        return {
+            "kind": "user",
+            "login": owner,
+            "anchor": anchor
+        };
+    }
+    const name = m[2].replace(/\.git$/, "");
+    const page = {
+        "owner": owner,
+        "name": name,
+        "repo": owner + "/" + name,
+        "anchor": anchor
+    };
+    if (rest === "")
+        return Object.assign(page, {
+            "kind": "repo",
+            // The README's own place on the home page is the page.
+            "anchor": anchor === "readme" ? "" : anchor
+        });
+    let found;
+    if ((found = rest.match(/^\/commit\/([0-9a-fA-F]{7,40})$/)))
+        return Object.assign(page, {
+            "kind": "commit",
+            "sha": found[1].toLowerCase()
+        });
+    if ((found = rest.match(/^\/commits(?:\/(.+))?$/)) && query === "")
+        return Object.assign(page, {
+            "kind": "commits",
+            "ref": found[1] ? decodePart(found[1]) : ""
+        });
+    // A file: its ref and path, split once GitHub says where the ref ends
+    // (GitHubData.loadFile); the lines an anchor marks (#L10, #L10-L20);
+    // Markdown as its code (?plain=1) rather than as it reads.
+    if ((found = rest.match(/^\/blob\/(.+)$/))) {
+        const lines = anchor.match(/^L(\d+)(?:C\d+)?(?:-L(\d+)(?:C\d+)?)?$/);
+        const first = lines ? Number(lines[1]) : 0;
+        return Object.assign(page, {
+            "kind": "file",
+            "target": decodePart(found[1]),
+            "line": first,
+            "lineEnd": lines ? Math.max(first, Number(lines[2] || first)) : 0,
+            "plain": /(?:^|&)plain=1(?:&|$)/.test(query),
+            "anchor": lines ? "" : anchor
+        });
+    }
+    if (rest === "/releases")
+        return Object.assign(page, {
+            "kind": "releases"
+        });
+    if (rest === "/releases/latest")
+        return Object.assign(page, {
+            "kind": "release",
+            "tag": ""
+        });
+    if ((found = rest.match(/^\/releases\/tag\/(.+)$/)))
+        return Object.assign(page, {
+            "kind": "release",
+            "tag": decodePart(found[1])
+        });
     return null;
+}
+
+var PAGE_KINDS = ["repo", "commits", "commit", "releases", "release", "file", "user"];
+
+// Whether a page is one of those (GitHubBrowse) rather than a pull
+// request, an issue, or a run (GitHubDetail).
+function isPageKind(kind) {
+    return PAGE_KINDS.indexOf(String(kind || "")) >= 0;
+}
+
+// The item such a link opens, as a row would carry it.
+function pageItem(link) {
+    const base = repoUrl(link.repo);
+    switch (link.kind) {
+    case "repo":
+        return {
+            "kind": "repo",
+            "repo": link.repo,
+            "url": base
+        };
+    case "commits":
+        return {
+            "kind": "commits",
+            "repo": link.repo,
+            "ref": String(link.ref || ""),
+            "url": base + "/commits" + (link.ref ? "/" + encodePath(link.ref) : "")
+        };
+    case "commit":
+        return {
+            "kind": "commit",
+            "repo": link.repo,
+            "sha": link.sha,
+            "url": commitUrl(link.repo, link.sha)
+        };
+    case "releases":
+        return {
+            "kind": "releases",
+            "repo": link.repo,
+            "url": base + "/releases"
+        };
+    case "release":
+        return {
+            "kind": "release",
+            "repo": link.repo,
+            "tag": String(link.tag || ""),
+            "url": base + "/releases/" + (link.tag ? "tag/" + encodePath(link.tag) : "latest")
+        };
+    case "file":
+        {
+            const line = Number(link.line || 0);
+            const lineEnd = Number(link.lineEnd || line);
+            return {
+                "kind": "file",
+                "repo": link.repo,
+                "target": String(link.target),
+                "line": line,
+                "lineEnd": lineEnd,
+                "plain": !!link.plain,
+                "url": base + "/blob/" + encodePath(link.target) + (link.plain ? "?plain=1" : "") + (line > 0 ? "#L" + line + (lineEnd > line ? "-L" + lineEnd : "") : "")
+            };
+        }
+    case "user":
+        return {
+            "kind": "user",
+            "login": link.login,
+            "repo": "",
+            "url": "https://github.com/" + link.login
+        };
+    }
+    return null;
+}
+
+// The item a github.com URL opens here (GitHubBrowse's kinds only), or
+// null.
+function pageItemFor(url) {
+    const link = parsePageLink(String(url || ""));
+    return link && !link.anchor ? pageItem(link) : null;
+}
+
+// The login a link to a person's or an organization's profile names, which
+// opens their hover card from the link; "" for any other link.
+function profileLoginOf(url) {
+    const item = pageItemFor(url);
+    return item && item.kind === "user" ? item.login : "";
+}
+
+// What a page is called in "Back to ...".
+function pageLabel(item) {
+    if (!item)
+        return "the list";
+    switch (item.kind) {
+    case "run":
+        return "run";
+    case "repo":
+        return item.repo;
+    case "commits":
+        return "commits";
+    case "commit":
+        return String(item.sha).slice(0, 7);
+    case "releases":
+        return "releases";
+    case "release":
+        return item.tag || "the latest release";
+    case "file":
+        return String(item.target).split("/").pop();
+    case "user":
+        return "@" + item.login;
+    }
+    return "#" + item.number;
+}
+
+// Whether two items are the same page.
+function samePage(a, b) {
+    if (!a || !b || a.kind !== b.kind)
+        return false;
+    if (a.kind === "run")
+        return Number(a.databaseId) === Number(b.databaseId);
+    if (isPageKind(a.kind))
+        return a.url === b.url;
+    return a.repo === b.repo && Number(a.number) === Number(b.number);
 }
 
 // { repo, tab, terms } or null. A label names no kind, so it takes
@@ -2753,7 +2987,7 @@ function isApp(login) {
 }
 
 function hovercardContext(context) {
-    const link = (url, text) => "<a href=\"" + escapeHtml(String(url || "")) + "\">" + escapeHtml(String(text || "")) + "</a>";
+    const link = (url, text) => anchorHtml(String(url || ""), escapeHtml(String(text || "")));
     const more = (shown, total) => total > shown ? " and " + (total - shown) + " more" : "";
     let html = escapeHtml(String(context.message || ""));
     if (context.__typename === "OrganizationTeamsHovercardContext") {
@@ -2795,6 +3029,7 @@ function botLogins(data) {
 
 function hovercardOf(data, login) {
     const user = data ? data.user : null;
+    const org = !user && data ? data.organization : null;
     const card = {
         "login": String(login || ""),
         "name": "",
@@ -2804,9 +3039,18 @@ function hovercardOf(data, login) {
         "location": "",
         "company": "",
         "contexts": [],
-        "found": !!user,
+        "found": !!user || !!org,
+        "isOrg": !!org,
         "app": isApp(login)
     };
+    // An organization's card: its name, description, and place.
+    if (org)
+        return Object.assign(card, {
+            "login": String(org.login || login),
+            "name": String(org.name || ""),
+            "bio": String(org.description || ""),
+            "location": String(org.location || "")
+        });
     if (!user)
         return card;
     const status = user.status && (user.status.message || user.status.emoji) ? {
@@ -2824,6 +3068,907 @@ function hovercardOf(data, login) {
         "company": String(user.company || ""),
         "contexts": (user.hovercard && Array.isArray(user.hovercard.contexts) ? user.hovercard.contexts : []).filter(context => !!context && !!context.message).map(hovercardContext)
     });
+}
+
+// ----------------------------------------------------------- browse pages
+//
+// The pages past pull requests, issues, and runs (GitHubBrowse), from
+// queries/browse.graphql's answers and the REST endpoints that have what
+// GraphQL lacks (a README found whatever its name, a commit's patches).
+
+// A count as github.com abbreviates it beside a star or a fork: 999, then
+// 3.7k, 14.5k, 1.2m.
+function shortCount(n) {
+    const value = Number(n || 0);
+    if (value < 1000)
+        return String(value);
+    // The unit after rounding: 999,960 is 1m, not 1000k.
+    const thousands = Math.round(value / 100) / 10;
+    if (thousands < 1000)
+        return thousands.toFixed(1).replace(/\.0$/, "") + "k";
+    return (Math.round(value / 100000) / 10).toFixed(1).replace(/\.0$/, "") + "m";
+}
+
+// 48,236 as github.com groups digits, whatever the locale.
+function grouped(n) {
+    return String(Math.round(Number(n || 0))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function plural(n, one, many) {
+    return grouped(n) + " " + (Number(n) === 1 ? one : (many || one + "s"));
+}
+
+// A file size as a release's assets list it.
+function fileSize(bytes) {
+    const n = Number(bytes || 0);
+    if (n < 1024)
+        return n + " Bytes";
+    const units = ["KB", "MB", "GB", "TB"];
+    let value = n / 1024;
+    let unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+        value /= 1024;
+        unit++;
+    }
+    return (value >= 100 ? Math.round(value) : Math.round(value * 10) / 10) + " " + units[unit];
+}
+
+// A day as github.com heads a group of commits: Nov 17, 2026.
+function dayLabel(iso) {
+    const date = new Date(String(iso || ""));
+    if (!isFinite(date.getTime()))
+        return "";
+    return MONTHS[date.getMonth()] + " " + date.getDate() + ", " + date.getFullYear();
+}
+
+function loginOfActor(actor) {
+    return actor && actor.user && actor.user.login ? String(actor.user.login) : "";
+}
+
+// A commit as a history row or a commit page shows it.
+function commitOf(node, repo) {
+    if (!node || !node.oid)
+        return null;
+    const author = node.author || {};
+    const committer = node.committer || {};
+    const authors = nodesOf(node.authors).map(entry => ({
+                "login": loginOfActor(entry),
+                "name": String(entry.name || "")
+            }));
+    if (authors.length === 0)
+        authors.push({
+            "login": loginOfActor(author),
+            "name": String(author.name || "")
+        });
+    const committerLogin = loginOfActor(committer);
+    return {
+        "sha": String(node.oid),
+        "short": String(node.abbreviatedOid || String(node.oid).slice(0, 7)),
+        "headline": String(node.messageHeadline || ""),
+        "body": String(node.messageBody || ""),
+        "url": String(node.url || commitUrl(repo, node.oid)),
+        "repo": repo,
+        "committedAt": String(node.committedDate || committer.date || ""),
+        "authoredAt": String(node.authoredDate || author.date || ""),
+        "authors": authors,
+        "authorsTotal": node.authors && typeof node.authors.totalCount === "number" ? node.authors.totalCount : authors.length,
+        // Someone else committed it (a rebase, a cherry-pick); GitHub's own
+        // web-flow committer is GitHub merging for its author, which
+        // github.com does not name.
+        "committer": committerLogin !== "" && committerLogin !== "web-flow" && !authors.some(a => a.login === committerLogin) ? {
+            "login": committerLogin,
+            "name": String(committer.name || "")
+        } : null,
+        "verified": !!(node.signature && node.signature.isValid),
+        "checks": node.statusCheckRollup ? String(node.statusCheckRollup.state || "") : "",
+        "additions": Number(node.additions || 0),
+        "deletions": Number(node.deletions || 0),
+        "changedFiles": typeof node.changedFilesIfAvailable === "number" ? node.changedFilesIfAvailable : -1,
+        "parents": nodesOf(node.parents).map(parent => ({
+                    "sha": String(parent.oid),
+                    "short": String(parent.abbreviatedOid || String(parent.oid).slice(0, 7))
+                }))
+    };
+}
+
+// Where a commit's checks stand, as the glyph beside it on github.com.
+function checksGlyph(state) {
+    switch (String(state || "")) {
+    case "SUCCESS":
+        return glyph("check", "success");
+    case "FAILURE":
+    case "ERROR":
+        return glyph("close", "error");
+    case "PENDING":
+    case "EXPECTED":
+        return glyph("fiber_manual_record", "warning");
+    }
+    return null;
+}
+
+function checksText(state) {
+    return ({
+            "SUCCESS": "All checks have passed",
+            "FAILURE": "Some checks were not successful",
+            "ERROR": "Some checks errored",
+            "PENDING": "Some checks have not completed yet",
+            "EXPECTED": "Some checks have not completed yet"
+        })[String(state || "")] || "";
+}
+
+// A history page (queries/browse.graphql's Commits or DefaultCommits):
+// { commits, total, more, cursor, defaultBranch, ref, path } or null when
+// the branch, tag, or commit named is not there. `ref` and `path` say
+// what Commits found: the whole name as a branch, tag, or commit, or else
+// its first part with the rest as a path in it (/commits/main/src).
+function historyOf(repository, repo, asked) {
+    if (!repository)
+        return null;
+    // Commits names its own head, which may not exist; DefaultCommits
+    // takes the default branch's.
+    let head = "object" in repository ? repository.object : (repository.defaultBranchRef ? repository.defaultBranchRef.target : null);
+    let ref = String(asked || "");
+    let path = "";
+    if ((!head || !head.history) && repository.inPath && repository.inPath.history && ref.indexOf("/") > 0) {
+        head = repository.inPath;
+        path = ref.slice(ref.indexOf("/") + 1);
+        ref = ref.slice(0, ref.indexOf("/"));
+    }
+    const history = head ? head.history : null;
+    if (!history)
+        return null;
+    return {
+        "ref": ref,
+        "path": path,
+        "commits": nodesOf(history).map(node => commitOf(node, repo)).filter(c => !!c),
+        "total": Number(history.totalCount || 0),
+        "more": !!(history.pageInfo && history.pageInfo.hasNextPage),
+        "cursor": history.pageInfo ? String(history.pageInfo.endCursor || "") : "",
+        "defaultBranch": repository.defaultBranchRef ? String(repository.defaultBranchRef.name || "") : ""
+    };
+}
+
+// Commits by the day they were committed (in local time), newest first,
+// as github.com's history groups them under "Commits on <day>".
+function commitGroups(commits) {
+    const groups = [];
+    for (const commit of (commits || [])) {
+        const day = dayLabel(commit.committedAt);
+        if (groups.length === 0 || groups[groups.length - 1].day !== day)
+            groups.push({
+                "day": day,
+                "commits": []
+            });
+        groups[groups.length - 1].commits.push(commit);
+    }
+    return groups;
+}
+
+// A tree's entries as github.com lists them: folders first, then files,
+// each by name; a submodule ("commit") lists among the folders.
+function treeEntries(entries, repo, branch) {
+    const ref = encodePath(branch || "HEAD");
+    return (entries || []).filter(entry => !!entry && entry.name).map(entry => {
+        const folder = entry.type === "tree" || entry.type === "commit";
+        return {
+            "name": String(entry.name),
+            "path": String(entry.path || entry.name),
+            "folder": folder,
+            "submodule": entry.type === "commit",
+            "url": repoUrl(repo) + (folder ? "/tree/" : "/blob/") + ref + "/" + encodePath(String(entry.path || entry.name))
+        };
+    }).sort((a, b) => a.folder !== b.folder ? (a.folder ? -1 : 1) : a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+}
+
+// The languages bar: each language's share of the code, in tenths of a
+// percent as github.com rounds them, the rest after the eighth as Other.
+function languageShares(languages) {
+    const total = languages ? Number(languages.totalSize || 0) : 0;
+    if (!(total > 0) || !Array.isArray(languages.edges))
+        return [];
+    const shares = languages.edges.filter(edge => edge && edge.node).map(edge => ({
+                "name": String(edge.node.name),
+                "color": String(edge.node.color || ""),
+                "share": Number(edge.size || 0) / total
+            }));
+    const rest = 1 - shares.reduce((sum, entry) => sum + entry.share, 0);
+    if (rest > 0.0005)
+        shares.push({
+            "name": "Other",
+            "color": "",
+            "share": rest
+        });
+    return shares.map(entry => Object.assign(entry, {
+                "percent": (Math.round(entry.share * 1000) / 10).toFixed(1) + "%"
+            }));
+}
+
+// A website as a profile or a repository saves it, with or without its
+// scheme ("example.com"), as a web link github.com opens; "" for none.
+function siteUrl(text) {
+    const site = String(text || "").trim();
+    if (site === "")
+        return "";
+    return externalUrl(/^[a-z][a-z0-9+.-]*:/i.test(site) ? site : "https://" + site);
+}
+
+// The file GitHub read a repository's license from, among its root's
+// entries (Logic.treeEntries): LICENSE, LICENSE.md, COPYING, and so on.
+function licenseFile(entries) {
+    return (entries || []).find(entry => !entry.folder && /^(licen[cs]e|copying|unlicense)([.-][\w.-]*)?$/i.test(entry.name)) || null;
+}
+
+// A repository's home (queries/browse.graphql's Repository).
+function repoHomeOf(repository) {
+    if (!repository)
+        return null;
+    const repo = String(repository.nameWithOwner);
+    const branch = repository.defaultBranchRef ? String(repository.defaultBranchRef.name || "") : "";
+    const head = repository.defaultBranchRef ? repository.defaultBranchRef.target : null;
+    const license = repository.licenseInfo;
+    const latest = repository.latestRelease;
+    const entries = head && head.tree ? treeEntries(head.tree.entries, repo, branch) : [];
+    return {
+        "id": String(repository.id || ""),
+        "repo": repo,
+        "name": String(repository.name || repo.split("/")[1]),
+        "owner": repository.owner ? String(repository.owner.login) : repo.split("/")[0],
+        "ownerIsOrg": !!repository.owner && repository.owner.__typename === "Organization",
+        "description": String(repository.description || ""),
+        "homepage": siteUrl(repository.homepageUrl),
+        "isPrivate": !!repository.isPrivate,
+        "isFork": !!repository.isFork,
+        "isArchived": !!repository.isArchived,
+        "isTemplate": !!repository.isTemplate,
+        "isMirror": !!repository.isMirror,
+        "parent": repository.parent ? String(repository.parent.nameWithOwner) : "",
+        "template": repository.templateRepository ? String(repository.templateRepository.nameWithOwner) : "",
+        "stars": Number(repository.stargazerCount || 0),
+        "forks": Number(repository.forkCount || 0),
+        "watchers": totalOf(repository.watchers, 0),
+        "starred": !!repository.viewerHasStarred,
+        "watching": String(repository.viewerSubscription || "") === "SUBSCRIBED",
+        "issues": repository.hasIssuesEnabled === false ? -1 : totalOf(repository.issues, 0),
+        "pulls": totalOf(repository.pullRequests, 0),
+        "discussions": repository.hasDiscussionsEnabled ? totalOf(repository.discussions, 0) : -1,
+        "license": license && license.spdxId !== "NOASSERTION" ? String(license.nickname || license.name || "") : (license ? "View license" : ""),
+        "topics": nodesOf(repository.repositoryTopics).map(node => node.topic ? String(node.topic.name) : "").filter(name => name !== ""),
+        "languages": languageShares(repository.languages),
+        "releases": totalOf(repository.releases, 0),
+        "latestRelease": latest ? {
+            "name": String(latest.name || latest.tagName),
+            "tag": String(latest.tagName),
+            "publishedAt": String(latest.publishedAt || ""),
+            "url": String(latest.url || "")
+        } : null,
+        "tags": totalOf(repository.refs, 0),
+        "branches": totalOf(repository.branches, 0),
+        "branch": branch,
+        "head": head ? commitOf(head, repo) : null,
+        "commits": head && head.history ? Number(head.history.totalCount || 0) : 0,
+        "entries": entries,
+        "licenseUrl": licenseFile(entries) ? licenseFile(entries).url : ""
+    };
+}
+
+// The README the REST readme endpoint rendered (Accept: html) names its
+// file in the wrapper GitHub puts around it: the folder its relative links
+// and pictures start from.
+function readmePath(html) {
+    const m = String(html || "").match(/\sdata-path="([^"]*)"/);
+    return m ? m[1].replace(/&amp;/g, "&") : "README.md";
+}
+
+// A README's pictures, as imagePairs pairs them with the rendered HTML; a
+// picture the README names by a path in its repository, which GitHub's
+// HTML leaves as written, loads from raw.githubusercontent.com when the
+// repository is public (no credential), and stays a link otherwise.
+function readmeImages(markdown, html, repo, isPublic, branch) {
+    const found = {};
+    imagePairs(markdown, html, found);
+    const dir = readmePath(html).split("/").slice(0, -1);
+    for (const url in found) {
+        const entry = found[url];
+        if (/^https:\/\//i.test(entry.src))
+            continue;
+        if (!isPublic || /^[a-z][a-z0-9+.-]*:/i.test(entry.src) || entry.src.indexOf("//") === 0) {
+            delete found[url];
+            continue;
+        }
+        const parts = entry.src.charAt(0) === "/" ? [] : dir.slice();
+        for (const part of entry.src.split(/[?#]/)[0].split("/")) {
+            if (part === "..")
+                parts.pop();
+            else if (part !== "." && part !== "")
+                parts.push(part);
+        }
+        // The path as the README wrote it may be percent-encoded already.
+        found[url] = Object.assign({}, entry, {
+            "src": "https://raw.githubusercontent.com/" + repo + "/" + encodePath(branch || "HEAD") + "/" + parts.map(part => encodeURIComponent(decodePart(part))).join("/")
+        });
+    }
+    return found;
+}
+
+// Where a README's relative links lead: its folder on the default branch,
+// as github.com resolves them (GitHubMarkdown's linkBase).
+function readmeLinkBase(html, repo, branch) {
+    const dir = readmePath(html).split("/").slice(0, -1);
+    return [repo, "blob", branch || "HEAD"].concat(dir).join("/");
+}
+
+// A file as its page shows it (queries/browse.graphql File, the ref and
+// path it was asked as), or null when nothing is there: { repo, ref,
+// path, name, dir, isPrivate, folder, size, binary, truncated, text (null
+// when GitHub sends none), lines, loc (the lines with something on them),
+// markdown, image, imageUrl, commit (the last to change it), url, rawUrl,
+// historyUrl, folderUrl }. A picture loads from raw.githubusercontent.com
+// while the repository is public (no credential), as a README's does.
+var MARKDOWN_FILE = /\.(md|markdown|mdown|mkdn?|mkd)$/i;
+var IMAGE_FILE = /\.(png|jpe?g|gif|webp|bmp|ico|svg)$/i;
+
+function fileOf(repository, repo, ref, path) {
+    const file = repository ? repository.file : null;
+    if (!file)
+        return null;
+    const parts = String(path).split("/");
+    const name = parts.pop();
+    const dir = parts.join("/");
+    const history = repository.at && repository.at.history ? nodesOf(repository.at.history) : [];
+    const isPrivate = !!repository.isPrivate;
+    const blob = file.__typename === "Blob";
+    const text = blob && typeof file.text === "string" ? file.text : null;
+    const rows = text === null || text === "" ? [] : text.replace(/\n$/, "").split("\n");
+    const image = blob && IMAGE_FILE.test(name);
+    return {
+        "repo": repo,
+        "ref": ref,
+        "path": path,
+        "name": name,
+        "dir": dir,
+        "isPrivate": isPrivate,
+        "folder": !blob,
+        "size": blob ? Number(file.byteSize || 0) : 0,
+        "binary": blob && !!file.isBinary,
+        "truncated": blob && !!file.isTruncated,
+        "text": text,
+        "lines": rows.length,
+        "loc": rows.filter(row => /\S/.test(row)).length,
+        "markdown": blob && MARKDOWN_FILE.test(name),
+        "image": image,
+        "imageUrl": image && !isPrivate ? "https://raw.githubusercontent.com/" + repo + "/" + encodePath(ref) + "/" + encodePath(path) : "",
+        "commit": history.length > 0 ? commitOf(history[0], repo) : null,
+        "url": repoUrl(repo) + "/" + (blob ? "blob" : "tree") + "/" + encodePath(ref) + "/" + encodePath(path),
+        "rawUrl": repoUrl(repo) + "/raw/" + encodePath(ref) + "/" + encodePath(path),
+        "historyUrl": repoUrl(repo) + "/commits/" + encodePath(ref) + "/" + encodePath(path),
+        "folderUrl": repoUrl(repo) + "/tree/" + encodePath(ref) + (dir !== "" ? "/" + encodePath(dir) : "")
+    };
+}
+
+// One file of a commit (the REST commit endpoint's files).
+function commitFileOf(file) {
+    const patch = typeof file.patch === "string" ? file.patch : "";
+    return {
+        "name": String(file.filename || ""),
+        "previous": String(file.previous_filename || ""),
+        "status": String(file.status || "modified"),
+        "additions": Number(file.additions || 0),
+        "deletions": Number(file.deletions || 0),
+        "changes": Number(file.changes || 0),
+        "patch": patch,
+        // A binary file and an empty one both come without a patch and
+        // without changes, which the API does not tell apart; a diff too
+        // large for it has changes and no patch.
+        "binary": patch === "" && Number(file.changes || 0) === 0 && file.status !== "renamed",
+        "url": String(file.blob_url || "")
+    };
+}
+
+var FILE_STATUS = {
+    "added": {
+        "icon": "add_box",
+        "tone": "success",
+        "label": "Added"
+    },
+    "removed": {
+        "icon": "indeterminate_check_box",
+        "tone": "error",
+        "label": "Deleted"
+    },
+    "renamed": {
+        "icon": "drive_file_move",
+        "tone": "muted",
+        "label": "Renamed"
+    },
+    "copied": {
+        "icon": "file_copy",
+        "tone": "muted",
+        "label": "Copied"
+    },
+    "changed": {
+        "icon": "edit_square",
+        "tone": "warning",
+        "label": "Changed"
+    },
+    "modified": {
+        "icon": "edit_square",
+        "tone": "warning",
+        "label": "Modified"
+    }
+};
+
+function fileStatus(status) {
+    return FILE_STATUS[status] || FILE_STATUS.modified;
+}
+
+// A unified diff hunk by hunk, as github.com's split-less view draws it:
+// [{ type: "hunk"|"add"|"del"|"context"|"note", old, new, text }], each
+// line numbered on the side it belongs to (0 where it has none).
+function diffLines(patch) {
+    const out = [];
+    let oldLine = 0;
+    let newLine = 0;
+    for (const line of String(patch || "").split("\n")) {
+        const hunk = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/);
+        if (hunk) {
+            oldLine = Number(hunk[1]);
+            newLine = Number(hunk[2]);
+            out.push({
+                "type": "hunk",
+                "old": 0,
+                "new": 0,
+                "text": line
+            });
+        } else if (line.charAt(0) === "+") {
+            out.push({
+                "type": "add",
+                "old": 0,
+                "new": newLine++,
+                "text": line.slice(1)
+            });
+        } else if (line.charAt(0) === "-") {
+            out.push({
+                "type": "del",
+                "old": oldLine++,
+                "new": 0,
+                "text": line.slice(1)
+            });
+        } else if (line.charAt(0) === "\\") {
+            out.push({
+                "type": "note",
+                "old": 0,
+                "new": 0,
+                "text": line.slice(1).trim()
+            });
+        } else if (out.length > 0) {
+            out.push({
+                "type": "context",
+                "old": oldLine++,
+                "new": newLine++,
+                "text": line.slice(1)
+            });
+        }
+    }
+    return out;
+}
+
+// The five blocks of a diffstat, as github.com draws them after a count of
+// changes: green for additions, red for deletions, grey for the rest, a
+// block a change up to five.
+function diffstatBlocks(additions, deletions) {
+    const a = Number(additions || 0);
+    const d = Number(deletions || 0);
+    const filled = Math.min(5, a + d);
+    const added = filled > 0 ? Math.round(filled * a / (a + d)) : 0;
+    const out = [];
+    for (let i = 0; i < 5; i++)
+        out.push(i < added ? "add" : (i < filled ? "del" : "none"));
+    return out;
+}
+
+// Which files of a commit show their diff at once: github.com folds a
+// large one ("Large diffs are not rendered by default"), and so does this
+// page past a budget of lines for the whole commit, so a commit of
+// thousands of lines opens at once; each opens on a click.
+function diffsShown(files, budget, largest) {
+    let left = budget;
+    return (files || []).map(file => {
+        const lines = file.patch === "" ? 0 : file.patch.split("\n").length;
+        if (lines === 0 || file.changes > largest || lines > left)
+            return false;
+        left -= lines;
+        return true;
+    });
+}
+
+// The pull requests a commit belongs to, as github.com names them under
+// its message.
+function commitPulls(node) {
+    return nodesOf(node ? node.associatedPullRequests : null).map(pr => ({
+                "kind": "pr",
+                "number": Number(pr.number),
+                "title": String(pr.title || ""),
+                "url": String(pr.url),
+                "state": String(pr.state || "OPEN"),
+                "isDraft": !!pr.isDraft,
+                "repo": pr.repository ? String(pr.repository.nameWithOwner) : ""
+            }));
+}
+
+// A release as the releases list shows it: what GitHub also offers as
+// assets (the source code archives) after its own.
+function releaseOf(node, repo) {
+    if (!node || !node.tagName)
+        return null;
+    const tag = String(node.tagName);
+    const archive = repoUrl(repo) + "/archive/refs/tags/" + encodePath(tag);
+    const assets = nodesOf(node.releaseAssets).map(asset => ({
+                "name": String(asset.name),
+                "size": fileSize(asset.size),
+                "downloads": Number(asset.downloadCount || 0),
+                "url": String(asset.downloadUrl || ""),
+                "at": String(asset.updatedAt || ""),
+                "source": false
+            }));
+    return {
+        "id": String(node.id || ""),
+        "name": String(node.name || tag),
+        "tag": tag,
+        "url": String(node.url || ""),
+        "prerelease": !!node.isPrerelease,
+        "draft": !!node.isDraft,
+        "latest": !!node.isLatest,
+        "createdAt": String(node.createdAt || ""),
+        "publishedAt": String(node.publishedAt || node.createdAt || ""),
+        "author": node.author ? String(node.author.login || "") : "",
+        "body": String(node.description || ""),
+        "commit": node.tagCommit ? {
+            "sha": String(node.tagCommit.oid),
+            "short": String(node.tagCommit.abbreviatedOid || String(node.tagCommit.oid).slice(0, 7))
+        } : null,
+        "mentions": node.mentions ? Number(node.mentions.totalCount || 0) : 0,
+        "assets": assets.concat([
+            {
+                "name": "Source code (zip)",
+                "size": "",
+                "downloads": 0,
+                "url": archive + ".zip",
+                "at": String(node.createdAt || ""),
+                "source": true
+            },
+            {
+                "name": "Source code (tar.gz)",
+                "size": "",
+                "downloads": 0,
+                "url": archive + ".tar.gz",
+                "at": String(node.createdAt || ""),
+                "source": true
+            }
+        ]),
+        "assetsTotal": totalOf(node.releaseAssets, assets.length) + 2,
+        // A release takes six of the eight reactions: the picker offers
+        // those GitHub lists for it.
+        "reactions": reactionsOf(node) ? Object.assign(reactionsOf(node), {
+            "contents": node.reactionGroups.map(group => String(group.content))
+        }) : null
+    };
+}
+
+// A page of releases (queries/browse.graphql's Releases).
+function releasesOf(repository) {
+    if (!repository || !repository.releases)
+        return null;
+    const repo = String(repository.nameWithOwner);
+    return {
+        "releases": nodesOf(repository.releases).map(node => releaseOf(node, repo)).filter(r => !!r),
+        "total": Number(repository.releases.totalCount || 0),
+        "more": !!(repository.releases.pageInfo && repository.releases.pageInfo.hasNextPage),
+        "cursor": repository.releases.pageInfo ? String(repository.releases.pageInfo.endCursor || "") : ""
+    };
+}
+
+// The posts of a page of releases whose notes name pictures or videos,
+// for their signed URLs (GitHubData.loadMedia; Rendered reads a release's
+// descriptionHTML as its bodyHTML).
+function releaseRendering(releases) {
+    return (releases || []).filter(r => r.id && (imagesIn(r.body).length > 0 || videosIn(r.body).length > 0)).map(r => ({
+                "id": r.id,
+                "body": r.body
+            }));
+}
+
+// A repository on a profile (pinned, popular, or recent).
+function repoCardOf(node) {
+    return {
+        "repo": String(node.nameWithOwner),
+        "name": String(node.name),
+        "owner": node.owner ? String(node.owner.login) : String(node.nameWithOwner).split("/")[0],
+        "description": String(node.description || ""),
+        "isPrivate": !!node.isPrivate,
+        "isFork": !!node.isFork,
+        "isArchived": !!node.isArchived,
+        "parent": node.parent ? String(node.parent.nameWithOwner) : "",
+        "stars": Number(node.stargazerCount || 0),
+        "forks": Number(node.forkCount || 0),
+        "pushedAt": String(node.pushedAt || ""),
+        "language": node.primaryLanguage ? String(node.primaryLanguage.name) : "",
+        "languageColor": node.primaryLanguage ? String(node.primaryLanguage.color || "") : ""
+    };
+}
+
+var CONTRIBUTION_LEVELS = {
+    "NONE": 0,
+    "FIRST_QUARTILE": 1,
+    "SECOND_QUARTILE": 2,
+    "THIRD_QUARTILE": 3,
+    "FOURTH_QUARTILE": 4
+};
+
+// A person's or an organization's profile (queries/browse.graphql's
+// Owner): the repositories it shows are the pinned ones, or the most
+// starred when nothing is pinned, as github.com's overview.
+function ownerOf(owner) {
+    if (!owner || !owner.login)
+        return null;
+    const isOrg = owner.__typename === "Organization";
+    const pinned = nodesOf(owner.pinnedItems).filter(node => !!node.nameWithOwner).map(repoCardOf);
+    const calendar = owner.contributionsCollection ? owner.contributionsCollection.contributionCalendar : null;
+    const status = owner.status && (owner.status.message || owner.status.emoji) ? {
+        "emoji": String(owner.status.emoji || ""),
+        "message": String(owner.status.message || "")
+    } : null;
+    return {
+        "login": String(owner.login),
+        "isOrg": isOrg,
+        "url": String(owner.url || "https://github.com/" + owner.login),
+        "name": String(owner.name || ""),
+        "bio": String((isOrg ? owner.description : owner.bio) || ""),
+        "company": String(owner.company || ""),
+        "location": String(owner.location || ""),
+        "website": siteUrl(owner.websiteUrl),
+        "websiteText": String(owner.websiteUrl || "").replace(/^https?:\/\//i, "").replace(/\/$/, ""),
+        "email": String(owner.email || ""),
+        "twitter": String(owner.twitterUsername || ""),
+        "pronouns": String(owner.pronouns || ""),
+        "createdAt": String(owner.createdAt || ""),
+        "isViewer": !!owner.isViewer,
+        "verified": !!owner.isVerified,
+        "status": status,
+        "followers": totalOf(owner.followers, 0),
+        "following": totalOf(owner.following, 0),
+        "stars": totalOf(owner.starredRepositories, 0),
+        "members": totalOf(owner.membersWithRole, 0),
+        "orgs": nodesOf(owner.organizations).map(org => ({
+                    "login": String(org.login),
+                    "name": String(org.name || org.login)
+                })),
+        "social": nodesOf(owner.socialAccounts).map(account => ({
+                    "provider": String(account.provider || ""),
+                    "text": String(account.displayName || account.url || ""),
+                    "url": externalUrl(account.url)
+                })).filter(account => account.url !== ""),
+        "pinned": pinned.length > 0,
+        "repos": pinned.length > 0 ? pinned : nodesOf(owner.popular).map(repoCardOf),
+        "recent": nodesOf(owner.recent).map(repoCardOf),
+        "reposTotal": totalOf(owner.recent, 0),
+        "contributions": calendar ? {
+            "total": Number(calendar.totalContributions || 0),
+            "weeks": (calendar.weeks || []).map(week => (week.contributionDays || []).map(day => ({
+                            "date": String(day.date),
+                            "count": Number(day.contributionCount || 0),
+                            "level": CONTRIBUTION_LEVELS[day.contributionLevel] || 0
+                        })))
+        } : null
+    };
+}
+
+// The month labels over a contribution calendar: a month names the week
+// column its first Sunday starts, as github.com labels them; one that
+// would crowd the label before it (a month cut short at the start) is
+// left out.
+function contributionMonths(weeks) {
+    const out = [];
+    let last = -1;
+    (weeks || []).forEach((week, index) => {
+        if (!week || week.length === 0)
+            return;
+        const month = Number(String(week[0].date).slice(5, 7)) - 1;
+        if (month === last)
+            return;
+        last = month;
+        if (out.length > 0 && index - out[out.length - 1].week < 3)
+            out.pop();
+        out.push({
+            "week": index,
+            "label": MONTHS[month]
+        });
+    });
+    return out;
+}
+
+// What the popout header says of such a page (GitHubBrowseHeader), as
+// github.com's page heading: { avatar, square (an organization's), owner
+// (a link before the title), lead (a commit's SHA, as a pull request's
+// number), title, badges: [{ text, tone }], line: [{ text, url, icon,
+// mono }] }.
+function pageHeader(item, detail) {
+    const header = {
+        "avatar": "",
+        "square": false,
+        "owner": "",
+        "lead": "",
+        "title": "",
+        "badges": [],
+        "line": []
+    };
+    if (!item)
+        return header;
+    const repoLink = {
+        "text": String(item.repo || ""),
+        "url": repoUrl(item.repo),
+        "icon": "repo"
+    };
+    switch (item.kind) {
+    case "repo":
+        {
+            const parts = String(item.repo).split("/");
+            header.avatar = parts[0];
+            header.square = !!detail && detail.ownerIsOrg;
+            header.owner = parts[0];
+            header.title = parts[1];
+            if (detail) {
+                const visibility = detail.isPrivate ? "Private" : "Public";
+                header.badges.push({
+                    "text": detail.isArchived ? visibility + " archive" : (detail.isTemplate ? visibility + " template" : (detail.isMirror ? visibility + " mirror" : visibility)),
+                    "tone": detail.isArchived ? "warning" : "muted"
+                });
+                if (detail.parent !== "")
+                    header.line.push({
+                        "text": "forked from " + detail.parent,
+                        "url": repoUrl(detail.parent),
+                        "icon": "repo-forked"
+                    });
+                header.line.push({
+                    "text": shortCount(detail.stars),
+                    "url": repoUrl(item.repo) + "/stargazers",
+                    "icon": detail.starred ? "star-fill" : "star"
+                }, {
+                    "text": shortCount(detail.forks),
+                    "url": repoUrl(item.repo) + "/forks",
+                    "icon": "repo-forked"
+                }, {
+                    "text": shortCount(detail.watchers),
+                    "url": repoUrl(item.repo) + "/watchers",
+                    "icon": "eye"
+                });
+            }
+            break;
+        }
+    case "commits":
+        {
+            const ref = detail && detail.ref ? detail.ref : (item.ref || (detail ? detail.defaultBranch : ""));
+            header.title = "Commits";
+            header.line.push(repoLink, {
+                "text": ref,
+                "url": branchUrl(item.repo, ref),
+                "icon": "git-branch",
+                "mono": true
+            });
+            if (detail && detail.path)
+                header.line.push({
+                    "text": detail.path,
+                    "url": repoUrl(item.repo) + "/tree/" + encodePath(ref) + "/" + encodePath(detail.path),
+                    "icon": "file-directory-fill",
+                    "mono": true
+                });
+        }
+        if (detail)
+            header.line.push({
+                "text": plural(detail.total, "commit")
+            });
+        break;
+    case "commit":
+        header.lead = String(item.sha).slice(0, 7);
+        header.title = detail ? detail.commit.headline : "Commit " + header.lead;
+        header.line.push(repoLink);
+        if (detail && detail.commit.verified)
+            header.badges.push({
+                "text": "Verified",
+                "tone": "success"
+            });
+        break;
+    case "releases":
+        header.title = "Releases";
+        header.line.push(repoLink);
+        if (detail)
+            header.line.push({
+                "text": plural(detail.total, "release"),
+                "icon": "tag"
+            });
+        break;
+    case "release":
+        header.title = detail ? detail.name : (item.tag || "Latest release");
+        if (detail) {
+            if (detail.draft)
+                header.badges.push({
+                    "text": "Draft",
+                    "tone": "muted"
+                });
+            if (detail.prerelease)
+                header.badges.push({
+                    "text": "Pre-release",
+                    "tone": "warning"
+                });
+            if (detail.latest)
+                header.badges.push({
+                    "text": "Latest",
+                    "tone": "success"
+                });
+        }
+        header.line.push(repoLink);
+        if (detail)
+            header.line.push({
+                "text": detail.tag,
+                "url": repoUrl(item.repo) + "/tree/" + encodePath(detail.tag),
+                "icon": "tag",
+                "mono": true
+            });
+        break;
+    case "file":
+        // The file's name, and where it is: the repository, the branch (or
+        // tag, or commit), and its folder.
+        header.title = detail ? detail.name : String(item.target).split("/").pop();
+        header.line.push(repoLink);
+        if (detail) {
+            header.line.push({
+                "text": detail.ref,
+                "url": branchUrl(item.repo, detail.ref),
+                "icon": "git-branch",
+                "mono": true
+            });
+            if (detail.dir !== "")
+                header.line.push({
+                    "text": detail.dir,
+                    "url": detail.folderUrl,
+                    "icon": "file-directory-fill",
+                    "mono": true
+                });
+        }
+        break;
+    case "user":
+        // The login, as github.com's sticky header over a profile; the
+        // page has the name, the followers, and the rest.
+        header.avatar = item.login;
+        header.square = !!detail && detail.isOrg;
+        header.title = item.login;
+        if (detail && detail.verified)
+            header.badges.push({
+                "text": "Verified",
+                "tone": "success"
+            });
+        if (detail && detail.isOrg)
+            header.line.push({
+                "text": "Organization",
+                "icon": "organization"
+            });
+        break;
+    }
+    return header;
+}
+
+// What such a page says while its first answer comes.
+function pageLoadingText(item) {
+    if (!item)
+        return "";
+    return "Loading " + ({
+            "repo": item.repo,
+            "commits": "the commits of " + item.repo,
+            "commit": "commit " + String(item.sha).slice(0, 7),
+            "releases": "the releases of " + item.repo,
+            "release": item.tag ? "release " + item.tag : "the latest release of " + item.repo,
+            "file": String(item.target || "").split("/").pop(),
+            "user": item.login
+        })[item.kind] + "…";
 }
 
 // ---------------------------------------------------------------- popout

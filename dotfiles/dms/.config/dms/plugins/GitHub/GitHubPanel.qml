@@ -7,7 +7,9 @@ import "GitHubLogic.js" as Logic
 // The popout: four tabs in GitHub's order (notifications, issues, pull
 // requests, Actions runs), each with the filters of GitHub's own pages, a
 // search field that narrows the list, and a detail page (GitHubDetail) for
-// the row that is opened. The scope button in the header switches every tab
+// the row that is opened. A link on a page to a repository, its commits,
+// a commit, its releases, or a profile opens that page here too
+// (GitHubBrowse). The scope button in the header switches every tab
 // from what involves the viewer to everything in one repository
 // (GitHubScopeMenu); the inbox then holds that repository's notifications.
 // Arrow keys move, Enter opens the detail, Ctrl+Enter opens the row on
@@ -58,6 +60,8 @@ Item {
     readonly property string windowTitle: {
         if (!detailItem)
             return (scope || "GitHub") + " · " + (tabs.find(t => t.id === tab) || tabs[0]).label;
+        if (browsing)
+            return browse.windowTitle;
         const name = detailItem.title || detailItem.displayTitle || "";
         return detail.headerTitle + (name ? " " + name : "") + " · " + detailItem.repo;
     }
@@ -70,7 +74,7 @@ Item {
     readonly property var scopeRuns: scopeState.runs
     // The header's refresh and open buttons act on whatever is on screen:
     // the lists, or the detail page when one is open.
-    readonly property bool busy: detailItem ? detail.loading : (scopeState.loading || scopeState.runsLoading || (tab === "inbox" && scopeState.threadsLoading))
+    readonly property bool busy: detailItem ? page.loading : (scopeState.loading || scopeState.runsLoading || (tab === "inbox" && scopeState.threadsLoading))
 
     property string tab: "inbox"
     property var filterIndexes: defaultFilters()
@@ -80,6 +84,12 @@ Item {
     // Pages opened from links inside a page: Back returns through them to
     // the page the list opened, then to the list.
     property var detailStack: []
+    // A repository's, a commit's, a release's, or a profile's page
+    // (GitHubBrowse) rather than a pull request's, an issue's, or a run's
+    // (GitHubDetail); `page` is whichever shows, which the header's
+    // buttons and the keys act on.
+    readonly property bool browsing: !!detailItem && Logic.isPageKind(detailItem.kind)
+    readonly property Item page: browsing ? browse : detail
 
     readonly property int rowHeight: 58
     readonly property int visibleRows: Math.max(1, Math.floor(listArea.height / rowHeight))
@@ -546,7 +556,8 @@ Item {
     // A row's click or Enter: the page, or for a notification the page of
     // its subject when that is a pull request or an issue (opened at once
     // from what the thread says, and read as the page opens, so its row
-    // leaves the list behind the page), and the browser for anything else.
+    // leaves the list behind the page) or a commit or a release, and the
+    // browser for anything else.
     function activate(item) {
         if (!item)
             return;
@@ -554,14 +565,36 @@ Item {
             openDetail(item, false);
             return;
         }
-        const page = Logic.itemForThread(item);
-        if (page) {
-            openDetail(page, false);
+        const subject = Logic.itemForThread(item);
+        if (subject) {
+            openDetail(subject, false);
             return;
         }
+        // A commit, or a release (whose thread names the releases), has its
+        // page here too.
         github.markRead(item);
+        const other = item.type === "Commit" || item.type === "Release" ? Logic.pageItemFor(item.url) : null;
+        if (other) {
+            openDetail(other, false);
+            return;
+        }
         Qt.openUrlExternally(item.url);
         close();
+    }
+
+    // A github.com link from outside a page (the account, a hover card):
+    // what has a page here opens it over the list or the page on screen,
+    // anything else in the browser. True when it opened here.
+    function openUrl(url) {
+        const item = Logic.pageItemFor(url);
+        if (item) {
+            openDetail(item, !!detailItem);
+            return true;
+        }
+        const safe = Logic.externalUrl(url);
+        if (safe !== "")
+            Qt.openUrlExternally(safe);
+        return false;
     }
 
     function openExternally(item) {
@@ -765,7 +798,7 @@ Item {
 
     function handleKey(event) {
         if (detailItem) {
-            if (detail.handleKey(event))
+            if (page.handleKey(event))
                 event.accepted = true;
             return;
         }
@@ -882,7 +915,7 @@ Item {
         if (!showing || scopeMenu.open)
             return;
         if (detailItem) {
-            if (!detail.editing)
+            if (!page.editing)
                 keys.forceActiveFocus();
         } else {
             field.forceActiveFocus();
@@ -919,7 +952,7 @@ Item {
     function wentAway() {
         hiddenAt = Date.now();
         listPlace.keep();
-        detail.place.keep();
+        page.place.keep();
     }
 
     function cameBack() {
@@ -936,9 +969,9 @@ Item {
         scopeMenu.close();
         loadScope();
         if (detailItem && Date.now() - hiddenAt > freshMs)
-            detail.reload();
+            page.reload();
         listPlace.restore();
-        detail.place.restore();
+        page.place.restore();
         focusInput();
         opened();
     }
@@ -1010,6 +1043,9 @@ Item {
         anchors.fill: parent
         z: 100
         enabled: searchHelper.open
+        // No cursor of its own (a MouseArea has the arrow otherwise, which
+        // Qt shows over everything under it, even while it is disabled).
+        cursorShape: undefined
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         onPressed: mouse => {
             if (!panel.hits(field, mouse) && !panel.hits(searchHelper, mouse))
@@ -1028,6 +1064,7 @@ Item {
         anchors.fill: parent
         z: 300
         github: panel.github
+        navigate: url => panel.openUrl(url)
     }
 
     function hits(item, point) {
@@ -1047,7 +1084,7 @@ Item {
         Item {
             id: header
             width: parent.width
-            height: panel.detailItem ? Math.max(48, compactHeader.implicitHeight + Theme.spacingS) : 40
+            height: panel.detailItem ? Math.max(48, (panel.browsing ? browseHeader.implicitHeight : compactHeader.implicitHeight) + Theme.spacingS) : 40
 
             // A window has no title bar of its own: the header moves it,
             // and a double click maximizes it.
@@ -1074,7 +1111,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     iconName: "arrow_back"
                     iconColor: Theme.surfaceText
-                    tooltipText: previous ? "Back to " + (previous.kind === "run" ? "run" : "#" + previous.number) + " (Esc)" : "Back to the list (Esc)"
+                    tooltipText: "Back to " + Logic.pageLabel(previous) + " (Esc)"
                     onClicked: panel.closeDetail()
                 }
 
@@ -1098,6 +1135,7 @@ Item {
 
                     Column {
                         id: headerLead
+                        visible: !panel.browsing
                         anchors.verticalCenter: parent.verticalCenter
                         // On a page, the number and its state center on
                         // each other, as wide as the wider of the two.
@@ -1129,7 +1167,7 @@ Item {
                                 width: Math.min(implicitWidth, parent.width)
                                 visible: !headerText.condensed && text !== ""
                                 text: panel.github.login ? "@" + panel.github.login : ""
-                                action: () => Qt.openUrlExternally(Logic.profileUrl(panel.github.login))
+                                action: () => panel.openUrl(Logic.profileUrl(panel.github.login))
                                 font.pixelSize: Theme.fontSizeSmall
                                 color: Theme.surfaceVariantText
                                 elide: Text.ElideMiddle
@@ -1152,8 +1190,19 @@ Item {
                         anchors.leftMargin: Theme.spacingM
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: headerText.condensed
+                        visible: headerText.condensed && !panel.browsing
                         page: detail
+                    }
+
+                    // A repository's, a commit's, a release's, or a
+                    // profile's heading.
+                    GitHubBrowseHeader {
+                        id: browseHeader
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: panel.browsing
+                        page: browse
                     }
                 }
             }
@@ -1234,7 +1283,7 @@ Item {
                 // github.com's Subscribe button in its sidebar; a click
                 // flips it.
                 DActionButton {
-                    readonly property var subscription: panel.detailItem ? detail.subscription : null
+                    readonly property var subscription: panel.detailItem && !panel.browsing ? detail.subscription : null
                     visible: !!subscription
                     iconName: !subscription ? "" : (subscription.on ? "notifications_active" : (subscription.next === "SUBSCRIBED" && subscription.reason.indexOf("ignoring") >= 0 ? "notifications_off" : "notifications_none"))
                     iconColor: subscription && subscription.on ? Theme.primary : Theme.surfaceVariantText
@@ -1254,14 +1303,14 @@ Item {
                     iconName: "content_copy"
                     iconColor: Theme.surfaceVariantText
                     tooltipText: "Copy link"
-                    onClicked: detail.copyLink()
+                    onClicked: panel.page.copyLink()
                 }
 
                 DRefreshButton {
                     busy: panel.busy
                     iconColor: Theme.surfaceVariantText
                     tooltipText: "Refresh (Ctrl+R)"
-                    onClicked: panel.detailItem ? detail.reload() : panel.refresh()
+                    onClicked: panel.detailItem ? panel.page.reload() : panel.refresh()
                 }
 
                 // A page opens on GitHub from its number.
@@ -1861,12 +1910,27 @@ Item {
 
         GitHubDetail {
             id: detail
-            visible: !!panel.detailItem && !problem.visible
+            visible: !!panel.detailItem && !panel.browsing && !problem.visible
             width: parent.width
             height: panel.height - header.height - layout.spacing
-            item: panel.detailItem
+            item: panel.browsing ? null : panel.detailItem
             github: panel.github
-            active: panel.showing && !!panel.detailItem
+            active: panel.showing && !!panel.detailItem && !panel.browsing
+            onBack: panel.closeDetail()
+            onOpenItem: item => panel.openDetail(item, true)
+            onSearchRequested: (repo, tab, terms) => panel.openSearch(repo, tab, terms)
+            onEditingFinished: panel.focusInput()
+            onCloseRequested: panel.close()
+        }
+
+        GitHubBrowse {
+            id: browse
+            visible: panel.browsing && !problem.visible
+            width: parent.width
+            height: panel.height - header.height - layout.spacing
+            item: panel.browsing ? panel.detailItem : null
+            github: panel.github
+            active: panel.showing && panel.browsing
             onBack: panel.closeDetail()
             onOpenItem: item => panel.openDetail(item, true)
             onSearchRequested: (repo, tab, terms) => panel.openSearch(repo, tab, terms)

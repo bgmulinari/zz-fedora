@@ -570,9 +570,10 @@ Shipped plugins:
 
 - **GitHub** (`github`, unit `dev-github`, component `dms-plugin-github`):
   the GitHub mark in the bar with a popout for notifications, pull
-  requests, issues, and Actions runs, and pages that act on them; the
-  plugin's README is the feature and `gh` command reference. Integration
-  points:
+  requests, issues, and Actions runs, pages that act on them, and pages
+  for the repositories, commits, releases, files, and profiles they link
+  to; the plugin's README is the feature and `gh` command reference.
+  Integration points:
   - It is a composite plugin: a `daemon` surface (`GitHubDaemon.qml`) owns
     the data, the background polls, the desktop notifications, and the
     pop-out windows once, and each bar's `widget` surface reads it through
@@ -583,8 +584,9 @@ Shipped plugins:
     matching `gh` subcommand for a change), so it never handles a token: a
     signed-out CLI dims the mark and the popout offers `gh auth login` in a
     terminal. The only other network access is images: the signed URLs in
-    GitHub's rendered HTML and the public avatars on
-    `avatars.githubusercontent.com`, neither carrying a credential.
+    GitHub's rendered HTML, a public repository's README pictures and
+    picture files on `raw.githubusercontent.com`, and the public avatars on
+    `avatars.githubusercontent.com`, none carrying a credential.
     Subscribing to a page needs the `notifications` scope, which the bell
     offers through `gh auth refresh -s notifications`.
   - With nothing on screen it polls only the bar's counts (on the refresh
