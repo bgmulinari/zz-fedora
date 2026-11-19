@@ -64,8 +64,8 @@ binds {
 ## Window rules
 
 `~/.config/niri/dms/windowrules.kdl` holds the shipped window rules (floating
-calculator, audio mixer, screenshot editor, Steam dialogs; blur behind the terminal
-and file manager) and is the file DMS Settings > Window Rules reads and edits, so new
+calculator, audio mixer, screenshot editor, Steam dialogs; blur behind the terminal,
+file manager, and Strata) and is the file DMS Settings > Window Rules reads and edits, so new
 rules go there, through the UI or by hand. Every rule needs an id line DMS round-trips:
 
 ```kdl

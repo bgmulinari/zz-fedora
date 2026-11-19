@@ -295,6 +295,31 @@ with the blue accent (latte + blue in light mode).
   current palette or the `templates/t3code/dms.json` Catppuccin fallback, and
   runs `t3 theme set dms` only while no environment theme is set: clients
   reapply every `theme set`, so repeating it would undo a later choice in the app.
+- Strata follows the theme through its custom-theme directory, wired by the
+  `desktop-strata` unit. The `strata` component renders
+  `~/.cache/dms/strata-theme.toml` and its post-hook renames a copy to
+  `~/.config/strata/themes/dms.toml`, which Strata watches and rereads in every
+  open window. The rename matters: a Strata that starts while the selected theme
+  is missing or half-written swaps in its fallback theme and saves that choice.
+  The theme has no mode key; Strata picks its light or dark base from the
+  background. The `strata-theme` action publishes a first copy, from the
+  current palette or the `templates/strata/dms.toml` Catppuccin fallback, and
+  only then writes `~/.config/strata/settings.toml` selecting it, and only when
+  Strata has no settings file yet, so an existing one keeps its theme.
+  Strata's own Omarchy following is not used: it reads
+  `~/.local/state/omarchy/`, which only an Omarchy install provides.
+- Strata is drawn as glass like Ghostty, a translucent background with opaque
+  text, rather than Nautilus's whole-window niri opacity. The theme colors stay
+  opaque: Strata paints them on popovers and dialogs too, which niri does not
+  blur, and GTK stacks alpha through the nested layers that repaint the same
+  color, so a translucent token ends up nearly opaque. Instead
+  `dotfiles/strata/glass.css` gives the window alone `alpha(@strata_bg, 0.9)`,
+  clears the inner layers that repaint it, and leaves each pane one light
+  surface wash. Strata's only restyling hook is the user-owned
+  `~/.config/strata/style.css`, so the `strata-theme` action writes that file
+  only when it is missing, as a stub `@import` of the product rules, which then
+  update with the checkout and apply at Strata's next start. The
+  `zz-strata-blur` window rule adds niri's blur without an `opacity`.
 - GTK/libadwaita apps follow the theme through the upstream one-time
   opt-in: the `dms-gtk-theme` first-run checkpoint runs the shell's own
   `scripts/gtk.sh apply` (what the Settings "Apply GTK Colors" button

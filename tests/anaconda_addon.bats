@@ -610,6 +610,7 @@ assert [choice.id for choice in category_by_id["desktop"].choices] == [
     "camera",
     "document-scanner",
     "file-roller",
+    "strata",
 ]
 assert any(choice.id == "docker" for choice in category_by_id["dev"].choices)
 PY

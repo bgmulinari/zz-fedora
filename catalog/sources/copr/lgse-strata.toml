@@ -1,0 +1,7 @@
+id = "copr:@lgse/strata"
+kind = "copr"
+label = "COPR: @lgse/strata"
+project = "@lgse/strata"
+description = "Strata file manager Fedora COPR, published by the upstream project"
+gpg_policy = "copr-plugin"
+reason = "Provides the Strata file manager choice"

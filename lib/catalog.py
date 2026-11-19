@@ -76,7 +76,7 @@ BACKENDS = ("dnf", "flatpak", "action")
 BACKEND_ITEM_KEY = {"dnf": "packages", "flatpak": "flatpaks", "action": "actions"}
 
 UNIT_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]+$")
-SOURCE_ID_RE = re.compile(r"^[A-Za-z0-9_.:/-]+$")
+SOURCE_ID_RE = re.compile(r"^[A-Za-z0-9_.:/@-]+$")
 CHOICE_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 CATEGORY_RE = re.compile(r"^[a-z0-9-]+$")
 CATEGORY_ALIASES = {"browser": "browsers", "source": "sources"}

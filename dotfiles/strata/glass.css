@@ -1,0 +1,58 @@
+/* ZZ-managed glass look for Strata, imported by the user-owned
+   ~/.config/strata/style.css stub the strata-theme action writes. niri blurs
+   what shows through (the zz-strata-blur window rule); the theme colors stay
+   opaque so menus, popovers, and dialogs remain solid and readable.
+
+   GTK stacks every translucent layer, so only the window paints the
+   translucent background. The layers inside it that would repaint the same
+   color are cleared, and each pane keeps one light surface wash. Class names
+   are not a stable Strata interface; recheck them against
+   src/style.css upstream when a release changes the layout. */
+
+/* The background shows the blur at the same 0.9 as Ghostty. */
+window {
+  background: alpha(@strata_bg, 0.9);
+}
+
+/* Browser layers that repaint the window color. */
+.columns,
+.directory-column,
+.directory-column scrolledwindow,
+.directory-column viewport,
+.directory-column listview,
+.file-list,
+.icons-pane,
+.list-pane,
+.mode-icons,
+.mode-icons viewport,
+.mode-icons gridview,
+.mode-list,
+.mode-list viewport,
+.mode-list listview,
+.mode-scroll scrollbar.horizontal,
+.mode-scroll scrollbar.horizontal > range > trough {
+  background: transparent;
+}
+
+/* Pane interiors that repaint their pane's surface color. */
+.sidebar-scroll,
+.sidebar-scroll viewport,
+.sidebar,
+.preview-content,
+.preview-content scrolledwindow,
+.preview-content viewport {
+  background: transparent;
+}
+
+/* One surface wash per pane, so the sidebar, preview, and bars still read
+   as their own areas over the window background. */
+.sidebar-shell,
+.preview-pane,
+headerbar,
+.mode-pane-header,
+.tab-strip,
+.shortcut-footer,
+.list-headings,
+.active-column .column-header {
+  background: alpha(@strata_surface, 0.4);
+}

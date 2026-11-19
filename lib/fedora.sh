@@ -103,18 +103,26 @@ metadata_expire=1h
 EOF
 }
 
+# The owner:project part of the dnf repo ids the copr plugin derives for an
+# "owner/project". A group project ("@group/project") gets the owner
+# "group_<group>", so @lgse/strata becomes group_lgse:strata.
+fedora_copr_repo_suffix() {
+  local project="$1"
+  [[ "$project" == @* ]] && project="group_${project#@}"
+  printf '%s\n' "${project//\//:}"
+}
+
 # The dnf repo id the copr plugin derives for an enabled "owner/project".
 fedora_copr_repo_id() {
-  local project="$1"
-  printf 'copr:copr.fedorainfracloud.org:%s\n' "${project//\//:}"
+  printf 'copr:copr.fedorainfracloud.org:%s\n' "$(fedora_copr_repo_suffix "$1")"
 }
 
 # A COPR can expose another project as an enabled runtime dependency. Dnf
 # gives those sections a `coprdep:` id, but they still serve the dependency
 # project's packages and must receive the same ownership exclusions.
 fedora_copr_repo_ids() {
-  local project="$1"
-  local suffix=":${project//\//:}"
+  local suffix
+  suffix=":$(fedora_copr_repo_suffix "$1")"
   dnf repolist --enabled 2>/dev/null | awk -v suffix="$suffix" '
     $1 ~ /^copr(dep)?:/ &&
       length($1) >= length(suffix) &&

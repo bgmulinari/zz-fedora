@@ -70,4 +70,6 @@ browser-theme	/usr/lib/zz/browser-theme-policy	system-file	regenerate	dotfiles/b
 browser-theme	/etc/sudoers.d/zz-browser-theme	system-file	regenerate	dotfiles/browser-theme/sudoers	-	Allows noninteractive writes of a single browser theme color.
 t3code-theme	~/.config/matugen/dms/configs/zz-t3code-theme.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-t3code-theme.toml	-	Renders the DMS palette as a T3 Code theme on theme changes.
 t3code-theme	~/.local/bin/zz-sync-t3code-theme	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-t3code-theme	-	Publishes the rendered palette into T3 Code's themes directory.
+strata	~/.config/matugen/dms/configs/zz-strata-theme.toml	product-link	backup-before-link	dotfiles/dms/.config/matugen/dms/configs/zz-strata-theme.toml	strata	Renders the DMS palette as the Strata theme that open windows reload on theme changes.
+strata	~/.local/bin/zz-sync-strata-theme	product-link	backup-before-link	dotfiles/dms/.local/bin/zz-sync-strata-theme	strata	Publishes the rendered palette into Strata's themes directory by rename.
 firefox-theme	~/.local/bin/zz-firefox-theme-host	product-link	backup-before-link	dotfiles/browser-theme/firefox-theme-host	-	Initializes the DMS palette on the first Firefox extension connection.

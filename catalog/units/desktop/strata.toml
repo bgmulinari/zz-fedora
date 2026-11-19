@@ -1,0 +1,20 @@
+id = "desktop-strata"
+description = "Strata file manager from the upstream COPR, following the DMS theme"
+config = ["strata"]
+
+[choice]
+category = "desktop"
+id = "strata"
+label = "Strata"
+default = true
+order = 140
+description = "Keyboard-first file manager with Miller columns, fuzzy search, and rich previews"
+
+[[install]]
+backend = "dnf"
+sources = ["copr:@lgse/strata"]
+packages = ["strata"]
+
+[[install]]
+backend = "action"
+actions = ["strata-theme"]

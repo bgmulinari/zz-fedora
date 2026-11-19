@@ -18,19 +18,6 @@ t3code_cli() {
     "$T3CODE_APP" "$T3CODE_CLI" "$@" --base-dir "$(t3code_home)"
 }
 
-# DMS renders its templates only when the shell starts or the theme changes, so
-# a choice added to a running desktop fills the template from the palette DMS
-# last generated. Before the first render that file is an empty placeholder,
-# which fails here and leaves the caller with the static fallback.
-t3code_theme_from_dms_palette() {
-  jq -Rrs --slurpfile dms "$(dms_colors_cache_file)" '
-    $dms[0].mode as $mode
-    | gsub("\\{\\{mode\\}\\}"; $mode)
-    | gsub("\\{\\{colors\\.(?<role>[a-z_]+)\\.default\\.hex\\}\\}";
-        $dms[0].colors[$mode][.role] // error("missing color role"))
-  ' "$ROOT_DIR/dotfiles/dms/.config/matugen/templates/t3code-theme.json" 2>/dev/null
-}
-
 install_t3code_theme() {
   # The drop-in that keeps the palette current is user configuration, and a
   # theme nothing updates would be worse than T3 Code's own default.
@@ -38,7 +25,8 @@ install_t3code_theme() {
 
   local theme
   log_progress "Configuring T3 Code to follow the DMS theme"
-  theme="$(t3code_theme_from_dms_palette)" || theme="$(<"$ROOT_DIR/templates/t3code/dms.json")"
+  theme="$(dms_render_palette_template "$ROOT_DIR/dotfiles/dms/.config/matugen/templates/t3code-theme.json")" ||
+    theme="$(<"$ROOT_DIR/templates/t3code/dms.json")"
   write_user_file 0644 "$(dms_cache_dir)/t3code-theme.json" <<<"$theme" || return 1
   # Actions run before the managed links exist, so call the helper at its source.
   run_cmd_as_user "$TARGET_USER" env HOME="$TARGET_HOME" XDG_CACHE_HOME="$TARGET_HOME/.cache" \

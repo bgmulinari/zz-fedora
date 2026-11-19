@@ -42,6 +42,21 @@ dms_theme_file() {
   printf '%s/themes/catppuccin/theme.json\n' "$(dms_config_dir)"
 }
 
+# Prints a ZZ matugen template filled from the palette DMS last generated.
+# DMS renders its templates only when the shell starts or the theme changes,
+# so a choice added to a running desktop uses this for its first copy. Before
+# the first render the palette is an empty placeholder and this fails, which
+# leaves the caller with its static fallback.
+dms_render_palette_template() {
+  local template="$1"
+  jq -Rrs --slurpfile dms "$(dms_colors_cache_file)" '
+    $dms[0].mode as $mode
+    | gsub("\\{\\{mode\\}\\}"; $mode)
+    | gsub("\\{\\{colors\\.(?<role>[a-z_]+)\\.default\\.hex\\}\\}";
+        $dms[0].colors[$mode][.role] // error("missing color role"))
+  ' "$template" 2>/dev/null
+}
+
 dms_default_wallpaper() {
   printf '%s/.local/share/backgrounds/Alpenglow.jpg\n' "$TARGET_HOME"
 }

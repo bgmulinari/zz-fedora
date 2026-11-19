@@ -1,0 +1,5 @@
+# Written by ZZ when Strata has no settings yet, then owned by Strata.
+# Selects the DMS theme that the ZZ matugen drop-in keeps current;
+# choosing another theme in Settings > Appearance replaces it.
+mode = "theme"
+theme = "dms"

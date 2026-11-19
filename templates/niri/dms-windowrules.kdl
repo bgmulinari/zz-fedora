@@ -36,6 +36,14 @@ window-rule {
     }
 }
 
+// @id=zz-strata-blur @name=Strata: blur behind its translucent background
+window-rule {
+    match app-id="^io\\.github\\.lgse\\.Strata$"
+    background-effect {
+        blur true
+    }
+}
+
 // @id=zz-calculator-floating @name=Calculator: open floating
 window-rule {
     match app-id="^org\\.gnome\\.Calculator$"

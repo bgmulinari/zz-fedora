@@ -1,0 +1,18 @@
+# Fallback Strata theme with the managed Catppuccin mocha/blue values.
+# DMS republishes ~/.config/strata/themes/dms.toml from the ZZ matugen
+# Strata template on the first shell start; the keys here mirror it.
+name = "DMS"
+background = "#1e1e2e"
+surface = "#181825"
+text = "#cdd6f4"
+accent = "#89b4fa"
+danger = "#f38ba8"
+muted = "#313244"
+highlight = "#243f75"
+border = "#45475a"
+dim_text = "#a6adc8"
+syntax_keyword = "#b4befe"
+syntax_string = "#b4befe"
+syntax_constant = "#b4befe"
+syntax_type = "#89b4fa"
+syntax_preprocessor = "#a6adc8"

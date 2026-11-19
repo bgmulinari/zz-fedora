@@ -121,6 +121,27 @@ setup() {
   assert_contains "$output" "root:dnf copr enable -y atim/starship"
 }
 
+@test "group COPR enablement is skipped when dnf lists its group_ repo id" {
+  DRY_RUN=0
+  dnf() {
+    [[ "$*" == "repolist --enabled" ]] || return 1
+    printf '%s\n' \
+      'repo id repo name' \
+      'copr:copr.fedorainfracloud.org:group_lgse:strata Copr repo for strata owned by @lgse'
+  }
+  run_cmd_as_root() {
+    printf 'root:%s\n' "$*"
+  }
+  rpm() {
+    [[ "$*" == "-E %fedora" ]] && printf '%s\n' "$MINIMUM_FEDORA_RELEASE"
+  }
+
+  run fedora_enable_sources "copr:@lgse/strata"
+
+  [ "$status" -eq 0 ]
+  refute_contains "$output" "dnf copr enable"
+}
+
 @test "COPR repo id that only shares a prefix does not count as enabled" {
   dnf() {
     [[ "$*" == "repolist --enabled" ]] || return 1

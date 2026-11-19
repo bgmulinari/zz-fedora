@@ -1,0 +1,7 @@
+# ZZ-managed matugen drop-in. Strata watches its themes directory and rereads
+# a changed theme file in every open window, so the palette renders to a cache
+# file and the post-hook moves a copy into place in one step.
+[templates.zzstrata]
+input_path = '~/.zz/dotfiles/dms/.config/matugen/templates/strata-theme.toml'
+output_path = '~/.cache/dms/strata-theme.toml'
+post_hook = 'sh -c "command -v zz-sync-strata-theme >/dev/null 2>&1 && zz-sync-strata-theme || true"'
