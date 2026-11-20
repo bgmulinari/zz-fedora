@@ -279,6 +279,69 @@ EOF
   assert_equal '["me","you"]' "$(jq -c '.accounts' <<<"$output")"
 }
 
+@test "github runs the automations a new notification matches, with the thread in the environment" {
+  need_node
+
+  run github_logic <<'EOF'
+const rules = L.automationRules([
+  { reason: "review_requested", type: "PullRequest", repo: "", command: " ~/bin/review.sh " },
+  { reason: "", type: "", repo: "", command: "echo all" },
+  { reason: "", type: "", repo: "O/R", command: "echo repo" },
+  { reason: "", type: "", repo: "o", command: "echo owner" },
+  { reason: "", type: "", repo: "other", command: "echo other" },
+  { reason: "", type: "RepositoryVulnerabilityAlert", repo: "", command: "echo alert" },
+  { reason: "", type: "", repo: "not a repo", command: "echo never" },
+  { reason: "assign", type: "", repo: "", command: "  " },
+  null
+]);
+const pr = { id: "7", reason: "review_requested", type: "PullRequest", repo: "o/r", number: 12, title: "$(rm -rf ~); x", url: "https://github.com/o/r/pull/12", updatedAt: "2026-09-01T10:00:00Z" };
+const issue = Object.assign({}, pr, { type: "Issue", number: 3 });
+const alert = Object.assign({}, pr, { type: "RepositoryDependabotAlertsThread", reason: "security_alert" });
+const release = { id: "8", reason: "subscribed", type: "Release", repo: "o/r", number: 0, title: "v1", url: "https://github.com/o/r/releases", updatedAt: "" };
+const reasons = L.AUTOMATION_REASONS.map(choice => choice[0]);
+return {
+  commands: rules.map(r => r.command),
+  pr: L.automationsFor(rules, pr).map(r => r.command),
+  issue: L.automationsFor(rules, issue).map(r => r.command),
+  alert: L.automationsFor(rules, alert).map(r => r.command),
+  summary: L.automationSummary(rules[0]),
+  anywhere: L.automationSummary({ reason: "", type: "", repo: " o/r " }),
+  firstReasons: reasons.slice(0, 3),
+  everyReason: Object.keys(L.REASONS).every(key => reasons.indexOf(key) >= 0) && reasons.length === Object.keys(L.REASONS).length + 1,
+  valid: ["", "o", "o/r", "o/r/x", "a b"].map(L.automationRepoValid),
+  env: L.automationEnvironment(pr, "me"),
+  number: L.automationEnvironment(release, "me").GITHUB_NOTIFICATION_NUMBER,
+  none: L.automationRules(undefined).length
+};
+EOF
+  [ "$status" -eq 0 ]
+  # A rule without a command, or with a repository that names nothing, is
+  # dropped; an empty field matches anything, and a repository matches
+  # case-insensitively, by owner/name or by owner.
+  assert_equal '["~/bin/review.sh","echo all","echo repo","echo owner","echo other","echo alert"]' "$(jq -c '.commands' <<<"$output")"
+  assert_equal '["~/bin/review.sh","echo all","echo repo","echo owner"]' "$(jq -c '.pr' <<<"$output")"
+  assert_equal '["echo all","echo repo","echo owner"]' "$(jq -c '.issue' <<<"$output")"
+  # Both kinds of security alert are the one choice.
+  assert_equal '["echo all","echo repo","echo owner","echo alert"]' "$(jq -c '.alert' <<<"$output")"
+  assert_equal 0 "$(jq -r '.none' <<<"$output")"
+  # The settings list a rule in words, and offer every reason GitHub
+  # gives, the ones that concern you first.
+  assert_equal 'Review requested · Pull request' "$(jq -r '.summary' <<<"$output")"
+  assert_equal 'Any reason · Anything · in o/r' "$(jq -r '.anywhere' <<<"$output")"
+  assert_equal '["","review_requested","assign"]' "$(jq -c '.firstReasons' <<<"$output")"
+  assert_equal true "$(jq -r '.everyReason' <<<"$output")"
+  assert_equal '[true,true,true,false,false]' "$(jq -c '.valid' <<<"$output")"
+  # The thread travels as data, the title as written.
+  assert_equal '$(rm -rf ~); x' "$(jq -r '.env.GITHUB_NOTIFICATION_TITLE' <<<"$output")"
+  assert_equal 12 "$(jq -r '.env.GITHUB_NOTIFICATION_NUMBER' <<<"$output")"
+  assert_equal PullRequest "$(jq -r '.env.GITHUB_NOTIFICATION_TYPE' <<<"$output")"
+  assert_equal review_requested "$(jq -r '.env.GITHUB_NOTIFICATION_REASON' <<<"$output")"
+  assert_equal o/r "$(jq -r '.env.GITHUB_NOTIFICATION_REPO' <<<"$output")"
+  assert_equal https://github.com/o/r/pull/12 "$(jq -r '.env.GITHUB_NOTIFICATION_URL' <<<"$output")"
+  assert_equal me "$(jq -r '.env.GITHUB_NOTIFICATION_ACCOUNT' <<<"$output")"
+  assert_equal "" "$(jq -r '.number' <<<"$output")"
+}
+
 @test "github Actions keeps only the watched repositories' runs" {
   need_node
 

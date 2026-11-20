@@ -621,7 +621,10 @@ Shipped plugins:
     (a 304 is free), and announces new threads through `notify-send`
     (`libnotify`, which the unit installs; `gh` is base through `shell-gh`,
     and the unit names it anyway). What was announced is plugin state per
-    account.
+    account. The same new threads run the user's automations (a reason,
+    a subject type, and a repository picked in the settings, and a command, run through `sh -c` with the
+    thread in `GITHUB_NOTIFICATION_*` variables, never on its command
+    line).
   - Sizes, the popout's scope, the recent repositories, and the announce
     record are plugin state
     (`~/.local/state/dms/plugins/github_state.json`), not

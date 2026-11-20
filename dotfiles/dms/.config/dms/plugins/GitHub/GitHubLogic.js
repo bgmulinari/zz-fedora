@@ -871,6 +871,91 @@ function announce(saved, login, threads) {
     };
 }
 
+// ---------------------------------------------------------- automations
+//
+// The settings' automations: [{ reason, type, repo, command }], picked in
+// the settings rather than typed: why the notification came (a key of
+// REASONS), what its subject is (a key of NOTIFICATION_ICONS), and
+// optionally where (owner/name, or an owner for any of theirs); an empty
+// field matches anything. command is a shell command line, run for each
+// thread announce() finds new that matches. The thread travels in the
+// environment, never inside the command line, since its title is anyone's
+// words.
+
+// The settings' choices, [value, label], "" for anything: the reasons that
+// concern you first, then the rest as REASONS names them.
+var AUTOMATION_DIRECT_REASONS = ["review_requested", "assign", "mention", "team_mention", "approval_requested", "author", "comment"];
+var AUTOMATION_REASONS = [["", "Any reason"]].concat(AUTOMATION_DIRECT_REASONS.concat(Object.keys(REASONS).filter(key => AUTOMATION_DIRECT_REASONS.indexOf(key) < 0).sort((a, b) => REASONS[a].localeCompare(REASONS[b]))).map(key => [key, REASONS[key]]));
+var AUTOMATION_TYPES = [["", "Anything"], ["PullRequest", "Pull request"], ["Issue", "Issue"], ["Discussion", "Discussion"], ["Release", "Release"], ["Commit", "Commit"], ["CheckSuite", "Actions run"], ["RepositoryVulnerabilityAlert", "Security alert"]];
+
+function automationLabel(choices, value) {
+    const found = choices.find(choice => choice[0] === value);
+    return found ? found[1] : String(value || "");
+}
+
+// Whether a rule's repository field says where: empty for anywhere,
+// owner/name, or an owner for any of theirs.
+function automationRepoValid(repo) {
+    const value = String(repo || "").trim();
+    return value === "" || isRepo(value) || /^[\w.-]+$/.test(value);
+}
+
+// The rules worth running, each read once: [{ reason, type, repo,
+// command }], the repository lowercased. A rule without a command, or
+// with a repository that names neither an owner nor owner/name, does
+// nothing.
+function automationRules(entries) {
+    const rules = [];
+    for (const entry of Array.isArray(entries) ? entries : []) {
+        if (!entry || typeof entry !== "object")
+            continue;
+        const command = String(entry.command || "").trim();
+        const repo = String(entry.repo || "").trim().toLowerCase();
+        if (command === "" || !automationRepoValid(repo))
+            continue;
+        rules.push({
+            "reason": String(entry.reason || ""),
+            "type": String(entry.type || ""),
+            "repo": repo,
+            "command": command
+        });
+    }
+    return rules;
+}
+
+// The rules a thread matches. A security alert comes as either type.
+function automationsFor(rules, thread) {
+    const repo = String(thread.repo || "").toLowerCase();
+    const type = thread.type === "RepositoryDependabotAlertsThread" ? "RepositoryVulnerabilityAlert" : thread.type;
+    return rules.filter(rule => (rule.reason === "" || rule.reason === thread.reason) && (rule.type === "" || rule.type === type) && (rule.repo === "" || (rule.repo.indexOf("/") >= 0 ? repo === rule.repo : repo.split("/")[0] === rule.repo)));
+}
+
+// A rule as the settings list it: "Review requested · Pull request · in
+// owner/name".
+function automationSummary(rule) {
+    const parts = [automationLabel(AUTOMATION_REASONS, String(rule.reason || "")), automationLabel(AUTOMATION_TYPES, String(rule.type || ""))];
+    const repo = String(rule.repo || "").trim();
+    if (repo !== "")
+        parts.push("in " + repo);
+    return parts.join(" · ");
+}
+
+// The environment a command runs with: the thread, and the account it
+// came to.
+function automationEnvironment(thread, login) {
+    return {
+        "GITHUB_NOTIFICATION_ID": String(thread.id || ""),
+        "GITHUB_NOTIFICATION_REASON": String(thread.reason || ""),
+        "GITHUB_NOTIFICATION_TYPE": String(thread.type || ""),
+        "GITHUB_NOTIFICATION_REPO": String(thread.repo || ""),
+        "GITHUB_NOTIFICATION_NUMBER": thread.number > 0 ? String(thread.number) : "",
+        "GITHUB_NOTIFICATION_TITLE": String(thread.title || ""),
+        "GITHUB_NOTIFICATION_URL": String(thread.url || ""),
+        "GITHUB_NOTIFICATION_UPDATED_AT": String(thread.updatedAt || ""),
+        "GITHUB_NOTIFICATION_ACCOUNT": String(login || "")
+    };
+}
+
 // ----------------------------------------------------------------- runs
 
 // A run, a job, or a check in one vocabulary: status plus conclusion,

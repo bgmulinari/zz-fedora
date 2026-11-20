@@ -527,10 +527,69 @@ close, reopen, or approve leaves the lists it no longer belongs in right
 away instead of waiting for the next refresh (approving leaves Review
 requests only).
 
+## Automations
+
+An automation runs a command of yours when a new notification comes in.
+Settings > Plugins > GitHub > Automations picks, from two menus, why the
+notification came (Review requested, Assigned, Mentioned, Team mentioned,
+... or Any reason) and what it is about (Pull request, Issue, Discussion,
+Release, ... or Anything), optionally a repository (`owner/name`, or an
+owner for all of theirs), and the command to run. Each notification that
+is news, the same ones a desktop notification would announce (whatever
+that setting says), runs the command of every automation it matches,
+once. GitHub gives a review requested from a team you are on the same
+reason as one requested from you; a script that should tell them apart
+asks `gh pr view --json reviewRequests`.
+
+The command runs through `sh -c` in your home directory (so `~/bin/x.sh`
+and arguments work), with the notification in its environment rather than
+on its command line, since a title is anyone's words:
+
+| Variable | Value |
+| --- | --- |
+| `GITHUB_NOTIFICATION_REASON` | Why it came: `assign`, `review_requested`, `mention`, ... |
+| `GITHUB_NOTIFICATION_TYPE` | Its subject: `PullRequest`, `Issue`, `Release`, `Commit`, ... |
+| `GITHUB_NOTIFICATION_REPO` | `owner/name` |
+| `GITHUB_NOTIFICATION_NUMBER` | The pull request's or issue's number (empty for other subjects) |
+| `GITHUB_NOTIFICATION_TITLE` | The subject's title |
+| `GITHUB_NOTIFICATION_URL` | Its page on github.com |
+| `GITHUB_NOTIFICATION_ID` | The notification thread's id |
+| `GITHUB_NOTIFICATION_UPDATED_AT` | When the thread last changed (ISO 8601) |
+| `GITHUB_NOTIFICATION_ACCOUNT` | The gh account it came to |
+
+For a review requested on a pull request, pick Review requested and Pull
+request, with the command `~/bin/on-review-requested.sh`:
+
+```sh
+#!/bin/sh
+# Check the pull request out in its clone under ~/src, in a terminal of
+# its own that stays open afterwards.
+dir="$HOME/src/${GITHUB_NOTIFICATION_REPO#*/}"
+[ -d "$dir" ] || exit 0
+setsid -f xdg-terminal-exec --dir="$dir" --hold -- \
+  gh pr checkout "$GITHUB_NOTIFICATION_NUMBER" >/dev/null 2>&1
+```
+
+Run it by hand with the variables set to try it:
+`GITHUB_NOTIFICATION_REPO=owner/name GITHUB_NOTIFICATION_NUMBER=1 ~/bin/on-review-requested.sh`.
+
+A thread is news again whenever it changes, and GitHub keeps a thread's
+reason while it does, so a new comment on a pull request whose review was
+requested from you runs that automation again (as does a review requested
+again after new commits); a script that should act once per pull
+request keeps its own record of `GITHUB_NOTIFICATION_URL`. As with desktop
+notifications, the first look at an account only records the inbox, so
+adding an automation does not replay it. A command that exits with an
+error says so in a toast, with the last line it wrote to standard error.
+A command still running when the shell stops (a `dms restart`, logging
+out) stops with it, so a long job starts itself in the background with
+`setsid -f` or `systemd-run --user`.
+
 ## Settings
 
 Settings > Plugins > GitHub (or Settings in the mark's right-click menu):
-what the bar counts, the unread dot, desktop notifications, the background
+what the bar counts, the unread dot, desktop notifications, automations
+(see Automations), the background
 refresh interval (5 minutes by default), how long the popout keeps your
 place, and the repositories the Actions tab watches (the five most recently
 pushed repositories you own or work in when the list is empty).
@@ -568,7 +627,7 @@ regenerates it from `gh api emojis`). `GitHubData.qml` asks gh and keeps
 the answers; the same tests run it in a headless Quickshell with gh
 scripted (`tests/support/github_data`), answers in any order.
 `GitHubDaemon.qml` owns it, the background polls, the desktop
-notifications, and the windows; `GitHubWidget.qml` is a bar's mark, menu,
+notifications, the automations, and the windows; `GitHubWidget.qml` is a bar's mark, menu,
 and popout; `GitHubPanel.qml` the lists (which poll what they show while on
 screen); and `GitHubDetail.qml` a pull request's, an issue's, or a run's
 page, with `GitHubPost.qml` (the conversation, its bodies drawn by

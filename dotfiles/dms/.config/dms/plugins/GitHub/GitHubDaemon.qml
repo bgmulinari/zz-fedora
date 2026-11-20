@@ -159,6 +159,7 @@ PluginComponent {
         const result = Logic.announce(saved, githubData.login, githubData.notifications);
         if (!githubData.sameJson(saved, result.state))
             saveState("announced", result.state);
+        runAutomations(result.fresh);
         if (desktopNotifications === "off")
             return;
         const wanted = result.fresh.filter(thread => desktopNotifications === "all" || directReasons.indexOf(thread.reason) >= 0);
@@ -219,6 +220,58 @@ PluginComponent {
                 interval: daemon.clickWaitMs
                 running: true
                 onTriggered: notification.running = false
+            }
+        }
+    }
+
+    // ---------------------------------------------------------- automations
+    //
+    // Each new thread (what announceNew finds, whatever the desktop
+    // notifications setting) runs the command of every automation it
+    // matches (its reason, subject, and repository, as picked in the
+    // settings): sh -c in the home directory, with the thread in
+    // GITHUB_NOTIFICATION_* variables (Logic.automationEnvironment). The
+    // first look only records, so adding an automation does not replay the
+    // inbox. A command that fails says so in a toast; one still running
+    // when the shell stops stops with it, so a long job detaches itself.
+    readonly property var automationRules: Logic.automationRules(pluginData.automations)
+
+    function runAutomations(threads) {
+        if (automationRules.length === 0)
+            return;
+        const home = Quickshell.env("HOME") || "";
+        for (const thread of threads) {
+            for (const rule of Logic.automationsFor(automationRules, thread))
+                automation.createObject(daemon, {
+                    command: ["sh", "-c", rule.command],
+                    environment: Logic.automationEnvironment(thread, githubData.login),
+                    workingDirectory: home,
+                    rule: rule.command
+                });
+        }
+    }
+
+    Component {
+        id: automation
+
+        Process {
+            id: automationRun
+
+            property string rule: ""
+
+            running: true
+            // Read and dropped, so a talkative command never fills the pipe.
+            stdout: SplitParser {}
+            stderr: StdioCollector {
+                id: automationErrors
+            }
+            onExited: (exitCode, exitStatus) => {
+                if (exitCode !== 0 || exitStatus !== 0) {
+                    const said = automationErrors.text.trim().split("\n").pop();
+                    console.warn("GitHub: automation", automationRun.rule, "exited with", exitCode, automationErrors.text.trim());
+                    ToastService.showWarning("GitHub automation failed", automationRun.rule + " exited with " + exitCode + (said ? ": " + said : ""));
+                }
+                Qt.callLater(() => automationRun.destroy());
             }
         }
     }
